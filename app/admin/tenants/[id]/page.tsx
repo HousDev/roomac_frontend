@@ -919,7 +919,7 @@ const rentVal = (() => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 font-inter">
+    <div className=" bg-gradient-to-br from-slate-50 via-white to-slate-50 font-inter">
       {/* Modern Header with Glassmorphism */}
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div className="max-w-9xl mx-auto px-0 md:px-0 h-16 flex items-center justify-between">
@@ -1112,542 +1112,350 @@ tenant.property_details?.name ||   // ← add optional chaining
             </div>
 
             {/* Tab Content with Enhanced Styling */}
-            <div className="p-4 md:p-6 max-h-[70vh] md:max-h-[65vh] overflow-y-auto">
+            <div className="p-2 md:p-2 max-h-[45vh] md:max-h-[55vh] overflow-y-auto">
               {/* Overview Tab */}
-              <TabsContent value="overview" className="mt-0 space-y-6">
-                {/* Personal Info + Account Status Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Personal Information Card */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Personal Information
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Salutation
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.salutation || "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Full Name
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.full_name}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Gender
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.gender || "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Date of Birth
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.date_of_birth
-                            ? `${new Date(tenant.date_of_birth).toLocaleDateString("en-GB")} · ${calcAge(tenant.date_of_birth)} yrs`
-                            : "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Aadhar Number
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.aadhar_number || "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          PAN Number
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.pan_number || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Account Status Card */}
-                  <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
-                        <Shield className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Account Status
-                      </h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-sm text-slate-600">
-                          Account Status
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${tenant.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
-                        >
-                          {tenant.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-t border-slate-200">
-                        <span className="text-sm text-slate-600">
-                          Portal Access
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${tenant.portal_access_enabled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-                        >
-                          {tenant.portal_access_enabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-t border-slate-200">
-                        <span className="text-sm text-slate-600">
-                          Login Credentials
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${tenant.has_credentials ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-                        >
-                          {tenant.has_credentials
-                            ? "Configured"
-                            : "Not Configured"}
-                        </span>
-                      </div>
-                      {tenant.credential_email && (
-                        <div className="flex items-center justify-between py-2 border-t border-slate-200">
-                          <span className="text-sm text-slate-600">
-                            Credential Email
-                          </span>
-                          <span className="text-sm font-medium text-slate-900">
-                            {tenant.credential_email}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact + Emergency Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Contact Information */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Contact Information
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3 group">
-                        <Mail className="w-4 h-4 text-blue-500 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Email
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`mailto:${tenant.email}`}
-                              className="text-sm font-medium text-blue-600 hover:underline break-all"
-                            >
-                              {tenant.email}
-                            </a>
-                            <button
-                              onClick={() =>
-                                copyToClipboard(tenant.email, "email")
-                              }
-                              className="p-1 rounded-md hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              {copiedEmail ? (
-                                <Check className="w-3 h-3 text-green-600" />
-                              ) : (
-                                <Copy className="w-3 h-3 text-slate-400" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 group">
-                        <Phone className="w-4 h-4 text-blue-500 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Phone
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`tel:${tenant.country_code}${tenant.phone}`}
-                              className="text-sm font-medium text-slate-900 hover:underline break-all"
-                            >
-                              {tenant.country_code} {tenant.phone}
-                            </a>
-                            <button
-                              onClick={() =>
-                                copyToClipboard(
-                                  `${tenant.country_code}${tenant.phone}`,
-                                  "phone",
-                                )
-                              }
-                              className="p-1 rounded-md hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              {copiedPhone ? (
-                                <Check className="w-3 h-3 text-green-600" />
-                              ) : (
-                                <Copy className="w-3 h-3 text-slate-400" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <MapPin className="w-4 h-4 text-blue-500 mt-0.5" />
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Address
-                          </p>
-                          <p className="text-sm font-medium text-slate-900 break-words">
-                            {tenant.address}, {tenant.city}, {tenant.state} –{" "}
-                            {tenant.pincode}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Emergency Contact */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
-                        <Heart className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Emergency Contact
-                      </h3>
-                    </div>
-                    {tenant.emergency_contact_name ? (
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Name
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.emergency_contact_name}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Phone
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.emergency_contact_phone || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Relation
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.emergency_contact_relation || "—"}
-                          </p>
-                        </div>
-                        {tenant.emergency_contact_email && (
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                              Email
-                            </p>
-                            <p className="text-sm font-medium text-slate-900">
-                              {tenant.emergency_contact_email}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-400 italic">
-                        No emergency contact provided
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-             {/* Check-in Date & Vacate Information Grid - Vacate card ONLY for vacated tenants */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  {/* Move-in Information (Left Side) - Always visible */}
-  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
-        <Calendar className="w-4 h-4" />
+          <TabsContent value="overview" className="mt-0 space-y-3">
+  {/* Personal Info + Account Status Grid */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Personal Information Card - 2 columns, label+value with small gap */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+          <User className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Personal Information</h3>
       </div>
-      <h3 className="font-lexend font-semibold text-slate-900">
-        Move-in Information
-      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Salutation  -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.salutation || "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name  -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.full_name}</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender  -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.gender || "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date of Birth  -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.date_of_birth
+              ? `${new Date(tenant.date_of_birth).toLocaleDateString("en-GB")} · ${calcAge(tenant.date_of_birth)} yrs`
+              : "—"}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Aadhar  -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.aadhar_number || "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">PAN  -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.pan_number || "—"}</span>
+        </div>
+      </div>
     </div>
-    <div className="space-y-3">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-          Check-in Date
-        </p>
-        <p className="text-sm font-medium text-slate-900">
-          {tenant.check_in_date
-            ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })
-            : "Not specified"}
-        </p>
+
+    {/* Account Status Card - ORIGINAL STYLE (no changes) */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+          <Shield className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Account Status</h3>
+      </div>
+      <div className="space-y-0">
+        <div className="flex items-center justify-between py-1.5">
+          <span className="text-xs text-slate-600">Account Status</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${tenant.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+            {tenant.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
+          <span className="text-xs text-slate-600">Portal Access</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${tenant.portal_access_enabled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+            {tenant.portal_access_enabled ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
+          <span className="text-xs text-slate-600">Login Credentials</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${tenant.has_credentials ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+            {tenant.has_credentials ? "Configured" : "Not Configured"}
+          </span>
+        </div>
+        {tenant.credential_email && (
+          <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
+            <span className="text-xs text-slate-600">Credential Email</span>
+            <span className="text-xs font-medium text-slate-900 truncate max-w-[180px]">{tenant.credential_email}</span>
+          </div>
+        )}
       </div>
     </div>
   </div>
 
-  {/* Vacate Information (Right Side) - ONLY for vacated tenants */}
-  {(() => {
-    const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
-      ? tenant.vacate_records[0] 
-      : null;
-    
-    // ONLY show if tenant has vacated
-    if (!vacateRecord) return null;
-    
-    return (
-      <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl border border-red-200 p-3">
-        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-red-200">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
-            <Calendar className="w-3 h-3" />
-          </div>
-          <h3 className="font-lexend font-semibold text-xs text-red-800">
-            Vacate Information
-          </h3>
+  {/* Contact + Emergency Grid */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Contact Information */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm">
+          <Phone className="w-3.5 h-3.5" />
         </div>
-        
-        <div className="grid grid-cols-3 gap-2">
-          {/* Item 1 - Vacate Date */}
-          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
-              Vacate Date
-            </p>
-            <p className="text-[10px] font-medium text-red-900 truncate">
-              {vacateRecord.requested_vacate_date
-                ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "N/A"}
-            </p>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Contact Information</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email -</span>
+          <div className="flex items-center gap-1">
+            <a href={`mailto:${tenant.email}`} className="text-xs font-medium text-blue-600 hover:underline">
+              {tenant.email}
+            </a>
+            <button onClick={() => copyToClipboard(tenant.email, "email")} className="p-0.5 rounded hover:bg-slate-100">
+              {copiedEmail ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+            </button>
           </div>
-
-          {/* Item 2 - Status */}
-          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
-              Status
-            </p>
-            <Badge className={`text-[9px] px-1.5 py-0 ${
-              vacateRecord.status === 'approved' 
-                ? 'bg-green-100 text-green-700 border-green-200' 
-                : 'bg-yellow-100 text-yellow-700 border-yellow-200'
-            } border`}>
-              {vacateRecord.status === 'approved' ? 'Approved' : vacateRecord.status}
-            </Badge>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phone  -</span>
+          <div className="flex items-center gap-1">
+            <a href={`tel:${tenant.country_code}${tenant.phone}`} className="text-xs font-medium text-slate-900 hover:underline">
+              {tenant.country_code} {tenant.phone}
+            </a>
+            <button onClick={() => copyToClipboard(`${tenant.country_code}${tenant.phone}`, "phone")} className="p-0.5 rounded hover:bg-slate-100">
+              {copiedPhone ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+            </button>
           </div>
-
-          {/* Item 3 - Penalty */}
-          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
-              Penalty
-            </p>
-            <p className="text-[10px] font-semibold text-red-700">
-              ₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}
-            </p>
-          </div>
-
-          {/* Item 4 - Vacate Reason (spans 2 columns) */}
-          <div className="col-span-2 flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
-              Vacate Reason
-            </p>
-            <p className="text-[10px] font-medium text-red-900 truncate flex-1 text-right">
-              {vacateRecord.vacate_reason_value || "Not specified"}
-            </p>
-          </div>
-
-          {/* Item 5 - Refund Amount */}
-          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
-              Refund
-            </p>
-            <p className="text-[10px] font-semibold text-green-700">
-              ₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}
-            </p>
-          </div>
+        </div>
+        <div className="sm:col-span-2 flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Address  -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.address}, {tenant.city}, {tenant.state} – {tenant.pincode}
+          </span>
         </div>
       </div>
-    );
-  })()}
-</div>
-              </TabsContent>
+    </div>
+
+    {/* Emergency Contact */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
+          <Heart className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Emergency Contact</h3>
+      </div>
+      {tenant.emergency_contact_name ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Name  -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.emergency_contact_name}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phone  -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.emergency_contact_phone || "—"}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Relation  -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.emergency_contact_relation || "—"}</span>
+          </div>
+          {tenant.emergency_contact_email && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email  -</span>
+              <span className="text-xs font-medium text-slate-900 break-all">{tenant.emergency_contact_email}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic">No emergency contact provided</p>
+      )}
+    </div>
+  </div>
+
+  {/* Move-in + Vacate Grid */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Move-in Information */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
+          <Calendar className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Move-in Information</h3>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Check-in Date</span>
+        <span className="text-xs font-medium text-slate-900">
+          {tenant.check_in_date
+            ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+            : "Not specified"}
+        </span>
+      </div>
+    </div>
+
+    {/* Vacate Information - ONLY for vacated tenants */}
+    {(() => {
+      const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0
+        ? tenant.vacate_records[0]
+        : null;
+      if (!vacateRecord) return null;
+      return (
+        <div className="bg-red-50 rounded-xl border border-red-200 p-4">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-200">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="font-lexend font-semibold text-red-800 text-sm">Vacate Information</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Vacate Date</span>
+              <span className="text-xs font-medium text-red-900">
+                {vacateRecord.requested_vacate_date
+                  ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                  : "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Status</span>
+              <Badge className={`text-[9px] px-1.5 py-0 ${vacateRecord.status === 'approved' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'} border`}>
+                {vacateRecord.status === 'approved' ? 'Approved' : vacateRecord.status}
+              </Badge>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Penalty</span>
+              <span className="text-xs font-semibold text-red-700">₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Vacate Reason</span>
+              <span className="text-xs font-medium text-red-900">{vacateRecord.vacate_reason_value || "Not specified"}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Refund</span>
+              <span className="text-xs font-semibold text-green-700">₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+  </div>
+</TabsContent>
 
               {/* Occupation Tab - Enhanced with all fields */}
-              <TabsContent value="occupation" className="mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
-                        {getOccupationIcon(tenant.occupation_category)}
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Employment Details
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Category
-                        </p>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                          {tenant.occupation_category || "Other"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Exact Occupation
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.exact_occupation || "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Occupation
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.occupation || "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Organization / Company
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.organization || "—"}
-                        </p>
-                      </div>
-                      {tenant.years_of_experience && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Years of Experience
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.years_of_experience} years
-                          </p>
-                        </div>
-                      )}
-                      {tenant.monthly_income && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Monthly Income
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            ₹{Number(tenant.monthly_income).toLocaleString()}
-                          </p>
-                        </div>
-                      )}
-                      {tenant.course_duration && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Course Duration
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.course_duration.replace("_", " ")}
-                          </p>
-                        </div>
-                      )}
-                      {tenant.student_id && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Student ID
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.student_id}
-                          </p>
-                        </div>
-                      )}
-                      {tenant.employee_id && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Employee ID
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {tenant.employee_id}
-                          </p>
-                        </div>
-                      )}
-                      {tenant.portfolio_url && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Portfolio URL
-                          </p>
-                          <a
-                            href={tenant.portfolio_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
-                          >
-                            View Portfolio <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+             <TabsContent value="occupation" className="mt-0 space-y-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Employment Details Card */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
+          {getOccupationIcon(tenant.occupation_category)}
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Employment Details</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        {/* Category */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category -</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+            {tenant.occupation_category || "Other"}
+          </span>
+        </div>
+        {/* Exact Occupation */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Exact Occupation -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.exact_occupation || "—"}</span>
+        </div>
+        {/* Occupation */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Occupation -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.occupation || "—"}</span>
+        </div>
+        {/* Organization */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Organization / Company -</span>
+          <span className="text-xs font-medium text-slate-900">{tenant.organization || "—"}</span>
+        </div>
+        {/* Years of Experience */}
+        {tenant.years_of_experience && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Years of Experience -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.years_of_experience} years</span>
+          </div>
+        )}
+        {/* Monthly Income */}
+        {tenant.monthly_income && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly Income -</span>
+            <span className="text-xs font-medium text-slate-900">₹{Number(tenant.monthly_income).toLocaleString()}</span>
+          </div>
+        )}
+        {/* Course Duration (students) */}
+        {tenant.course_duration && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Course Duration -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.course_duration.replace("_", " ")}</span>
+          </div>
+        )}
+        {/* Student ID */}
+        {tenant.student_id && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Student ID -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.student_id}</span>
+          </div>
+        )}
+        {/* Employee ID */}
+        {tenant.employee_id && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employee ID -</span>
+            <span className="text-xs font-medium text-slate-900">{tenant.employee_id}</span>
+          </div>
+        )}
+        {/* Portfolio URL */}
+        {tenant.portfolio_url && (
+          <div className="sm:col-span-2 flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Portfolio URL -</span>
+            <a
+              href={tenant.portfolio_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+            >
+              View Portfolio <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
 
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Work Preferences & Schedule
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Work Mode
-                        </p>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                          {tenant.work_mode
-                            ? tenant.work_mode.charAt(0).toUpperCase() +
-                              tenant.work_mode.slice(1)
-                            : "Not specified"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Shift Timing
-                        </p>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                          {tenant.shift_timing
-                            ? tenant.shift_timing.charAt(0).toUpperCase() +
-                              tenant.shift_timing.slice(1)
-                            : "Not specified"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
+    {/* Work Preferences & Schedule Card */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+          <Clock className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Work Preferences & Schedule</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        {/* Work Mode */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Work Mode -</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+            {tenant.work_mode
+              ? tenant.work_mode.charAt(0).toUpperCase() + tenant.work_mode.slice(1)
+              : "Not specified"}
+          </span>
+        </div>
+        {/* Shift Timing */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shift Timing -</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+            {tenant.shift_timing
+              ? tenant.shift_timing.charAt(0).toUpperCase() + tenant.shift_timing.slice(1)
+              : "Not specified"}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</TabsContent>
 
               {/* Documents Tab - Enhanced Grid with ID/Address proof types */}
               <TabsContent value="documents" className="mt-0">
@@ -1759,903 +1567,684 @@ tenant.property_details?.name ||   // ← add optional chaining
       <p className="text-sm text-slate-400">No payment records found</p>
     </div>
   ) : (
-    <div className="space-y-4">
-     {/* Penalty Details Accordion - Only for vacated tenants */}
-{paymentSummary?.is_vacated && (
-  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-    <Collapsible
-      open={expandedMonths.includes('penalty-details')}
-      onOpenChange={() => toggleMonth('penalty-details')}
-      className="w-full"
-    >
-      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-slate-50 transition-colors">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
-            <FileWarning className="w-4 h-4" />
-          </div>
-          <div className="text-left">
-            <h3 className="font-lexend font-semibold text-slate-900">
-              Penalty Breakdown
-            </h3>
-            <p className="text-xs text-slate-500">
-              Detailed penalty calculation for vacated tenant
-            </p>
-          </div>
-        </div>
-        {expandedMonths.includes('penalty-details') ? (
-          <ChevronUp className="w-4 h-4 text-slate-400" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-slate-400" />
-        )}
-      </CollapsibleTrigger>
-      
-      <CollapsibleContent className="px-4 pb-4">
-        <div className="space-y-3">
-          {/* Lock-in Penalty */}
-          {paymentSummary.vacate_info?.lockin_penalty_amount > 0 && (
-            <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">
-                    Lock-in Penalty
-                  </span>
-                </div>
-                <Badge className="bg-blue-100 text-blue-700">
-                  ₹{Number(paymentSummary.vacate_info.lockin_penalty_amount).toLocaleString()}
-                </Badge>
-              </div>
-              <p className="text-xs text-blue-600 mt-1 ml-6">
-                {paymentSummary.vacate_info.lockin_penalty_description || 
-                 `Lock-in period: ${paymentSummary.vacate_info.lockin_period_months || 0} months`}
-              </p>
-            </div>
-          )}
+   <div className="space-y-4">
 
-          {/* Notice Penalty */}
-          {paymentSummary.vacate_info?.notice_penalty_amount > 0 && (
-            <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-800">
-                    Notice Penalty
-                  </span>
-                </div>
-                <Badge className="bg-amber-100 text-amber-700">
-                  ₹{Number(paymentSummary.vacate_info.notice_penalty_amount).toLocaleString()}
-                </Badge>
-              </div>
-              <p className="text-xs text-amber-600 mt-1 ml-6">
-                {paymentSummary.vacate_info.notice_penalty_description ||
-                 `Notice period: ${paymentSummary.vacate_info.notice_period_days || 0} days`}
-              </p>
-            </div>
-          )}
+  {/* Penalty + Security Deposit side by side for vacated tenants */}
+  {paymentSummary?.is_vacated && (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
 
-          {/* Inspection Penalty */}
-          {paymentSummary.vacate_info?.inspection_penalty_amount > 0 && (
-            <div className="bg-red-50/50 rounded-lg p-3 border border-red-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                  <span className="text-sm font-medium text-red-800">
-                    Inspection Penalty
-                  </span>
-                </div>
-                <Badge className="bg-red-100 text-red-700">
-                  ₹{Number(paymentSummary.vacate_info.inspection_penalty_amount).toLocaleString()}
-                </Badge>
+      {/* LEFT — Penalty Breakdown */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden h-full">
+        <Collapsible
+          open={expandedMonths.includes('penalty-details')}
+          onOpenChange={() => toggleMonth('penalty-details')}
+          className="w-full"
+        >
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+                <FileWarning className="w-4 h-4" />
               </div>
-              <p className="text-xs text-red-600 mt-1 ml-6">
-                Move-out inspection damages
-              </p>
-            </div>
-          )}
-
-          {/* Total Penalty */}
-          {(paymentSummary.vacate_info?.total_penalty > 0 || paymentSummary.vacate_info?.total_penalty_amount > 0) && (
-            <div className="bg-slate-100 rounded-lg p-3 border border-slate-200 mt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-800">
-                  Total Penalty
-                </span>
-                <span className="text-base font-bold text-red-600">
-                  ₹{Number(paymentSummary.vacate_info.total_penalty || paymentSummary.vacate_info.total_penalty_amount).toLocaleString()}
-                </span>
+              <div className="text-left">
+                <h3 className="font-lexend font-semibold text-slate-900">Penalty Breakdown</h3>
+                <p className="text-xs text-slate-500">Detailed penalty calculation for vacated tenant</p>
               </div>
             </div>
-          )}
-
-          {/* No penalties message */}
-          {(!paymentSummary.vacate_info?.lockin_penalty_amount && 
-            !paymentSummary.vacate_info?.notice_penalty_amount && 
-            !paymentSummary.vacate_info?.inspection_penalty_amount) && (
-            <div className="text-center py-4">
-              <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">No penalties applied</p>
-            </div>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  </div>
-)}
-
-      {/* Payment Summary Cards */}
-      {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {!paymentSummary?.is_vacated ? (
-          <>
-            <PaymentCard
-              label="Total Paid"
-              value={`₹${(paymentSummary?.total_paid || 0).toLocaleString()}`}
-              gradient="from-emerald-500 to-emerald-600"
-              icon={<TrendingUp className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Total Pending"
-              value={`₹${(paymentSummary?.total_pending || 0).toLocaleString()}`}
-              gradient="from-orange-500 to-orange-600"
-              icon={<Clock className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Monthly Rent"
-              value={`₹${(paymentSummary?.monthly_rent || 0).toLocaleString()}`}
-              gradient="from-blue-500 to-blue-600"
-              icon={<IndianRupee className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Months Joined"
-              value={String(paymentSummary?.total_months_since_joining || "0")}
-              gradient="from-purple-500 to-purple-600"
-              icon={<CalendarDays className="w-3 h-3" />}
-            />
-          </>
-        ) : (
-          <>
-            <PaymentCard
-              label="Total Rent Paid"
-              value={`₹${(paymentSummary?.total_rent_paid || 0).toLocaleString()}`}
-              gradient="from-emerald-500 to-emerald-600"
-              icon={<IndianRupee className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Rent Payment Count"
-              value={String(paymentSummary?.rent_payment_count || "0")}
-              gradient="from-blue-500 to-blue-600"
-              icon={<CreditCard className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Security Deposit"
-              value={`₹${(paymentSummary?.vacate_info?.security_deposit || 0).toLocaleString()}`}
-              gradient="from-amber-500 to-amber-600"
-              icon={<Shield className="w-3 h-3" />}
-            />
-            <PaymentCard
-              label="Deposit Paid"
-              value={`₹${(paymentSummary?.security_deposit_info?.paid || 0).toLocaleString()}`}
-              gradient="from-green-500 to-green-600"
-              icon={<Wallet className="w-3 h-3" />}
-            />
-          </>
-        )}
-      </div> */}
-
-      {/* Security Deposit Information for Vacated Tenants */}
-      {/* {paymentSummary?.is_vacated && paymentSummary?.vacate_info?.security_deposit > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
-              <Shield className="w-4 h-4" />
-            </div>
-            <h3 className="font-lexend font-semibold text-slate-900">
-              Security Deposit Information
-            </h3>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Security Deposit</span>
-              <span className="font-semibold">
-                ₹{(paymentSummary.vacate_info.security_deposit || 0).toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Total Penalty</span>
-              <span className="font-semibold text-red-600">
-                ₹{(paymentSummary.vacate_info.total_penalty || 0).toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Refund Amount</span>
-              <span className="font-semibold text-green-600">
-                ₹{(paymentSummary.vacate_info.refundable_amount || 0).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-      )} */}
-
-
-{/* Payment Summary + Security Deposit Section */}
-<div
-  className={`grid gap-4 ${
-    paymentSummary?.is_vacated &&
-    paymentSummary?.vacate_info?.security_deposit > 0
-      ? "grid-cols-1 lg:grid-cols-3"
-      : "grid-cols-1"
-  }`}
->
-  {/* Payment Summary Cards */}
-  <div
-    className={`${
-      paymentSummary?.is_vacated &&
-      paymentSummary?.vacate_info?.security_deposit > 0
-        ? "lg:col-span-2"
-        : ""
-    }`}
-  >
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {!paymentSummary?.is_vacated ? (
-        <>
-          <PaymentCard
-            label="Total Paid"
-            value={`₹${(
-              paymentSummary?.total_paid || 0
-            ).toLocaleString()}`}
-            gradient="from-emerald-500 to-emerald-600"
-            icon={<TrendingUp className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Total Pending"
-            value={`₹${(
-              paymentSummary?.total_pending || 0
-            ).toLocaleString()}`}
-            gradient="from-orange-500 to-orange-600"
-            icon={<Clock className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Monthly Rent"
-            value={`₹${(
-              paymentSummary?.monthly_rent || 0
-            ).toLocaleString()}`}
-            gradient="from-blue-500 to-blue-600"
-            icon={<IndianRupee className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Months Joined"
-            value={String(
-              paymentSummary?.total_months_since_joining || "0"
+            {expandedMonths.includes('penalty-details') ? (
+              <ChevronUp className="w-4 h-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-slate-400" />
             )}
-            gradient="from-purple-500 to-purple-600"
-            icon={<CalendarDays className="w-3 h-3" />}
-          />
-        </>
-      ) : (
-        <>
-          <PaymentCard
-            label="Total Rent Paid"
-            value={`₹${(
-              paymentSummary?.total_rent_paid || 0
-            ).toLocaleString()}`}
-            gradient="from-emerald-500 to-emerald-600"
-            icon={<IndianRupee className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Rent Payment Count"
-            value={String(
-              paymentSummary?.rent_payment_count || "0"
-            )}
-            gradient="from-blue-500 to-blue-600"
-            icon={<CreditCard className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Security Deposit"
-            value={`₹${(
-              paymentSummary?.vacate_info?.security_deposit || 0
-            ).toLocaleString()}`}
-            gradient="from-amber-500 to-amber-600"
-            icon={<Shield className="w-3 h-3" />}
-          />
-          <PaymentCard
-            label="Deposit Paid"
-            value={`₹${(
-              paymentSummary?.security_deposit_info?.paid || 0
-            ).toLocaleString()}`}
-            gradient="from-green-500 to-green-600"
-            icon={<Wallet className="w-3 h-3" />}
-          />
-        </>
-      )}
-    </div>
-  </div>
+          </CollapsibleTrigger>
 
-  {/* Security Deposit Information */}
-  {paymentSummary?.is_vacated &&
-    paymentSummary?.vacate_info?.security_deposit > 0 && (
-      <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
-        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
-            <Shield className="w-4 h-4" />
-          </div>
-          <h3 className="font-lexend font-semibold text-slate-900">
-            Security Deposit Information
-          </h3>
-        </div>
+          <CollapsibleContent className="px-4 pb-4">
+            <div className="space-y-3">
+              {paymentSummary.vacate_info?.lockin_penalty_amount > 0 && (
+                <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Lock-in Penalty</span>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-700">
+                      ₹{Number(paymentSummary.vacate_info.lockin_penalty_amount).toLocaleString()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1 ml-6">
+                    {paymentSummary.vacate_info.lockin_penalty_description ||
+                      `Lock-in period: ${paymentSummary.vacate_info.lockin_period_months || 0} months`}
+                  </p>
+                </div>
+              )}
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-slate-600">
-              Security Deposit
-            </span>
-            <span className="font-semibold">
-              ₹
-              {(
-                paymentSummary.vacate_info.security_deposit || 0
-              ).toLocaleString()}
-            </span>
-          </div>
+              {paymentSummary.vacate_info?.notice_penalty_amount > 0 && (
+                <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm font-medium text-amber-800">Notice Penalty</span>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700">
+                      ₹{Number(paymentSummary.vacate_info.notice_penalty_amount).toLocaleString()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-amber-600 mt-1 ml-6">
+                    {paymentSummary.vacate_info.notice_penalty_description ||
+                      `Notice period: ${paymentSummary.vacate_info.notice_period_days || 0} days`}
+                  </p>
+                </div>
+              )}
 
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-slate-600">
-              Total Penalty
-            </span>
-            <span className="font-semibold text-red-600">
-              ₹
-              {(
-                paymentSummary.vacate_info.total_penalty || 0
-              ).toLocaleString()}
-            </span>
-          </div>
+              {paymentSummary.vacate_info?.inspection_penalty_amount > 0 && (
+                <div className="bg-red-50/50 rounded-lg p-3 border border-red-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-800">Inspection Penalty</span>
+                    </div>
+                    <Badge className="bg-red-100 text-red-700">
+                      ₹{Number(paymentSummary.vacate_info.inspection_penalty_amount).toLocaleString()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1 ml-6">Move-out inspection damages</p>
+                </div>
+              )}
 
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-slate-600">
-              Refund Amount
-            </span>
-            <span className="font-semibold text-green-600">
-              ₹
-              {(
-                paymentSummary.vacate_info.refundable_amount || 0
-              ).toLocaleString()}
-            </span>
-          </div>
-        </div>
+              {(paymentSummary.vacate_info?.total_penalty > 0 || paymentSummary.vacate_info?.total_penalty_amount > 0) && (
+                <div className="bg-slate-100 rounded-lg p-3 border border-slate-200 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-800">Total Penalty</span>
+                    <span className="text-base font-bold text-red-600">
+                      ₹{Number(paymentSummary.vacate_info.total_penalty || paymentSummary.vacate_info.total_penalty_amount).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {(!paymentSummary.vacate_info?.lockin_penalty_amount &&
+                !paymentSummary.vacate_info?.notice_penalty_amount &&
+                !paymentSummary.vacate_info?.inspection_penalty_amount) && (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">No penalties applied</p>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
-    )}
-</div>
-      {/* Payment History - ONE TABLE FOR ALL PAYMENTS */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="flex items-center gap-3 p-4 pb-0 border-b border-slate-200">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-            <CreditCard className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-lexend font-semibold text-slate-900">
-              Payment Transactions
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Complete payment history of this tenant
-            </p>
-          </div>
+
+      {/* RIGHT — Security Deposit */}
+      {paymentSummary?.vacate_info?.security_deposit > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden h-full">
+          <Collapsible
+            open={expandedMonths.includes('security-deposit')}
+            onOpenChange={() => toggleMonth('security-deposit')}
+            className="w-full"
+          >
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-lexend font-semibold text-slate-900">Security Deposit</h3>
+                  <p className="text-xs text-slate-500">Deposit, penalty & refund breakdown</p>
+                </div>
+              </div>
+              {expandedMonths.includes('security-deposit') ? (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              )}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <div className="space-y-3">
+                <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-amber-800 font-medium">Security Deposit</span>
+                    <Badge className="bg-amber-100 text-amber-700">
+                      ₹{(paymentSummary.vacate_info.security_deposit || 0).toLocaleString()}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="bg-red-50/50 rounded-lg p-3 border border-red-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-red-800 font-medium">Total Penalty</span>
+                    <Badge className="bg-red-100 text-red-700">
+                      ₹{(paymentSummary.vacate_info.total_penalty || 0).toLocaleString()}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="bg-green-50/50 rounded-lg p-3 border border-green-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-green-800 font-medium">Refund Amount</span>
+                    <Badge className="bg-green-100 text-green-700">
+                      ₹{(paymentSummary.vacate_info.refundable_amount || 0).toLocaleString()}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
+      )}
 
-        {/* Status Legend */}
-        <div className="flex gap-3 px-4 pt-3">
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <span className="text-xs text-slate-600">Approved</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-            <span className="text-xs text-slate-600">Rejected</span>
-          </div>
-          {!paymentSummary?.is_vacated && (
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-              <span className="text-xs text-slate-600">Pending</span>
-            </div>
-          )}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Date</th>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Amount</th>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Type</th>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Mode</th>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Period</th>
-                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Status</th>
-                <th className="text-right py-3 px-3 font-semibold text-slate-600 text-xs">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                // USE THE SEPARATE payments state for active tenants
-                let allPayments: any[] = [...payments];
-                
-                // For vacated tenants, also check paymentSummary
-                if (paymentSummary?.is_vacated) {
-                  if (paymentSummary.payments && Array.isArray(paymentSummary.payments)) {
-                    allPayments = [...allPayments, ...paymentSummary.payments];
-                  }
-                  if (paymentSummary.rent_payments && Array.isArray(paymentSummary.rent_payments)) {
-                    allPayments = [...allPayments, ...paymentSummary.rent_payments];
-                  }
-                  if (paymentSummary.security_deposit_payments && Array.isArray(paymentSummary.security_deposit_payments)) {
-                    allPayments = [...allPayments, ...paymentSummary.security_deposit_payments];
-                  }
-                }
-                
-                // Remove duplicates by id
-                const uniqueMap = new Map();
-                for (const p of allPayments) {
-                  if (p && p.id && !uniqueMap.has(p.id)) {
-                    uniqueMap.set(p.id, p);
-                  }
-                }
-                const uniquePayments = Array.from(uniqueMap.values());
-                console.log("All payments combined", payments);
-                console.log("Unique payments after deduplication", uniquePayments);
-                
-                // Filter out pending for vacated tenants
-                let paymentsToShow = uniquePayments;
-                console.log("payment to show", paymentsToShow, paymentSummary);
-                if (paymentSummary?.is_vacated) {
-                  paymentsToShow = uniquePayments.filter((p: any) => p.status !== "pending");
-                }
-                
-                // Sort by date (newest first)
-                paymentsToShow.sort((a: any, b: any) => {
-                  const dateA = a.payment_date ? new Date(a.payment_date) : new Date(0);
-                  const dateB = b.payment_date ? new Date(b.payment_date) : new Date(0);
-                  return dateB.getTime() - dateA.getTime();
-                });
-                
-                if (paymentsToShow.length === 0) {
-                  return (
-                    <tr>
-                      <td colSpan={7} className="text-center py-8 text-slate-400 text-sm">
-                        No payment transactions found
-                      </td>
-                    </tr>
-                  );
-                }
-                
-                return paymentsToShow.map((p: any) => {
-                  let statusClass = "bg-gray-100 text-gray-700";
-                  let amountClass = "text-emerald-600";
-                  
-                  if (p.status === "approved") {
-                    statusClass = "bg-green-100 text-green-700";
-                    amountClass = "text-emerald-600";
-                  } else if (p.status === "rejected") {
-                    statusClass = "bg-red-100 text-red-700";
-                    amountClass = "text-red-400 line-through";
-                  } else if (p.status === "pending") {
-                    statusClass = "bg-yellow-100 text-yellow-700";
-                    amountClass = "text-amber-600";
-                  } else if (p.status === "paid") {
-                    statusClass = "bg-green-100 text-green-700";
-                    amountClass = "text-emerald-600";
-                  } else if (p.status === "failed") {
-                    statusClass = "bg-red-100 text-red-700";
-                    amountClass = "text-red-400 line-through";
-                  }  else if (p.status === "refund") {
-  statusClass = "bg-green-300 text-green-700";
-  amountClass = "text-emerald-600";
-}
-                  
-                  let paymentTypeDisplay = "—";
-let paymentTypeClass = "bg-gray-100 text-gray-700";
-
-if (p.payment_type === "rent") {
-  paymentTypeDisplay = "Rent";
-  paymentTypeClass = "bg-blue-100 text-blue-700";
-} else if (p.payment_type === "security_deposit") {
-  paymentTypeDisplay = "Security Deposit";
-  paymentTypeClass = "bg-purple-100 text-purple-700";
-} else if (p.payment_type === "maintenance") {
-  paymentTypeDisplay = "Maintenance";
-  paymentTypeClass = "bg-orange-100 text-orange-700";
-} else if (p.payment_type === "deposit_refund") {
-  paymentTypeDisplay = "Deposit Refund";
-  paymentTypeClass = "bg-green-100 text-green-700";
-} else if (p.payment_type === "penalty_payment") {
-  paymentTypeDisplay = "Penalty Payment";
-  paymentTypeClass = "bg-red-100 text-red-700";
-} else if (p.payment_type === "deposit_refund") {
-  paymentTypeDisplay = "Deposit Refund";
-  paymentTypeClass = "bg-green-100 text-green-700";
-}
-                  
-                  return (
-                    <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
-                        {p.payment_date
-                          ? new Date(p.payment_date).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "—"}
-                      </td>
-                      <td className={`py-3 px-3 font-semibold whitespace-nowrap text-xs ${amountClass}`}>
-                        ₹{(p.amount || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge className={`text-[9px] px-1.5 py-0 ${paymentTypeClass}`}>
-                          {paymentTypeDisplay}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 capitalize whitespace-nowrap text-xs">
-                        {p.payment_mode || "—"}
-                        {p.bank_name && (
-                          <span className="text-[10px] text-slate-400 block">{p.bank_name}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
-                        {p.month} {p.year}
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge className={`text-[9px] px-1.5 py-0 ${statusClass}`}>
-                          {p.status === "approved" ? "Approved" : p.status === "paid" ? "Paid" : p.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-3 text-right">
-  {/* Show receipt icons ONLY for approved payments */}
-  {p.status === "approved" && (
-    <div className="flex items-center justify-end gap-1">
-      <button
-        onClick={() => previewReceipt(p.id)}
-        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
-        title="Preview Receipt"
-      >
-        <Eye className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={() => downloadReceipt(p.id)}
-        className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all duration-200"
-        title="Download Receipt"
-      >
-        <Download className="w-3.5 h-3.5" />
-      </button>
     </div>
   )}
-</td>
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* Summary Cards for Payment Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {!paymentSummary?.is_vacated ? (
-          <>
-            <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Paid</p>
-              <p className="text-lg font-bold text-green-600">
-                ₹{(paymentSummary?.total_paid || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Pending</p>
-              <p className="text-lg font-bold text-red-600">
-                ₹{(paymentSummary?.total_pending || 0).toLocaleString()}
-              </p>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rent Paid</p>
-              <p className="text-lg font-bold text-green-600">
-                ₹{(paymentSummary?.total_rent_paid || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rejected</p>
-              <p className="text-lg font-bold text-red-600">
-                ₹{(paymentSummary?.total_rejected || 0).toLocaleString()}
-              </p>
-            </div>
-          </>
-        )}
+  {/* Payment Summary Cards */}
+<div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+  {!paymentSummary?.is_vacated ? (
+    <>
+      <PaymentCard
+        label="Total Paid"
+        value={`₹${(paymentSummary?.total_paid || 0).toLocaleString()}`}
+        gradient="from-emerald-500 to-emerald-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Total Pending"
+        value={`₹${(paymentSummary?.total_pending || 0).toLocaleString()}`}
+        gradient="from-orange-500 to-orange-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Monthly Rent"
+        value={`₹${(paymentSummary?.monthly_rent || 0).toLocaleString()}`}
+        gradient="from-blue-500 to-blue-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Months Joined"
+        value={String(paymentSummary?.total_months_since_joining || "0")}
+        gradient="from-purple-500 to-purple-600"
+        icon={<CalendarDays className="w-3 h-3" />}
+        compact
+      />
+    </>
+  ) : (
+    <>
+      <PaymentCard
+        label="Total Rent Paid"
+        value={`₹${(paymentSummary?.total_rent_paid || 0).toLocaleString()}`}
+        gradient="from-emerald-500 to-emerald-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Rent Payment Count"
+        value={String(paymentSummary?.rent_payment_count || "0")}
+        gradient="from-blue-500 to-blue-600"
+        icon={<CreditCard className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Security Deposit"
+        value={`₹${(paymentSummary?.vacate_info?.security_deposit || 0).toLocaleString()}`}
+        gradient="from-amber-500 to-amber-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+      <PaymentCard
+        label="Deposit Paid"
+        value={`₹${(paymentSummary?.security_deposit_info?.paid || 0).toLocaleString()}`}
+        gradient="from-green-500 to-green-600"
+        icon={<IndianRupee className="w-3 h-3" />}
+        compact
+      />
+    </>
+  )}
+</div>
+
+  {/* Payment History */}
+  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="flex items-center gap-3 p-4 pb-0 border-b border-slate-200">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+        <CreditCard className="w-4 h-4" />
+      </div>
+      <div>
+        <h3 className="font-lexend font-semibold text-slate-900">Payment Transactions</h3>
+        <p className="text-xs text-slate-500 mt-0.5">Complete payment history of this tenant</p>
       </div>
     </div>
+
+    <div className="flex gap-3 px-4 pt-3">
+      <div className="flex items-center gap-1">
+        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+        <span className="text-xs text-slate-600">Approved</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+        <span className="text-xs text-slate-600">Rejected</span>
+      </div>
+      {!paymentSummary?.is_vacated && (
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+          <span className="text-xs text-slate-600">Pending</span>
+        </div>
+      )}
+    </div>
+
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[800px] text-sm">
+        <thead className="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Date</th>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Amount</th>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Type</th>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Mode</th>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Period</th>
+            <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Status</th>
+            <th className="text-right py-3 px-3 font-semibold text-slate-600 text-xs">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(() => {
+            let allPayments: any[] = [...payments];
+
+            if (paymentSummary?.is_vacated) {
+              if (paymentSummary.payments && Array.isArray(paymentSummary.payments)) {
+                allPayments = [...allPayments, ...paymentSummary.payments];
+              }
+              if (paymentSummary.rent_payments && Array.isArray(paymentSummary.rent_payments)) {
+                allPayments = [...allPayments, ...paymentSummary.rent_payments];
+              }
+              if (paymentSummary.security_deposit_payments && Array.isArray(paymentSummary.security_deposit_payments)) {
+                allPayments = [...allPayments, ...paymentSummary.security_deposit_payments];
+              }
+            }
+
+            const uniqueMap = new Map();
+            for (const p of allPayments) {
+              if (p && p.id && !uniqueMap.has(p.id)) {
+                uniqueMap.set(p.id, p);
+              }
+            }
+            const uniquePayments = Array.from(uniqueMap.values());
+            console.log("All payments combined", payments);
+            console.log("Unique payments after deduplication", uniquePayments);
+
+            let paymentsToShow = uniquePayments;
+            console.log("payment to show", paymentsToShow, paymentSummary);
+            if (paymentSummary?.is_vacated) {
+              paymentsToShow = uniquePayments.filter((p: any) => p.status !== "pending");
+            }
+
+            paymentsToShow.sort((a: any, b: any) => {
+              const dateA = a.payment_date ? new Date(a.payment_date) : new Date(0);
+              const dateB = b.payment_date ? new Date(b.payment_date) : new Date(0);
+              return dateB.getTime() - dateA.getTime();
+            });
+
+            if (paymentsToShow.length === 0) {
+              return (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-400 text-sm">
+                    No payment transactions found
+                  </td>
+                </tr>
+              );
+            }
+
+            return paymentsToShow.map((p: any) => {
+              let statusClass = "bg-gray-100 text-gray-700";
+              let amountClass = "text-emerald-600";
+
+              if (p.status === "approved") {
+                statusClass = "bg-green-100 text-green-700";
+                amountClass = "text-emerald-600";
+              } else if (p.status === "rejected") {
+                statusClass = "bg-red-100 text-red-700";
+                amountClass = "text-red-400 line-through";
+              } else if (p.status === "pending") {
+                statusClass = "bg-yellow-100 text-yellow-700";
+                amountClass = "text-amber-600";
+              } else if (p.status === "paid") {
+                statusClass = "bg-green-100 text-green-700";
+                amountClass = "text-emerald-600";
+              } else if (p.status === "failed") {
+                statusClass = "bg-red-100 text-red-700";
+                amountClass = "text-red-400 line-through";
+              } else if (p.status === "refund") {
+                statusClass = "bg-green-300 text-green-700";
+                amountClass = "text-emerald-600";
+              }
+
+              let paymentTypeDisplay = "—";
+              let paymentTypeClass = "bg-gray-100 text-gray-700";
+
+              if (p.payment_type === "rent") {
+                paymentTypeDisplay = "Rent";
+                paymentTypeClass = "bg-blue-100 text-blue-700";
+              } else if (p.payment_type === "security_deposit") {
+                paymentTypeDisplay = "Security Deposit";
+                paymentTypeClass = "bg-purple-100 text-purple-700";
+              } else if (p.payment_type === "maintenance") {
+                paymentTypeDisplay = "Maintenance";
+                paymentTypeClass = "bg-orange-100 text-orange-700";
+              } else if (p.payment_type === "deposit_refund") {
+                paymentTypeDisplay = "Deposit Refund";
+                paymentTypeClass = "bg-green-100 text-green-700";
+              } else if (p.payment_type === "penalty_payment") {
+                paymentTypeDisplay = "Penalty Payment";
+                paymentTypeClass = "bg-red-100 text-red-700";
+              }
+
+              return (
+                <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
+                    {p.payment_date
+                      ? new Date(p.payment_date).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </td>
+                  <td className={`py-3 px-3 font-semibold whitespace-nowrap text-xs ${amountClass}`}>
+                    ₹{(p.amount || 0).toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3">
+                    <Badge className={`text-[9px] px-1.5 py-0 ${paymentTypeClass}`}>
+                      {paymentTypeDisplay}
+                    </Badge>
+                  </td>
+                  <td className="py-3 px-3 text-slate-600 capitalize whitespace-nowrap text-xs">
+                    {p.payment_mode || "—"}
+                    {p.bank_name && (
+                      <span className="text-[10px] text-slate-400 block">{p.bank_name}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
+                    {p.month} {p.year}
+                  </td>
+                  <td className="py-3 px-3">
+                    <Badge className={`text-[9px] px-1.5 py-0 ${statusClass}`}>
+                      {p.status === "approved" ? "Approved" : p.status === "paid" ? "Paid" : p.status}
+                    </Badge>
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    {p.status === "approved" && (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => previewReceipt(p.id)}
+                          className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
+                          title="Preview Receipt"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => downloadReceipt(p.id)}
+                          className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all duration-200"
+                          title="Download Receipt"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            });
+          })()}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {/* Summary Cards for Payment Stats */}
+  <div className="grid grid-cols-2 gap-3">
+    {!paymentSummary?.is_vacated ? (
+      <>
+        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Paid</p>
+          <p className="text-lg font-bold text-green-600">
+            ₹{(paymentSummary?.total_paid || 0).toLocaleString()}
+          </p>
+        </div>
+        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Pending</p>
+          <p className="text-lg font-bold text-red-600">
+            ₹{(paymentSummary?.total_pending || 0).toLocaleString()}
+          </p>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rent Paid</p>
+          <p className="text-lg font-bold text-green-600">
+            ₹{(paymentSummary?.total_rent_paid || 0).toLocaleString()}
+          </p>
+        </div>
+        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rejected</p>
+          <p className="text-lg font-bold text-red-600">
+            ₹{(paymentSummary?.total_rejected || 0).toLocaleString()}
+          </p>
+        </div>
+      </>
+    )}
+  </div>
+
+</div>
   )}
 </TabsContent>
 
               {/* Terms Tab - NEW */}
-              <TabsContent value="terms" className="mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Lock-in Period Card */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                        <Calendar className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Lock-in Period
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Duration
-                        </p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          {tenant.lockin_period_months
-                            ? `${tenant.lockin_period_months} months`
-                            : "Not specified"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Penalty
-                        </p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          {tenant.lockin_penalty_amount
-                            ? tenant.lockin_penalty_type === "percentage"
-                              ? `${tenant.lockin_penalty_amount}% of rent`
-                              : `₹${tenant.lockin_penalty_amount.toLocaleString()}`
-                            : "No penalty specified"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+        <TabsContent value="terms" className="mt-0 space-y-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Lock-in Period Card */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+          <Calendar className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Lock-in Period</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Duration -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not specified"}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Penalty -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.lockin_penalty_amount
+              ? tenant.lockin_penalty_type === "percentage"
+                ? `${tenant.lockin_penalty_amount}% of rent`
+                : `₹${tenant.lockin_penalty_amount.toLocaleString()}`
+              : "No penalty specified"}
+          </span>
+        </div>
+      </div>
+    </div>
 
-                  {/* Notice Period Card */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Notice Period
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Duration
-                        </p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          {tenant.notice_period_days
-                            ? `${tenant.notice_period_days} days`
-                            : "Not specified"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Penalty
-                        </p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          {tenant.notice_penalty_amount
-                            ? tenant.notice_penalty_type === "percentage"
-                              ? `${tenant.notice_penalty_amount}% of rent`
-                              : `₹${tenant.notice_penalty_amount.toLocaleString()}`
-                            : "No penalty specified"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+    {/* Notice Period Card */}
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+          <Clock className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="font-lexend font-semibold text-slate-900 text-sm">Notice Period</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Duration -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not specified"}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Penalty -</span>
+          <span className="text-xs font-medium text-slate-900">
+            {tenant.notice_penalty_amount
+              ? tenant.notice_penalty_type === "percentage"
+                ? `${tenant.notice_penalty_amount}% of rent`
+                : `₹${tenant.notice_penalty_amount.toLocaleString()}`
+              : "No penalty specified"}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                {/* Terms Summary */}
-                <div className="mt-6 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border border-slate-200 p-5">
-                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
-                      <FileCheck className="w-4 h-4" />
-                    </div>
-                    <h3 className="font-lexend font-semibold text-slate-900">
-                      Terms Summary
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-slate-500">Lock-in Period</p>
-                      <p className="font-semibold text-slate-800">
-                        {tenant.lockin_period_months || 0} months
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Lock-in Penalty</p>
-                      <p className="font-semibold text-slate-800">
-                        {tenant.lockin_penalty_type === "percentage"
-                          ? "%"
-                          : "₹"}
-                        {tenant.lockin_penalty_amount || 0} (
-                        {tenant.lockin_penalty_type || "fixed"})
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Notice Period</p>
-                      <p className="font-semibold text-slate-800">
-                        {tenant.notice_period_days || 0} days
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Notice Penalty</p>
-                      <p className="font-semibold text-slate-800">
-                        {tenant.notice_penalty_type === "percentage"
-                          ? "%"
-                          : "₹"}
-                        {tenant.notice_penalty_amount || 0} (
-                        {tenant.notice_penalty_type || "fixed"})
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
+  {/* Terms Summary - full width, compact */}
+  <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
+        <FileCheck className="w-3.5 h-3.5" />
+      </div>
+      <h3 className="font-lexend font-semibold text-slate-900 text-sm">Terms Summary</h3>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lock-in Period -</span>
+        <span className="text-xs font-medium text-slate-900">{tenant.lockin_period_months || 0} months</span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lock-in Penalty -</span>
+        <span className="text-xs font-medium text-slate-900">
+          {tenant.lockin_penalty_type === "percentage" ? "%" : "₹"}{tenant.lockin_penalty_amount || 0} ({tenant.lockin_penalty_type || "fixed"})
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Notice Period -</span>
+        <span className="text-xs font-medium text-slate-900">{tenant.notice_period_days || 0} days</span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Notice Penalty -</span>
+        <span className="text-xs font-medium text-slate-900">
+          {tenant.notice_penalty_type === "percentage" ? "%" : "₹"}{tenant.notice_penalty_amount || 0} ({tenant.notice_penalty_type || "fixed"})
+        </span>
+      </div>
+    </div>
+  </div>
+</TabsContent>
 
               {/* Partner Tab - NEW */}
-              <TabsContent value="partner" className="mt-0">
-                {partnerDetails && partnerDetails.full_name ? (
-                  <div className="space-y-6">
-                    {/* Partner Basic Info */}
-                    <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
-                          <Heart className="w-4 h-4" />
-                        </div>
-                        <h3 className="font-lexend font-semibold text-slate-900">
-                          Partner Information
-                        </h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Salutation
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.salutation || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Full Name
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.full_name}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Phone
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.country_code} {partnerDetails.phone}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Email
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.email || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Gender
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.gender || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Date of Birth
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.date_of_birth
-                              ? new Date(
-                                  partnerDetails.date_of_birth,
-                                ).toLocaleDateString("en-IN")
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Relationship
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.relationship || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Occupation
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.occupation || "—"}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Organization
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.organization || "—"}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Address
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {partnerDetails.address || "—"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+             <TabsContent value="partner" className="mt-0 space-y-3">
+  {partnerDetails && partnerDetails.full_name ? (
+    <>
+      {/* Partner Basic Info Card */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
+            <Heart className="w-3.5 h-3.5" />
+          </div>
+          <h3 className="font-lexend font-semibold text-slate-900 text-sm">Partner Information</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Salutation -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.salutation || "—"}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.full_name}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phone -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.country_code} {partnerDetails.phone}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.email || "—"}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.gender || "—"}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date of Birth -</span>
+            <span className="text-xs font-medium text-slate-900">
+              {partnerDetails.date_of_birth
+                ? new Date(partnerDetails.date_of_birth).toLocaleDateString("en-IN")
+                : "—"}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Relationship -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.relationship || "—"}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Occupation -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.occupation || "—"}</span>
+          </div>
+          <div className="sm:col-span-2 flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Organization -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.organization || "—"}</span>
+          </div>
+          <div className="sm:col-span-2 flex items-baseline gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Address -</span>
+            <span className="text-xs font-medium text-slate-900">{partnerDetails.address || "—"}</span>
+          </div>
+        </div>
+      </div>
 
-                    {/* Partner Documents */}
-                    {(partnerDetails.id_proof_url ||
-                      partnerDetails.address_proof_url ||
-                      partnerDetails.photo_url) && (
-                      <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <h3 className="font-lexend font-semibold text-slate-900">
-                            Partner Documents
-                          </h3>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {partnerDetails.id_proof_url && (
-                            <DocCard
-                              title="Partner ID Proof"
-                              icon={<IdCard className="w-4 h-4" />}
-                              url={partnerDetails.id_proof_url}
-                              filename="ID Proof"
-                              onView={viewDoc}
-                              gradient="from-blue-500 to-blue-600"
-                              bg="bg-blue-50"
-                            />
-                          )}
-                          {partnerDetails.address_proof_url && (
-                            <DocCard
-                              title="Partner Address Proof"
-                              icon={<Home className="w-4 h-4" />}
-                              url={partnerDetails.address_proof_url}
-                              filename="Address Proof"
-                              onView={viewDoc}
-                              gradient="from-purple-500 to-purple-600"
-                              bg="bg-purple-50"
-                            />
-                          )}
-                          {partnerDetails.photo_url && (
-                            <DocCard
-                              title="Partner Photo"
-                              icon={<Camera className="w-4 h-4" />}
-                              url={partnerDetails.photo_url}
-                              filename="Photo"
-                              onView={viewDoc}
-                              gradient="from-emerald-500 to-emerald-600"
-                              bg="bg-emerald-50"
-                              isImage
-                            />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200">
-                    <Heart className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-400">
-                      No partner details available for this tenant
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
+      {/* Partner Documents Card - only if any document exists */}
+      {(partnerDetails.id_proof_url ||
+        partnerDetails.address_proof_url ||
+        partnerDetails.photo_url) && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+              <FileText className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="font-lexend font-semibold text-slate-900 text-sm">Partner Documents</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {partnerDetails.id_proof_url && (
+              <DocCard
+                title="Partner ID Proof"
+                icon={<IdCard className="w-4 h-4" />}
+                url={partnerDetails.id_proof_url}
+                filename="ID Proof"
+                onView={viewDoc}
+                gradient="from-blue-500 to-blue-600"
+                bg="bg-blue-50"
+              />
+            )}
+            {partnerDetails.address_proof_url && (
+              <DocCard
+                title="Partner Address Proof"
+                icon={<Home className="w-4 h-4" />}
+                url={partnerDetails.address_proof_url}
+                filename="Address Proof"
+                onView={viewDoc}
+                gradient="from-purple-500 to-purple-600"
+                bg="bg-purple-50"
+              />
+            )}
+            {partnerDetails.photo_url && (
+              <DocCard
+                title="Partner Photo"
+                icon={<Camera className="w-4 h-4" />}
+                url={partnerDetails.photo_url}
+                filename="Photo"
+                onView={viewDoc}
+                gradient="from-emerald-500 to-emerald-600"
+                bg="bg-emerald-50"
+                isImage
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  ) : (
+    <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+      <Heart className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+      <p className="text-xs text-slate-400">No partner details available for this tenant</p>
+    </div>
+  )}
+</TabsContent>
             </div>
           </Tabs>
         </div>

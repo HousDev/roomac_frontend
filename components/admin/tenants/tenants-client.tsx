@@ -1610,7 +1610,7 @@ const columns = useMemo(() => [
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 backdrop-blur-sm flex-shrink-0">
               <Users2 className="w-4 h-4 text-white" />
             </div>
-            <div className="relative flex-1 max-w-xs">
+            {/* <div className="relative flex-1 max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200 pointer-events-none" />
               <input
                 type="text"
@@ -1619,7 +1619,7 @@ const columns = useMemo(() => [
                 onChange={(e) => handleFilterChange({...filters, search: e.target.value})}
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
               />
-            </div>
+            </div> */}
           </div>
 
           {/* RIGHT: Buttons */}
@@ -1960,7 +1960,7 @@ const columns = useMemo(() => [
             <div className="flex items-center justify-center w-6 h-6 rounded-md bg-white/20 flex-shrink-0">
               <Users2 className="w-3.5 h-3.5 text-white" />
             </div>
-            <div className="relative flex-1">
+            {/* <div className="relative flex-1">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
               <input
                 type="text"
@@ -1969,7 +1969,7 @@ const columns = useMemo(() => [
                 onChange={(e) => handleFilterChange({...filters, search: e.target.value})}
                 className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
               />
-            </div>
+            </div> */}
           </div>
 
           {/* RIGHT: Action buttons */}
@@ -2176,7 +2176,7 @@ const columns = useMemo(() => [
  
 {/* ── Mobile Row 2: Search bar ── */}
 <div className="flex md:hidden px-3 pb-2 gap-2">
-  <div className="relative flex-1">
+  {/* <div className="relative flex-1">
     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
     <input
       type="text"
@@ -2185,7 +2185,7 @@ const columns = useMemo(() => [
       onChange={(e) => handleFilterChange({ ...filters, search: e.target.value })}
       className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
     />
-  </div>
+  </div> */}
 </div>
  
 {/* ── Mobile Row 3: active-filter hint ── */}
