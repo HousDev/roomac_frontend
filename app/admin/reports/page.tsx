@@ -1488,38 +1488,49 @@ useEffect(() => {
                     />
                   </div>
                 </div>
-                <div className="divide-y">
-                  {filteredTenants.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-gray-500">No tenants found</div>
-                  ) : (
-                    filteredTenants.map(tenant => (
-                      <div
-                        key={tenant.id}
-                        className="p-2 hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => handleTenantSelect(tenant)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-medium">{tenant.full_name}</p>
-                            <p className="text-[10px] text-gray-500">{tenant.phone}</p>
-                          </div>
-                          <Badge variant="outline" className="text-[9px]">
-                            {tenant.property_name || 'No Property'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+<div className="divide-y">
+  {filteredTenants.length === 0 ? (
+    <div className="p-3 text-center text-xs text-gray-500">No tenants found</div>
+  ) : (
+    filteredTenants.map(tenant => (
+      <div
+        key={tenant.id}
+        className="p-2 hover:bg-gray-50 cursor-pointer transition-colors"
+        onClick={() => handleTenantSelect(tenant)}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium">{tenant.full_name}</p>
+            <p className="text-[10px] text-gray-500">{tenant.phone}</p>
+            {tenant.room_display && (
+              <p className="text-[10px] text-gray-400">Room {tenant.room_display} {tenant.bed_display && `• Bed ${tenant.bed_display}`}</p>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <Badge variant="outline" className="text-[9px]">
+              {tenant.property_display || 'No Property'}
+            </Badge>
+            {tenant.tenant_status === 'vacated' && (
+              <Badge className="bg-red-100 text-red-700 text-[9px]">Vacated</Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    ))
+  )}
+</div>
               </div>
             )}
           </div>
           {selectedTenant && (
-            <div className="mt-1 text-[10px] text-green-600 flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" />
-              Tenant selected: {selectedTenant.full_name} ({selectedTenant.property_name || 'No property'})
-            </div>
-          )}
+  <div className="mt-1 text-[10px] text-green-600 flex items-center gap-1 flex-wrap">
+    <CheckCircle2 className="h-3 w-3" />
+    Tenant selected: {selectedTenant.full_name} ({selectedTenant.property_display || 'No property'})
+    {selectedTenant.tenant_status === 'vacated' && (
+      <Badge className="bg-red-100 text-red-700 text-[9px] ml-1">Vacated</Badge>
+    )}
+  </div>
+)}
         </div>
       )}
 
@@ -1894,6 +1905,18 @@ useEffect(() => {
                         {tenantPaymentReport.tenant.occupation || "N/A"}
                       </p>
                     </div>
+                    {tenantPaymentReport.tenant.vacated_date && (
+  <div>
+    <p className="text-[10px] text-gray-500">Vacated Date</p>
+    <p className="text-sm font-semibold text-red-600">
+      {new Date(tenantPaymentReport.tenant.vacated_date).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      })}
+    </p>
+  </div>
+)}
                   </div>
                 </CardContent>
               </Card>
@@ -1934,26 +1957,28 @@ useEffect(() => {
                       </p>
                     </div>
                     <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Pending Rent</p>
-                      <p className="text-lg font-bold text-yellow-700">
-                        {formatCurrency(
-                          tenantPaymentReport.summary.pending_rent,
-                        )}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {tenantPaymentReport.summary.collection_rate.toFixed(1)}
-                        % collected
-                      </p>
-                    </div>
+  <p className="text-[10px] text-gray-600">Pending Rent</p>
+  <p className="text-lg font-bold text-yellow-700">
+    {formatCurrency(
+      tenantPaymentReport.summary.pending_rent,
+    )}
+  </p>
+  <p className="text-[10px] text-gray-500">
+    {typeof tenantPaymentReport.summary.collection_rate === 'number' 
+      ? tenantPaymentReport.summary.collection_rate.toFixed(1) 
+      : parseFloat(tenantPaymentReport.summary.collection_rate || '0').toFixed(1)}% collected
+  </p>
+</div>
                     <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Collection Rate
-                      </p>
-                      <p className="text-2xl font-bold text-indigo-700">
-                        {tenantPaymentReport.summary.collection_rate.toFixed(1)}
-                        %
-                      </p>
-                    </div>
+  <p className="text-[10px] text-gray-600">
+    Collection Rate
+  </p>
+  <p className="text-2xl font-bold text-indigo-700">
+    {typeof tenantPaymentReport.summary.collection_rate === 'number' 
+      ? tenantPaymentReport.summary.collection_rate.toFixed(1) 
+      : parseFloat(tenantPaymentReport.summary.collection_rate || '0').toFixed(1)}%
+  </p>
+</div>
                   </div>
 
                   {/* Month-wise Rent Table */}
