@@ -125,6 +125,7 @@ function SearchableDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => String(o[valueKey]) === String(value));
 
@@ -395,6 +396,11 @@ const [filterVendor, setFilterVendor] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProp, setFilterProp] = useState("All");
   const [filterPaymentMode, setFilterPaymentMode] = useState("All");
+  const [colSearch, setColSearch] = useState({
+  property: "", category: "", vendor: "", status: "", addedBy: "", amount: "", paidBy: "", expenseDate: ""
+});
+const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
+const [selectAll, setSelectAll] = useState(false);
   const [search, setSearch] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   // Add with other state declarations
@@ -636,11 +642,22 @@ const loadExpenses = useCallback(async () => {
     if (filterFromDate && e.expense_date < filterFromDate) return false;
     if (filterToDate && e.expense_date > filterToDate) return false;
   }
-  
-  if (search && ![e.category_name, e.vendor_name, e.added_by_name]
+  if (colSearch.property && !e.property_name?.toLowerCase().includes(colSearch.property.toLowerCase())) return false;
+if (colSearch.category && !e.category_name?.toLowerCase().includes(colSearch.category.toLowerCase())) return false;
+if (colSearch.vendor && !e.vendor_name?.toLowerCase().includes(colSearch.vendor.toLowerCase())) return false;
+if (colSearch.status && !e.status?.toLowerCase().includes(colSearch.status.toLowerCase())) return false;
+if (colSearch.addedBy && !e.added_by_name?.toLowerCase().includes(colSearch.addedBy.toLowerCase())) return false;
+if (colSearch.amount && !String(e.total_amount || e.amount || "").includes(colSearch.amount)) return false;
+if (colSearch.paidBy && !e.payment_mode?.toLowerCase().includes(colSearch.paidBy.toLowerCase())) return false;
+if (colSearch.expenseDate) {
+  const raw = e.expense_date || "";
+  const formatted = fmtDate(raw).toLowerCase();
+  const query = colSearch.expenseDate.toLowerCase();
+  if (!raw.includes(query) && !formatted.includes(query)) return false;
+}  if (search && ![e.category_name, e.vendor_name, e.added_by_name]
     .some((v) => v?.toLowerCase().includes(search.toLowerCase()))) return false;
   return true;
-}), [expenses, filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search, ignoreDateFilters]);
+}), [expenses, filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search, ignoreDateFilters, colSearch]);
 
   /* ── Items helpers ─────────────────────────────────────────────────────── */
   const setItems = (items: any[]) => setForm((f) => ({ ...f, items }));
@@ -1279,13 +1296,6 @@ useEffect(() => {
       {/* STICKY HEADER + COMPACT STATS */}
       <div style={{ position: "sticky", top: 16, zIndex: 10, background: "#F4F6FB" }}>
         <div style={{ background: "#fff", borderBottom: "1px solid #E8ECF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8}}>
-          {can("create_expenses") && (
-            <button onClick={openAdd} style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap" }}>
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              Add Expense
-            </button>
-            
-          )}
            <button onClick={() => setFilterPanelOpen(true)}
     style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: "1px solid #E8ECF4", borderRadius: 9, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
     <svg width="14" height="14" fill="none" stroke="#374151" strokeWidth="2" viewBox="0 0 24 24">
@@ -1296,6 +1306,14 @@ useEffect(() => {
       <span style={{ background: "#3B5BDB", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>!</span>
     )}
   </button>
+          {can("create_expenses") && (
+            <button onClick={openAdd} style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap" }}>
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              Add Expense
+            </button>
+            
+          )}
+          
         </div>
         
         {/* Compact stat cards */}
@@ -1323,30 +1341,205 @@ useEffect(() => {
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8ECF4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           {/* Filters bar */}
        {/* Filters bar */}
-<div style={{ padding: "12px 14px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", gap: 8 }}>
-  <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
-    <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
-      width="13" height="13" fill="none" stroke="#8892A4" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search expenses…"
-      style={{ width: "100%", padding: "9px 12px 9px 32px", border: "1px solid #E8ECF4", borderRadius: 9, fontSize: 12, background: "#F8FAFF", outline: "none", color: "#374151" }} />
+{bulkSelected.size > 0 && (
+  <div
+    style={{
+      padding: "12px 14px",
+      borderBottom: "1px solid #F0F3FA",
+    }}
+  >
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr",
+        gap: 12,
+        alignItems: "center",
+      }}
+    >
+      {/* Search Bar - commented */}
+
+      {/* Bulk Action Area - always shown when this block renders */}
+      <div
+        style={{
+          width: "100%",
+          minHeight: 44,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 14px",
+          background: "#EEF1FB",
+          border: "1px solid #E2E8F4",
+          borderRadius: 10,
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ fontWeight: 700, color: "#1A2B6D", fontSize: "clamp(12px, 4vw, 14px)" }}>
+          {bulkSelected.size} selected
+        </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => {
+              setBulkSelected(new Set());
+              setSelectAll(false);
+            }}
+            style={{ fontSize: "clamp(11px, 3.5vw, 12px)", color: "#8892A4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px", whiteSpace: "nowrap" }}
+          >
+            Clear
+          </button>
+          <button
+            onClick={async () => {
+              // your delete logic (same as before)
+            }}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 7, fontSize: "clamp(11px, 3.5vw, 12px)", fontWeight: 700, color: "#DC2626", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            <svg width="11" height="11" fill="none" stroke="#DC2626" strokeWidth="2" viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14H6L5 6" />
+              <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+            </svg>
+            Delete {bulkSelected.size}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
- 
-</div>
+)}
+
+  {/* <div
+      style={{
+        position: "relative",
+        width: "100%",
+      }}
+    >
+      <svg
+        style={{
+          position: "absolute",
+          left: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          pointerEvents: "none",
+        }}
+        width="15"
+        height="15"
+        fill="none"
+        stroke="#8892A4"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search expenses..."
+        style={{
+          width: "100%",
+          height: 44,
+          padding: "0 14px 0 38px",
+          border: "1px solid #E2E8F0",
+          borderRadius: 12,
+          fontSize: 13,
+          background: "#F8FAFC",
+          outline: "none",
+          color: "#334155",
+        }}
+      />
+    </div> */}
+
 
           {/* Table */}
-<div className={`overflow-y-auto ${filtered.length > 0 ? 'max-h-[210px] sm:max-h-[390px]' : ''}`}>            {loading ? (
+<div
+  className={`overflow-y-auto ${
+    filtered.length > 0
+      ? bulkSelected.size > 0
+        ? "max-h-[240px] sm:max-h-[380px]"
+        : "max-h-[310px] sm:max-h-[450px]"
+      : ""
+  }`}
+>      {loading ? (
               <div style={{ padding: 60, textAlign: "center", color: "#8892A4", fontSize: 14 }}>Loading expenses…</div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, tableLayout: "fixed" }} >
-                <thead className="sticky top-0 z-10">
-                  <tr style={{ background: "#F8FAFF" }}>
-                   {["Property", "Category", "Vendor", "Amount", "Paid By", "Receipt", " Expenses Date", "Status", "Added By", "Created", "Actions"].map((h, index) => (
-  <th key={h} style={{ padding: "12px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#475569", letterSpacing: 0.5, textTransform: "uppercase", borderBottom: "1.5px solid #E2E8F0", whiteSpace: "nowrap", width: index === 0 ? "12%" : index === 1 ? "10%" : index === 2 ? "10%" : index === 3 ? "8%" : index === 4 ? "10%" : index === 5 ? "6%" : index === 6 ? "8%" : index === 7 ? "8%" : index === 8 ? "8%" : index === 9 ? "10%" : "10%" }}>{h}</th>
-))}
-                  </tr>
-                </thead>
+               <thead className="sticky top-0 z-10">
+  <tr style={{ background: "#F8FAFF" }}>
+    <th style={{ padding: "8px", width: 36, borderBottom: "1.5px solid #E2E8F0" }}>
+      <input type="checkbox" checked={selectAll}
+        onChange={(e) => {
+          setSelectAll(e.target.checked);
+          setBulkSelected(e.target.checked ? new Set(filtered.map(x => x.id)) : new Set());
+        }}
+        style={{ width: 14, height: 14, cursor: "pointer" }} />
+    </th>
+    <th style={{ padding: "4px 8px", width: "12%", borderBottom: "1.5px solid #E2E8F0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Property</div>
+      <input value={colSearch.property} onChange={e => setColSearch(p => ({ ...p, property: e.target.value }))}
+        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+    </th>
+    <th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Category</div>
+      <input value={colSearch.category} onChange={e => setColSearch(p => ({ ...p, category: e.target.value }))}
+        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+    </th>
+    <th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Vendor</div>
+      <input value={colSearch.vendor} onChange={e => setColSearch(p => ({ ...p, vendor: e.target.value }))}
+        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+    </th>
+  <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
+  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Amount</div>
+  <input value={colSearch.amount} onChange={e => setColSearch(p => ({ ...p, amount: e.target.value }))}
+    placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+</th>
+<th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
+  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Paid By</div>
+  <input value={colSearch.paidBy} onChange={e => setColSearch(p => ({ ...p, paidBy: e.target.value }))}
+    placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+</th>
+<th style={{ padding: "8px", width: "6%", borderBottom: "1.5px solid #E2E8F0" }}>
+  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 }}>Receipt</div>
+</th>
+<th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
+  <div className="whitespace-nowrap" style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Expenses Date</div>
+  <input
+  value={colSearch.expenseDate}
+  onChange={e =>
+    setColSearch(p => ({
+      ...p,
+      expenseDate: e.target.value,
+    }))
+  }
+  placeholder="29 May 2026"
+  style={{
+    width: "100%",
+    padding: "4px 6px",
+    border: "1px solid #E2E8F4",
+    borderRadius: 5,
+    fontSize: 10,
+    outline: "none",
+    background: "#fff",
+  }}
+/>
+</th>
+    <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Status</div>
+      <input value={colSearch.status} onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+    </th>
+    <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Added By</div>
+      <input value={colSearch.addedBy} onChange={e => setColSearch(p => ({ ...p, addedBy: e.target.value }))}
+        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
+    </th>
+    {["Created", "Actions"].map(h => (
+      <th key={h} style={{ padding: "8px", borderBottom: "1.5px solid #E2E8F0", width: "10%" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</div>
+      </th>
+    ))}
+  </tr>
+</thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr><td colSpan={11} style={{ padding: 48, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>No expenses found</td></tr>
@@ -1355,6 +1548,18 @@ useEffect(() => {
                       const cc = getCatColor(exp.category_name);
                       return (
                         <tr key={exp.id} style={{ borderBottom: "1px solid #F1F5F9", transition: "background 0.12s ease" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                          <td style={{ padding: "10px 8px", textAlign: "center", width: 36 }}>
+  <input type="checkbox"
+    checked={bulkSelected.has(exp.id)}
+    onChange={(e) => {
+      setBulkSelected(prev => {
+        const next = new Set(prev);
+        e.target.checked ? next.add(exp.id) : next.delete(exp.id);
+        return next;
+      });
+    }}
+    style={{ width: 14, height: 14, cursor: "pointer" }} />
+</td>
                           <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 600, color: "#0F172A" }}><span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3B82F6", flexShrink: 0 }} />{exp.property_name || "—"}</span></td>
                           <td style={{ padding: "10px 8px" }}>{exp.category_name ? <span style={{ background: cc.bg, color: cc.text, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 4, height: 4, borderRadius: "50%", background: cc.dot }} />{exp.category_name}</span> : "—"}</td>
                           <td style={{ padding: "10px 8px", fontSize: 12, color: "#334155" }}>{exp.vendor_name || "—"}</td>

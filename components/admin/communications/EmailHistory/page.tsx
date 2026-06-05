@@ -3325,6 +3325,9 @@ import {
 } from "@/lib/communicationLogApi";
 import { AlertCircle, CheckCircle, ChevronRight, Clock, FileText } from "lucide-react";
 import * as XLSX from 'xlsx';
+import { useRouter, usePathname } from "next/navigation";
+import { CommunicationTabs } from "@/components/admin/communications/CommunicationTabs";
+
 
 import Swal from 'sweetalert2';
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4347,8 +4350,7 @@ export default function EmailHistory() {
   ];
 
   // Reduce table height when bulk action bar is visible
-  const tableMaxHeight = someSelected ? "max-h-[360px] sm:max-h-[200px]" : "max-h-[380px] sm:max-h-[450px]";
-
+const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-[380px] sm:max-h-[420px]";
   return (
     <>
       <style>{`
@@ -4375,26 +4377,29 @@ export default function EmailHistory() {
 
       <div className="font-['DM Sans','Segoe UI',sans-serif] p-0 md:p-0">
         {/* Header Buttons */}
-        <div className="flex flex-wrap gap-2 mb-4 justify-end -mt-4">
-          <button
+      <div className="flex flex-wrap items-center  gap-2 mb-4 -mt-4 justify-end">
+    {/* <CommunicationTabs /> */}
+    <div className="flex gap-2 justify-end">
+        <button
             onClick={() => setSidebarOpen(true)}
             className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold border flex items-center gap-1 ${
-              hasActiveSidebarFilters
-                ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
-                : "bg-white text-[#6B7A99] border-[#E4E8F0]"
+                hasActiveSidebarFilters
+                    ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
+                    : "bg-white text-[#6B7A99] border-[#E4E8F0]"
             }`}
-          >
+        >
             Filters {hasActiveSidebarFilters && "●"}
-          </button>
-          <button
+        </button>
+        <button
             onClick={handleExport}
             disabled={exporting}
             className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold text-white"
             style={{ background: `linear-gradient(135deg, ${colors.primary.from}, ${colors.primary.to})` }}
-          >
+        >
             {exporting ? "Exporting..." : "Export Excel"}
-          </button>
-        </div>
+        </button>
+    </div>
+</div>
 
         {/* Stat Cards – Gradient UI */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4  md:-mt-2 sticky top-0 z-10">
@@ -4420,6 +4425,8 @@ export default function EmailHistory() {
                 <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
               </div>
             </div>
+              <MiniBar pct={stats.total ? Math.round(stats.sent / stats.total * 100) : 0} color={colors.greenLine} />
+
           </div>
 
           <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
@@ -4432,6 +4439,8 @@ export default function EmailHistory() {
                 <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
               </div>
             </div>
+            <MiniBar pct={stats.total ? Math.round(stats.failed / stats.total * 100) : 0} color={colors.redLine} />
+
           </div>
 
           <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
@@ -4449,7 +4458,7 @@ export default function EmailHistory() {
 
         {/* Search + Pills */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
-          <div className="flex items-center gap-1.5 bg-white border border-[#E4E8F0] rounded-lg px-2.5 py-1.5 flex-1 min-w-[120px] md:min-w-[200px]">
+          {/* <div className="flex items-center gap-1.5 bg-white border border-[#E4E8F0] rounded-lg px-2.5 py-1.5 flex-1 min-w-[120px] md:min-w-[200px]">
             <input
               value={search}
               onChange={handleSearch}
@@ -4467,7 +4476,7 @@ export default function EmailHistory() {
                 ×
               </button>
             )}
-          </div>
+          </div> */}
           {pills.map((p) => (
             <FilterPill
               key={p.key}
@@ -4482,38 +4491,38 @@ export default function EmailHistory() {
 
         {/* Bulk Action Bar */}
         {someSelected && (
-          <div className="flex items-center gap-2.5 bg-[#E6F1FB] border border-[#185FA5] rounded-lg p-2 mb-2.5 flex-wrap">
-            <span className="text-xs font-semibold text-[#185FA5]">
-              {selectedIds.size} record{selectedIds.size > 1 ? "s" : ""} selected
-            </span>
-            <button
-              onClick={handleBulkDelete}
-              disabled={bulkDeleting}
-              className="bg-[#A32D2D] text-white border-none rounded-md px-3 py-1 text-xs font-semibold disabled:opacity-60 flex items-center gap-1"
-            >
-              {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
-            </button>
-            <button
-              onClick={() => exportToExcel(logs.filter((r) => selectedIds.has(r.id)), "selected_logs")}
-              className="bg-[#0F6E56] text-white border-none rounded-md px-3 py-1 text-xs font-semibold"
-            >
-              Export Selected
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="bg-none border border-[#185FA5] text-[#185FA5] rounded-md px-2.5 py-1 text-xs cursor-pointer ml-auto"
-            >
-              Clear
-            </button>
-          </div>
+         <div className="flex items-center gap-1.5 bg-[#E6F1FB] border border-[#185FA5] rounded-lg px-2 py-1.5 mb-2 flex-nowrap overflow-x-auto">
+  <span className="text-[10px] font-semibold text-[#185FA5] whitespace-nowrap shrink-0">
+    {selectedIds.size} selected
+  </span>
+  <button
+    onClick={handleBulkDelete}
+    disabled={bulkDeleting}
+    className="bg-[#A32D2D] text-white border-none rounded-md px-2 py-1 text-[10px] font-semibold disabled:opacity-60 whitespace-nowrap shrink-0"
+  >
+    {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+  </button>
+  <button
+    onClick={() => exportToExcel(logs.filter((r) => selectedIds.has(r.id)), "selected_logs")}
+    className="bg-[#0F6E56] text-white border-none rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shrink-0"
+  >
+    Export
+  </button>
+  <button
+    onClick={() => setSelectedIds(new Set())}
+    className="border border-[#185FA5] text-[#185FA5] rounded-md px-2 py-1 text-[10px] cursor-pointer ml-auto whitespace-nowrap shrink-0 bg-transparent"
+  >
+    Clear
+  </button>
+</div>
         )}
 
         {/* Table */}
-        <div className="bg-white border border-[#E4E8F0] rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#E4E8F0] rounded-xl ">
           {/* Dynamic max-height: smaller when bulk bar is visible */}
           <div className={`overflow-x-auto overflow-y-auto ${tableMaxHeight} transition-all duration-200`}>
             <table className="w-full border-collapse min-w-[960px]">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-[#F8F9FC] border-b border-[#E4E8F0]">
                   <th className="px-2 py-2 w-9">
                     <input
@@ -4622,8 +4631,7 @@ export default function EmailHistory() {
 
           {/* Pagination */}
           {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-[#E4E8F0] text-xs text-[#6B7A99] flex-wrap gap-2">
-              <span>
+<div className="flex items-center justify-between px-3.5 py-2.5 border-t border-[#E4E8F0] text-xs text-[#6B7A99] flex-wrap gap-2 sticky bottom-0 bg-white z-10">              <span>
                 {filteredLogs.length > 0
                   ? `Showing ${(safePage - 1) * PER_PAGE + 1}–${Math.min(safePage * PER_PAGE, stats.total)} of ${stats.total} records`
                   : "No records"}
