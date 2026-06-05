@@ -87,6 +87,7 @@ import {
   Smartphone,
   Shield,
   Wallet,
+  Users,
 } from "lucide-react";
 import {
   Table,
@@ -121,6 +122,7 @@ import { getLatestRentPayment } from "@/lib/paymentRecordApi";
 import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDialog";
 import { useSocketIO } from "@/hooks/useSocketIO";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
+import { Checkbox } from "@radix-ui/react-checkbox";
 // Types
 interface PaymentFormData {
   tenant: {
@@ -171,6 +173,9 @@ interface DemandPayment {
   room_number?: string;
   bed_number?: number;
   property_name?: string;
+   is_vacated?: boolean;
+  vacated_date?: string;
+  paid_amount?: number;
 }
 
 export default function PaymentsPage() {
@@ -181,6 +186,16 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [isDemandPaymentOpen, setIsDemandPaymentOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
+const [selectedRooms, setSelectedRooms] = useState<number[]>([]);
+const [selectedTenants, setSelectedTenants] = useState<number[]>([]);
+const [bulkStep, setBulkStep] = useState(1);
+const [roomsWithPending, setRoomsWithPending] = useState<any[]>([]);
+const [bulkSummary, setBulkSummary] = useState({
+  totalTenants: 0,
+  totalPending: 0,
+});
+
   const [bookingLoading, setBookingLoading] = useState(false);
   const [paymentFormData, setPaymentFormData] =
     useState<PaymentFormData | null>(null);
@@ -334,16 +349,17 @@ export default function PaymentsPage() {
     send_sms: false,
   });
 
-  const [detailedStats, setDetailedStats] = useState({
-    total_rent_collected: 0,
-    total_deposit_collected: 0,
-    net_deposit_collected: 0, // ✅ NEW: Deposit after refunds
-    total_refunded: 0, // ✅ UPDATED: deposit_refund + penalty_payment
-    total_penalties_collected: 0, // ✅ UPDATED: From vacate_records only
-    current_month_expected_pending: 0,
-    this_month_rent: 0,
-    total_transactions: 0,
-  });
+const [detailedStats, setDetailedStats] = useState({
+  total_rent_collected: 0,
+  total_deposit_collected: 0,
+  net_deposit_collected: 0,
+  total_refunded: 0,
+  total_penalties_collected: 0,
+  this_month_expected_rent: 0,        // ✅ Renamed
+  this_month_received_rent: 0,        // ✅ Renamed from this_month_rent
+  this_month_pending_rent: 0,         // ✅ New
+  total_transactions: 0,
+});
 
   const [paymentPagination, setPaymentPagination] = useState({
     currentPage: 1,
@@ -468,28 +484,26 @@ export default function PaymentsPage() {
     fetchPaymentModes();
   }, []);
 
-  // Add this to loadDetailedStats function
-  const loadDetailedStats = async () => {
-    try {
-      const response = await paymentApi.getDetailedPaymentStats();
-      if (response.success && response.data) {
-        setDetailedStats({
-          total_rent_collected: response.data.total_rent_collected || 0,
-          total_deposit_collected: response.data.total_deposit_collected || 0,
-          net_deposit_collected: response.data.net_deposit_collected || 0,
-          total_refunded: response.data.total_refunded || 0,
-          total_penalties_collected:
-            response.data.total_penalties_collected || 0,
-          current_month_expected_pending:
-            response.data.current_month_expected_pending || 0, // ✅ NEW
-          this_month_rent: response.data.this_month_rent || 0,
-          total_transactions: response.data.total_transactions || 0,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading detailed stats:", error);
+const loadDetailedStats = async () => {
+  try {
+    const response = await paymentApi.getDetailedPaymentStats();
+    if (response.success && response.data) {
+      setDetailedStats({
+        total_rent_collected: response.data.total_rent_collected || 0,
+        total_deposit_collected: response.data.total_deposit_collected || 0,
+        net_deposit_collected: response.data.net_deposit_collected || 0,
+        total_refunded: response.data.total_refunded || 0,
+        total_penalties_collected: response.data.total_penalties_collected || 0,
+        this_month_expected_rent: response.data.this_month_expected_rent || 0,
+        this_month_received_rent: response.data.this_month_received_rent || 0,
+        this_month_pending_rent: response.data.this_month_pending_rent || 0,
+        total_transactions: response.data.total_transactions || 0,
+      });
     }
-  };
+  } catch (error) {
+    console.error("Error loading detailed stats:", error);
+  }
+};
 
   const loadData = async () => {
     setLoading(true);
@@ -556,52 +570,165 @@ export default function PaymentsPage() {
     }
   };
 
-  const loadDemands = async () => {
-    try {
-      // console.log(' demands...');
-      const response = await paymentApi.getDemands();
-      // console.log('Demands response:', response);
+// In app/admin/payments/page.tsx - Update loadDemands function
 
-      if (response && response.data) {
-        // Enhance demands with tenant room/bed info and ensure numbers
-        const enhancedDemands = await Promise.all(
-          response.data.map(async (demand: DemandPayment) => {
-            // Ensure amount and late_fee are numbers
-            const processedDemand = {
-              ...demand,
-              amount: Number(demand.amount),
-              late_fee: Number(demand.late_fee || 0),
-            };
+const loadDemands = async () => {
+  try {
+    const response = await paymentApi.getDemands();
+    
+    if (response && response.data) {
+      // Enhance demands with tenant room/bed info including vacated tenants
+      const enhancedDemands = await Promise.all(
+        response.data.map(async (demand: DemandPayment) => {
+          const processedDemand = {
+            ...demand,
+            amount: Number(demand.amount),
+            late_fee: Number(demand.late_fee || 0),
+          };
 
-            try {
-              const bedAssignment = await paymentApi.getTenantBedAssignment(
-                demand.tenant_id,
+          try {
+            // First try to get active bed assignment
+            let bedAssignment = await paymentApi.getTenantBedAssignment(demand.tenant_id);
+            
+            // If no active assignment, check vacate_records
+            if (!bedAssignment) {
+              const vacateResponse = await fetch(
+                `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/vacate/tenant/${demand.tenant_id}/latest`
               );
-              return {
-                ...processedDemand,
-                room_number: bedAssignment?.room?.room_number,
-                bed_number: bedAssignment?.bed_number,
-                property_name: bedAssignment?.property?.name,
-              };
-            } catch (error) {
-              console.warn(
-                `Could not fetch bed assignment for tenant ${demand.tenant_id}:`,
-                error,
-              );
-              return processedDemand;
+              const vacateData = await vacateResponse.json();
+              
+              if (vacateData.success && vacateData.data) {
+                const vacateRecord = vacateData.data;
+                return {
+                  ...processedDemand,
+                  room_number: vacateRecord.room_number || 'Vacated',
+                  bed_number: vacateRecord.bed_number,
+                  property_name: vacateRecord.property_name || 'Previous Property',
+                  is_vacated: true,
+                  vacated_date: vacateRecord.requested_vacate_date
+                };
+              }
             }
-          }),
-        );
-        setDemands(enhancedDemands);
-      } else {
-        console.warn("No demands data received:", response);
-        setDemands([]);
-      }
-    } catch (error) {
-      console.error("Error loading demands:", error);
+            
+            return {
+              ...processedDemand,
+              room_number: bedAssignment?.room?.room_number || 'N/A',
+              bed_number: bedAssignment?.bed_number,
+              property_name: bedAssignment?.property?.name || 'N/A',
+              is_vacated: false
+            };
+          } catch (error) {
+            console.warn(`Could not fetch assignment for tenant ${demand.tenant_id}:`, error);
+            return {
+              ...processedDemand,
+              room_number: 'N/A',
+              bed_number: null,
+              property_name: 'N/A',
+              is_vacated: false
+            };
+          }
+        }),
+      );
+      setDemands(enhancedDemands);
+    } else {
       setDemands([]);
     }
-  };
+  } catch (error) {
+    console.error("Error loading demands:", error);
+    setDemands([]);
+  }
+};
+
+  // Add this function to fetch rooms with pending payments
+const fetchRoomsWithPendingPayments = async (propertyId: number) => {
+  setLoadingRooms(true);
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${propertyId}`
+    );
+    const data = await response.json();
+    if (data.success) {
+      setRoomsWithPending(data.data);
+    }
+  } catch (error) {
+    console.error("Error fetching rooms:", error);
+    toast.error("Failed to fetch rooms");
+  } finally {
+    setLoadingRooms(false);
+  }
+};
+
+// Add this function to calculate bulk summary
+const calculateBulkSummary = () => {
+  let totalTenants = 0;
+  let totalPending = 0;
+  
+  roomsWithPending.forEach(room => {
+    if (selectedRooms.includes(room.id)) {
+      room.tenants.forEach((tenant: any) => {
+        if (selectedTenants.length === 0 || selectedTenants.includes(tenant.id)) {
+          totalTenants++;
+          totalPending += tenant.total_pending;
+        }
+      });
+    }
+  });
+  
+  setBulkSummary({ totalTenants, totalPending });
+};
+
+// Reset bulk selection
+const resetBulkSelection = () => {
+  setBulkMode(false);
+  setBulkStep(1);
+  setSelectedRooms([]);
+  setSelectedTenants([]);
+  setRoomsWithPending([]);
+  setBulkSummary({ totalTenants: 0, totalPending: 0 });
+};
+
+// Handle bulk send
+const handleBulkSend = async () => {
+  if (selectedTenants.length === 0) {
+    toast.error("Please select at least one tenant");
+    return;
+  }
+
+  setBookingLoading(true);
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/send`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_id: parseInt(selectedPropertyId),
+          tenant_ids: selectedTenants,
+          send_email: demandPayment.send_email,
+          send_sms: demandPayment.send_sms,
+          reminder_type: "demand",
+          payment_type: demandPayment.payment_type
+        })
+      }
+    );
+    
+    const data = await response.json();
+    if (data.success) {
+      toast.success(data.message);
+      setIsDemandPaymentOpen(false);
+      resetBulkSelection();
+      resetDemandPaymentForm();
+      loadData();
+    } else {
+      toast.error(data.message || "Failed to send reminders");
+    }
+  } catch (error: any) {
+    console.error("Error sending bulk reminders:", error);
+    toast.error(error.message || "Failed to send reminders");
+  } finally {
+    setBookingLoading(false);
+  }
+};
 
   // Replace the existing handleLedgerReport with this:
   const handleLedgerReport = (tenantId: number, tenantData: any) => {
@@ -759,6 +886,22 @@ export default function PaymentsPage() {
     setFilteredTenants([]); // Clear tenants while loading
     await fetchTenantsByRoom(roomId);
   };
+
+  // Add a separate handler for demand payment room change
+const handleDemandRoomChange = async (roomId: string) => {
+  setSelectedRoomId(roomId);
+  setDemandPayment((prev) => ({ 
+    ...prev, 
+    tenant_id: ""  // Clear tenant selection when room changes
+  }));
+  setFilteredTenants([]); // Clear tenants while loading
+  setPaymentFormData(null); // Clear bed assignment data
+  setSecurityDepositInfo(null); // Clear security deposit info
+  
+  if (roomId) {
+    await fetchTenantsByRoom(roomId);
+  }
+};
 
   // Add this useEffect
   useEffect(() => {
@@ -945,60 +1088,62 @@ export default function PaymentsPage() {
     }
   };
 
-  // Update handleDemandTenantSelect to fetch and set pending amount correctly
-  const handleDemandTenantSelect = async (tenantId: string) => {
-    setDemandPayment((prev) => ({ ...prev, tenant_id: tenantId }));
-    setPaymentFormData(null);
-    setSecurityDepositInfo(null);
+// Update handleDemandTenantSelect to clear previous data
+const handleDemandTenantSelect = async (tenantId: string) => {
+  // Clear previous data first
+  setPaymentFormData(null);
+  setSecurityDepositInfo(null);
+  
+  setDemandPayment((prev) => ({ ...prev, tenant_id: tenantId }));
 
-    if (!tenantId) return;
+  if (!tenantId) return;
 
-    setBookingLoading(true);
-    try {
-      // Fetch rent payment data using existing function
-      const formResponse = await paymentApi.getTenantPaymentFormData(
-        parseInt(tenantId),
-      );
-      if (formResponse.success) {
-        setPaymentFormData(formResponse.data);
+  setBookingLoading(true);
+  try {
+    // Fetch rent payment data using existing function
+    const formResponse = await paymentApi.getTenantPaymentFormData(
+      parseInt(tenantId),
+    );
+    if (formResponse.success) {
+      setPaymentFormData(formResponse.data);
 
-        // ✅ Auto-fill amount with total pending amount for rent
-        if (
-          demandPayment.payment_type === "rent" &&
-          formResponse.data?.total_pending
-        ) {
-          setDemandPayment((prev) => ({
-            ...prev,
-            amount: formResponse.data.total_pending,
-          }));
-        }
+      // Auto-fill amount with total pending amount for rent
+      if (
+        demandPayment.payment_type === "rent" &&
+        formResponse.data?.total_pending
+      ) {
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: formResponse.data.total_pending,
+        }));
       }
-
-      // Fetch security deposit info
-      const depositResponse = await paymentApi.getSecurityDepositInfo(
-        parseInt(tenantId),
-      );
-      if (depositResponse.success) {
-        setSecurityDepositInfo(depositResponse.data);
-
-        // ✅ Auto-fill amount with pending amount for security deposit
-        if (
-          demandPayment.payment_type === "security_deposit" &&
-          depositResponse.data?.pending_amount
-        ) {
-          setDemandPayment((prev) => ({
-            ...prev,
-            amount: depositResponse.data.pending_amount,
-          }));
-        }
-      }
-    } catch (error) {
-      console.error("Error loading tenant details:", error);
-      toast.error("Failed to load tenant details");
-    } finally {
-      setBookingLoading(false);
     }
-  };
+
+    // Fetch security deposit info
+    const depositResponse = await paymentApi.getSecurityDepositInfo(
+      parseInt(tenantId),
+    );
+    if (depositResponse.success) {
+      setSecurityDepositInfo(depositResponse.data);
+
+      // Auto-fill amount with pending amount for security deposit
+      if (
+        demandPayment.payment_type === "security_deposit" &&
+        depositResponse.data?.pending_amount
+      ) {
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: depositResponse.data.pending_amount,
+        }));
+      }
+    }
+  } catch (error) {
+    console.error("Error loading tenant details:", error);
+    toast.error("Failed to load tenant details");
+  } finally {
+    setBookingLoading(false);
+  }
+};
 
   const handleEditPayment = async (payment: any) => {
     setSelectedPayment(payment);
@@ -2575,138 +2720,152 @@ export default function PaymentsPage() {
           />
         </div> */}
 
-        {/* Detailed Stats Cards */}
-        {/* Detailed Stats Cards - 5 Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-7 gap-1.5 sm:gap-2 sticky top-16 z-10">
-          {/* Rent Collected Card */}
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <IndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
-                <p className="text-[9px] sm:text-[10px] text-blue-700 font-medium">
-                  Rent Collected
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-blue-800">
-                ₹{detailedStats.total_rent_collected.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-blue-600 mt-0.5">
-                Total rent payments
-              </p>
-            </CardContent>
-          </Card>
+{/* Detailed Stats Cards */}
+<div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 sm:gap-2 sticky top-16 z-10">
+  {/* Total Rent Collected Card */}
+  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <IndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
+        <p className="text-[9px] sm:text-[10px] text-blue-700 font-medium">
+          Total Rent Collected
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-blue-800">
+        ₹{detailedStats.total_rent_collected?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-blue-600 mt-0.5">
+        All time rent payments
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* Net Deposit Card */}
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
-                <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
-                  Net Deposit
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-green-800">
-                ₹{detailedStats.net_deposit_collected.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-green-600 mt-0.5">
-                Collected: ₹
-                {detailedStats.total_deposit_collected.toLocaleString()}
-              </p>
-            </CardContent>
-          </Card>
+  {/* Net Deposit Card */}
+  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+        <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
+          Net Deposit
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-green-800">
+        ₹{detailedStats.net_deposit_collected?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-green-600 mt-0.5">
+        Collected: ₹{detailedStats.total_deposit_collected?.toLocaleString() || 0}
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* Total Refunded Card */}
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <ReceiptIndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
-                <p className="text-[9px] sm:text-[10px] text-orange-700 font-medium">
-                  Total Refunded
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-orange-800">
-                ₹{detailedStats.total_refunded.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-orange-600 mt-0.5">
-                Deposit refunds
-              </p>
-            </CardContent>
-          </Card>
+  {/* Total Refunded Card */}
+  <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <ReceiptIndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
+        <p className="text-[9px] sm:text-[10px] text-orange-700 font-medium">
+          Total Refunded
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-orange-800">
+        ₹{detailedStats.total_refunded?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-orange-600 mt-0.5">
+        Deposit refunds
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* Penalties Collected Card */}
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
-                <p className="text-[9px] sm:text-[10px] text-red-700 font-medium">
-                  Penalties Collected
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-red-800">
-                ₹{detailedStats.total_penalties_collected.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-red-600 mt-0.5">
-                From vacated tenants
-              </p>
-            </CardContent>
-          </Card>
+  {/* Penalties Collected Card */}
+  <Card className="bg-gradient-to-br from-red-50 to-red-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
+        <p className="text-[9px] sm:text-[10px] text-red-700 font-medium">
+          Penalties Collected
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-red-800">
+        ₹{detailedStats.total_penalties_collected?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-red-600 mt-0.5">
+        From vacated tenants
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* This Month Rent Card */}
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
-                <p className="text-[9px] sm:text-[10px] text-purple-700 font-medium">
-                  This Month Rent
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-purple-800">
-                ₹{detailedStats.this_month_rent.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-purple-600 mt-0.5">
-                {new Date().toLocaleString("default", { month: "long" })}{" "}
-                {new Date().getFullYear()}
-              </p>
-            </CardContent>
-          </Card>
+  {/* This Month Expected Rent Card */}
+  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
+        <p className="text-[9px] sm:text-[10px] text-purple-700 font-medium">
+          This Month Expected
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-purple-800">
+        ₹{detailedStats.this_month_expected_rent?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-purple-600 mt-0.5">
+        {new Date().toLocaleString("default", { month: "long" })} {new Date().getFullYear()} • Expected rent
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* Current Month Pending Card */}
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
-                <p className="text-[9px] sm:text-[10px] text-amber-700 font-medium">
-                  Current Month Pending
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-amber-800">
-                ₹{detailedStats.current_month_expected_pending.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-amber-600 mt-0.5">
-                {new Date().toLocaleString("default", { month: "long" })}{" "}
-                {new Date().getFullYear()} • Pending rent
-              </p>
-            </CardContent>
-          </Card>
+  {/* This Month Received Rent Card */}
+  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+        <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
+          This Month Received
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-green-800">
+        ₹{detailedStats.this_month_received_rent?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-green-600 mt-0.5">
+        {new Date().toLocaleString("default", { month: "long" })} {new Date().getFullYear()} • Received rent
+      </p>
+    </CardContent>
+  </Card>
 
-          {/* Total Transactions Card */}
-          <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <CreditCard className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-cyan-600" />
-                <p className="text-[9px] sm:text-[10px] text-cyan-700 font-medium">
-                  Transactions
-                </p>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-cyan-800">
-                {detailedStats.total_transactions.toLocaleString()}
-              </p>
-              <p className="text-[8px] text-cyan-600 mt-0.5">
-                Total payments processed
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+  {/* This Month Pending Rent Card */}
+  <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
+        <p className="text-[9px] sm:text-[10px] text-amber-700 font-medium">
+          This Month Pending
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-amber-800">
+        ₹{detailedStats.this_month_pending_rent?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-amber-600 mt-0.5">
+        {new Date().toLocaleString("default", { month: "long" })} {new Date().getFullYear()} • Pending rent
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Total Transactions Card */}
+  <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <CreditCard className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-cyan-600" />
+        <p className="text-[9px] sm:text-[10px] text-cyan-700 font-medium">
+          Transactions
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-cyan-800">
+        {detailedStats.total_transactions?.toLocaleString() || 0}
+      </p>
+      <p className="text-[8px] text-cyan-600 mt-0.5">
+        Total payments processed
+      </p>
+    </CardContent>
+  </Card>
+</div>
 
         {/* Tabs Container */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -2869,7 +3028,7 @@ export default function PaymentsPage() {
                               <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
                                 <div className="flex flex-col gap-1">
                                   <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Date
+                                    Demand Date
                                   </span>
                                   <Input
                                     placeholder="dd/mm/yy"
@@ -3148,44 +3307,47 @@ export default function PaymentsPage() {
                                     <TableCell className="py-2">
                                       {getDemandStatusBadge(demand.status)}
                                     </TableCell>
-                                    <TableCell className="py-2 text-xs">
-                                      {demand.room_number || "N/A"}{" "}
-                                      {demand.bed_number
-                                        ? `(B-${demand.bed_number})`
-                                        : ""}
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <Select
-                                        value={demand.status}
-                                        onValueChange={(newStatus) =>
-                                          handleUpdateDemandStatus(
-                                            demand.id,
-                                            newStatus,
-                                          )
-                                        }
-                                      >
-                                        <SelectTrigger className="h-7 w-24 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="pending">
-                                            Pending
-                                          </SelectItem>
-                                          <SelectItem value="paid">
-                                            Paid
-                                          </SelectItem>
-                                          <SelectItem value="partial">
-                                            Partial
-                                          </SelectItem>
-                                          <SelectItem value="overdue">
-                                            Overdue
-                                          </SelectItem>
-                                          <SelectItem value="cancelled">
-                                            Cancelled
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </TableCell>
+                                    {/* ✅ ADD THIS - Room/Bed Column (between Status and Actions) */}
+      <TableCell className="py-2 text-xs">
+        {demand.is_vacated ? (
+          <div className="flex flex-col">
+            <span className="text-red-600 font-medium text-xs">Vacated</span>
+            {demand.room_number && demand.room_number !== 'N/A' && demand.room_number !== 'Vacated' && (
+              <span className="text-[10px] text-slate-500">{demand.room_number}</span>
+            )}
+          </div>
+        ) : (
+          <>
+            {demand.room_number || "N/A"} 
+            {demand.bed_number ? ` (B-${demand.bed_number})` : ""}
+          </>
+        )}
+      </TableCell>
+
+      
+                                    {/* In the demands table, update the Status column to show progress */}
+<TableCell className="py-2">
+  {demand.status === 'paid' ? (
+    <Badge className="bg-green-100 text-green-800">Paid</Badge>
+  ) : demand.status === 'partial' ? (
+    <div className="flex flex-col gap-1 min-w-[100px]">
+      <Badge className="bg-blue-100 text-blue-800">Partial</Badge>
+      <div className="w-full bg-gray-200 rounded-full h-1.5">
+        <div 
+          className="bg-blue-600 rounded-full h-1.5" 
+          style={{ width: `${(demand.paid_amount / demand.amount) * 100}%` }}
+        />
+      </div>
+      <span className="text-[9px] text-slate-500">
+        ₹{demand.paid_amount?.toLocaleString() || 0} / ₹{demand.amount.toLocaleString()}
+      </span>
+    </div>
+  ) : demand.status === 'overdue' ? (
+    <Badge className="bg-red-100 text-red-800">Overdue</Badge>
+  ) : (
+    <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+  )}
+</TableCell>
                                   </TableRow>
                                 );
                               })
@@ -4177,493 +4339,470 @@ export default function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Demand Payment Dialog */}
-      <Dialog
-        open={isDemandPaymentOpen}
-        onOpenChange={(open) => {
-          setIsDemandPaymentOpen(open);
-          if (!open) {
-            // ✅ Reset form when dialog closes
-            resetDemandPaymentForm();
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
-          {/* Header - Fixed */}
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
-                  <div className="p-1 bg-white/20 rounded-md">
-                    <Bell className="h-3.5 w-3.5" />
+{/* Demand Payment Dialog - With Bulk Mode */}
+<Dialog
+  open={isDemandPaymentOpen}
+  onOpenChange={(open) => {
+    setIsDemandPaymentOpen(open);
+    if (!open) {
+      resetDemandPaymentForm();
+      // Reset bulk selections
+      setBulkMode(false);
+      setSelectedRooms([]);
+      setSelectedTenants([]);
+      setBulkStep(1);
+    }
+  }}
+>
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+    {/* Header */}
+    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-md">
+              {bulkMode ? <Users className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+            </div>
+            {bulkMode ? "Bulk Demand Payment" : "Demand Payment"}
+          </DialogTitle>
+          <DialogDescription className="text-orange-100 text-xs mt-0.5">
+            {bulkMode 
+              ? "Select property, rooms, and tenants to send payment demands in bulk" 
+              : "Create a payment request and notify a single tenant"}
+          </DialogDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Toggle between Single and Bulk Mode */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-white/20 h-7 px-2 text-xs"
+            onClick={() => {
+              setBulkMode(!bulkMode);
+              // Reset selections when toggling
+              if (!bulkMode) {
+                setSelectedRooms([]);
+                setSelectedTenants([]);
+                setBulkStep(1);
+                setSelectedPropertyId("");
+                setSelectedRoomId("");
+              } else {
+                setDemandPayment({
+                  tenant_id: "",
+                  payment_type: "rent",
+                  amount: 0,
+                  due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+                  description: "",
+                  send_email: true,
+                  send_sms: false,
+                });
+              }
+            }}
+          >
+            {bulkMode ? "Single Tenant" : "Bulk Mode"}
+          </Button>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </DialogClose>
+        </div>
+      </div>
+    </div>
+
+    {/* Scrollable Body */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {!bulkMode ? (
+        /* ===== SINGLE TENANT MODE ===== */
+        <>
+          {/* Property + Room Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">
+                Property <span className="text-red-500">*</span>
+              </Label>
+              <Select value={selectedPropertyId} onValueChange={handlePropertyChange}>
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder="Select property..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <div className="sticky top-0 bg-white p-2 border-b z-10">
+                    <Input
+                      placeholder="Search property..."
+                      value={propertySearch}
+                      onChange={(e) => handlePropertySearch(e.target.value)}
+                      className="h-7 text-xs"
+                    />
                   </div>
-                  Demand Payment
-                </DialogTitle>
-                <DialogDescription className="text-orange-100 text-xs mt-0.5">
-                  Create a payment request and notify the tenant
-                </DialogDescription>
-              </div>
-              <DialogClose asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/20 h-7 w-7"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </DialogClose>
+                  <div className="max-h-[250px] overflow-y-auto">
+                    {filteredProperties.map((property) => (
+                      <SelectItem key={property.id} value={property.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <Building className="h-3 w-3" />
+                          <span className="text-xs">{property.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">
+                Room <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={selectedRoomId}
+                onValueChange={handleDemandRoomChange}
+                disabled={!selectedPropertyId || loadingRooms}
+              >
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <div className="max-h-[250px] overflow-y-auto">
+                    {filteredRooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <Home className="h-3 w-3" />
+                          <span className="text-xs">Room {room.room_number}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Scrollable Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {/* Row 1: Property + Room Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Property Selection */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Property <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={selectedPropertyId}
-                  onValueChange={handlePropertyChange}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                    <SelectValue placeholder="Select property..." />
-                  </SelectTrigger>
-                  <SelectContent
-                    className="max-h-[300px]"
-                    position="popper"
-                    sideOffset={5}
-                  >
-                    {/* Search Input */}
-                    <div
-                      className="sticky top-0 bg-white p-2 border-b z-10"
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <Input
-                        ref={propertySearchInputRef}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="Search property..."
-                        value={propertySearch}
-                        onChange={(e) => handlePropertySearch(e.target.value)}
-                        className="h-7 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-
-                    {/* Properties List */}
-                    <div className="max-h-[250px] overflow-y-auto">
-                      {loadingProperties ? (
-                        <div className="px-2 py-4 text-center text-xs text-slate-500">
-                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                          Loading properties...
+          {/* Tenant Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">
+                Tenant <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={demandPayment.tenant_id}
+                onValueChange={handleDemandTenantSelect}
+                disabled={!selectedRoomId}
+              >
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose a tenant..."} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {filteredTenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">{tenant.full_name}</span>
+                          <span className="text-[10px] text-slate-500">{tenant.phone}</span>
                         </div>
-                      ) : filteredProperties.length === 0 ? (
-                        <div className="px-2 py-4 text-center text-xs text-slate-500">
-                          {propertySearch
-                            ? "No matching properties found"
-                            : properties.length === 0
-                              ? "No properties available"
-                              : "Select a property"}
-                        </div>
-                      ) : (
-                        filteredProperties.map((property) => (
-                          <SelectItem
-                            key={property.id}
-                            value={property.id.toString()}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Building className="h-3 w-3 text-slate-400" />
-                              <span className="text-xs">{property.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </div>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Room Selection */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Room <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={selectedRoomId}
-                  onValueChange={handleRoomChange}
-                  disabled={!selectedPropertyId || loadingRooms}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                    <SelectValue
-                      placeholder={
-                        !selectedPropertyId
-                          ? "Select property first"
-                          : "Select room..."
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent
-                    className="max-h-[300px]"
-                    position="popper"
-                    sideOffset={5}
-                  >
-                    <div
-                      className="sticky top-0 bg-white p-2 border-b z-10"
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <Input
-                        ref={roomSearchInputRef}
-                        placeholder="Search room..."
-                        onKeyDown={(e) => e.stopPropagation()}
-                        value={roomSearch}
-                        onChange={(e) => handleRoomSearch(e.target.value)}
-                        className="h-7 text-xs"
-                        disabled={!selectedPropertyId}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                    <div className="max-h-[250px] overflow-y-auto">
-                      {loadingRooms ? (
-                        <div className="px-2 py-4 text-center text-xs text-slate-500">
-                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                          Loading rooms...
-                        </div>
-                      ) : filteredRooms.length === 0 ? (
-                        <div className="px-2 py-4 text-center text-xs text-slate-500">
-                          {roomSearch
-                            ? "No matching rooms found"
-                            : "No rooms available"}
-                        </div>
-                      ) : (
-                        filteredRooms.map((room) => (
-                          <SelectItem key={room.id} value={room.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <Home className="h-3 w-3 text-slate-400" />
-                              <span className="text-xs">
-                                Room {room.room_number}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                ({room.sharing_type})
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </div>
-                  </SelectContent>
-                </Select>
-                {loadingRooms && (
-                  <div className="flex items-center gap-1 text-blue-600">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-[10px]">Loading rooms...</span>
-                  </div>
-                )}
-              </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Row 2: Tenant Selection + Payment Type - USE demandPayment state */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Tenant Selection */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Tenant <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={demandPayment.tenant_id} // ✅ USE demandPayment
-                  onValueChange={handleDemandTenantSelect}
-                  disabled={!selectedRoomId}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                    <SelectValue
-                      placeholder={
-                        !selectedRoomId
-                          ? "Select room first"
-                          : "Choose a tenant..."
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {filteredTenants.length === 0 && selectedRoomId ? (
-                      <div className="px-2 py-4 text-center text-xs text-slate-500">
-                        No tenants assigned to this room
-                      </div>
-                    ) : (
-                      filteredTenants.map((tenant) => (
-                        <SelectItem
-                          key={tenant.id}
-                          value={tenant.id.toString()}
-                        >
-                          <div className="flex items-center gap-2">
-                            <User className="h-3 w-3 text-slate-400" />
-                            <div className="flex flex-col">
-                              <span className="text-xs font-medium">
-                                {tenant.full_name}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {tenant.phone}
-                              </span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {bookingLoading && (
-                  <div className="flex items-center gap-1 text-blue-600">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-[10px]">
-                      Loading tenant details...
-                    </span>
-                  </div>
-                )}
-              </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+              <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rent">Rent</SelectItem>
+                  <SelectItem value="security_deposit">Security Deposit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {/* Payment Type - USE demandPayment */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Payment Type
-                </Label>
-                <Select
-                  value={demandPayment.payment_type} // ✅ USE demandPayment
-                  onValueChange={handleDemandPaymentTypeChange}
+          {/* Amount, Due Date, Description */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">Amount (₹) *</Label>
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={demandPayment.amount || ""}
+                onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
+              <Input
+                type="date"
+                value={demandPayment.due_date}
+                onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-slate-600">Description</Label>
+              <Input
+                placeholder="Payment description"
+                value={demandPayment.description}
+                onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Bed Assignment & Summary Tables */}
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+          {demandPayment.payment_type === "rent" && paymentFormData && (
+            <RentSummaryTable formData={paymentFormData} />
+          )}
+
+          {/* Notifications */}
+          <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
+            <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
+            <div className="flex gap-5">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={demandPayment.send_email}
+                  onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })}
+                  className="w-3.5 h-3.5 accent-orange-500"
+                />
+                <span className="text-xs text-slate-600">Email</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={demandPayment.send_sms}
+                  onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })}
+                  className="w-3.5 h-3.5 accent-orange-500"
+                />
+                <span className="text-xs text-slate-600">SMS</span>
+              </label>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* ===== BULK MODE ===== */
+        <>
+          {/* Step Indicator */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 1 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                1
+              </div>
+              <div className={`w-16 h-0.5 ${bulkStep >= 2 ? 'bg-orange-600' : 'bg-gray-200'}`} />
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 2 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                2
+              </div>
+              <div className={`w-16 h-0.5 ${bulkStep >= 3 ? 'bg-orange-600' : 'bg-gray-200'}`} />
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 3 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                3
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {selectedTenants.length} tenant(s) selected
+            </Badge>
+          </div>
+
+          {/* Step 1: Select Property */}
+          {bulkStep === 1 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Select Property *</Label>
+                <Select 
+                  value={selectedPropertyId} 
+                  onValueChange={async (value) => {
+                    setSelectedPropertyId(value);
+                    setBookingLoading(true);
+                    try {
+                      const response = await fetch(
+                        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}`
+                      );
+                      const data = await response.json();
+                      if (data.success) {
+                        setRoomsWithPending(data.data);
+                      }
+                    } catch (error) {
+                      console.error("Error fetching rooms:", error);
+                      toast.error("Failed to fetch rooms");
+                    } finally {
+                      setBookingLoading(false);
+                    }
+                  }}
                 >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choose a property..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="rent" className="text-xs">
-                      Rent
-                    </SelectItem>
-                    <SelectItem value="security_deposit" className="text-xs">
-                      Security Deposit
-                    </SelectItem>
+                    {properties.map((prop) => (
+                      <SelectItem key={prop.id} value={prop.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4" />
+                          {prop.name}
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex justify-end pt-4">
+                <Button onClick={() => setBulkStep(2)} disabled={!selectedPropertyId} className="bg-orange-600 hover:bg-orange-700">
+                  Next: Select Rooms
+                </Button>
+              </div>
             </div>
+          )}
 
-            {/* Bed Assignment */}
-            {paymentFormData && (
-              <BedAssignmentTable formData={paymentFormData} />
-            )}
-
-            {/* Conditional Sections */}
-            {demandPayment.payment_type === "rent" ? (
-              <div className="space-y-2">
-                {paymentFormData && (
-                  <RentSummaryTable formData={paymentFormData} />
-                )}
-              </div>
-            ) : demandPayment.payment_type === "security_deposit" &&
-              securityDepositInfo ? (
-              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
-                  <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                    <IndianRupee className="h-3 w-3" />
-                    Security Deposit Info
-                  </h4>
-                </div>
-                <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[10px] text-slate-500">Property</p>
-                    <p className="text-xs font-medium">
-                      {securityDepositInfo.property_name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500">Total</p>
-                    <p className="text-xs font-bold text-blue-600">
-                      ₹{securityDepositInfo.security_deposit?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500">Paid</p>
-                    <p className="text-xs font-medium text-green-600">
-                      ₹{securityDepositInfo.paid_amount?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500">Pending</p>
-                    <p className="text-xs font-bold text-amber-600">
-                      ₹{securityDepositInfo.pending_amount?.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="px-3 pb-3">
-                  <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                    <span>Progress</span>
-                    <span>
-                      {Math.round(
-                        ((securityDepositInfo.paid_amount || 0) /
-                          (securityDepositInfo.security_deposit || 1)) *
-                          100,
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-1.5">
-                    <div
-                      className="bg-blue-600 rounded-full h-1.5 transition-all duration-500"
-                      style={{
-                        width: `${((securityDepositInfo.paid_amount || 0) / (securityDepositInfo.security_deposit || 1)) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {/* 3-col grid: Amount + Due Date + Description - USE demandPayment */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Amount (₹) *
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={demandPayment.amount || ""}
-                  onChange={(e) =>
-                    setDemandPayment({
-                      ...demandPayment,
-                      amount: parseFloat(e.target.value) || 0,
-                    })
+          {/* Step 2: Select Rooms */}
+          {bulkStep === 2 && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-semibold">Select Rooms (with pending payments)</Label>
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (selectedRooms.length === roomsWithPending.length) {
+                    setSelectedRooms([]);
+                  } else {
+                    setSelectedRooms(roomsWithPending.map(r => r.id));
                   }
-                  className="h-8 text-xs"
-                />
-                {demandPayment.payment_type === "rent" &&
-                  paymentFormData?.total_pending > 0 && (
-                    <p className="text-[10px] text-blue-600 mt-1">
-                      Total Pending: ₹
-                      {paymentFormData.total_pending.toLocaleString()}
-                    </p>
-                  )}
-                {demandPayment.payment_type === "security_deposit" &&
-                  securityDepositInfo?.pending_amount > 0 && (
-                    <p className="text-[10px] text-blue-600">
-                      Pending: ₹
-                      {securityDepositInfo.pending_amount.toLocaleString()}
-                    </p>
-                  )}
+                }} className="h-7 text-xs">
+                  {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All Rooms"}
+                </Button>
               </div>
+              {bookingLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+              ) : roomsWithPending.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No rooms with pending payments found in this property</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
+                  {roomsWithPending.map((room) => (
+                    <Card key={room.id} className={`cursor-pointer transition-all ${selectedRooms.includes(room.id) ? "border-orange-500 bg-orange-50" : "hover:border-gray-300"}`} onClick={() => {
+                      setSelectedRooms(prev => prev.includes(room.id) ? prev.filter(id => id !== room.id) : [...prev, room.id]);
+                    }}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Home className="h-4 w-4" />
+                            <span className="font-semibold text-sm">Room {room.room_number}</span>
+                            <Badge variant="outline" className="text-xs">{room.sharing_type || 'Standard'}</Badge>
+                          </div>
+                          <Checkbox checked={selectedRooms.includes(room.id)} />
+                        </div>
+                        <div className="mt-1 text-xs text-gray-600">{room.tenants?.length || 0} tenant(s) with pending payments</div>
+                        <div className="text-xs text-amber-600">Total Pending: ₹{(room.total_pending || 0).toLocaleString()}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setBulkStep(1)}>Back</Button>
+                <Button onClick={() => setBulkStep(3)} disabled={selectedRooms.length === 0} className="bg-orange-600 hover:bg-orange-700">Next: Select Tenants</Button>
+              </div>
+            </div>
+          )}
 
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Due Date *
-                </Label>
-                <Input
-                  type="date"
-                  value={demandPayment.due_date}
-                  onChange={(e) =>
-                    setDemandPayment({
-                      ...demandPayment,
-                      due_date: e.target.value,
-                    })
+          {/* Step 3: Select Tenants & Send Demand */}
+          {bulkStep === 3 && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-semibold">Select Tenants (with pending payments)</Label>
+                <Button variant="outline" size="sm" onClick={() => {
+                  const allTenantIds = roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants?.map((t: any) => t.id) || []);
+                  if (selectedTenants.length === allTenantIds.length) {
+                    setSelectedTenants([]);
+                  } else {
+                    setSelectedTenants(allTenantIds);
                   }
-                  className="h-8 text-xs"
-                />
+                }} className="h-7 text-xs">
+                  {selectedTenants.length === roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).length ? "Deselect All" : "Select All Tenants"}
+                </Button>
               </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Description
-                </Label>
-                <Input
-                  placeholder="Payment description"
-                  value={demandPayment.description}
-                  onChange={(e) =>
-                    setDemandPayment({
-                      ...demandPayment,
-                      description: e.target.value,
-                    })
-                  }
-                  className="h-8 text-xs"
-                />
+              <div className="max-h-[300px] overflow-y-auto space-y-3">
+                {roomsWithPending.filter(room => selectedRooms.includes(room.id)).map((room) => (
+                  <Card key={room.id} className="overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 border-b"><div className="flex items-center gap-2"><Home className="h-3.5 w-3.5" /><span className="font-semibold text-sm">Room {room.room_number}</span></div></div>
+                    <CardContent className="p-0">
+                      {room.tenants && room.tenants.length > 0 ? room.tenants.map((tenant: any) => (
+                        <div key={tenant.id} className={`p-3 border-b last:border-b-0 cursor-pointer transition-colors ${selectedTenants.includes(tenant.id) ? "bg-orange-50" : "hover:bg-gray-50"}`} onClick={() => {
+                          setSelectedTenants(prev => prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id]);
+                        }}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1"><User className="h-3.5 w-3.5" /><span className="font-medium text-sm">{tenant.full_name}</span>{tenant.bed_number && <Badge variant="outline" className="text-xs">Bed #{tenant.bed_number}</Badge>}</div>
+                              <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
+                                <div className="flex items-center gap-1"><Mail className="h-3 w-3" /><span className="truncate">{tenant.email || 'No email'}</span></div>
+                                <div className="flex items-center gap-1"><Phone className="h-3 w-3" /><span>{tenant.phone || 'No phone'}</span></div>
+                                <div className="flex items-center gap-1"><IndianRupee className="h-3 w-3 text-amber-600" /><span className="font-medium text-amber-600">Pending: ₹{(tenant.total_pending || 0).toLocaleString()}</span></div>
+                                <div className="text-gray-500">Monthly: ₹{(tenant.monthly_rent || 0).toLocaleString()}</div>
+                              </div>
+                            </div>
+                            <Checkbox checked={selectedTenants.includes(tenant.id)} />
+                          </div>
+                        </div>
+                      )) : <div className="p-3 text-center text-gray-500 text-sm">No tenants with pending payments</div>}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {/* Payment Details Form */}
+              <div className="border-t pt-4 mt-2">
+                <Label className="text-sm font-semibold mb-3 block">Payment Demand Details</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1"><Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+                    <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="rent">Rent</SelectItem><SelectItem value="security_deposit">Security Deposit</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1"><Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
+                    <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-8 text-xs" />
+                  </div>
+                </div>
+                <div className="mt-3"><Label className="text-[11px] font-medium text-slate-600">Description (Optional)</Label>
+                  <Input placeholder="Add a note for all selected tenants" value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-8 text-xs mt-1" />
+                </div>
+                <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200 mt-3">
+                  <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
+                  <div className="flex gap-5">
+                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" /><span className="text-xs text-slate-600">Email</span></label>
+                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" /><span className="text-xs text-slate-600">SMS</span></label>
+                  </div>
+                </div>
+              </div>
+              {/* Summary */}
+              {selectedTenants.length > 0 && (
+                <div className="bg-orange-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center text-sm"><span className="font-semibold">Summary:</span><span>{selectedTenants.length} tenant(s) selected</span></div>
+                  <div className="flex justify-between items-center text-sm mt-1"><span>Total Pending Amount:</span><span className="font-bold text-amber-600">₹{selectedTenants.reduce((total, tenantId) => { const tenant = roomsWithPending.flatMap(r => r.tenants || []).find((t: any) => t.id === tenantId); return total + (tenant?.total_pending || 0); }, 0).toLocaleString()}</span></div>
+                </div>
+              )}
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setBulkStep(2)}>Back</Button>
+                <Button onClick={handleBulkSend} disabled={bookingLoading || selectedTenants.length === 0} className="bg-orange-600 hover:bg-orange-700">
+                  {bookingLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending to {selectedTenants.length} tenants...</> : `Send Demand to ${selectedTenants.length} Tenants`}
+                </Button>
               </div>
             </div>
+          )}
+        </>
+      )}
+    </div>
 
-            {/* Notifications - USE demandPayment */}
-            <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
-              <Label className="text-[11px] font-medium text-slate-600 block mb-2">
-                Send Notifications
-              </Label>
-              <div className="flex gap-5">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={demandPayment.send_email}
-                    onChange={(e) =>
-                      setDemandPayment({
-                        ...demandPayment,
-                        send_email: e.target.checked,
-                      })
-                    }
-                    className="w-3.5 h-3.5 accent-orange-500"
-                  />
-                  <span className="text-xs text-slate-600">Email</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={demandPayment.send_sms}
-                    onChange={(e) =>
-                      setDemandPayment({
-                        ...demandPayment,
-                        send_sms: e.target.checked,
-                      })
-                    }
-                    className="w-3.5 h-3.5 accent-orange-500"
-                  />
-                  <span className="text-xs text-slate-600">SMS</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer - Fixed */}
-          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsDemandPaymentOpen(false);
-                  resetDemandPaymentForm();
-                }}
-                className="text-xs h-8 px-4"
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDemandPayment}
-                disabled={
-                  bookingLoading ||
-                  !demandPayment.tenant_id ||
-                  !demandPayment.amount ||
-                  !demandPayment.due_date
-                }
-                className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-              >
-                {bookingLoading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-3 w-3 mr-1.5" />
-                    Send Demand
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+    {/* Footer - Only show for single tenant mode */}
+    {!bulkMode && (
+      <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setIsDemandPaymentOpen(false); resetDemandPaymentForm(); }} className="text-xs h-8 px-4">Cancel</Button>
+          <Button size="sm" onClick={handleDemandPayment} disabled={bookingLoading || !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date} className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
+            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Sending...</> : <><Send className="h-3 w-3 mr-1.5" /> Send Demand</>}
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
 
       {/* Approve Payment Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>

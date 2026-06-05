@@ -256,7 +256,9 @@ async function enhancedFetch<T>(
     // Add authorization token if available (SSR safe)
     let token: string | null = null;
     if (typeof window !== 'undefined') {
-      token = localStorage.getItem('admin_token');
+     token = localStorage.getItem('admin_token') 
+     || localStorage.getItem('auth_token') 
+     || localStorage.getItem('token');
     }
     
     if (token) {
@@ -605,9 +607,11 @@ export async function exportTenantsToExcel(filters: any = {}): Promise<{ success
     
     // Get token if available
     let token: string | null = null;
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('admin_token');
-    }
+if (typeof window !== 'undefined') {
+  token = localStorage.getItem('admin_token') 
+       || localStorage.getItem('auth_token') 
+       || localStorage.getItem('token');
+}
     
     // Use fetch directly instead of request for blob response
     const response = await fetch(url, {
@@ -1110,7 +1114,9 @@ export async function getTenantPayments(tenantId: string | number): Promise<ApiR
 export async function getTenantPaymentFormData(tenantId: string | number): Promise<ApiResult<any>> {
   try {
     // ✅ Use direct fetch instead of request to see the error
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('admin_token') 
+           || localStorage.getItem('auth_token') 
+           || localStorage.getItem('token');
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     
     const response = await fetch(`${baseUrl}/api/payments/tenant/${tenantId}/payment-form`, {
