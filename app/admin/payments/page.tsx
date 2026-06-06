@@ -309,6 +309,9 @@ const [bulkSummary, setBulkSummary] = useState({
     tenant: "",
     from_date: "",
     to_date: "",
+    payment_type: "",  // ✅ Add this
+  amount: "",        // ✅ Add this for amount search
+  room: "",          // ✅ Add this for room search
   });
 
   const [stats, setStats] = useState({
@@ -469,7 +472,6 @@ const [detailedStats, setDetailedStats] = useState({
             name: v.name || v.value || "",
           }));
         setPaymentModes(modes);
-        console.log("✅ Payment modes loaded:", modes);
       }
     } catch (error) {
       console.error("Error fetching payment modes:", error);
@@ -570,65 +572,46 @@ const loadDetailedStats = async () => {
     }
   };
 
-// In app/admin/payments/page.tsx - Update loadDemands function
-
 const loadDemands = async () => {
   try {
     const response = await paymentApi.getDemands();
     
     if (response && response.data) {
-      // Enhance demands with tenant room/bed info including vacated tenants
+      // The API already returns is_vacated from the backend
+      // We don't need to fetch bed assignments again if is_vacated is already true
       const enhancedDemands = await Promise.all(
         response.data.map(async (demand: DemandPayment) => {
           const processedDemand = {
             ...demand,
             amount: Number(demand.amount),
             late_fee: Number(demand.late_fee || 0),
+            paid_amount: Number(demand.paid_amount) || 0,
+            // Preserve the is_vacated value from API
+            is_vacated: demand.is_vacated === true || demand.is_vacated === 1,
           };
 
+          // If already marked as vacated, don't try to fetch bed assignment
+          if (processedDemand.is_vacated) {
+            return processedDemand;
+          }
+
+          // Only try to fetch bed assignment for non-vacated tenants
           try {
-            // First try to get active bed assignment
-            let bedAssignment = await paymentApi.getTenantBedAssignment(demand.tenant_id);
-            
-            // If no active assignment, check vacate_records
-            if (!bedAssignment) {
-              const vacateResponse = await fetch(
-                `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/vacate/tenant/${demand.tenant_id}/latest`
-              );
-              const vacateData = await vacateResponse.json();
-              
-              if (vacateData.success && vacateData.data) {
-                const vacateRecord = vacateData.data;
-                return {
-                  ...processedDemand,
-                  room_number: vacateRecord.room_number || 'Vacated',
-                  bed_number: vacateRecord.bed_number,
-                  property_name: vacateRecord.property_name || 'Previous Property',
-                  is_vacated: true,
-                  vacated_date: vacateRecord.requested_vacate_date
-                };
-              }
-            }
+            const bedAssignment = await paymentApi.getTenantBedAssignment(demand.tenant_id);
             
             return {
               ...processedDemand,
-              room_number: bedAssignment?.room?.room_number || 'N/A',
-              bed_number: bedAssignment?.bed_number,
-              property_name: bedAssignment?.property?.name || 'N/A',
-              is_vacated: false
+              room_number: bedAssignment?.room?.room_number || demand.room_number || 'N/A',
+              bed_number: bedAssignment?.bed_number || demand.bed_number,
+              property_name: bedAssignment?.property?.name || demand.property_name || 'N/A',
             };
           } catch (error) {
             console.warn(`Could not fetch assignment for tenant ${demand.tenant_id}:`, error);
-            return {
-              ...processedDemand,
-              room_number: 'N/A',
-              bed_number: null,
-              property_name: 'N/A',
-              is_vacated: false
-            };
+            return processedDemand;
           }
         }),
       );
+      
       setDemands(enhancedDemands);
     } else {
       setDemands([]);
@@ -815,9 +798,7 @@ const handleBulkSend = async () => {
             .includes(roomSearch.toLowerCase()),
         );
         setFilteredRooms(filtered);
-        console.log(
-          `✅ Loaded ${data.data.length} rooms for property ${propertyId}`,
-        );
+        
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
@@ -837,9 +818,7 @@ const handleBulkSend = async () => {
       const response = await tenantApi.getTenantsByRoom(roomId);
       if (response.success && response.data) {
         setFilteredTenants(response.data);
-        console.log(
-          `✅ Found ${response.data.length} tenants for room ${roomId}`,
-        );
+        
       } else {
         setFilteredTenants([]);
       }
@@ -878,6 +857,25 @@ const handleBulkSend = async () => {
     await fetchRoomsByProperty(propertyId);
   };
 
+
+  // Handle property change in demand payment form
+const handleDemandPropertyChange = async (propertyId: string) => {
+  setSelectedPropertyId(propertyId);
+  setSelectedRoomId(""); // Reset room selection
+  setDemandPayment((prev) => ({ 
+    ...prev, 
+    tenant_id: ""  // Clear tenant selection when property changes
+  }));
+  setFilteredTenants([]); // Clear tenants
+  setRoomSearch(""); // Reset room search
+  setFilteredRooms([]); // Clear filtered rooms
+  setPaymentFormData(null); // Clear bed assignment data
+  setSecurityDepositInfo(null); // Clear security deposit info
+  
+  if (propertyId) {
+    await fetchRoomsByProperty(propertyId);
+  }
+};
   // Handle room change
   // Handle room change
   const handleRoomChange = async (roomId: string) => {
@@ -914,17 +912,7 @@ const handleDemandRoomChange = async (roomId: string) => {
       const response = await listTenants({ pageSize: 500 });
       if (response.success && response.data) {
         setTenants(response.data);
-        console.log(
-          "Loaded tenants:",
-          response.data.map((t) => ({
-            id: t.id,
-            name: t.full_name,
-            property_id: t.current_assignment?.property_id,
-            room_id: t.current_assignment?.room_id,
-            property_name: t.current_assignment?.property_name,
-            room_number: t.current_assignment?.room_number,
-          })),
-        );
+        
       }
     } catch (error) {
       console.error("Error loading tenants:", error);
@@ -1088,7 +1076,7 @@ const handleDemandRoomChange = async (roomId: string) => {
     }
   };
 
-// Update handleDemandTenantSelect to clear previous data
+// Update handleDemandTenantSelect to properly fetch and display security deposit info
 const handleDemandTenantSelect = async (tenantId: string) => {
   // Clear previous data first
   setPaymentFormData(null);
@@ -1106,36 +1094,40 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     );
     if (formResponse.success) {
       setPaymentFormData(formResponse.data);
-
-      // Auto-fill amount with total pending amount for rent
-      if (
-        demandPayment.payment_type === "rent" &&
-        formResponse.data?.total_pending
-      ) {
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: formResponse.data.total_pending,
-        }));
-      }
     }
 
-    // Fetch security deposit info
+    // Fetch security deposit info - THIS IS KEY
     const depositResponse = await paymentApi.getSecurityDepositInfo(
       parseInt(tenantId),
     );
-    if (depositResponse.success) {
+    console.log("Security deposit response:", depositResponse);
+    
+    if (depositResponse.success && depositResponse.data) {
       setSecurityDepositInfo(depositResponse.data);
-
+      
       // Auto-fill amount with pending amount for security deposit
       if (
         demandPayment.payment_type === "security_deposit" &&
-        depositResponse.data?.pending_amount
+        depositResponse.data?.pending_amount > 0
       ) {
         setDemandPayment((prev) => ({
           ...prev,
           amount: depositResponse.data.pending_amount,
         }));
       }
+    } else {
+      // Set default info if no deposit found
+      setSecurityDepositInfo({
+        property_name: formResponse.data?.room_info?.property_name || 'N/A',
+        room_number: formResponse.data?.room_info?.room_number || 'N/A',
+        bed_number: formResponse.data?.room_info?.bed_number || null,
+        security_deposit: 0,
+        paid_amount: 0,
+        pending_amount: 0,
+        is_fully_paid: true,
+        last_payment_date: null,
+        payments: []
+      });
     }
   } catch (error) {
     console.error("Error loading tenant details:", error);
@@ -1459,8 +1451,6 @@ const handleDemandTenantSelect = async (tenantId: string) => {
         paymentData.year = txDate.getFullYear();
       }
 
-      console.log("Sending payment data:", paymentData);
-
       const response = await paymentApi.createPayment(paymentData);
 
       if (response.success && response.data) {
@@ -1645,12 +1635,9 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     try {
       toast.loading("Loading payment form...", { id: "prefill-loading" });
 
-      console.log("Prefill started with:", { tenantId, propertyId, roomId });
-      console.log("Current properties length:", properties.length);
 
       // ✅ First, fetch properties if they are empty
       if (properties.length === 0) {
-        console.log("Fetching properties...");
         await fetchProperties();
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
@@ -1661,18 +1648,15 @@ const handleDemandTenantSelect = async (tenantId: string) => {
       setNewPayment((prev) => ({ ...prev, tenant_id: tenantId.toString() }));
 
       // ✅ Load rooms for this property
-      console.log("Fetching rooms for property:", propertyId);
       await fetchRoomsByProperty(propertyId.toString());
 
       // ✅ Load tenants for this room
-      console.log("Fetching tenants for room:", roomId);
       await fetchTenantsByRoom(roomId.toString());
 
       // ✅ Wait for state to update
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       // ✅ Load tenant payment data
-      console.log("Loading tenant payment data for:", tenantId);
       await handleTenantSelect(tenantId.toString());
 
       toast.dismiss("prefill-loading");
@@ -2614,6 +2598,12 @@ const handleDemandTenantSelect = async (tenantId: string) => {
       !demandFilters.tenant ||
       tenantName.includes(demandFilters.tenant.toLowerCase());
 
+      // ✅ NEW: Payment type filter
+  const matchesPaymentType =
+    !demandFilters.payment_type ||
+    demandFilters.payment_type === "all" ||
+    demand.payment_type === demandFilters.payment_type;
+
     // Date filter (created_at)
     const matchesDate =
       !demandFilters.date ||
@@ -2658,6 +2648,7 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     return (
       matchesStatus &&
       matchesTenant &&
+      matchesPaymentType &&
       matchesDate &&
       matchesFromDate &&
       matchesToDate &&
@@ -2685,40 +2676,46 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     }
   };
 
+const handleResendReminder = async (demand: DemandPayment) => {
+  try {
+    if (!demand.tenant_id) {
+      toast.error("Tenant ID not found for this demand");
+      return;
+    }
+
+    toast.loading(`Sending reminder to ${demand.tenant_name}...`, { id: "resend-reminder" });
+    
+    // ✅ Pass the demand type in the request body
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/${demand.tenant_id}/resend-reminder`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          demand_type: demand.payment_type  // ✅ Send the payment type
+        })
+      }
+    );
+    
+    const data = await response.json();
+    
+    toast.dismiss("resend-reminder");
+    
+    if (data.success) {
+      toast.success(`Reminder sent to ${demand.tenant_name} successfully!`);
+    } else {
+      toast.error(data.message || "Failed to send reminder");
+    }
+  } catch (error) {
+    toast.dismiss("resend-reminder");
+    console.error("Error sending reminder:", error);
+    toast.error("Failed to send reminder");
+  }
+};
+
   return (
     <div className="bg-slate-50">
       <div className="p-0 sm:p-0 md:p-0 space-y-2 sm:space-y-3">
-        {/* Compact Stats Cards */}
-        {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
-          <StatCard
-            title="Collected"
-            value={`₹${stats?.total_collected?.toLocaleString() || "0"}`}
-            icon={IndianRupee}
-            color="bg-blue-600"
-            bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
-          />
-          <StatCard
-            title="This Month"
-            value={`₹${stats?.current_month_collected?.toLocaleString() || "0"}`}
-            icon={TrendingUp}
-            color="bg-green-600"
-            bgColor="bg-gradient-to-br from-green-50 to-green-100"
-          />
-          <StatCard
-            title="Transactions"
-            value={stats?.total_transactions || 0}
-            icon={CreditCard}
-            color="bg-purple-600"
-            bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
-          />
-          <StatCard
-            title="Rent Collected"
-            value={`₹${stats?.rent_collected?.toLocaleString() || "0"}`}
-            icon={Banknote}
-            color="bg-amber-600"
-            bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
-          />
-        </div> */}
 
 {/* Detailed Stats Cards */}
 <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 sm:gap-2 sticky top-16 z-10">
@@ -3022,337 +3019,361 @@ const handleDemandTenantSelect = async (tenantId: string) => {
                       <div className="flex-shrink-0">
                         <Table>
                           {/* COMPACT HEADER WITH SEARCH BARS */}
-                          <TableHeader className="bg-gray-200 border-b border-gray-300">
-                            <TableRow className="hover:bg-transparent">
-                              {/* Date Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Demand Date
-                                  </span>
-                                  <Input
-                                    placeholder="dd/mm/yy"
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                    value={demandFilters.date || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        date: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+                         <colgroup>
+  <col style={{ width: "110px" }} />  {/* Demand Date */}
+  <col style={{ width: "180px" }} />  {/* Tenant */}
+  <col style={{ width: "120px" }} />  {/* Type */}
+  <col style={{ width: "100px" }} />  {/* Amount */}
+  <col style={{ width: "100px" }} />  {/* Due Date */}
+  <col style={{ width: "160px" }} />  {/* Room/Bed */}
+  <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
+</colgroup>
 
-                              {/* Tenant Column - Updated with salutation and phone */}
-                              <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Tenant
-                                  </span>
-                                  <Input
-                                    placeholder="Search tenant..."
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                    value={demandFilters.tenant || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        tenant: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+<TableHeader className="bg-gray-200 border-b border-gray-300">
+  <TableRow className="hover:bg-transparent">
+    {/* Demand Date Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Demand Date
+        </span>
+        <Input
+          placeholder="dd/mm/yy"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={demandFilters.date || ""}
+          onChange={(e) =>
+            setDemandFilters({
+              ...demandFilters,
+              date: e.target.value,
+            })
+          }
+        />
+      </div>
+    </TableHead>
 
-                              {/* Amount Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Amount
-                                  </span>
-                                  <Input
-                                    placeholder="Search..."
-                                    type="number"
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
-                                    value={demandFilters.amount || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        amount: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+    {/* Tenant Column */}
+    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Tenant
+        </span>
+        <Input
+          placeholder="Search tenant..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={demandFilters.tenant || ""}
+          onChange={(e) =>
+            setDemandFilters({
+              ...demandFilters,
+              tenant: e.target.value,
+            })
+          }
+        />
+      </div>
+    </TableHead>
 
-                              {/* Due Date Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Due Date
-                                  </span>
-                                  <Input
-                                    type="text"
-                                    placeholder="dd/mm/yy"
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                    value={demandFilters.from_date || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        from_date: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+    {/* Payment Type Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Type
+        </span>
+        <Select
+          value={demandFilters.payment_type || "all"}
+          onValueChange={(value) =>
+            setDemandFilters({
+              ...demandFilters,
+              payment_type: value,
+            })
+          }
+        >
+          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+            <SelectValue placeholder="All" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="rent">Rent</SelectItem>
+            <SelectItem value="security_deposit">Security Deposit</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </TableHead>
 
-                              {/* Status Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Status
-                                  </span>
-                                  <Select
-                                    value={demandFilters.status || "all"}
-                                    onValueChange={(value) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        status: value,
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-                                      <SelectValue placeholder="All" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem
-                                        value="all"
-                                        className="text-xs"
-                                      >
-                                        All
-                                      </SelectItem>
-                                      <SelectItem
-                                        value="pending"
-                                        className="text-xs"
-                                      >
-                                        Pending
-                                      </SelectItem>
-                                      <SelectItem
-                                        value="paid"
-                                        className="text-xs"
-                                      >
-                                        Paid
-                                      </SelectItem>
-                                      <SelectItem
-                                        value="partial"
-                                        className="text-xs"
-                                      >
-                                        Partial
-                                      </SelectItem>
-                                      <SelectItem
-                                        value="overdue"
-                                        className="text-xs"
-                                      >
-                                        Overdue
-                                      </SelectItem>
-                                      <SelectItem
-                                        value="cancelled"
-                                        className="text-xs"
-                                      >
-                                        Cancelled
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableHead>
+    {/* Amount Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Amount
+        </span>
+        <Input
+          placeholder="Search..."
+          type="number"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+          value={demandFilters.amount || ""}
+          onChange={(e) =>
+            setDemandFilters({
+              ...demandFilters,
+              amount: e.target.value,
+            })
+          }
+        />
+      </div>
+    </TableHead>
 
-                              {/* Room/Bed Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Room/Bed
-                                  </span>
-                                  <Input
-                                    placeholder="Search..."
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                    value={demandFilters.room || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        room: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+    {/* Due Date Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Due Date
+        </span>
+        <Input
+          type="text"
+          placeholder="dd/mm/yy"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={demandFilters.from_date || ""}
+          onChange={(e) =>
+            setDemandFilters({
+              ...demandFilters,
+              from_date: e.target.value,
+            })
+          }
+        />
+      </div>
+    </TableHead>
 
-                              {/* Actions Column */}
-                              {/* Actions Column */}
-                              <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                                <div className="flex flex-col gap-1 items-center">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Actions
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      setShowDemandFilterSidebar(true)
-                                    }
-                                    className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                                  >
-                                    <Filter className="w-2.5 h-2.5 mr-0.5" />
-                                    Filter
-                                  </Button>
-                                </div>
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
+    {/* Room/Bed Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Room/Bed
+        </span>
+        <Input
+          placeholder="Search..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={demandFilters.room || ""}
+          onChange={(e) =>
+            setDemandFilters({
+              ...demandFilters,
+              room: e.target.value,
+            })
+          }
+        />
+      </div>
+    </TableHead>
+
+    {/* Actions Column (with Progress Bar inside) */}
+    <TableHead className="w-[180px] py-2 px-2 bg-gray-200 text-center">
+      <div className="flex flex-col gap-1 items-center">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+          Status / Actions
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowDemandFilterSidebar(true)}
+          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+        >
+          <Filter className="w-2.5 h-2.5 mr-0.5" />
+          Filter
+        </Button>
+      </div>
+    </TableHead>
+  </TableRow>
+</TableHeader>
                         </Table>
                       </div>
                       <div className="overflow-y-auto flex-1 min-h-0">
                         <Table>
-                          <colgroup>
-                            <col style={{ width: "140px" }} />
-                            <col style={{ width: "300px" }} />
-                            <col style={{ width: "170px" }} />
-                            <col style={{ width: "130px" }} />
-                            <col style={{ width: "22px" }} />
-                            <col style={{ width: "100px" }} />
-                            <col style={{ width: "100px" }} />
-                          </colgroup>
-                          <TableBody>
-                            {loading ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={8}
-                                  className="text-center py-8 text-xs text-slate-500"
-                                >
-                                  <div className="flex justify-center items-center">
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
-                                    Loading demands...
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ) : filteredDemands.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={8}
-                                  className="text-center py-8 text-xs text-slate-500"
-                                >
-                                  <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                                  No demands found
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              paginatedDemandsData().items.map((demand) => {
-                                // Get salutation and country code for this tenant
-                                const salutation = getTenantSalutation(
-                                  demand.tenant_id,
-                                );
-                                const countryCode = getTenantCountryCode(
-                                  demand.tenant_id,
-                                );
-                                const phone = getTenantPhone(demand.tenant_id);
-                                const tenantName = getTenantName(
-                                  demand.tenant_id,
-                                );
-
-                                return (
-                                  <TableRow
-                                    key={demand.id}
-                                    className="hover:bg-slate-50"
-                                  >
-                                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                                      {format(
-                                        new Date(demand.created_at),
-                                        "dd/MM/yy",
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      {/* Show salutation + full name */}
-                                      <p className="text-xs font-medium">
-                                        {salutation ? `${salutation} ` : ""}
-                                        {tenantName}
-                                      </p>
-                                      {/* Show country code + phone number */}
-                                      {phone && (
-                                        <p className="text-[10px] text-slate-500">
-                                          {countryCode || "+91"} {phone}
-                                        </p>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-2 text-xs font-medium">
-                                      ₹
-                                      {Number(demand.amount).toLocaleString(
-                                        "en-IN",
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                                      <span
-                                        className={
-                                          new Date(demand.due_date) <
-                                            new Date() &&
-                                          demand.status === "pending"
-                                            ? "text-red-600 font-medium"
-                                            : ""
-                                        }
-                                      >
-                                        {format(
-                                          new Date(demand.due_date),
-                                          "dd/MM/yy",
-                                        )}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      {getDemandStatusBadge(demand.status)}
-                                    </TableCell>
-                                    {/* ✅ ADD THIS - Room/Bed Column (between Status and Actions) */}
-      <TableCell className="py-2 text-xs">
-        {demand.is_vacated ? (
-          <div className="flex flex-col">
-            <span className="text-red-600 font-medium text-xs">Vacated</span>
-            {demand.room_number && demand.room_number !== 'N/A' && demand.room_number !== 'Vacated' && (
-              <span className="text-[10px] text-slate-500">{demand.room_number}</span>
-            )}
-          </div>
-        ) : (
-          <>
-            {demand.room_number || "N/A"} 
-            {demand.bed_number ? ` (B-${demand.bed_number})` : ""}
-          </>
-        )}
+                          <col style={{ width: "110px" }} />  {/* Demand Date */}
+  <col style={{ width: "180px" }} />  {/* Tenant */}
+  <col style={{ width: "120px" }} />  {/* Type */}
+  <col style={{ width: "100px" }} />  {/* Amount */}
+  <col style={{ width: "100px" }} />  {/* Due Date */}
+  <col style={{ width: "160px" }} />  {/* Room/Bed */}
+  <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
+<TableBody>
+  {loading ? (
+    <TableRow>
+      <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
+        <div className="flex justify-center items-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
+          Loading demands...
+        </div>
       </TableCell>
-
-      
-                                    {/* In the demands table, update the Status column to show progress */}
-<TableCell className="py-2">
-  {demand.status === 'paid' ? (
-    <Badge className="bg-green-100 text-green-800">Paid</Badge>
-  ) : demand.status === 'partial' ? (
-    <div className="flex flex-col gap-1 min-w-[100px]">
-      <Badge className="bg-blue-100 text-blue-800">Partial</Badge>
-      <div className="w-full bg-gray-200 rounded-full h-1.5">
-        <div 
-          className="bg-blue-600 rounded-full h-1.5" 
-          style={{ width: `${(demand.paid_amount / demand.amount) * 100}%` }}
-        />
-      </div>
-      <span className="text-[9px] text-slate-500">
-        ₹{demand.paid_amount?.toLocaleString() || 0} / ₹{demand.amount.toLocaleString()}
-      </span>
-    </div>
-  ) : demand.status === 'overdue' ? (
-    <Badge className="bg-red-100 text-red-800">Overdue</Badge>
+    </TableRow>
+  ) : filteredDemands.length === 0 ? (
+    <TableRow>
+      <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
+        <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+        No demands found
+      </TableCell>
+    </TableRow>
   ) : (
-    <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+    paginatedDemandsData().items.map((demand) => {
+      const salutation = getTenantSalutation(demand.tenant_id);
+      const countryCode = getTenantCountryCode(demand.tenant_id);
+      const phone = getTenantPhone(demand.tenant_id);
+      const tenantName = getTenantName(demand.tenant_id);
+
+      return (
+        <TableRow key={demand.id} className="hover:bg-slate-50">
+          {/* Demand Date */}
+          <TableCell className="py-2 text-xs whitespace-nowrap">
+            {format(new Date(demand.created_at), "dd/MM/yy")}
+          </TableCell>
+
+          {/* Tenant Column */}
+          <TableCell className="py-2">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-xs font-medium">
+                  {salutation ? `${salutation} ` : ''}
+                  {tenantName}
+                </p>
+                {demand.is_vacated === true && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-semibold border border-red-200">
+                    <DoorOpen className="w-2.5 h-2.5" />
+                    Vacated
+                  </span>
+                )}
+              </div>
+              {phone && (
+                <p className="text-[10px] text-slate-500">
+                  {countryCode || '+91'} {phone}
+                </p>
+              )}
+            </div>
+          </TableCell>
+
+          {/* Payment Type Cell */}
+          <TableCell className="py-2">
+            <Badge className={`text-[10px] px-2 py-0.5 ${
+              demand.payment_type === 'security_deposit' 
+                ? 'bg-purple-100 text-purple-700 border-purple-200' 
+                : 'bg-blue-100 text-blue-700 border-blue-200'
+            }`}>
+              {demand.payment_type === 'security_deposit' ? 'Security Deposit' : 'Rent'}
+            </Badge>
+          </TableCell>
+
+          {/* Amount */}
+          <TableCell className="py-2 text-xs font-medium">
+            ₹{Number(demand.amount).toLocaleString("en-IN")}
+          </TableCell>
+
+          {/* Due Date */}
+          <TableCell className="py-2 text-xs whitespace-nowrap">
+            <span className={new Date(demand.due_date) < new Date() && demand.status === "pending" ? "text-red-600 font-medium" : ""}>
+              {format(new Date(demand.due_date), "dd/MM/yy")}
+            </span>
+          </TableCell>
+
+          {/* Room/Bed Column */}
+          <TableCell className="py-2 text-xs">
+            {demand.is_vacated === true ? (
+              <div className="flex flex-col gap-0.5">
+                {demand.room_number && demand.room_number !== 'N/A' && demand.room_number !== '—' && (
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-800">
+                      Room {demand.room_number}
+                      {demand.bed_number ? ` · Bed #${demand.bed_number}` : ''}
+                    </span>
+                    {demand.property_name && demand.property_name !== 'N/A' && (
+                      <span className="text-[10px] text-gray-400">{demand.property_name}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {demand.room_number && demand.room_number !== 'N/A' ? (
+                  <>
+                    <span className="font-medium text-gray-800">
+                      Room {demand.room_number}
+                      {demand.bed_number ? ` · Bed #${demand.bed_number}` : ''}
+                    </span>
+                    {demand.property_name && demand.property_name !== 'N/A' && (
+                      <span className="text-[10px] text-gray-500">{demand.property_name}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-400">No assignment</span>
+                )}
+              </div>
+            )}
+          </TableCell>
+
+          {/* Actions Column with Status Progress Bar */}
+          <TableCell className="py-2">
+            {demand.status === 'paid' ? (
+              <div className="flex items-center justify-center gap-2">
+                <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
+                  onClick={() => handleResendReminder(demand)}
+                  title="Resend Payment Reminder"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : demand.status === 'partial' ? (
+              <div className="flex flex-col gap-1 min-w-[140px]">
+                <div className="flex justify-between items-center">
+                  <Badge className="bg-blue-100 text-blue-800">Partial</Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
+                    onClick={() => handleResendReminder(demand)}
+                    title="Resend Payment Reminder"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div 
+                    className="bg-blue-600 rounded-full h-1.5" 
+                    style={{ width: `${((demand.paid_amount || 0) / (demand.amount || 1)) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-slate-500 text-center">
+                  ₹{(demand.paid_amount || 0).toLocaleString()} / ₹{(demand.amount || 0).toLocaleString()}
+                </span>
+              </div>
+            ) : demand.status === 'overdue' ? (
+              <div className="flex items-center justify-center gap-2">
+                <Badge className="bg-red-100 text-red-800">Overdue</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
+                  onClick={() => handleResendReminder(demand)}
+                  title="Resend Payment Reminder"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
+                  onClick={() => handleResendReminder(demand)}
+                  title="Resend Payment Reminder"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      );
+    })
   )}
-</TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
+</TableBody>
                         </Table>
                       </div>
                     </div>
@@ -4421,7 +4442,7 @@ const handleDemandTenantSelect = async (tenantId: string) => {
               <Label className="text-[11px] font-medium text-slate-600">
                 Property <span className="text-red-500">*</span>
               </Label>
-              <Select value={selectedPropertyId} onValueChange={handlePropertyChange}>
+              <Select value={selectedPropertyId} onValueChange={handleDemandPropertyChange}>
                 <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                   <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
@@ -4542,7 +4563,7 @@ const handleDemandTenantSelect = async (tenantId: string) => {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">Description</Label>
+              <Label className="text-[11px] font-medium text-slate-600">Message</Label>
               <Input
                 placeholder="Payment description"
                 value={demandPayment.description}
@@ -4552,11 +4573,93 @@ const handleDemandTenantSelect = async (tenantId: string) => {
             </div>
           </div>
 
-          {/* Bed Assignment & Summary Tables */}
-          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-          {demandPayment.payment_type === "rent" && paymentFormData && (
-            <RentSummaryTable formData={paymentFormData} />
-          )}
+          {/* Bed Assignment Table */}
+{paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+
+{/* Rent Summary Table - Only for rent payment type */}
+{demandPayment.payment_type === "rent" && paymentFormData && (
+  <RentSummaryTable formData={paymentFormData} />
+)}
+
+{/* Security Deposit Info - Only for security deposit payment type */}
+{demandPayment.payment_type === "security_deposit" && securityDepositInfo && (
+  <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+        <IndianRupee className="h-3.5 w-3.5" />
+        Security Deposit Information
+      </h4>
+    </div>
+    <div className="p-4">
+      <div className="grid grid-cols-5 gap-4">
+        <div>
+          <p className="text-xs text-slate-500">Property</p>
+          <p className="text-xs font-medium">
+            {securityDepositInfo.property_name || paymentFormData?.room_info?.property_name || 'N/A'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Room/Bed</p>
+          <p className="text-xs font-medium">
+            Room {securityDepositInfo.room_number || paymentFormData?.room_info?.room_number || 'N/A'}
+            {securityDepositInfo.bed_number && ` • Bed #${securityDepositInfo.bed_number}`}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Total Security Deposit</p>
+          <p className="text-xs font-bold text-blue-600">
+            ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Already Paid</p>
+          <p className="text-xs font-medium text-green-600">
+            ₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Pending Amount</p>
+          <p className="text-xs font-bold text-amber-600">
+            ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      {(securityDepositInfo.security_deposit || 0) > 0 && (
+        <div className="mt-3">
+          <div className="flex justify-between text-xs text-slate-500 mb-1">
+            <span>Payment Progress</span>
+            <span>
+              {Math.round(
+                ((securityDepositInfo.paid_amount || 0) /
+                  (securityDepositInfo.security_deposit || 1)) * 100
+              )}
+              %
+            </span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+              style={{
+                width: `${((securityDepositInfo.paid_amount || 0) /
+                  (securityDepositInfo.security_deposit || 1)) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {securityDepositInfo.is_fully_paid && (
+        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
+            <span>✅</span> Security deposit is fully paid!
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
           {/* Notifications */}
           <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
@@ -4750,12 +4853,30 @@ const handleDemandTenantSelect = async (tenantId: string) => {
               <div className="border-t pt-4 mt-2">
                 <Label className="text-sm font-semibold mb-3 block">Payment Demand Details</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
-                    <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="rent">Rent</SelectItem><SelectItem value="security_deposit">Security Deposit</SelectItem></SelectContent>
-                    </Select>
-                  </div>
+                  <div className="space-y-1">
+      <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+      <Select 
+        value={demandPayment.payment_type} 
+        onValueChange={async (value) => {
+          setDemandPayment(prev => ({ ...prev, payment_type: value }));
+          
+          // If switching to security deposit and we have selected tenants,
+          // we should show security deposit info
+          if (value === 'security_deposit' && selectedTenants.length > 0) {
+            // For bulk, we'll show a summary of security deposit pending amounts
+            toast.info(`Selected tenants will receive security deposit reminders`);
+          }
+        }}
+      >
+        <SelectTrigger className="h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="rent">Rent</SelectItem>
+          <SelectItem value="security_deposit">Security Deposit</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
                   <div className="space-y-1"><Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
                     <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-8 text-xs" />
                   </div>
