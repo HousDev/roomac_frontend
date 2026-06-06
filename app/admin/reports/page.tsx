@@ -166,7 +166,8 @@ const [reportPageSize, setReportPageSize] = useState(20);
 const [reportTotalItems, setReportTotalItems] = useState(0);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [revenuePage, setRevenuePage] = useState(1);
-const [revenuePageSize, setRevenuePageSize] = useState(20);
+const [propertyTenantPage, setPropertyTenantPage] = useState(1);
+const [propertyTenantPageSize, setPropertyTenantPageSize] = useState(20);
 
   const [dashboardStats, setDashboardStats] =
     useState<reportApi.DashboardStats>({
@@ -330,126 +331,30 @@ useEffect(() => {
 const loadDashboardStats = async () => {
   try {
     setDashboardLoading(true);
-    
-    // Fetch all necessary data directly for accurate stats
-    const [propertiesRes, roomsRes, tenantsRes, paymentsRes] = await Promise.all([
-      fetch('/api/properties?pageSize=1000'),
-      fetch('/api/rooms'),
-      fetch('/api/tenants?pageSize=1000'),
-      fetch('/api/payments')
-    ]);
-    
-    const propertiesData = await propertiesRes.json();
-    const roomsData = await roomsRes.json();
-    const tenantsData = await tenantsRes.json();
-    const paymentsData = await paymentsRes.json();
-    
-    // Get properties array
-    const properties = propertiesData.success ? (propertiesData.data?.data || propertiesData.data || []) : [];
-    
-    // Get rooms array
-    const rooms = Array.isArray(roomsData) ? roomsData : (roomsData.data || []);
-    
-    // Get tenants array
-    const tenants = tenantsData.data || [];
-    
-    // Get payments array
-    const payments = paymentsData.data || [];
-    
-    // Calculate Total Beds correctly
-    let totalBeds = 0;
-    let occupiedBeds = 0;
-    let totalRooms = rooms.length;
-    let activeRooms = rooms.filter(r => r.is_active === true).length;
-    
-    for (const room of rooms) {
-      const roomTotalBeds = Number(room.total_bed) || 0;
-      const roomOccupiedBeds = Number(room.occupied_beds) || 0;
-      totalBeds += roomTotalBeds;
-      occupiedBeds += roomOccupiedBeds;
+
+    // Use the backend dashboard-stats API which has all correct calculations
+    const response = await fetch(`/api/reports/dashboard-stats`);
+    const data = await response.json();
+
+    if (data.success && data.data) {
+      const d = data.data;
+      setDashboardStats({
+        totalProperties: d.totalProperties || 0,
+        totalRooms: d.totalRooms || 0,
+        totalBeds: d.totalBeds || 0,
+        occupiedBeds: d.occupiedBeds || 0,
+        activeTenants: d.activeTenants || 0,
+        monthlyRevenue: d.monthlyRevenue || 0,
+        revenueGrowth: d.revenueGrowth || 0,
+        occupationGrowth: d.occupationGrowth || 0,
+        occupancyRate: d.occupancyRate || 0,
+        collectionRate: d.collectionRate || 0,
+        pendingPayments: d.pendingPayments || 0,
+        pendingAmount: d.pendingAmount || 0,
+        upcomingCheckouts: d.upcomingCheckouts || 0,
+        maintenanceRequests: d.maintenanceRequests || 0,
+      });
     }
-    
-    const availableBeds = totalBeds - occupiedBeds;
-    const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
-    
-    // Calculate Total Properties
-    const totalProperties = properties.length;
-    const activeProperties = properties.filter(p => p.is_active === true).length;
-    
-    // Calculate Active Tenants (is_active = 1)
-    const activeTenants = tenants.filter(t => t.is_active === 1 || t.is_active === true).length;
-    
-    // Calculate Monthly Revenue (current month, approved/paid payments only)
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
-    
-    let monthlyRevenue = 0;
-    let totalCollected = 0;
-    let pendingAmount = 0;
-    
-    for (const payment of payments) {
-      const amount = Number(payment.amount) || 0;
-      const isSuccessful = payment.status === 'approved' || payment.status === 'paid';
-      const isPending = payment.status === 'pending';
-      
-      if (isSuccessful) {
-        totalCollected += amount;
-        
-        // Check if payment is from current month
-        const paymentDate = new Date(payment.payment_date);
-        if (paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear) {
-          monthlyRevenue += amount;
-        }
-      }
-      
-      if (isPending) {
-        pendingAmount += amount;
-      }
-    }
-    
-    // Calculate Collection Rate
-    const totalPayments = payments.filter(p => p.status === 'approved' || p.status === 'paid').length;
-    const totalTransactions = payments.length;
-    const collectionRate = totalTransactions > 0 ? (totalPayments / totalTransactions) * 100 : 0;
-    
-    // Count pending payments
-    const pendingPayments = payments.filter(p => p.status === 'pending').length;
-    
-    // Upcoming checkouts (next 7 days) - from vacate records or check-out dates
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const upcomingCheckouts = 0; // You can calculate from bookings or vacate requests
-    
-    // Maintenance requests (from tenant_requests table)
-    let maintenanceRequests = 0;
-    try {
-      const requestsRes = await fetch('/api/admin/maintenance');
-      const requestsData = await requestsRes.json();
-      if (requestsData.success && requestsData.data) {
-        maintenanceRequests = requestsData.data.filter((r: any) => r.status === 'pending').length;
-      }
-    } catch (err) {
-      console.error('Error fetching maintenance requests:', err);
-    }
-    
-    setDashboardStats({
-      totalProperties,
-      totalRooms,
-      totalBeds,
-      occupiedBeds,
-      activeTenants,
-      monthlyRevenue,
-      revenueGrowth: 0,
-      occupationGrowth: occupancyRate > 0 ? (occupancyRate - 70) : 0,
-      occupancyRate: Math.round(occupancyRate),
-      collectionRate: Math.round(collectionRate),
-      pendingPayments,
-      pendingAmount,
-      upcomingCheckouts,
-      maintenanceRequests
-    });
-    
   } catch (err) {
     console.error('Error loading dashboard stats:', err);
   } finally {
@@ -1337,7 +1242,7 @@ useEffect(() => {
           color="green"
         />
         <ExtendedStatCard
-          title="Pending"
+          title="This Month Expected"
           value={dashboardStats.pendingPayments || 0}
           subtitle={formatCurrency(dashboardStats.pendingAmount || 0)}
           icon={<Clock className="h-3 w-3 sm:h-4 sm:w-4" />}
@@ -1345,16 +1250,16 @@ useEffect(() => {
           color="yellow"
         />
         <ExtendedStatCard
-          title="Checkouts"
+          title="Total Vacated"
           value={dashboardStats.upcomingCheckouts || 0}
-          icon={<Users className="h-3 w-3 sm:h-4 sm:w-4" />}
+          icon={<DoorOpen className="h-3 w-3 sm:h-4 sm:w-4" />}
           loading={dashboardLoading}
           color="blue"
         />
         <ExtendedStatCard
-          title="Maintenance"
-          value={dashboardStats.maintenanceRequests || 0}
-          icon={<AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />}
+          title="Total Expenses"
+          value={formatCurrency(dashboardStats.maintenanceRequests || 0)}
+          icon={<Receipt className="h-3 w-3 sm:h-4 sm:w-4" />}
           loading={dashboardLoading}
           color="red"
         />
@@ -1438,8 +1343,8 @@ useEffect(() => {
         />
       </div>
 
-      {/* Property - Only show for property-specific reports */}
-      {(filters.reportType === 'property_payment' || filters.reportType === 'occupancy') && (
+      {/* Property - Only show for property_payment report in main row */}
+      {filters.reportType === 'property_payment' && (
         <div className="space-y-1 sm:space-y-2">
           <Label className="text-xs">Property</Label>
           <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
@@ -1874,7 +1779,9 @@ useEffect(() => {
                     <div>
                       <p className="text-[10px] text-gray-500">Check-in Date</p>
                       <p className="text-xs">
-                        {tenantPaymentReport.tenant.check_in_date}
+                        {tenantPaymentReport.tenant.check_in_date
+                          ? new Date(tenantPaymentReport.tenant.check_in_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+                          : 'N/A'}
                       </p>
                     </div>
                     <div>
@@ -2370,6 +2277,7 @@ useEffect(() => {
                     <table className="min-w-full divide-y divide-gray-200 text-xs">
                       <thead className="bg-gray-50">
                         <tr>
+                          <th className="px-3 py-2 text-left">#</th>
                           <th className="px-3 py-2 text-left">Tenant Name</th>
                           <th className="px-3 py-2 text-center">Room/Bed</th>
                           <th className="px-3 py-2 text-center">
@@ -2393,11 +2301,28 @@ useEffect(() => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {propertyPaymentReport.tenant_reports?.map(
+                        {propertyPaymentReport.tenant_reports
+                          ?.slice((propertyTenantPage - 1) * propertyTenantPageSize, propertyTenantPage * propertyTenantPageSize)
+                          ?.map(
                           (tenant: any, idx: number) => (
                             <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-gray-400">
+                                {(propertyTenantPage - 1) * propertyTenantPageSize + idx + 1}
+                              </td>
                               <td className="px-3 py-2 font-medium">
-                                {tenant.tenant_name}
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {tenant.tenant_name}
+                                  {tenant.is_vacated ? (
+                                    <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge>
+                                  ) : !tenant.is_active ? (
+                                    <Badge className="bg-gray-100 text-gray-600 text-[9px] px-1 py-0">Inactive</Badge>
+                                  ) : null}
+                                </div>
+                                {tenant.vacated_date && (
+                                  <p className="text-[10px] text-red-500 mt-0.5">
+                                    {new Date(tenant.vacated_date).toLocaleDateString('en-IN')}
+                                  </p>
+                                )}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 R{tenant.room_number}/B{tenant.bed_number}
@@ -2456,7 +2381,14 @@ useEffect(() => {
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-3 text-right text-xs text-gray-500">
+                  <ReportPagination
+                    total={propertyPaymentReport.tenant_reports?.length || 0}
+                    page={propertyTenantPage}
+                    pageSize={propertyTenantPageSize}
+                    onPageChange={setPropertyTenantPage}
+                    onPageSizeChange={(size: number) => { setPropertyTenantPageSize(size); setPropertyTenantPage(1); }}
+                  />
+                  <div className="mt-2 text-right text-xs text-gray-500">
                     Total Tenants:{" "}
                     {propertyPaymentReport.financial_summary?.total_tenants ||
                       0}{" "}
@@ -3482,7 +3414,10 @@ function RevenueReportDetails({ data, formatCurrency, page, pageSize, onPageChan
                 <tr key={payment.id} className="hover:bg-gray-50">
                   <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
                   <td className="px-2 py-1.5">
-                    <div className="font-medium">{payment.tenant_name || 'N/A'}</div>
+                    <div className="font-medium flex items-center gap-1">
+                      {payment.tenant_name || 'N/A'}
+                      {payment.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
+                    </div>
                     <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
                   </td>
                   <td className="px-2 py-1.5">{payment.property_name || 'N/A'} / Room {payment.room_number || 'N/A'}</td>
@@ -3651,7 +3586,10 @@ function PaymentsReportDetails({ data, formatCurrency }: any) {
               <tr key={payment.id} className="hover:bg-gray-50">
                 <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td className="px-2 py-1.5">
-                  <div className="font-medium">{payment.tenant_name || 'N/A'}</div>
+                  <div className="font-medium flex items-center gap-1">
+                    {payment.tenant_name || 'N/A'}
+                    {payment.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
+                  </div>
                   <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
                 </td>
                 <td className="px-2 py-1.5">
@@ -3806,7 +3744,10 @@ function TenantsReportDetails({ data, formatCurrency, page, pageSize, onPageChan
             {paginatedTenants.map((tenant: any) => (
               <tr key={tenant.id} className="hover:bg-gray-50">
                 <td className="px-2 py-1.5">
-                  <div className="font-medium">{tenant.full_name}</div>
+                  <div className="font-medium flex items-center gap-1">
+                    {tenant.full_name}
+                    {tenant.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
+                  </div>
                   <div className="text-[10px] text-gray-500">{tenant.email || tenant.phone}</div>
                 </td>
                 <td className="px-2 py-1.5">
