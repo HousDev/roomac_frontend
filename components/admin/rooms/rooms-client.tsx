@@ -196,103 +196,101 @@ const handleImportFile = async (file: File) => {
   }
 };
 
-  // Memoized filtered rooms
-// Memoized filtered rooms
 const filteredRooms = useMemo(() => {
   const safeRooms = Array.isArray(rooms) ? rooms : [];
   
-  if (searchQuery) {
-    // Check first room for tenant data
-    const firstRoom = safeRooms[0];
-    if (firstRoom && firstRoom.bed_assignments) {
-      // console.log("📊 Sample bed assignment from first room:", firstRoom.bed_assignments.map(b => ({
-      //   bed_number: b.bed_number,
-      //   tenant_id: b.tenant_id,
-      //   tenant_name: b.tenant_name,
-      //   is_available: b.is_available
-      // })));
-    }
-  }
-
   return safeRooms.filter(room => {
     if (!room) return false;
 
-    // ── Advanced filter: property_ids ──────────────────────────────
-    if (advancedFilters?.property_ids && advancedFilters.property_ids.length > 0) {
-      const match = advancedFilters.property_ids.some(
-        id => String(id) === String(room.property_id)
+    // Property filter
+    if (advancedFilters?.property_ids?.length > 0) {
+      if (!advancedFilters.property_ids.some(id => String(id) === String(room.property_id))) {
+        return false;
+      }
+    }
+
+    // ✅ Room type filter (was missing!)
+    if (advancedFilters?.room_types?.length > 0) {
+      if (!advancedFilters.room_types.includes(room.room_type) && 
+          !advancedFilters.room_types.includes(room.sharing_type)) {
+        return false;
+      }
+    }
+
+    // ✅ Gender preferences filter (was missing!)
+    if (advancedFilters?.gender_preferences?.length > 0) {
+      const roomPrefs = Array.isArray(room.room_gender_preference) 
+        ? room.room_gender_preference 
+        : [];
+      const hasMatch = advancedFilters.gender_preferences.some(pref =>
+        roomPrefs.some(rp => rp.toLowerCase() === pref.toLowerCase())
       );
-      if (!match) return false;
+      if (!hasMatch) return false;
     }
 
-    // ── Local search (searches both room details AND tenant names) ──
+    // ✅ Availability filter (was missing!)
+    if (advancedFilters?.availability_status && advancedFilters.availability_status !== 'any') {
+      const occupied = room.occupied_beds || 0;
+      const total = room.total_bed || 0;
+      if (advancedFilters.availability_status === 'available' && occupied !== 0) return false;
+      if (advancedFilters.availability_status === 'partial' && (occupied === 0 || occupied >= total)) return false;
+      if (advancedFilters.availability_status === 'full' && occupied < total) return false;
+    }
+
+    // ✅ Amenities filter (was missing!)
+    if (advancedFilters?.amenities?.length > 0) {
+      const roomAmenities = room.amenities || [];
+      if (!advancedFilters.amenities.every(a => roomAmenities.includes(a))) return false;
+    }
+
+    // ✅ Boolean filters
+    if (advancedFilters?.has_attached_bathroom !== undefined && advancedFilters.has_attached_bathroom !== null) {
+      if (room.has_attached_bathroom !== advancedFilters.has_attached_bathroom) return false;
+    }
+    if (advancedFilters?.has_balcony !== undefined && advancedFilters.has_balcony !== null) {
+      if (room.has_balcony !== advancedFilters.has_balcony) return false;
+    }
+    if (advancedFilters?.has_ac !== undefined && advancedFilters.has_ac !== null) {
+      if (room.has_ac !== advancedFilters.has_ac) return false;
+    }
+    if (advancedFilters?.allow_couples !== undefined && advancedFilters.allow_couples !== null) {
+      if (room.allow_couples !== advancedFilters.allow_couples) return false;
+    }
+
+    // ✅ Rent range
+    if (advancedFilters?.min_rent > 0 && room.rent_per_bed < advancedFilters.min_rent) return false;
+    if (advancedFilters?.max_rent < 100000 && room.rent_per_bed > advancedFilters.max_rent) return false;
+
+    // Search
     const searchLower = searchQuery.toLowerCase();
-    const roomNumberStr = room.room_number ? room.room_number.toString() : '';
-    const propertyName = (room.property_name || '').toLowerCase();
-    const propertyAddress = (room.property_address || '').toLowerCase();
-    const sharingType = room.sharing_type || '';
-    const totalBeds = room.total_bed || 0;
-
-    // ✅ Search by tenant names in bed assignments
-    let matchesTenantSearch = false;
-    const bedAssignments = room.bed_assignments || [];
-  
-    
-    matchesTenantSearch = bedAssignments.some((assignment: any) => {
-      if (!assignment.is_available && assignment.tenant_id) {
-        const tenantName = assignment.tenant_name || '';
-        const matches = tenantName.toLowerCase().includes(searchLower);
-        return matches;
-      }
-      return false;
-    });
-
-    // Regular room search
-    const matchesRoomSearch = 
-      roomNumberStr.toLowerCase().includes(searchLower) ||
-      propertyName.includes(searchLower) ||
-      propertyAddress.includes(searchLower) ||
-      sharingType.toLowerCase().includes(searchLower);
-
-    // ✅ Combined search - searches both room details AND tenant names
-    const matchesSearch = !searchQuery || matchesRoomSearch || matchesTenantSearch;
-
-    // ... rest of filters remain the same
-    let matchesRoomType = false;
-    if (selectedRoomType === 'all') {
-      matchesRoomType = true;
-    } else if (selectedRoomType === 'other') {
-      const isExplicitlyOther = sharingType.toLowerCase() === 'other';
-      const isCustomBedCount = ![1, 2, 3].includes(totalBeds);
-      matchesRoomType = isExplicitlyOther || isCustomBedCount;
-    } else {
-      if (selectedRoomType === 'single') {
-        matchesRoomType = (sharingType.toLowerCase() === 'single' && totalBeds === 1) ||
-                         (sharingType.toLowerCase() !== 'other' && totalBeds === 1);
-      } else if (selectedRoomType === 'double') {
-        matchesRoomType = (sharingType.toLowerCase() === 'double' && totalBeds === 2) ||
-                         (sharingType.toLowerCase() !== 'other' && totalBeds === 2);
-      } else if (selectedRoomType === 'triple') {
-        matchesRoomType = (sharingType.toLowerCase() === 'triple' && totalBeds === 3) ||
-                         (sharingType.toLowerCase() !== 'other' && totalBeds === 3);
-      }
+    if (searchQuery) {
+      const roomNumberStr = room.room_number?.toString() || '';
+      const propertyName = (room.property_name || '').toLowerCase();
+      const sharingType = (room.sharing_type || '').toLowerCase();
+      
+      const matchesTenantSearch = (room.bed_assignments || []).some((assignment: any) =>
+        !assignment.is_available && assignment.tenant_id &&
+        (assignment.tenant_name || '').toLowerCase().includes(searchLower)
+      );
+      
+      const matchesRoomSearch = 
+        roomNumberStr.toLowerCase().includes(searchLower) ||
+        propertyName.includes(searchLower) ||
+        sharingType.includes(searchLower);
+      
+      if (!matchesRoomSearch && !matchesTenantSearch) return false;
     }
 
-    let matchesGenderPref = true;
-    if (selectedGenderPref !== 'all') {
-      const roomPreferences: any = room.room_gender_preference;
-      if (Array.isArray(roomPreferences)) {
-        matchesGenderPref = roomPreferences.some(pref =>
-          pref.toLowerCase().includes(selectedGenderPref.replace('_only', ''))
-        );
-      } else if (typeof roomPreferences === 'string') {
-        matchesGenderPref = roomPreferences.toLowerCase().includes(
-          selectedGenderPref.replace('_only', '')
-        );
-      }
+    // Local room type filter (the quick-filter dropdowns at top)
+    if (selectedRoomType !== 'all') {
+      const sharingType = room.sharing_type || '';
+      const totalBeds = room.total_bed || 0;
+      if (selectedRoomType === 'single' && totalBeds !== 1) return false;
+      if (selectedRoomType === 'double' && totalBeds !== 2) return false;
+      if (selectedRoomType === 'triple' && totalBeds !== 3) return false;
     }
 
-    return matchesSearch && matchesRoomType && matchesGenderPref;
+    return true;
   });
 }, [rooms, searchQuery, selectedRoomType, selectedGenderPref, advancedFilters]);
 
