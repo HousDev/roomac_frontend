@@ -557,45 +557,22 @@ export async function createDemandPayment(data: any): Promise<any> {
   }
 }
 
-export async function getDemands(filters?: any): Promise<any> {
+// In paymentRecordApi.ts
+export async function getDemands(): Promise<any> {
   try {
-    const params = new URLSearchParams();
-    if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
-    if (filters?.tenant_id) params.append('tenant_id', filters.tenant_id.toString());
-    if (filters?.from_date) params.append('from_date', filters.from_date);
-    if (filters?.to_date) params.append('to_date', filters.to_date);
-    
-    const queryString = params.toString();
-    const url = `/api/payments/demands${queryString ? `?${queryString}` : ''}`;
-    
-    const response = await request(url);
-    
-    
-    // Check if response exists and has data
-    if (response && response.success) {
-      return {
-        success: true,
-        data: response.data || [],
-        count: response.count || 0
-      };
-    } else {
-      // If API returns success false but might have data
-      return {
-        success: false,
-        data: response?.data || [],
-        count: response?.count || 0,
-        message: response?.message || 'Unknown error'
-      };
+    const response = await request('/api/payments/demands');
+    // Ensure is_vacated is properly typed
+    if (response.data) {
+      response.data = response.data.map((demand: any) => ({
+        ...demand,
+        is_vacated: demand.is_vacated === true || demand.is_vacated === 1,
+        paid_amount: Number(demand.paid_amount) || 0
+      }));
     }
-  } catch (error: any) {
+    return response;
+  } catch (error) {
     console.error('Error fetching demands:', error);
-    // Return empty array on error
-    return {
-      success: false,
-      data: [],
-      count: 0,
-      message: error.message || 'Failed to fetch demands'
-    };
+    throw error;
   }
 }
 
