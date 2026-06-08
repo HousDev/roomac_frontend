@@ -1,4 +1,5 @@
-// app/admin/dashboard/page.tsx
+// app/admin/dashboard/page.tsx - Updated with Payment Stats Section
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,9 @@ import {
   AlertCircle, Home, Bed, MessageSquare, PieChart,
   Clock, Receipt, Filter, 
   AreaChart as AreaChartIcon,
-  ArrowRight, Shield, LineChart as LineChartIcon
+  ArrowRight, Shield, LineChart as LineChartIcon,
+  Wallet, TrendingUp as TrendingUpIcon, Percent,
+  ReceiptIndianRupee, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -27,7 +30,7 @@ import { useRouter } from 'next/navigation';
 import { listProperties } from '@/lib/propertyApi';
 import { listRooms } from '@/lib/roomsApi';
 import { listTenants } from '@/lib/tenantApi';
-import { getPayments } from '@/lib/paymentRecordApi';
+import { getPayments, getDetailedPaymentStats } from '@/lib/paymentRecordApi';
 import { getEnquiries } from '@/lib/enquiryApi';
 import { getExpenses } from '@/lib/expenseApi';
 
@@ -84,7 +87,7 @@ const getFinancialYearMonths = (financialYear: string): string[] => {
 };
 
 // Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color, bgColor, onClick, link }: any) => (
+const StatCard = ({ title, value, icon: Icon, color, bgColor, onClick, link, subtitle }: any) => (
   <div 
     className={`${bgColor} rounded-xl p-2 sm:p-3 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 ${onClick ? 'cursor-pointer hover:scale-105' : ''}`}
     onClick={() => onClick && onClick(link)}
@@ -96,6 +99,20 @@ const StatCard = ({ title, value, icon: Icon, color, bgColor, onClick, link }: a
       <div className="min-w-0 flex-1">
         <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">{title}</p>
         <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{value}</p>
+        {subtitle && <p className="text-[8px] text-gray-400 truncate">{subtitle}</p>}
+      </div>
+    </div>
+  </div>
+);
+
+// Payment Stats Card Component (for detailed payment stats)
+const PaymentStatCard = ({ title, value, subtitle }: any) => (
+  <div className={`rounded-xl p-2 sm:p-3 shadow-sm border border-gray-100 bg-white`}>
+    <div className="flex items-center gap-2 sm:gap-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] sm:text-[10px] font-medium text-gray-500 truncate">{title}</p>
+        <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{value}</p>
+        {subtitle && <p className="text-[8px] text-gray-400 truncate">{subtitle}</p>}
       </div>
     </div>
   </div>
@@ -562,6 +579,19 @@ export default function AdminDashboard() {
   const [showOverviewMenu, setShowOverviewMenu] = useState(false);
   const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>('all');
   
+  // NEW: Detailed payment stats state
+  const [detailedPaymentStats, setDetailedPaymentStats] = useState({
+    total_rent_collected: 0,
+    total_deposit_collected: 0,
+    net_deposit_collected: 0,
+    total_refunded: 0,
+    total_penalties_collected: 0,
+    this_month_expected_rent: 0,
+    this_month_received_rent: 0,
+    this_month_pending_rent: 0,
+    total_transactions: 0,
+  });
+  
   // Enhanced tenants with property and bed assignment info
   const [enrichedTenants, setEnrichedTenants] = useState<any[]>([]);
   
@@ -737,6 +767,28 @@ export default function AdminDashboard() {
   const totalExpensesSum = sortedYearData.reduce((sum, d) => sum + d.expenses, 0);
   const totalProfit = totalRevenue - totalExpensesSum;
 
+  // NEW: Load detailed payment stats
+  const loadDetailedPaymentStats = useCallback(async () => {
+    try {
+      const response = await getDetailedPaymentStats();
+      if (response.success && response.data) {
+        setDetailedPaymentStats({
+          total_rent_collected: response.data.total_rent_collected || 0,
+          total_deposit_collected: response.data.total_deposit_collected || 0,
+          net_deposit_collected: response.data.net_deposit_collected || 0,
+          total_refunded: response.data.total_refunded || 0,
+          total_penalties_collected: response.data.total_penalties_collected || 0,
+          this_month_expected_rent: response.data.this_month_expected_rent || 0,
+          this_month_received_rent: response.data.this_month_received_rent || 0,
+          this_month_pending_rent: response.data.this_month_pending_rent || 0,
+          total_transactions: response.data.total_transactions || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading detailed payment stats:', error);
+    }
+  }, []);
+
   // Load all data
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -758,12 +810,10 @@ export default function AdminDashboard() {
         roomsData = roomsRes.data;
       }
       
-      // ✅ FIX: A room is active if it has occupied beds OR is marked as occupied/active
       roomsData = roomsData.map(room => ({
         ...room,
         total_bed: room.total_bed || room.capacity || 0,
         occupied_beds: room.occupied_beds || room.current_tenants || 0,
-        // A room is active if it has any occupied beds
         is_active: (room.occupied_beds && room.occupied_beds > 0) || 
                    (room.current_tenants && room.current_tenants > 0) ||
                    room.status === 'occupied' ||
@@ -816,7 +866,6 @@ export default function AdminDashboard() {
       const availableBeds = totalBeds - occupiedBeds;
       
       const totalRooms = roomsData.length;
-      // ✅ FIX: Count rooms that are active (have occupied beds)
       const activeRooms = roomsData.filter(r => r.is_active === true).length;
       
       const totalProperties = propertiesData.length;
@@ -885,6 +934,9 @@ export default function AdminDashboard() {
         totalTransactions: paymentsData.length
       });
       
+      // Load detailed payment stats
+      await loadDetailedPaymentStats();
+      
       // Recent data
       const sortedPayments = [...paymentsData].sort((a, b) => 
         new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
@@ -906,7 +958,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [enrichTenantsWithAssignments]);
+  }, [enrichTenantsWithAssignments, loadDetailedPaymentStats]);
 
   useEffect(() => {
     loadAllData();
@@ -973,17 +1025,14 @@ export default function AdminDashboard() {
     const occupiedBedsFiltered = filteredRooms.reduce((sum, r) => sum + (Number(r.occupied_beds) || Number(r.current_tenants) || 0), 0);
     const availableBedsFiltered = totalBedsFiltered - occupiedBedsFiltered;
     
-    // Calculate room stats - FIX: A room is active if it has occupied beds
+    // Calculate room stats
     const totalRoomsFiltered = filteredRooms.length;
     const activeRoomsFiltered = filteredRooms.filter(room => {
-      // Check if room has occupied beds
       if (room.occupied_beds && room.occupied_beds > 0) return true;
       if (room.current_tenants && room.current_tenants > 0) return true;
-      // Check if room is marked as occupied/active
       if (room.status === 'occupied' || room.status === 'active') return true;
       if (room.is_active === true || room.is_active === 1) return true;
       if (room.is_available === false) return true;
-      // Check beds array if available
       if (room.beds && Array.isArray(room.beds)) {
         return room.beds.some((bed: any) => bed.is_occupied === true || bed.tenant_id !== null);
       }
@@ -1077,6 +1126,7 @@ export default function AdminDashboard() {
         availableFinancialYears={availableFinancialYears}
       />
 
+      {/* Top Stats Row */}
       <div className="mb-4 sm:mb-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2 sticky top-16 z-10">
           {statCards.map((stat, index) => (
@@ -1093,6 +1143,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Overview and Revenue/Expenses Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
         <Card className="border-0 shadow-lg">
           <CardHeader className="p-3 sm:p-4">
@@ -1231,6 +1282,9 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
+      
+
+      {/* Recent Activity Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         <Card className="border-0 shadow-lg">
           <CardHeader className="p-3 sm:p-4 border-b border-gray-100">
@@ -1284,53 +1338,62 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Total Rent Collected</p>
-              <p className="text-base font-bold text-blue-600">{formatCurrency(stats.totalRentCollected)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <IndianRupee className="h-4 w-4 text-blue-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Deposit Collected</p>
-              <p className="text-base font-bold text-green-600">{formatCurrency(stats.totalDepositCollected)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-              <Shield className="h-4 w-4 text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Pending Amount</p>
-              <p className="text-base font-bold text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-amber-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Monthly Revenue</p>
-              <p className="text-base font-bold text-indigo-600">{formatCurrency(stats.monthlyRevenue)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 text-indigo-600" />
-            </div>
-          </div>
+      {/* NEW: Detailed Payment Stats Section */}
+      <div className="mt-6 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2">
+          <PaymentStatCard
+            title="Net Deposit"
+            value={formatCurrency(detailedPaymentStats.net_deposit_collected)}
+            icon={Shield}
+            color="bg-green-600"
+            bgColor="bg-gradient-to-br from-green-50 to-green-100"
+            subtitle={`Collected: ${formatCurrency(detailedPaymentStats.total_deposit_collected)}`}
+          />
+          <PaymentStatCard
+            title="Total Refunded"
+            value={formatCurrency(detailedPaymentStats.total_refunded)}
+            icon={ReceiptIndianRupee}
+            color="bg-orange-600"
+            bgColor="bg-gradient-to-br from-orange-50 to-orange-100"
+            subtitle="Deposit refunds"
+          />
+          <PaymentStatCard
+            title="Penalties Collected"
+            value={formatCurrency(detailedPaymentStats.total_penalties_collected)}
+            icon={AlertCircle}
+            color="bg-red-600"
+            bgColor="bg-gradient-to-br from-red-50 to-red-100"
+            subtitle="From vacated tenants"
+          />
+          <PaymentStatCard
+            title="This Month Expected"
+            value={formatCurrency(detailedPaymentStats.this_month_expected_rent)}
+            icon={Calendar}
+            color="bg-purple-600"
+            bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
+            subtitle={`${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`}
+          />
+          <PaymentStatCard
+            title="This Month Received"
+            value={formatCurrency(detailedPaymentStats.this_month_received_rent)}
+            icon={CheckCircle2}
+            color="bg-green-600"
+            bgColor="bg-gradient-to-br from-green-50 to-green-100"
+            subtitle="Received rent"
+          />
+          <PaymentStatCard
+            title="This Month Pending"
+            value={formatCurrency(detailedPaymentStats.this_month_pending_rent)}
+            icon={Clock}
+            color="bg-amber-600"
+            bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
+            subtitle="Pending rent"
+          />
+          
         </div>
       </div>
 
+      {/* Payment Mode and Expense Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 mb-6">
         {paymentModeData.length > 0 && (
           <Card className="border-0 shadow-lg">

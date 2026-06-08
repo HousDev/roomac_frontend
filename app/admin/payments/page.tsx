@@ -686,13 +686,15 @@ const handleBulkSend = async () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          property_id: parseInt(selectedPropertyId),
-          tenant_ids: selectedTenants,
-          send_email: demandPayment.send_email,
-          send_sms: demandPayment.send_sms,
-          reminder_type: "demand",
-          payment_type: demandPayment.payment_type
-        })
+  property_id: parseInt(selectedPropertyId),
+  tenant_ids: selectedTenants,
+  send_email: demandPayment.send_email,
+  send_sms: demandPayment.send_sms,
+  reminder_type: "demand",
+  payment_type: demandPayment.payment_type,
+  due_date: demandPayment.due_date,
+  description: demandPayment.description || ""
+})
       }
     );
     
@@ -3023,8 +3025,8 @@ const handleResendReminder = async (demand: DemandPayment) => {
                          <colgroup>
   <col style={{ width: "110px" }} />  {/* Demand Date */}
   <col style={{ width: "180px" }} />  {/* Tenant */}
-  <col style={{ width: "120px" }} />  {/* Type */}
-  <col style={{ width: "100px" }} />  {/* Amount */}
+  <col style={{ width: "130px" }} />  {/* Type */}
+  <col style={{ width: "170px" }} />  {/* Amount */}
   <col style={{ width: "100px" }} />  {/* Due Date */}
   <col style={{ width: "160px" }} />  {/* Room/Bed */}
   <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
@@ -3073,7 +3075,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
     </TableHead>
 
     {/* Payment Type Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-left">
       <div className="flex flex-col gap-1">
         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
           Type
@@ -3100,7 +3102,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
     </TableHead>
 
     {/* Amount Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-left">
       <div className="flex flex-col gap-1">
         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
           Amount
@@ -3108,7 +3110,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
         <Input
           placeholder="Search..."
           type="number"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
           value={demandFilters.amount || ""}
           onChange={(e) =>
             setDemandFilters({
@@ -3187,7 +3189,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                           <col style={{ width: "110px" }} />  {/* Demand Date */}
   <col style={{ width: "180px" }} />  {/* Tenant */}
   <col style={{ width: "120px" }} />  {/* Type */}
-  <col style={{ width: "100px" }} />  {/* Amount */}
+  <col style={{ width: "170px" }} />  {/* Amount */}
   <col style={{ width: "100px" }} />  {/* Due Date */}
   <col style={{ width: "160px" }} />  {/* Room/Bed */}
   <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
@@ -3224,7 +3226,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
 
           {/* Tenant Column */}
           <TableCell className="py-2">
-            <div className="flex flex-col">
+            <div className="flex flex-col items-center">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <p className="text-xs font-medium">
                   {salutation ? `${salutation} ` : ''}
@@ -3246,7 +3248,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
           </TableCell>
 
           {/* Payment Type Cell */}
-          <TableCell className="py-2">
+          <TableCell className="py-2 text-center">
             <Badge className={`text-[10px] px-2 py-0.5 ${
               demand.payment_type === 'security_deposit' 
                 ? 'bg-purple-100 text-purple-700 border-purple-200' 
@@ -3257,19 +3259,19 @@ const handleResendReminder = async (demand: DemandPayment) => {
           </TableCell>
 
           {/* Amount */}
-          <TableCell className="py-2 text-xs font-medium">
+          <TableCell className="py-2 text-xs font-medium text-center mr-31">
             ₹{Number(demand.amount).toLocaleString("en-IN")}
           </TableCell>
 
           {/* Due Date */}
-          <TableCell className="py-2 text-xs whitespace-nowrap">
+          <TableCell className="py-2 text-xs whitespace-nowrap text-center">
             <span className={new Date(demand.due_date) < new Date() && demand.status === "pending" ? "text-red-600 font-medium" : ""}>
               {format(new Date(demand.due_date), "dd/MM/yy")}
             </span>
           </TableCell>
 
           {/* Room/Bed Column */}
-          <TableCell className="py-2 text-xs">
+          <TableCell className="py-2 text-xs text-center">
             {demand.is_vacated === true ? (
               <div className="flex flex-col gap-0.5">
                 {demand.room_number && demand.room_number !== 'N/A' && demand.room_number !== '—' && (
@@ -4378,7 +4380,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
     }
   }}
 >
-  <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
     {/* Header */}
     <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
@@ -4442,63 +4444,172 @@ const handleResendReminder = async (demand: DemandPayment) => {
         <>
           {/* Property + Room Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">
-                Property <span className="text-red-500">*</span>
-              </Label>
-              <Select value={selectedPropertyId} onValueChange={handleDemandPropertyChange}>
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder="Select property..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  <div className="sticky top-0 bg-white p-2 border-b z-10">
-                    <Input
-                      placeholder="Search property..."
-                      value={propertySearch}
-                      onChange={(e) => handlePropertySearch(e.target.value)}
-                      className="h-7 text-xs"
-                    />
-                  </div>
-                  <div className="max-h-[250px] overflow-y-auto">
-                    {filteredProperties.map((property) => (
-                      <SelectItem key={property.id} value={property.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Building className="h-3 w-3" />
-                          <span className="text-xs">{property.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </div>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Property Selection */}
+<div className="space-y-1">
+  <Label className="text-[11px] font-medium text-slate-600">
+    Property <span className="text-red-500">*</span>
+  </Label>
+  <div className="relative">
+    <Select 
+      value={selectedPropertyId} 
+      onValueChange={handleDemandPropertyChange}
+      onOpenChange={(open) => {
+        if (open) {
+          // Reset search when opening
+          setPropertySearch("");
+          // Focus after a short delay
+          setTimeout(() => {
+            const searchInput = document.querySelector('[data-property-search-input]') as HTMLInputElement;
+            if (searchInput) searchInput.focus();
+          }, 100);
+        }
+      }}
+    >
+      <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+        <SelectValue placeholder="Select property..." />
+      </SelectTrigger>
+      <SelectContent 
+        className="max-h-[300px]"
+        position="popper"
+        sideOffset={5}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {/* Search Input - with stable DOM */}
+        <div 
+          className="sticky top-0 bg-white p-2 border-b z-10"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Input
+            data-property-search-input
+            placeholder="Search property..."
+            value={propertySearch}
+            onChange={(e) => {
+              const value = e.target.value;
+              setPropertySearch(value);
+              const filtered = properties.filter((property) =>
+                property.name.toLowerCase().includes(value.toLowerCase())
+              );
+              setFilteredProperties(filtered);
+            }}
+            className="h-7 text-xs"
+            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
 
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">
-                Room <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={selectedRoomId}
-                onValueChange={handleDemandRoomChange}
-                disabled={!selectedPropertyId || loadingRooms}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  <div className="max-h-[250px] overflow-y-auto">
-                    {filteredRooms.map((room) => (
-                      <SelectItem key={room.id} value={room.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Home className="h-3 w-3" />
-                          <span className="text-xs">Room {room.room_number}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </div>
-                </SelectContent>
-              </Select>
+        {/* Properties List */}
+        <div className="max-h-[250px] overflow-y-auto">
+          {loadingProperties ? (
+            <div className="px-2 py-4 text-center text-xs text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+              Loading properties...
             </div>
+          ) : filteredProperties.length === 0 ? (
+            <div className="px-2 py-4 text-center text-xs text-slate-500">
+              {propertySearch ? "No matching properties found" : "No properties available"}
+            </div>
+          ) : (
+            filteredProperties.map((property) => (
+              <SelectItem key={property.id} value={property.id.toString()}>
+                <div className="flex items-center gap-2">
+                  <Building className="h-3 w-3 text-slate-400" />
+                  <span className="text-xs">{property.name}</span>
+                </div>
+              </SelectItem>
+            ))
+          )}
+        </div>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
+
+           {/* Room Selection */}
+<div className="space-y-1">
+  <Label className="text-[11px] font-medium text-slate-600">
+    Room <span className="text-red-500">*</span>
+  </Label>
+  <Select
+    value={selectedRoomId}
+    onValueChange={handleDemandRoomChange}
+    disabled={!selectedPropertyId || loadingRooms}
+    onOpenChange={(open) => {
+      if (open && selectedPropertyId) {
+        // Reset search when opening
+        setRoomSearch("");
+        // Focus after a short delay
+        setTimeout(() => {
+          const searchInput = document.querySelector('[data-room-search-input]') as HTMLInputElement;
+          if (searchInput) searchInput.focus();
+        }, 100);
+      }
+    }}
+  >
+    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+      <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
+    </SelectTrigger>
+    <SelectContent 
+      className="max-h-[300px]"
+      position="popper"
+      sideOffset={5}
+      onCloseAutoFocus={(e) => e.preventDefault()}
+    >
+      {/* Search Input */}
+      <div 
+        className="sticky top-0 bg-white p-2 border-b z-10"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <Input
+          data-room-search-input
+          placeholder="Search room..."
+          value={roomSearch}
+          onChange={(e) => {
+            const value = e.target.value;
+            setRoomSearch(value);
+            const filtered = rooms.filter((room) =>
+              room.room_number.toString().toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredRooms(filtered);
+          }}
+          className="h-7 text-xs"
+          disabled={!selectedPropertyId}
+          onKeyDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+
+      {/* Rooms List */}
+      <div className="max-h-[250px] overflow-y-auto">
+        {loadingRooms ? (
+          <div className="px-2 py-4 text-center text-xs text-slate-500">
+            <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+            Loading rooms...
+          </div>
+        ) : filteredRooms.length === 0 ? (
+          <div className="px-2 py-4 text-center text-xs text-slate-500">
+            {roomSearch ? "No matching rooms found" : "No rooms available"}
+          </div>
+        ) : (
+          filteredRooms.map((room) => (
+            <SelectItem key={room.id} value={room.id.toString()}>
+              <div className="flex items-center gap-2">
+                <Home className="h-3 w-3 text-slate-400" />
+                <span className="text-xs">Room {room.room_number}</span>
+                <span className="text-[10px] text-slate-400">({room.sharing_type})</span>
+              </div>
+            </SelectItem>
+          ))
+        )}
+      </div>
+    </SelectContent>
+  </Select>
+  {loadingRooms && (
+    <div className="flex items-center gap-1 text-blue-600">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span className="text-[10px]">Loading rooms...</span>
+    </div>
+  )}
+</div>
           </div>
 
           {/* Tenant Selection */}
@@ -4700,7 +4811,8 @@ const handleResendReminder = async (demand: DemandPayment) => {
           {/* Step 1: Select Property + Payment Type */}
           {bulkStep === 1 && (
             <div className="space-y-4">
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="space-y-2">
                 <Label className="text-sm font-semibold">Select Property *</Label>
                 <Select 
                   value={selectedPropertyId} 
@@ -4760,6 +4872,8 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   </SelectContent>
                 </Select>
               </div>
+                </div>
+              
 
               <div className="flex justify-end pt-4">
                 <Button
@@ -4945,7 +5059,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                                       <div className="text-gray-500">
                                         {demandPayment.payment_type === "security_deposit" 
                                           ? `Total Deposit: ₹${(tenant.total_security_deposit || 0).toLocaleString()}`
-                                          : `Monthly: ₹{(tenant.monthly_rent || 0).toLocaleString()}`}
+                                          : `Monthly: ₹${(tenant.monthly_rent || 0).toLocaleString()}`}
                                       </div>
                                     </div>
                                   </div>
@@ -4969,7 +5083,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                 <Label className="text-sm font-semibold mb-3 block">Payment Demand Details</Label>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  {/* <div className="space-y-1">
                     <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
                     <Select 
                       value={demandPayment.payment_type} 
@@ -4989,7 +5103,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                         <SelectItem value="security_deposit">Security Deposit</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
                   <div className="space-y-1">
                     <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
                     <Input 
@@ -4999,16 +5113,15 @@ const handleResendReminder = async (demand: DemandPayment) => {
                       className="h-8 text-xs" 
                     />
                   </div>
-                </div>
-                
-                <div className="mt-3">
-                  <Label className="text-[11px] font-medium text-slate-600">Description (Optional)</Label>
+                  <div className="space-y-1">
+<Label className="text-[11px] font-medium text-slate-600">Message (Optional)</Label>
                   <Input 
                     placeholder="Add a note for all selected tenants" 
                     value={demandPayment.description} 
                     onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} 
                     className="h-8 text-xs mt-1" 
                   />
+                    </div>
                 </div>
                 
                 <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200 mt-3">
