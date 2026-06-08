@@ -623,11 +623,12 @@ const loadDemands = async () => {
 };
 
   // Add this function to fetch rooms with pending payments
-const fetchRoomsWithPendingPayments = async (propertyId: number) => {
+const fetchRoomsWithPendingPayments = async (propertyId: number, paymentType?: string) => {
   setLoadingRooms(true);
   try {
+    const type = paymentType || demandPayment.payment_type || 'rent';
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${propertyId}`
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${propertyId}&payment_type=${type}`
     );
     const data = await response.json();
     if (data.success) {
@@ -4361,6 +4362,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
       </Dialog>
 
 {/* Demand Payment Dialog - With Bulk Mode */}
+{/* Demand Payment Dialog - With Bulk Mode and Checkboxes */}
 <Dialog
   open={isDemandPaymentOpen}
   onOpenChange={(open) => {
@@ -4372,10 +4374,11 @@ const handleResendReminder = async (demand: DemandPayment) => {
       setSelectedRooms([]);
       setSelectedTenants([]);
       setBulkStep(1);
+      setRoomsWithPending([]);
     }
   }}
 >
-  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+  <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
     {/* Header */}
     <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
@@ -4388,7 +4391,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
           </DialogTitle>
           <DialogDescription className="text-orange-100 text-xs mt-0.5">
             {bulkMode 
-              ? "Select property, rooms, and tenants to send payment demands in bulk" 
+              ? `Select property, rooms, and tenants to send payment demands in bulk (${demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"})` 
               : "Create a payment request and notify a single tenant"}
           </DialogDescription>
         </div>
@@ -4407,6 +4410,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                 setBulkStep(1);
                 setSelectedPropertyId("");
                 setSelectedRoomId("");
+                setRoomsWithPending([]);
               } else {
                 setDemandPayment({
                   tenant_id: "",
@@ -4574,92 +4578,76 @@ const handleResendReminder = async (demand: DemandPayment) => {
           </div>
 
           {/* Bed Assignment Table */}
-{paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
 
-{/* Rent Summary Table - Only for rent payment type */}
-{demandPayment.payment_type === "rent" && paymentFormData && (
-  <RentSummaryTable formData={paymentFormData} />
-)}
+          {/* Rent Summary Table - Only for rent payment type */}
+          {demandPayment.payment_type === "rent" && paymentFormData && (
+            <RentSummaryTable formData={paymentFormData} />
+          )}
 
-{/* Security Deposit Info - Only for security deposit payment type */}
-{demandPayment.payment_type === "security_deposit" && securityDepositInfo && (
-  <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-        <IndianRupee className="h-3.5 w-3.5" />
-        Security Deposit Information
-      </h4>
-    </div>
-    <div className="p-4">
-      <div className="grid grid-cols-5 gap-4">
-        <div>
-          <p className="text-xs text-slate-500">Property</p>
-          <p className="text-xs font-medium">
-            {securityDepositInfo.property_name || paymentFormData?.room_info?.property_name || 'N/A'}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Room/Bed</p>
-          <p className="text-xs font-medium">
-            Room {securityDepositInfo.room_number || paymentFormData?.room_info?.room_number || 'N/A'}
-            {securityDepositInfo.bed_number && ` • Bed #${securityDepositInfo.bed_number}`}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Total Security Deposit</p>
-          <p className="text-xs font-bold text-blue-600">
-            ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Already Paid</p>
-          <p className="text-xs font-medium text-green-600">
-            ₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Pending Amount</p>
-          <p className="text-xs font-bold text-amber-600">
-            ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      {(securityDepositInfo.security_deposit || 0) > 0 && (
-        <div className="mt-3">
-          <div className="flex justify-between text-xs text-slate-500 mb-1">
-            <span>Payment Progress</span>
-            <span>
-              {Math.round(
-                ((securityDepositInfo.paid_amount || 0) /
-                  (securityDepositInfo.security_deposit || 1)) * 100
-              )}
-              %
-            </span>
-          </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-              style={{
-                width: `${((securityDepositInfo.paid_amount || 0) /
-                  (securityDepositInfo.security_deposit || 1)) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {securityDepositInfo.is_fully_paid && (
-        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
-            <span>✅</span> Security deposit is fully paid!
-          </p>
-        </div>
-      )}
-    </div>
-  </div>
-)}
+          {/* Security Deposit Info - Only for security deposit payment type */}
+          {demandPayment.payment_type === "security_deposit" && securityDepositInfo && (
+            <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                  <IndianRupee className="h-3.5 w-3.5" />
+                  Security Deposit Information
+                </h4>
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500">Property</p>
+                    <p className="text-sm font-medium">
+                      {securityDepositInfo.property_name || paymentFormData?.room_info?.property_name || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Room/Bed</p>
+                    <p className="text-sm font-medium">
+                      Room {securityDepositInfo.room_number || paymentFormData?.room_info?.room_number || 'N/A'}
+                      {securityDepositInfo.bed_number && ` • Bed #${securityDepositInfo.bed_number}`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Total</p>
+                    <p className="text-sm font-bold text-blue-600">
+                      ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Pending</p>
+                    <p className="text-sm font-bold text-amber-600">
+                      ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                {(securityDepositInfo.security_deposit || 0) > 0 && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                      <span>Payment Progress</span>
+                      <span>
+                        {Math.round(
+                          ((securityDepositInfo.paid_amount || 0) /
+                            (securityDepositInfo.security_deposit || 1)) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                        style={{
+                          width: `${((securityDepositInfo.paid_amount || 0) /
+                            (securityDepositInfo.security_deposit || 1)) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Notifications */}
           <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
@@ -4687,7 +4675,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
           </div>
         </>
       ) : (
-        /* ===== BULK MODE ===== */
+        /* ===== BULK MODE with Checkboxes ===== */
         <>
           {/* Step Indicator */}
           <div className="flex items-center justify-between mb-4">
@@ -4709,7 +4697,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
             </Badge>
           </div>
 
-          {/* Step 1: Select Property */}
+          {/* Step 1: Select Property + Payment Type */}
           {bulkStep === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -4721,8 +4709,8 @@ const handleResendReminder = async (demand: DemandPayment) => {
                     setBookingLoading(true);
                     try {
                       const response = await fetch(
-                        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}`
-                      );
+  `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}&payment_type=${demandPayment.payment_type || 'rent'}`
+);
                       const data = await response.json();
                       if (data.success) {
                         setRoomsWithPending(data.data);
@@ -4750,159 +4738,330 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Payment Type *</Label>
+                <Select 
+                  value={demandPayment.payment_type} 
+                  onValueChange={(value) => {
+                    setDemandPayment(prev => ({ ...prev, payment_type: value }));
+                    // Refresh rooms with pending payments for the new payment type
+                    if (selectedPropertyId) {
+                      fetchRoomsWithPendingPayments(parseInt(selectedPropertyId), value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select payment type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rent">Rent</SelectItem>
+                    <SelectItem value="security_deposit">Security Deposit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex justify-end pt-4">
-                <Button onClick={() => setBulkStep(2)} disabled={!selectedPropertyId} className="bg-orange-600 hover:bg-orange-700">
+                <Button
+                  onClick={() => setBulkStep(2)}
+                  disabled={!selectedPropertyId}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
                   Next: Select Rooms
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Step 2: Select Rooms */}
+          {/* Step 2: Select Rooms (with Checkboxes) */}
           {bulkStep === 2 && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <Label className="text-sm font-semibold">Select Rooms (with pending payments)</Label>
-                <Button variant="outline" size="sm" onClick={() => {
-                  if (selectedRooms.length === roomsWithPending.length) {
-                    setSelectedRooms([]);
-                  } else {
-                    setSelectedRooms(roomsWithPending.map(r => r.id));
-                  }
-                }} className="h-7 text-xs">
-                  {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All Rooms"}
-                </Button>
+                <Label className="text-sm font-semibold">
+                  Select Rooms (with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"})
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedRooms.length === roomsWithPending.length) {
+                        setSelectedRooms([]);
+                      } else {
+                        setSelectedRooms(roomsWithPending.map(r => r.id));
+                      }
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    <Checkbox className="mr-1" checked={selectedRooms.length === roomsWithPending.length} />
+                    {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All Rooms"}
+                  </Button>
+                </div>
               </div>
+
               {bookingLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
               ) : roomsWithPending.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No rooms with pending payments found in this property</div>
+                <div className="text-center py-8 text-gray-500">
+                  No rooms with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"} payments found in this property
+                </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
-                  {roomsWithPending.map((room) => (
-                    <Card key={room.id} className={`cursor-pointer transition-all ${selectedRooms.includes(room.id) ? "border-orange-500 bg-orange-50" : "hover:border-gray-300"}`} onClick={() => {
-                      setSelectedRooms(prev => prev.includes(room.id) ? prev.filter(id => id !== room.id) : [...prev, room.id]);
-                    }}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Home className="h-4 w-4" />
-                            <span className="font-semibold text-sm">Room {room.room_number}</span>
-                            <Badge variant="outline" className="text-xs">{room.sharing_type || 'Standard'}</Badge>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto">
+                  {roomsWithPending.map((room) => {
+                    const isSelected = selectedRooms.includes(room.id);
+                    const totalPending = room.total_pending || room.tenants?.reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0) || 0;
+                    
+                    return (
+                      <Card
+                        key={room.id}
+                        className={`cursor-pointer transition-all ${isSelected ? "border-orange-500 bg-orange-50" : "hover:border-gray-300"}`}
+                        onClick={() => {
+                          setSelectedRooms(prev =>
+                            prev.includes(room.id) ? prev.filter(id => id !== room.id) : [...prev, room.id]
+                          );
+                        }}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Home className="h-4 w-4" />
+                              <span className="font-semibold text-sm">Room {room.room_number}</span>
+                              <Badge variant="outline" className="text-xs">{room.sharing_type || 'Standard'}</Badge>
+                            </div>
+                            <Checkbox checked={isSelected} />
                           </div>
-                          <Checkbox checked={selectedRooms.includes(room.id)} />
-                        </div>
-                        <div className="mt-1 text-xs text-gray-600">{room.tenants?.length || 0} tenant(s) with pending payments</div>
-                        <div className="text-xs text-amber-600">Total Pending: ₹{(room.total_pending || 0).toLocaleString()}</div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="mt-2 text-xs text-gray-600">
+                            {room.tenants?.length || 0} tenant(s) with pending {demandPayment.payment_type === "security_deposit" ? "deposit" : "payments"}
+                          </div>
+                          <div className="text-xs text-amber-600 font-medium mt-1">
+                            Total Pending: ₹{totalPending.toLocaleString()}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setBulkStep(1)}>Back</Button>
-                <Button onClick={() => setBulkStep(3)} disabled={selectedRooms.length === 0} className="bg-orange-600 hover:bg-orange-700">Next: Select Tenants</Button>
+                <Button
+                  onClick={() => setBulkStep(3)}
+                  disabled={selectedRooms.length === 0}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Next: Select Tenants
+                </Button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Select Tenants & Send Demand */}
+          {/* Step 3: Select Tenants (with Checkboxes) + Payment Details */}
           {bulkStep === 3 && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <Label className="text-sm font-semibold">Select Tenants (with pending payments)</Label>
-                <Button variant="outline" size="sm" onClick={() => {
-                  const allTenantIds = roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants?.map((t: any) => t.id) || []);
-                  if (selectedTenants.length === allTenantIds.length) {
-                    setSelectedTenants([]);
-                  } else {
-                    setSelectedTenants(allTenantIds);
-                  }
-                }} className="h-7 text-xs">
-                  {selectedTenants.length === roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).length ? "Deselect All" : "Select All Tenants"}
+                <Label className="text-sm font-semibold">
+                  Select Tenants (with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"})
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const allTenantIds = roomsWithPending
+                      .filter(r => selectedRooms.includes(r.id))
+                      .flatMap(r => r.tenants?.map((t: any) => t.id) || []);
+                    if (selectedTenants.length === allTenantIds.length) {
+                      setSelectedTenants([]);
+                    } else {
+                      setSelectedTenants(allTenantIds);
+                    }
+                  }}
+                  className="h-7 text-xs"
+                >
+                  <Checkbox className="mr-1" checked={selectedTenants.length > 0} />
+                  {selectedTenants.length === roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).length
+                    ? "Deselect All"
+                    : "Select All Tenants"}
                 </Button>
               </div>
+
               <div className="max-h-[300px] overflow-y-auto space-y-3">
-                {roomsWithPending.filter(room => selectedRooms.includes(room.id)).map((room) => (
-                  <Card key={room.id} className="overflow-hidden">
-                    <div className="bg-gray-50 px-3 py-2 border-b"><div className="flex items-center gap-2"><Home className="h-3.5 w-3.5" /><span className="font-semibold text-sm">Room {room.room_number}</span></div></div>
-                    <CardContent className="p-0">
-                      {room.tenants && room.tenants.length > 0 ? room.tenants.map((tenant: any) => (
-                        <div key={tenant.id} className={`p-3 border-b last:border-b-0 cursor-pointer transition-colors ${selectedTenants.includes(tenant.id) ? "bg-orange-50" : "hover:bg-gray-50"}`} onClick={() => {
-                          setSelectedTenants(prev => prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id]);
-                        }}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1"><User className="h-3.5 w-3.5" /><span className="font-medium text-sm">{tenant.full_name}</span>{tenant.bed_number && <Badge variant="outline" className="text-xs">Bed #{tenant.bed_number}</Badge>}</div>
-                              <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
-                                <div className="flex items-center gap-1"><Mail className="h-3 w-3" /><span className="truncate">{tenant.email || 'No email'}</span></div>
-                                <div className="flex items-center gap-1"><Phone className="h-3 w-3" /><span>{tenant.phone || 'No phone'}</span></div>
-                                <div className="flex items-center gap-1"><IndianRupee className="h-3 w-3 text-amber-600" /><span className="font-medium text-amber-600">Pending: ₹{(tenant.total_pending || 0).toLocaleString()}</span></div>
-                                <div className="text-gray-500">Monthly: ₹{(tenant.monthly_rent || 0).toLocaleString()}</div>
-                              </div>
-                            </div>
-                            <Checkbox checked={selectedTenants.includes(tenant.id)} />
-                          </div>
+                {roomsWithPending
+                  .filter(room => selectedRooms.includes(room.id))
+                  .map((room) => (
+                    <Card key={room.id} className="overflow-hidden">
+                      <div className="bg-gray-50 px-3 py-2 border-b">
+                        <div className="flex items-center gap-2">
+                          <Home className="h-3.5 w-3.5" />
+                          <span className="font-semibold text-sm">Room {room.room_number}</span>
+                          <Badge variant="outline" className="text-xs">
+                            Total Pending: ₹{(room.total_pending || 0).toLocaleString()}
+                          </Badge>
                         </div>
-                      )) : <div className="p-3 text-center text-gray-500 text-sm">No tenants with pending payments</div>}
-                    </CardContent>
-                  </Card>
-                ))}
+                      </div>
+                      <CardContent className="p-0">
+                        {room.tenants && room.tenants.length > 0 ? (
+                          room.tenants.map((tenant: any) => {
+                            const isSelected = selectedTenants.includes(tenant.id);
+                            const pendingAmount = demandPayment.payment_type === "security_deposit" 
+                              ? (tenant.security_deposit_pending || tenant.total_pending || 0)
+                              : (tenant.total_pending || 0);
+                            
+                            return (
+                              <div
+                                key={tenant.id}
+                                className={`p-3 border-b last:border-b-0 cursor-pointer transition-colors ${
+                                  isSelected ? "bg-orange-50" : "hover:bg-gray-50"
+                                }`}
+                                onClick={() => {
+                                  setSelectedTenants(prev =>
+                                    prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id]
+                                  );
+                                }}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <User className="h-3.5 w-3.5" />
+                                      <span className="font-medium text-sm">{tenant.full_name}</span>
+                                      {tenant.bed_number && (
+                                        <Badge variant="outline" className="text-xs">Bed #{tenant.bed_number}</Badge>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
+                                      <div className="flex items-center gap-1">
+                                        <Mail className="h-3 w-3" />
+                                        <span className="truncate">{tenant.email || 'No email'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        <span>{tenant.phone || 'No phone'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <IndianRupee className="h-3 w-3 text-amber-600" />
+                                        <span className="font-medium text-amber-600">
+                                          {demandPayment.payment_type === "security_deposit" ? "Deposit Pending" : "Rent Pending"}: ₹{pendingAmount.toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-500">
+                                        {demandPayment.payment_type === "security_deposit" 
+                                          ? `Total Deposit: ₹${(tenant.total_security_deposit || 0).toLocaleString()}`
+                                          : `Monthly: ₹{(tenant.monthly_rent || 0).toLocaleString()}`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Checkbox checked={isSelected} />
+                                </div>
+                            </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-3 text-center text-gray-500 text-sm">
+                            No tenants with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "payments"}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
+
               {/* Payment Details Form */}
               <div className="border-t pt-4 mt-2">
                 <Label className="text-sm font-semibold mb-3 block">Payment Demand Details</Label>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-      <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
-      <Select 
-        value={demandPayment.payment_type} 
-        onValueChange={async (value) => {
-          setDemandPayment(prev => ({ ...prev, payment_type: value }));
-          
-          // If switching to security deposit and we have selected tenants,
-          // we should show security deposit info
-          if (value === 'security_deposit' && selectedTenants.length > 0) {
-            // For bulk, we'll show a summary of security deposit pending amounts
-            toast.info(`Selected tenants will receive security deposit reminders`);
-          }
-        }}
-      >
-        <SelectTrigger className="h-8 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="rent">Rent</SelectItem>
-          <SelectItem value="security_deposit">Security Deposit</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-                  <div className="space-y-1"><Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
-                    <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-8 text-xs" />
+                    <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+                    <Select 
+                      value={demandPayment.payment_type} 
+                      onValueChange={async (value) => {
+                        setDemandPayment(prev => ({ ...prev, payment_type: value }));
+                        // Refresh to show correct pending amounts
+                        if (selectedPropertyId) {
+                          fetchRoomsWithPendingPayments(parseInt(selectedPropertyId) , value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rent">Rent</SelectItem>
+                        <SelectItem value="security_deposit">Security Deposit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
+                    <Input 
+                      type="date" 
+                      value={demandPayment.due_date} 
+                      onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} 
+                      className="h-8 text-xs" 
+                    />
                   </div>
                 </div>
-                <div className="mt-3"><Label className="text-[11px] font-medium text-slate-600">Description (Optional)</Label>
-                  <Input placeholder="Add a note for all selected tenants" value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-8 text-xs mt-1" />
+                
+                <div className="mt-3">
+                  <Label className="text-[11px] font-medium text-slate-600">Description (Optional)</Label>
+                  <Input 
+                    placeholder="Add a note for all selected tenants" 
+                    value={demandPayment.description} 
+                    onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} 
+                    className="h-8 text-xs mt-1" 
+                  />
                 </div>
+                
                 <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200 mt-3">
                   <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
                   <div className="flex gap-5">
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" /><span className="text-xs text-slate-600">Email</span></label>
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" /><span className="text-xs text-slate-600">SMS</span></label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" />
+                      <span className="text-xs text-slate-600">Email</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" />
+                      <span className="text-xs text-slate-600">SMS</span>
+                    </label>
                   </div>
                 </div>
               </div>
+
               {/* Summary */}
               {selectedTenants.length > 0 && (
                 <div className="bg-orange-50 p-3 rounded-lg">
-                  <div className="flex justify-between items-center text-sm"><span className="font-semibold">Summary:</span><span>{selectedTenants.length} tenant(s) selected</span></div>
-                  <div className="flex justify-between items-center text-sm mt-1"><span>Total Pending Amount:</span><span className="font-bold text-amber-600">₹{selectedTenants.reduce((total, tenantId) => { const tenant = roomsWithPending.flatMap(r => r.tenants || []).find((t: any) => t.id === tenantId); return total + (tenant?.total_pending || 0); }, 0).toLocaleString()}</span></div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-semibold">Summary:</span>
+                    <span>{selectedTenants.length} tenant(s) selected</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <span>Total {demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"} Pending:</span>
+                    <span className="font-bold text-amber-600">
+                      ₹{selectedTenants.reduce((total, tenantId) => {
+                        const tenant = roomsWithPending
+                          .flatMap(r => r.tenants || [])
+                          .find((t: any) => t.id === tenantId);
+                        const pendingAmount = demandPayment.payment_type === "security_deposit"
+                          ? (tenant?.security_deposit_pending || tenant?.total_pending || 0)
+                          : (tenant?.total_pending || 0);
+                        return total + pendingAmount;
+                      }, 0).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               )}
+              
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setBulkStep(2)}>Back</Button>
-                <Button onClick={handleBulkSend} disabled={bookingLoading || selectedTenants.length === 0} className="bg-orange-600 hover:bg-orange-700">
-                  {bookingLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending to {selectedTenants.length} tenants...</> : `Send Demand to ${selectedTenants.length} Tenants`}
+                <Button 
+                  onClick={handleBulkSend} 
+                  disabled={bookingLoading || selectedTenants.length === 0} 
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {bookingLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending to {selectedTenants.length} tenants...</>
+                  ) : (
+                    `Send ${demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"} Demand to ${selectedTenants.length} Tenants`
+                  )}
                 </Button>
               </div>
             </div>
