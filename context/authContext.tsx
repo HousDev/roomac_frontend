@@ -51,10 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token: string,
     loginSource: "admin" | "tenant"
   ) => {
+    // Derive loginSource from role if not explicitly provided
+  const source = loginSource ?? (role === "admin" || role === "Admin" ? "admin" : "tenant");
+
     localStorage.setItem("auth_token", token);
     localStorage.setItem("auth_email", email);
     localStorage.setItem("auth_role", role);
     localStorage.setItem("auth_login_source", loginSource);
+
+    // Set a minimal user immediately so redirects don't flash wrong dashboard
+  setUser({ email, role, loginSource: source });
     
     fetchUser(email).finally(() => setLoading(false));
   };
@@ -76,8 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       const token = localStorage.getItem("auth_token");
       const email = localStorage.getItem("auth_email");
+      const role = localStorage.getItem("auth_role");
+    const loginSource = localStorage.getItem("auth_login_source") as "admin" | "tenant" | null;
       
       if (token && email && email !== "null" && email !== "undefined") {
+        // Set minimal user immediately to prevent flash before fetchUser resolves
+      setUser({ email, role, loginSource: loginSource ?? (role === "admin" || role === "Admin" ? "admin" : "tenant") });
         await fetchUser(email);
       }
       setLoading(false);

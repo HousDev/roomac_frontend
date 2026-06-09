@@ -62,30 +62,34 @@ export type TenantProfile = {
   room_number?: string;
   bed_number?: string;
   check_in_date?: string;
-  amenities?:any[];
+  amenities?: any[];
   property_manager_name?: string;
   property_manager_phone?: string;
-  notice_period_days ?: any;
-  lockin_period_months ?: any;
+  notice_period_days?: any;
+  lockin_period_months?: any;
   property_city?: any;
   rent_per_bed?: any;
   floor?: any;
   // ===== ADD THESE BED ASSIGNMENT FIELDS =====
-  // Bed assignment details from bed_assignments table
   bed_assignment_id?: number;
-  bed_type?: string;           // King Size, Queen, etc.
-  tenant_rent?: number | string; // The actual rent from bed_assignments
+  bed_type?: string;
+  tenant_rent?: number | string;
   is_couple?: boolean;
   assignment_date?: string;
   
-  // Room details (already have some, adding more)
+  // ✅ ADD THESE COUPLE BOOKING FIELDS
+  is_couple_booking?: boolean;  // ← ADD THIS
+  couple_id?: string;            // ← ADD THIS
+  partner_full_name?: string;    // ← ADD THIS
+  partner_phone?: string;        // ← ADD THIS
+  partner_email?: string;        // ← ADD THIS
+  
   room_id?: number;
   sharing_type?: string;
   has_ac?: boolean;
   has_attached_bathroom?: boolean;
   has_balcony?: boolean;
   
-  // Property details (already have some, adding more)
   property_id?: number;
   property_address?: string;
 };

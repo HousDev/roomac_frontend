@@ -240,12 +240,11 @@ function TenantSelectDropdown({
     (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned ,
   );
 
-  
 
   // Filter based on room preferences
   const filteredTenants = unassignedTenants.filter((tenant) => {
     const tenantGender = tenant.gender?.toLowerCase();
-    const tenantIsCouple = tenant.couple_id != null;
+    const tenantIsCouple = tenant.couple_id != null && tenant.is_couple_booking === true;;
 
     // For rooms with both male and female preference
     const hasBothGenders = roomGenderPreferences.some(
@@ -1398,15 +1397,36 @@ const loadTenantsBasedOnPreferences = async () => {
       }),
     );
 
-    // ✅ FIX: Use the existing getRoomById to get current room's assignments
-    // Instead of fetching all rooms, which might be heavy, let's use the current room's data
-    // and also fetch assignments for partner detection
+    // ✅ CRITICAL FIX: Get ALL assigned tenant IDs from ALL rooms in the SAME property
+    // First, get all room IDs for this property
+    const propertyRoomsResponse = await request<ApiResult<any>>(
+      `/api/rooms/property/${room.property_id}`
+    );
     
-    // Collect tenant IDs from current room's assignments
-    const allAssignedTenantIds = new Set<number>();
-    const assignedCoupleIds = new Set<number>();
+    let allAssignedTenantIds = new Set<number>();
+    let assignedCoupleIds = new Set<number>();
     
-    // ✅ Get assignments from current room
+    if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
+      const propertyRooms = propertyRoomsResponse.data;
+      
+      // Collect all tenant IDs from ALL rooms in this property
+      for (const propertyRoom of propertyRooms) {
+        const assignments = propertyRoom.bed_assignments || [];
+        for (const assignment of assignments) {
+          if (!assignment.is_available && assignment.tenant_id) {
+            allAssignedTenantIds.add(assignment.tenant_id);
+            
+            // Also track couple IDs for partner detection
+            const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
+            if (assignedTenant?.couple_id) {
+              assignedCoupleIds.add(assignedTenant.couple_id);
+            }
+          }
+        }
+      }
+    }
+    
+    // Also check current room's assignments (as fallback)
     const currentRoomAssignments = bedAssignments.filter(
       (b) => !b.is_available && b.tenant_id,
     );
@@ -1421,73 +1441,38 @@ const loadTenantsBasedOnPreferences = async () => {
       }
     }
 
-    // ✅ Also need to check if any tenant is assigned to OTHER beds in OTHER rooms
-    // For that, we need to make individual API calls for each tenant to check their assignment status
-    // This is more reliable than fetching all rooms
-    
-    const tenantsWithAssignment = await Promise.all(
-      tenantsWithDetails.map(async (tenant) => {
-        try {
-          // Check if this tenant has any active bed assignment
-          const assignmentCheck = await request<ApiResult<any>>(
-            `/api/rooms/tenant-assignment/${tenant.id}`
-          );
-          
-          const hasActiveAssignment = assignmentCheck.success && 
-                                      assignmentCheck.data && 
-                                      Array.isArray(assignmentCheck.data) &&
-                                      assignmentCheck.data.length > 0 &&
-                                      assignmentCheck.data.some(
-                                        (assignment: any) => !assignment.is_available
-                                      );
-          
-          // Check if tenant's partner is assigned (if tenant has a couple_id)
-          let isPartnerOfAssigned = false;
-          if (tenant.couple_id && !hasActiveAssignment) {
-            // Check if any tenant with this couple_id is assigned
-            const partnerTenant = tenantsWithDetails.find(
-              t => t.couple_id === tenant.couple_id && t.id !== tenant.id
-            );
-            if (partnerTenant) {
-              const partnerAssignmentCheck = await request<ApiResult<any>>(
-                `/api/rooms/tenant-assignment/${partnerTenant.id}`
-              );
-              const partnerHasAssignment = partnerAssignmentCheck.success && 
-                                           partnerAssignmentCheck.data && 
-                                           Array.isArray(partnerAssignmentCheck.data) &&
-                                           partnerAssignmentCheck.data.length > 0 &&
-                                           partnerAssignmentCheck.data.some(
-                                             (assignment: any) => !assignment.is_available
-                                           );
-              isPartnerOfAssigned = partnerHasAssignment;
-            }
-          }
-          
-          return {
-            ...tenant,
-            is_assigned: hasActiveAssignment,
-            is_partner_of_assigned: isPartnerOfAssigned,
-          };
-        } catch (error) {
-          console.error(`Error checking assignment for tenant ${tenant.id}:`, error);
-          return {
-            ...tenant,
-            is_assigned: false,
-            is_partner_of_assigned: false,
-          };
-        }
-      })
+    // ✅ Now mark tenants as assigned if they are in ANY room of this property
+    const tenantsWithAssignment = tenantsWithDetails.map((tenant) => {
+      const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
+      
+      // Check if tenant's partner is assigned
+      let isPartnerOfAssigned = false;
+      if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
+        isPartnerOfAssigned = assignedCoupleIds.has(tenant.couple_id);
+      }
+      
+      return {
+        ...tenant,
+        is_assigned: hasActiveAssignment,
+        is_partner_of_assigned: isPartnerOfAssigned,
+      };
+    });
+
+    // Filter tenants to only show those assigned to THIS property
+    const filteredTenants = tenantsWithAssignment.filter(
+      (tenant) => tenant.property_id === room.property_id
     );
 
-    // console.log("✅ All tenants loaded:", tenantsWithAssignment.map(t => ({
-    //   id: t.id,
-    //   name: t.full_name,
-    //   is_assigned: t.is_assigned,
-    //   is_partner_of_assigned: t.is_partner_of_assigned,
-    //   couple_id: t.couple_id
-    // })));
+    console.log("✅ Tenants loaded:", filteredTenants.map(t => ({
+      id: t.id,
+      name: t.full_name,
+      is_assigned: t.is_assigned,
+      is_partner_of_assigned: t.is_partner_of_assigned,
+      property_id: t.property_id,
+      room_property_id: room.property_id
+    })));
 
-    setTenants(tenantsWithAssignment);
+    setTenants(filteredTenants);
   } catch (error: any) {
     console.error("Error loading tenants:", error);
     toast.error(`Failed to load tenants: ${error.message}`);
@@ -1797,12 +1782,10 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
         setSavingBed(null);
         setAssigningBed(null);
 
-        // CLOSE THE DIALOG FIRST
+        loadTenantsBasedOnPreferences();
+        refreshRoomData();
         onOpenChange(false);
 
-        // THEN REFRESH DATA IN BACKGROUND
-        refreshRoomData();
-        loadTenantsBasedOnPreferences();
 
         if (onRefresh) onRefresh();
       } else {
@@ -1991,12 +1974,12 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
       setSavingBed(null);
       setAssigningBed(null);
 
-      // CLOSE THE DIALOG FIRST
+      loadTenantsBasedOnPreferences();
+      refreshRoomData();
+      
       onOpenChange(false);
 
-      // THEN REFRESH DATA IN BACKGROUND
-      refreshRoomData();
-      loadTenantsBasedOnPreferences();
+  
 
       if (onRefresh) onRefresh();
     } else {
@@ -2064,13 +2047,11 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
         // Reset saving state before closing
         setSavingBed(null);
         setAssigningBed(null);
-
-        // CLOSE THE DIALOG FIRST
-        onOpenChange(false);
-
-        // THEN REFRESH DATA IN BACKGROUND
-        refreshRoomData();
         loadTenantsBasedOnPreferences();
+        
+        refreshRoomData();
+        
+        onOpenChange(false);
 
         if (onRefresh) onRefresh();
       } else {

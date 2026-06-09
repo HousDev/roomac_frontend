@@ -17,10 +17,9 @@ import {
   Sunset,
   Briefcase
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { request } from '@/lib/api';
 import type { BedAssignment } from '@/lib/roomsApi';
-import { toast } from "sonner";
 
 interface RoomDetailsDialogProps {
   room: any;
@@ -50,7 +49,7 @@ interface TenantDetails {
   date_of_birth?: string;
   aadhar_number?: string;
   pan_number?: string;
-  // Partner fields
+  partner_tenant_id?: number;
   partner_full_name?: string;
   partner_phone?: string;
   partner_email?: string;
@@ -139,7 +138,7 @@ const BedStatusBadge = ({ isAvailable }: { isAvailable: boolean }) => {
 
 export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialogProps) {
   
-  const [tenants, setTenants] = useState<TenantDetails[]>([]);
+  const [tenantsMap, setTenantsMap] = useState<Map<number, TenantDetails>>(new Map());
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [errorTenants, setErrorTenants] = useState<string | null>(null);
   const [bedAssignments, setBedAssignments] = useState<BedAssignment[]>([]);
@@ -155,7 +154,6 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
           const { getRoomById } = await import('@/lib/roomsApi');
           const response = await getRoomById(room.id.toString());
           
-          // Handle response correctly
           let freshRoom = null;
           if (response && response.success && response.data) {
             freshRoom = response.data;
@@ -180,7 +178,6 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
       fetchFreshRoom();
     }
   }, [open, room]);
-  
 
   const genderPreferences = Array.isArray(currentRoom?.room_gender_preference) 
     ? currentRoom.room_gender_preference 
@@ -188,76 +185,71 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
 
   const occupiedBeds = bedAssignments?.filter((bed: BedAssignment) => bed.tenant_id) || [];
 
-const loadAllTenants = async () => {
-  try {
-    setLoadingTenants(true);
-    setErrorTenants(null);
-    
-    // First get all basic tenants
-    const response: any = await request('/api/tenants?is_active=true&portal_access_enabled=true');
-    let tenantsList: TenantDetails[] = [];
-    if (Array.isArray(response)) {
-      tenantsList = response;
-    } else if (response.data && Array.isArray(response.data)) {
-      tenantsList = response.data;
+  // Helper function to fetch a single tenant by ID
+  const fetchTenantById = useCallback(async (tenantId: number): Promise<TenantDetails | null> => {
+    try {
+      const response = await request<ApiResult<TenantDetails>>(`/api/tenants/${tenantId}`);
+      if (response.success && response.data) {
+        return response.data;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to fetch tenant ${tenantId}:`, error);
+      return null;
     }
-    
-    // ✅ Fetch full tenant details including partner info for each tenant
-    const tenantsWithDetails = await Promise.all(
-      tenantsList.map(async (tenant) => {
-        try {
-          // Fetch full tenant details including partner info
-          const tenantDetails = await request<ApiResult<TenantDetails>>(`/api/tenants/${tenant.id}`);
-          if (tenantDetails.success && tenantDetails.data) {
-            return {
-              ...tenant,
-              partner_full_name: tenantDetails.data.partner_full_name,
-              partner_phone: tenantDetails.data.partner_phone,
-              partner_email: tenantDetails.data.partner_email,
-              partner_gender: tenantDetails.data.partner_gender,
-              partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
-              partner_address: tenantDetails.data.partner_address,
-              partner_occupation: tenantDetails.data.partner_occupation,
-              partner_organization: tenantDetails.data.partner_organization,
-              partner_relationship: tenantDetails.data.partner_relationship,
-              partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
-              partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
-              partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
-              partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
-              partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
-              partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
-              partner_photo_url: tenantDetails.data.partner_photo_url,
-              is_couple_booking: tenantDetails.data.is_couple_booking,
-              couple_id: tenantDetails.data.couple_id,
-              partner_tenant_id: tenantDetails.data.partner_tenant_id
-            };
-          }
-          return tenant;
-        } catch (error) {
-          console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
-          return tenant;
+  }, []);
+
+  // Load all tenants for the current bed assignments
+  const loadAllTenants = useCallback(async () => {
+    try {
+      setLoadingTenants(true);
+      setErrorTenants(null);
+
+      // Get unique tenant IDs from bed assignments
+      const assignedTenantIds = (bedAssignments || room?.bed_assignments || [])
+        .filter((bed: BedAssignment) => bed.tenant_id && !bed.is_available)
+        .map((bed: BedAssignment) => bed.tenant_id);
+
+      // Remove duplicates
+      const uniqueTenantIds = [...new Set(assignedTenantIds)];
+
+      if (uniqueTenantIds.length === 0) {
+        setTenantsMap(new Map());
+        return;
+      }
+
+      // Fetch each tenant
+      const tenantPromises = uniqueTenantIds.map(async (tenantId: number) => {
+        const tenant = await fetchTenantById(tenantId);
+        return { tenantId, tenant };
+      });
+
+      const results = await Promise.all(tenantPromises);
+      const newMap = new Map<number, TenantDetails>();
+      
+      results.forEach(({ tenantId, tenant }) => {
+        if (tenant) {
+          newMap.set(tenantId, tenant);
         }
-      })
-    );
-    
-    setTenants(tenantsWithDetails);
-  } catch (error: any) {
-    console.error('Error loading tenants:', error);
-    setErrorTenants(error.message || 'Failed to load tenants');
-    toast.error('Failed to load tenant details');
-  } finally {
-    setLoadingTenants(false);
-  }
-};
+      });
+
+      setTenantsMap(newMap);
+    } catch (error: any) {
+      console.error('Error loading tenants:', error);
+      setErrorTenants(error.message || 'Failed to load tenants');
+    } finally {
+      setLoadingTenants(false);
+    }
+  }, [bedAssignments, room?.bed_assignments, fetchTenantById]);
 
   useEffect(() => {
     if (open) {
       loadAllTenants();
     }
-  }, [open]);
+  }, [open, loadAllTenants]);
 
-  const getTenantDetails = (tenantId: number) => {
-    return tenants.find(t => t.id === tenantId);
+  const getTenantDetails = (tenantId: number): TenantDetails | null => {
+    return tenantsMap.get(tenantId) || null;
   };
 
   const formatAssignmentDate = (dateString: string) => {
@@ -308,7 +300,7 @@ const loadAllTenants = async () => {
         className="max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        {/* Header */}
+        {/* Header - Same as before */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-3 py-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
@@ -346,39 +338,38 @@ const loadAllTenants = async () => {
         {/* Scrollable Body */}
         <div className="px-2.5 py-2 overflow-y-auto flex-1 min-h-0 space-y-2">
 
-          {/* Stats Row - Updated with 5 columns including Security Deposit */}
-<div className="grid grid-cols-5 gap-1.5">
-  {[
-    { label: 'Total Beds', value: currentRoom.total_bed || 0, icon: Bed, bg: 'bg-blue-50', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
-    { label: 'Available', value: (currentRoom.total_bed || 0) - (currentRoom.occupied_beds || 0), icon: CheckCircle, bg: 'bg-green-50', textColor: 'text-green-700', iconColor: 'text-green-500' },
-    { label: 'Occupied', value: currentRoom.occupied_beds || 0, icon: Users, bg: 'bg-amber-50', textColor: 'text-amber-700', iconColor: 'text-amber-500' },
-    { label: 'Rent/Bed', value: `₹${currentRoom.rent_per_bed || 0}`, icon: BadgeIndianRupee, bg: 'bg-purple-50', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
-    { 
-      label: 'Security Deposit', 
-      value: (() => {
-        // Calculate total security deposit from occupied beds
-        const totalSecurityDeposit = bedAssignments
-          .filter(bed => bed.tenant_id && bed.security_deposit)
-          .reduce((sum, bed) => sum + (Number(bed.security_deposit) || 0), 0);
-        return totalSecurityDeposit > 0 ? `₹${totalSecurityDeposit.toLocaleString()}` : '₹0';
-      })(),
-      icon: Shield, 
-      bg: 'bg-amber-50', 
-      textColor: 'text-amber-700', 
-      iconColor: 'text-amber-500' 
-    },
-  ].map(({ label, value, icon: Icon, bg, textColor, iconColor }) => (
-    <div key={label} className={`${bg} border border-${bg.replace('bg-', '').replace('50', '100')} rounded-xl p-2`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`text-[7px] font-medium ${textColor} leading-tight`}>{label}</p>
-          <p className={`text-xs sm:text-sm font-bold ${textColor} leading-tight mt-0.5 truncate`}>{value}</p>          
-        </div>
-        <Icon className={`h-3 w-3 ${iconColor} flex-shrink-0`} />
-      </div>
-    </div>
-  ))}
-</div>
+          {/* Stats Row */}
+          <div className="grid grid-cols-5 gap-1.5">
+            {[
+              { label: 'Total Beds', value: currentRoom.total_bed || 0, icon: Bed, bg: 'bg-blue-50', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
+              { label: 'Available', value: (currentRoom.total_bed || 0) - (currentRoom.occupied_beds || 0), icon: CheckCircle, bg: 'bg-green-50', textColor: 'text-green-700', iconColor: 'text-green-500' },
+              { label: 'Occupied', value: currentRoom.occupied_beds || 0, icon: Users, bg: 'bg-amber-50', textColor: 'text-amber-700', iconColor: 'text-amber-500' },
+              { label: 'Rent/Bed', value: `₹${currentRoom.rent_per_bed || 0}`, icon: BadgeIndianRupee, bg: 'bg-purple-50', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
+              { 
+                label: 'Security Deposit', 
+                value: (() => {
+                  const totalSecurityDeposit = bedAssignments
+                    .filter(bed => bed.tenant_id && bed.security_deposit)
+                    .reduce((sum, bed) => sum + (Number(bed.security_deposit) || 0), 0);
+                  return totalSecurityDeposit > 0 ? `₹${totalSecurityDeposit.toLocaleString()}` : '₹0';
+                })(),
+                icon: Shield, 
+                bg: 'bg-amber-50', 
+                textColor: 'text-amber-700', 
+                iconColor: 'text-amber-500' 
+              },
+            ].map(({ label, value, icon: Icon, bg, textColor, iconColor }) => (
+              <div key={label} className={`${bg} rounded-xl p-2`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-[7px] font-medium ${textColor} leading-tight`}>{label}</p>
+                    <p className={`text-xs sm:text-sm font-bold ${textColor} leading-tight mt-0.5 truncate`}>{value}</p>          
+                  </div>
+                  <Icon className={`h-3 w-3 ${iconColor} flex-shrink-0`} />
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Beds Grid */}
           <div className="border border-gray-100 rounded-xl overflow-hidden">
@@ -418,7 +409,7 @@ const loadAllTenants = async () => {
                       <BedStatusBadge isAvailable={!isOccupied} />
                       {isOccupied && tenantDetail && (
                         <div className="mt-1 text-[8px] text-left border-t border-red-200 pt-1">
-                          <p className="font-semibold truncate text-gray-700">{tenantDetail.full_name}</p>
+                          <p className="font-semibold truncate text-gray-700">{tenantDetail.full_name || `Tenant ID: ${bedAssignment.tenant_id}`}</p>
                           <div className="flex items-center justify-between gap-1 mt-0.5">
                             {assignmentDate && (
                               <div className="flex items-center gap-0.5">
@@ -496,7 +487,6 @@ const loadAllTenants = async () => {
                   ))}
                 </div>
 
-                {/* Floor & Type info */}
                 <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-2 gap-1.5">
                   <div className="bg-slate-50 rounded-lg p-1.5">
                     <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wide">Floor</p>
@@ -545,199 +535,195 @@ const loadAllTenants = async () => {
           )}
 
           {/* Current Occupants */}
-<div className="border border-gray-100 rounded-xl overflow-hidden">
-  <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
-    <div className="flex items-center gap-1.5">
-      <UsersRound className="h-3 w-3 text-indigo-500" />
-      <span className="text-[10px] font-semibold text-gray-700">
-        Current Occupants ({occupiedBeds.length}/{currentRoom.total_bed || 0})
-      </span>
-    </div>
-    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0">
-      {occupiedBeds.length} occupied
-    </Badge>
-  </div>
-  <div className="p-2">
-    {loadingTenants ? (
-      <div className="flex items-center justify-center py-5">
-        <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-        <span className="ml-2 text-xs text-gray-500">Loading...</span>
-      </div>
-    ) : errorTenants ? (
-      <div className="bg-red-50 p-2.5 rounded-lg text-center border border-red-200">
-        <p className="text-xs text-red-600">{errorTenants}</p>
-        <Button variant="outline" size="sm" className="mt-1.5 h-6 text-[10px]" onClick={loadAllTenants}>
-          Retry
-        </Button>
-      </div>
-    ) : occupiedBeds.length > 0 ? (
-      <div className="grid grid-cols-1 gap-2">
-        {occupiedBeds.map((bed: BedAssignment, index: number) => {
-          const tenantDetail = getTenantDetails(bed.tenant_id);
-          const assignmentDate = bed.updated_at ? formatAssignmentDate(bed.updated_at) : '';
-          const securityDeposit = bed.security_deposit ? Number(bed.security_deposit) : null;
-          const isCoupleBooking = Boolean(bed.is_couple) && tenantDetail?.partner_full_name;
-          
-          return (
-            <div
-              key={bed.id || index}
-              className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Header */}
-              <div className={`px-3 py-2 flex items-center justify-between ${isCoupleBooking ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100' : 'bg-gray-50 border-b border-gray-100'}`}>
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg ${isCoupleBooking ? 'bg-pink-100' : 'bg-indigo-100'}`}>
-                    <Bed className={`h-3 w-3 ${isCoupleBooking ? 'text-pink-600' : 'text-indigo-600'}`} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-gray-800">Bed {bed.bed_number}</span>
-                      {isCoupleBooking && (
-                        <Badge className="bg-pink-500 text-white border-0 text-[9px] px-1.5 py-0 h-4">
-                          <Heart className="h-2 w-2 mr-0.5" />
-                          Couple Booking
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
-                      <Calendar className="h-2.5 w-2.5" />
-                      <span>Assigned: {assignmentDate || 'Recently'}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  {securityDeposit && securityDeposit > 0 && (
-                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 h-5">
-                      <Shield className="h-2.5 w-2.5 mr-0.5" />
-                      ₹{securityDeposit.toLocaleString()}
-                    </Badge>
-                  )}
-                </div>
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <UsersRound className="h-3 w-3 text-indigo-500" />
+                <span className="text-[10px] font-semibold text-gray-700">
+                  Current Occupants ({occupiedBeds.length}/{currentRoom.total_bed || 0})
+                </span>
               </div>
-              
-              {/* Body - Main Tenant & Partner Details */}
-              <div className="p-3">
-                {/* Main Tenant Details */}
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {tenantDetail?.full_name?.charAt(0) || '?'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between flex-wrap gap-1">
-                      <div>
-                        <p className="font-semibold text-sm text-gray-900 truncate">
-                          {tenantDetail?.full_name || 'Unknown'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <div className="flex items-center gap-1">
-                            <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-3 w-3" />
-                            <span className="text-[10px] text-gray-500 capitalize">
-                              {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
-                            </span>
-                          </div>
-                          {tenantDetail?.phone && (
-                            <>
-                              <span className="text-gray-300">•</span>
-                              <a href={`tel:${tenantDetail.phone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
-                                <Phone className="h-2.5 w-2.5" />
-                                <span>{tenantDetail.phone}</span>
-                              </a>
-                            </>
-                          )}
-                          {tenantDetail?.email && (
-                            <>
-                              <span className="text-gray-300">•</span>
-                              <a href={`mailto:${tenantDetail.email}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
-                                <Mail className="h-2.5 w-2.5" />
-                                <span className="truncate max-w-[120px]">{tenantDetail.email}</span>
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BadgeIndianRupee className="h-3 w-3 text-purple-500" />
-                        <span className="text-sm font-bold text-purple-700">₹{bed.tenant_rent || currentRoom.rent_per_bed}</span>
-                        <span className="text-[9px] text-gray-400">/month</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Partner Details for Couple Booking */}
-                {isCoupleBooking && (
-                  <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-4 w-0.5 bg-pink-400 rounded-full"></div>
-                      <Heart className="h-3 w-3 text-pink-500" />
-                      <span className="text-[10px] font-semibold text-pink-600 uppercase tracking-wide">Partner Details</span>
-                    </div>
-                    <div className="flex items-start gap-3 ml-2">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center">
-                          <span className="text-white font-semibold text-xs">
-                            {tenantDetail?.partner_full_name?.charAt(0) || 'P'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-800 truncate">
-                          {tenantDetail?.partner_full_name}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                          {tenantDetail?.partner_gender && (
-                            <div className="flex items-center gap-1">
-                              <GenderIcon gender={tenantDetail.partner_gender} size="h-2.5 w-2.5" />
-                              <span className="text-[10px] text-gray-500 capitalize">{tenantDetail.partner_gender}</span>
-                            </div>
-                          )}
-                          {tenantDetail?.partner_phone && (
-                            <a href={`tel:${tenantDetail.partner_phone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
-                              <Phone className="h-2.5 w-2.5" />
-                              <span>{tenantDetail.partner_phone}</span>
-                            </a>
-                          )}
-                          {tenantDetail?.partner_relationship && (
-                            <div className="flex items-center gap-1">
-                              <Heart className="h-2 w-2 text-pink-400" />
-                              <span className="text-[10px] text-gray-500">{tenantDetail.partner_relationship}</span>
-                            </div>
-                          )}
-                          {tenantDetail?.partner_occupation && (
-                            <div className="flex items-center gap-1">
-                              <Briefcase className="h-2 w-2 text-gray-400" />
-                              <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{tenantDetail.partner_occupation}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {tenantDetail?.couple_id && (
-                        <div className="flex-shrink-0">
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-pink-50 text-pink-600 border-pink-200">
-                            ID: {tenantDetail.couple_id}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0">
+                {occupiedBeds.length} occupied
+              </Badge>
             </div>
-          );
-        })}
-      </div>
-    ) : (
-      <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-        <UserRound className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-        <span className="text-sm text-gray-400">No occupants currently</span>
-      </div>
-    )}
-  </div>
-</div>
+            <div className="p-2">
+              {loadingTenants ? (
+                <div className="flex items-center justify-center py-5">
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  <span className="ml-2 text-xs text-gray-500">Loading tenant details...</span>
+                </div>
+              ) : errorTenants ? (
+                <div className="bg-red-50 p-2.5 rounded-lg text-center border border-red-200">
+                  <p className="text-xs text-red-600">{errorTenants}</p>
+                  <Button variant="outline" size="sm" className="mt-1.5 h-6 text-[10px]" onClick={loadAllTenants}>
+                    Retry
+                  </Button>
+                </div>
+              ) : occupiedBeds.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2">
+                  {occupiedBeds.map((bed: BedAssignment, index: number) => {
+                    const tenantDetail = getTenantDetails(bed.tenant_id);
+                    const assignmentDate = bed.updated_at ? formatAssignmentDate(bed.updated_at) : '';
+                    const securityDeposit = bed.security_deposit ? Number(bed.security_deposit) : null;
+                    
+                    // Check if this is a couple booking
+                    const isCoupleBooking = Boolean(bed.is_couple) && 
+                      (tenantDetail?.partner_full_name || tenantDetail?.is_couple_booking);
+                    
+                    // Get the display name - use full_name from API or fallback
+                    let displayName = tenantDetail?.full_name || `Tenant ${bed.tenant_id}`;
+                    let partnerName = tenantDetail?.partner_full_name;
+                    let partnerPhone = tenantDetail?.partner_phone;
+                    let partnerGender = tenantDetail?.partner_gender;
+                    let partnerRelationship = tenantDetail?.partner_relationship;
+                    
+                    return (
+                      <div
+                        key={bed.id || index}
+                        className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        {/* Header */}
+                        <div className={`px-3 py-2 flex items-center justify-between ${isCoupleBooking ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100' : 'bg-gray-50 border-b border-gray-100'}`}>
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg ${isCoupleBooking ? 'bg-pink-100' : 'bg-indigo-100'}`}>
+                              <Bed className={`h-3 w-3 ${isCoupleBooking ? 'text-pink-600' : 'text-indigo-600'}`} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm text-gray-800">Bed {bed.bed_number}</span>
+                                {isCoupleBooking && (
+                                  <Badge className="bg-pink-500 text-white border-0 text-[9px] px-1.5 py-0 h-4">
+                                    <Heart className="h-2 w-2 mr-0.5" />
+                                    Couple Booking
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                                <Calendar className="h-2.5 w-2.5" />
+                                <span>Assigned: {assignmentDate || 'Recently'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {securityDeposit && securityDeposit > 0 && (
+                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 h-5">
+                                <Shield className="h-2.5 w-2.5 mr-0.5" />
+                                ₹{securityDeposit.toLocaleString()}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Body - Main Tenant Details */}
+                        <div className="p-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
+                                <span className="text-white font-semibold text-sm">
+                                  {displayName.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between flex-wrap gap-1">
+                                <div>
+                                  <p className="font-semibold text-sm text-gray-900 truncate">
+                                    {displayName}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <div className="flex items-center gap-1">
+                                      <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-3 w-3" />
+                                      <span className="text-[10px] text-gray-500 capitalize">
+                                        {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
+                                      </span>
+                                    </div>
+                                    {tenantDetail?.phone && (
+                                      <>
+                                        <span className="text-gray-300">•</span>
+                                        <a href={`tel:${tenantDetail.phone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                                          <Phone className="h-2.5 w-2.5" />
+                                          <span>{tenantDetail.phone}</span>
+                                        </a>
+                                      </>
+                                    )}
+                                    {tenantDetail?.email && (
+                                      <>
+                                        <span className="text-gray-300">•</span>
+                                        <a href={`mailto:${tenantDetail.email}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                                          <Mail className="h-2.5 w-2.5" />
+                                          <span className="truncate max-w-[120px]">{tenantDetail.email}</span>
+                                        </a>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <BadgeIndianRupee className="h-3 w-3 text-purple-500" />
+                                  <span className="text-sm font-bold text-purple-700">₹{bed.tenant_rent || currentRoom.rent_per_bed}</span>
+                                  <span className="text-[9px] text-gray-400">/month</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Partner Details for Couple Booking */}
+                          {isCoupleBooking && partnerName && (
+                            <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="h-4 w-0.5 bg-pink-400 rounded-full"></div>
+                                <Heart className="h-3 w-3 text-pink-500" />
+                                <span className="text-[10px] font-semibold text-pink-600 uppercase tracking-wide">Partner Details</span>
+                              </div>
+                              <div className="flex items-start gap-3 ml-2">
+                                <div className="flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center">
+                                    <span className="text-white font-semibold text-xs">
+                                      {partnerName.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm text-gray-800 truncate">
+                                    {partnerName}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                    {partnerGender && (
+                                      <div className="flex items-center gap-1">
+                                        <GenderIcon gender={partnerGender} size="h-2.5 w-2.5" />
+                                        <span className="text-[10px] text-gray-500 capitalize">{partnerGender}</span>
+                                      </div>
+                                    )}
+                                    {partnerPhone && (
+                                      <a href={`tel:${partnerPhone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                                        <Phone className="h-2.5 w-2.5" />
+                                        <span>{partnerPhone}</span>
+                                      </a>
+                                    )}
+                                    {partnerRelationship && (
+                                      <div className="flex items-center gap-1">
+                                        <Heart className="h-2 w-2 text-pink-400" />
+                                        <span className="text-[10px] text-gray-500">{partnerRelationship}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                  <UserRound className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                  <span className="text-sm text-gray-400">No occupants currently</span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Description */}
           {currentRoom.description && (

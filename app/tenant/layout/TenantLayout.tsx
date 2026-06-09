@@ -364,6 +364,7 @@ function SidebarAccommodationCard({
 
         {hasAccommodation ? (
           <>
+            <div>
             <p className="font-bold text-xs lg:text-sm text-white truncate relative z-10">
               {propertyDisplay}
             </p>
@@ -371,6 +372,19 @@ function SidebarAccommodationCard({
               <MapPin className="h-2 w-2 lg:h-2.5 lg:w-2.5 shrink-0" />
               {tenant?.property_address || locationDisplay}
             </p>
+            
+            {/* Show couple badge if applicable */}
+            {/* Show couple badge if applicable - Fixed condition */}
+{/* Show couple badge if applicable - Use is_couple_booking */}
+{(tenant?.is_couple_booking === true || tenant?.is_couple === true) && (
+  <div className="mt-1 flex justify-end">
+    <Badge className="bg-pink-500/30 text-white border-pink-300/30 text-[7px]">
+      👫 Couple Booking
+    </Badge>
+  </div>
+)}
+            </div>
+            
 
             {/* Room details grid - NOW WITH CORRECT RENT FROM BED_ASSIGNMENTS */}
             <div className="grid grid-cols-2 gap-1 lg:gap-1.5 relative z-10">
@@ -403,14 +417,6 @@ function SidebarAccommodationCard({
               ))}
             </div>
 
-            {/* Show couple badge if applicable */}
-            {tenant?.is_couple && (
-              <div className="mt-1 flex justify-end">
-                <Badge className="bg-pink-500/30 text-white border-pink-300/30 text-[7px]">
-                  👫 Couple Booking
-                </Badge>
-              </div>
-            )}
           </>
         ) : (
           <div className="py-2 lg:py-3 text-center relative z-10">

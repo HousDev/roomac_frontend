@@ -11,12 +11,13 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role , setRole] = useState('');
-  useEffect(() =>{
-    if(localStorage.getItem('auth_role')){
-      setRole(localStorage.getItem('auth_role') || "");
-    }
-  },[])
+// Read synchronously as initial state — no flash
+const [role, setRole] = useState(() => localStorage.getItem('auth_role') || '');
+const [loginSource] = useState(() => localStorage.getItem('auth_login_source') || '');
+useEffect(() => {
+  const stored = localStorage.getItem('auth_role');
+  if (stored) setRole(stored);
+}, []);
 
   // Fetch settings on component mount
   useEffect(() => {
@@ -128,15 +129,17 @@ export function Header() {
             </Button>
           </a>
           
-          {role === "admin" ? <Link href="/admin" className="transition-all duration-300 hover:scale-105">
-            <Button size="sm" className="bg-primary hover:bg-primary/90">
-              {role.length === 0 ? "Login" : "Dashboard"}
-            </Button>
-          </Link>: <Link href="/tenant/portal" className="transition-all duration-300 hover:scale-105">
-            <Button size="sm" className="bg-primary hover:bg-primary/90">
-              {role.length === 0 ? "Login" : "Dashboard"}
-            </Button>
-          </Link>}
+          {(role === "admin" || role === "Admin" || loginSource === "admin") 
+  ? <Link href="/admin" className="transition-all duration-300 hover:scale-105">
+      <Button size="sm" className="bg-primary hover:bg-primary/90">
+        {role.length === 0 ? "Login" : "Dashboard"}
+      </Button>
+    </Link>
+  : <Link href="/tenant/portal" className="transition-all duration-300 hover:scale-105">
+      <Button size="sm" className="bg-primary hover:bg-primary/90">
+        {role.length === 0 ? "Login" : "Dashboard"}
+      </Button>
+    </Link>}
         </div>
 
         {/* Mobile Menu Button */}
