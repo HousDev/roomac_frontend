@@ -168,6 +168,8 @@ const [reportTotalItems, setReportTotalItems] = useState(0);
   const [revenuePage, setRevenuePage] = useState(1);
 const [propertyTenantPage, setPropertyTenantPage] = useState(1);
 const [propertyTenantPageSize, setPropertyTenantPageSize] = useState(20);
+// ✅ ADD THIS MISSING STATE VARIABLE
+  const [revenuePageSize, setRevenuePageSize] = useState(20);
 
   const [dashboardStats, setDashboardStats] =
     useState<reportApi.DashboardStats>({
@@ -3021,10 +3023,13 @@ useEffect(() => {
   <RevenueReportDetails 
     data={reportData} 
     formatCurrency={formatCurrency}
-    page={revenuePage}
-    pageSize={revenuePageSize}
+    page={revenuePage || 1}
+    pageSize={revenuePageSize || 20}
     onPageChange={setRevenuePage}
-    onPageSizeChange={(size:any) => { setRevenuePageSize(size); setRevenuePage(1); }}
+    onPageSizeChange={(size: number) => { 
+      setRevenuePageSize(size); 
+      setRevenuePage(1); 
+    }}
   />
 )}
                   {filters.reportType === "payments" && (
@@ -3232,7 +3237,12 @@ function SummaryStatCard({ title, value, icon }: any) {
 }
 
 // Report Detail Components - KEEP EXISTING
-function RevenueReportDetails({ data, formatCurrency, page, pageSize, onPageChange, onPageSizeChange }: any) {
+function RevenueReportDetails({data, 
+  formatCurrency, 
+  page = 1, 
+  pageSize = 20, 
+  onPageChange, 
+  onPageSizeChange  }: any) {
   const summary = data.summary;
   const payments = data.payments || [];
   const totalPayments = payments.length;

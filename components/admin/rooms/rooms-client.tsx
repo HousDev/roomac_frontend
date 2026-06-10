@@ -1,16 +1,35 @@
-
-
 // component/rooms/rooms-client.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { DoorOpen, Plus, Search, Bed, Users, Building2, RefreshCw, SlidersHorizontal, Download, Upload, Check, X, Trash2, BedDouble, Filter } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  DoorOpen,
+  Plus,
+  Search,
+  Bed,
+  Users,
+  Building2,
+  RefreshCw,
+  SlidersHorizontal,
+  Download,
+  Upload,
+  Check,
+  X,
+  Trash2,
+  BedDouble,
+  Filter,
+} from "lucide-react";
 import { toast } from "sonner";
-import { type RoomResponse ,processPhotoUrls, getMediaUrl, getFilteredRooms} from '@/lib/roomsApi';
+import {
+  type RoomResponse,
+  processPhotoUrls,
+  getMediaUrl,
+  getFilteredRooms,
+} from "@/lib/roomsApi";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,20 +38,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 // Import optimized components
-import RoomsGrid from './rooms-grid';
-import RoomsPagination from './rooms-pagination';
-import { RoomForm } from './room-form';
-import { BedManagementDialog } from './bed-management-dialog';
-import { PhotoGalleryModal } from './PhotoGalleryModal';
-import { RoomDetailsDialog } from './RoomDetailsDialog';
+import RoomsGrid from "./rooms-grid";
+import RoomsPagination from "./rooms-pagination";
+import { RoomForm } from "./room-form";
+import { BedManagementDialog } from "./bed-management-dialog";
+import { PhotoGalleryModal } from "./PhotoGalleryModal";
+import { RoomDetailsDialog } from "./RoomDetailsDialog";
 import { useAuth } from "@/context/authContext";
 
 // Import new components
-import SideFilter from './side-filter';
-import BulkActions from './bulk-actions'; // Keep this import
-import RoomImportModal from './room-import-modal';
-import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
+import SideFilter from "./side-filter";
+import BulkActions from "./bulk-actions"; // Keep this import
+import RoomImportModal from "./room-import-modal";
+import Swal from "sweetalert2";
+import * as XLSX from "xlsx";
 
 // Types
 interface RoomsClientProps {
@@ -57,47 +76,54 @@ interface FilterState {
   is_active: boolean;
 }
 
-export default function RoomsClient({ initialRooms, initialProperties }: RoomsClientProps) {
+export default function RoomsClient({
+  initialRooms,
+  initialProperties,
+}: RoomsClientProps) {
   // State management with safe defaults
-  const [rooms, setRooms] = useState<RoomResponse[]>(Array.isArray(initialRooms) ? initialRooms : []);
-  const [properties, setProperties] = useState(Array.isArray(initialProperties) ? initialProperties : []);
+  const [rooms, setRooms] = useState<RoomResponse[]>(
+    Array.isArray(initialRooms) ? initialRooms : [],
+  );
+  const [properties, setProperties] = useState(
+    Array.isArray(initialProperties) ? initialProperties : [],
+  );
   const [loading, setLoading] = useState(false);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
-  
+
   // Dialog states
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [bedDialogOpen, setBedDialogOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  
+
   // Editing state
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomResponse | null>(null);
-  const [selectedGalleryRoom, setSelectedGalleryRoom] = useState<RoomResponse | null>(null);
-  
+  const [selectedGalleryRoom, setSelectedGalleryRoom] =
+    useState<RoomResponse | null>(null);
+
   // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
-  const [selectedGenderPref, setSelectedGenderPref] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRoomType, setSelectedRoomType] = useState<string>("all");
+  const [selectedGenderPref, setSelectedGenderPref] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [filterSidebarOpen, setFilterSidebarOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>();
   const itemsPerPage = 12;
   const [showImportModal, setShowImportModal] = useState(false);
-const [importing, setImporting] = useState(false);
-const { can } = useAuth();
-
+  const [importing, setImporting] = useState(false);
+  const { can } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
-    property_id: '',
-    room_number: '',
-    sharing_type: '',
-    room_type: '',
+    property_id: "",
+    room_number: "",
+    sharing_type: "",
+    room_type: "",
     capacity: 0,
     rent_per_bed: 0,
-    floor: '',
+    floor: "",
     has_attached_bathroom: false,
     has_balcony: false,
     has_ac: false,
@@ -105,195 +131,270 @@ const { can } = useAuth();
     photo_labels: {} as { [key: string]: string },
     photos: [] as File[],
     video: null as File | null,
-    video_label: '',
+    video_label: "",
     room_gender_preference: [] as string[],
     allow_couples: false,
     is_active: true,
     existingPhotos: [] as { url: string; label?: string }[],
     photosToRemove: [] as string[],
     isManualCapacity: false,
-    customAmenityInput: '',
-    description: '',
-     beds_config: [], 
+    customAmenityInput: "",
+    description: "",
+    beds_config: [],
   });
 
   // Memoized room stats with safe defaults
   const roomStats = useMemo(() => {
     const safeRooms = Array.isArray(rooms) ? rooms : [];
-    
-    const totalBeds = safeRooms.reduce((sum, room) => sum + (room?.total_bed || 0), 0);
-    const occupiedBeds = safeRooms.reduce((sum, room) => sum + (room?.occupied_beds || 0), 0);
+
+    const totalBeds = safeRooms.reduce(
+      (sum, room) => sum + (room?.total_bed || 0),
+      0,
+    );
+    const occupiedBeds = safeRooms.reduce(
+      (sum, room) => sum + (room?.occupied_beds || 0),
+      0,
+    );
     const availableBeds = totalBeds - occupiedBeds;
-    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+    const occupancyRate =
+      totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
     return {
       totalRooms: safeRooms.length,
       totalBeds,
       availableBeds,
-      occupancyRate: `${occupancyRate}%`
+      occupancyRate: `${occupancyRate}%`,
     };
   }, [rooms]);
 
-
-
   const handleImportClick = useCallback(() => {
-  setShowImportModal(true);
-}, []);
+    setShowImportModal(true);
+  }, []);
 
+  // Also add validation when property is selected in the form
+  const validatePropertyRoomLimit = (propertyId: string) => {
+    const selectedProperty = properties.find(
+      (p) => String(p.id) === propertyId,
+    );
+    if (!selectedProperty) return { allowed: true, message: "" };
 
+    const propertyTotalRooms = selectedProperty.total_rooms || 0;
+    const existingRoomsForProperty = rooms.filter(
+      (r) => String(r.property_id) === propertyId,
+    ).length;
 
-// Also add validation when property is selected in the form
-const validatePropertyRoomLimit = (propertyId: string) => {
-  const selectedProperty = properties.find(p => String(p.id) === propertyId);
-  if (!selectedProperty) return { allowed: true, message: '' };
-  
-  const propertyTotalRooms = selectedProperty.total_rooms || 0;
-  const existingRoomsForProperty = rooms.filter(r => String(r.property_id) === propertyId).length;
-  
-  if (existingRoomsForProperty >= propertyTotalRooms) {
-    return {
-      allowed: false,
-      message: `This property has reached its maximum room limit (${propertyTotalRooms} rooms). Cannot add more rooms.`
-    };
-  }
-  
-  return { allowed: true, message: '' };
-};
+    if (existingRoomsForProperty >= propertyTotalRooms) {
+      return {
+        allowed: false,
+        message: `This property has reached its maximum room limit (${propertyTotalRooms} rooms). Cannot add more rooms.`,
+      };
+    }
 
-// Add this function to calculate existing rooms for a property
-const getExistingRoomsCount = useCallback((propertyId: string) => {
-  return rooms.filter(r => String(r.property_id) === propertyId).length;
-}, [rooms]);
+    return { allowed: true, message: "" };
+  };
 
+  // Add this function to calculate existing rooms for a property
+  const getExistingRoomsCount = useCallback(
+    (propertyId: string) => {
+      return rooms.filter((r) => String(r.property_id) === propertyId).length;
+    },
+    [rooms],
+  );
 
-// Add import file handler
-const handleImportFile = async (file: File) => {
-  setImporting(true);
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    const response = await fetch(`${apiUrl}/api/rooms/import`, {
-      method: 'POST',
-      body: formData,
+  // Add import file handler
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/api/rooms/import`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Successfully imported ${result.count} rooms`);
+        setShowImportModal(false);
+        await handleRefresh(); // Refresh the rooms list
+      } else {
+        throw new Error(result.message || "Import failed");
+      }
+    } catch (error: any) {
+      console.error("Import error:", error);
+      toast.error(error.message || "Failed to import rooms");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const filteredRooms = useMemo(() => {
+    const safeRooms = Array.isArray(rooms) ? rooms : [];
+
+    return safeRooms.filter((room) => {
+      if (!room) return false;
+
+      // Property filter
+      if (advancedFilters?.property_ids?.length > 0) {
+        if (
+          !advancedFilters.property_ids.some(
+            (id) => String(id) === String(room.property_id),
+          )
+        ) {
+          return false;
+        }
+      }
+
+      // Room type filter
+      if (advancedFilters?.room_types?.length > 0) {
+        if (
+          !advancedFilters.room_types.includes(room.room_type) &&
+          !advancedFilters.room_types.includes(room.sharing_type)
+        ) {
+          return false;
+        }
+      }
+
+      // Gender preferences filter
+      if (advancedFilters?.gender_preferences?.length > 0) {
+        const roomPrefs = Array.isArray(room.room_gender_preference)
+          ? room.room_gender_preference
+          : [];
+        const hasMatch = advancedFilters.gender_preferences.some((pref) =>
+          roomPrefs.some((rp) => rp.toLowerCase() === pref.toLowerCase()),
+        );
+        if (!hasMatch) return false;
+      }
+
+      // Availability filter
+      if (
+        advancedFilters?.availability_status &&
+        advancedFilters.availability_status !== "any"
+      ) {
+        const occupied = room.occupied_beds || 0;
+        const total = room.total_bed || 0;
+        if (
+          advancedFilters.availability_status === "available" &&
+          occupied !== 0
+        )
+          return false;
+        if (
+          advancedFilters.availability_status === "partial" &&
+          (occupied === 0 || occupied >= total)
+        )
+          return false;
+        if (advancedFilters.availability_status === "full" && occupied < total)
+          return false;
+      }
+
+      // Amenities filter
+      if (advancedFilters?.amenities?.length > 0) {
+        const roomAmenities = room.amenities || [];
+        if (!advancedFilters.amenities.every((a) => roomAmenities.includes(a)))
+          return false;
+      }
+
+      // Boolean filters
+      if (
+        advancedFilters?.has_attached_bathroom !== undefined &&
+        advancedFilters.has_attached_bathroom !== null
+      ) {
+        if (
+          room.has_attached_bathroom !== advancedFilters.has_attached_bathroom
+        )
+          return false;
+      }
+      if (
+        advancedFilters?.has_balcony !== undefined &&
+        advancedFilters.has_balcony !== null
+      ) {
+        if (room.has_balcony !== advancedFilters.has_balcony) return false;
+      }
+      if (
+        advancedFilters?.has_ac !== undefined &&
+        advancedFilters.has_ac !== null
+      ) {
+        if (room.has_ac !== advancedFilters.has_ac) return false;
+      }
+      if (
+        advancedFilters?.allow_couples !== undefined &&
+        advancedFilters.allow_couples !== null
+      ) {
+        if (room.allow_couples !== advancedFilters.allow_couples) return false;
+      }
+
+      // Rent range
+      if (
+        advancedFilters?.min_rent > 0 &&
+        room.rent_per_bed < advancedFilters.min_rent
+      )
+        return false;
+      if (
+        advancedFilters?.max_rent < 100000 &&
+        room.rent_per_bed > advancedFilters.max_rent
+      )
+        return false;
+
+      // ✅ UPDATED SEARCH - Now searches primary tenant name AND partner name
+      const searchLower = searchQuery.toLowerCase();
+      if (searchQuery) {
+        const roomNumberStr = room.room_number?.toString() || "";
+        const propertyName = (room.property_name || "").toLowerCase();
+        const sharingType = (room.sharing_type || "").toLowerCase();
+
+        // Check primary tenant names
+        const matchesPrimaryTenant = (room.bed_assignments || []).some(
+          (assignment: any) =>
+            !assignment.is_available &&
+            assignment.tenant_id &&
+            assignment.tenant_name &&
+            assignment.tenant_name.toLowerCase().includes(searchLower),
+        );
+
+        // ✅ Check partner names (NEW)
+        const matchesPartnerTenant = (room.bed_assignments || []).some(
+          (assignment: any) =>
+            !assignment.is_available &&
+            assignment.tenant_id &&
+            assignment.partner_name &&
+            assignment.partner_name.toLowerCase().includes(searchLower),
+        );
+
+        const matchesRoomSearch =
+          roomNumberStr.toLowerCase().includes(searchLower) ||
+          propertyName.includes(searchLower) ||
+          sharingType.includes(searchLower);
+
+        // Include partner search results
+        if (
+          !matchesRoomSearch &&
+          !matchesPrimaryTenant &&
+          !matchesPartnerTenant
+        )
+          return false;
+      }
+
+      // Local room type filter
+      if (selectedRoomType !== "all") {
+        const sharingType = room.sharing_type || "";
+        const totalBeds = room.total_bed || 0;
+        if (selectedRoomType === "single" && totalBeds !== 1) return false;
+        if (selectedRoomType === "double" && totalBeds !== 2) return false;
+        if (selectedRoomType === "triple" && totalBeds !== 3) return false;
+      }
+
+      return true;
     });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      toast.success(`Successfully imported ${result.count} rooms`);
-      setShowImportModal(false);
-      await handleRefresh(); // Refresh the rooms list
-    } else {
-      throw new Error(result.message || 'Import failed');
-    }
-  } catch (error: any) {
-    console.error('Import error:', error);
-    toast.error(error.message || 'Failed to import rooms');
-  } finally {
-    setImporting(false);
-  }
-};
-
-const filteredRooms = useMemo(() => {
-  const safeRooms = Array.isArray(rooms) ? rooms : [];
-  
-  return safeRooms.filter(room => {
-    if (!room) return false;
-
-    // Property filter
-    if (advancedFilters?.property_ids?.length > 0) {
-      if (!advancedFilters.property_ids.some(id => String(id) === String(room.property_id))) {
-        return false;
-      }
-    }
-
-    // ✅ Room type filter (was missing!)
-    if (advancedFilters?.room_types?.length > 0) {
-      if (!advancedFilters.room_types.includes(room.room_type) && 
-          !advancedFilters.room_types.includes(room.sharing_type)) {
-        return false;
-      }
-    }
-
-    // ✅ Gender preferences filter (was missing!)
-    if (advancedFilters?.gender_preferences?.length > 0) {
-      const roomPrefs = Array.isArray(room.room_gender_preference) 
-        ? room.room_gender_preference 
-        : [];
-      const hasMatch = advancedFilters.gender_preferences.some(pref =>
-        roomPrefs.some(rp => rp.toLowerCase() === pref.toLowerCase())
-      );
-      if (!hasMatch) return false;
-    }
-
-    // ✅ Availability filter (was missing!)
-    if (advancedFilters?.availability_status && advancedFilters.availability_status !== 'any') {
-      const occupied = room.occupied_beds || 0;
-      const total = room.total_bed || 0;
-      if (advancedFilters.availability_status === 'available' && occupied !== 0) return false;
-      if (advancedFilters.availability_status === 'partial' && (occupied === 0 || occupied >= total)) return false;
-      if (advancedFilters.availability_status === 'full' && occupied < total) return false;
-    }
-
-    // ✅ Amenities filter (was missing!)
-    if (advancedFilters?.amenities?.length > 0) {
-      const roomAmenities = room.amenities || [];
-      if (!advancedFilters.amenities.every(a => roomAmenities.includes(a))) return false;
-    }
-
-    // ✅ Boolean filters
-    if (advancedFilters?.has_attached_bathroom !== undefined && advancedFilters.has_attached_bathroom !== null) {
-      if (room.has_attached_bathroom !== advancedFilters.has_attached_bathroom) return false;
-    }
-    if (advancedFilters?.has_balcony !== undefined && advancedFilters.has_balcony !== null) {
-      if (room.has_balcony !== advancedFilters.has_balcony) return false;
-    }
-    if (advancedFilters?.has_ac !== undefined && advancedFilters.has_ac !== null) {
-      if (room.has_ac !== advancedFilters.has_ac) return false;
-    }
-    if (advancedFilters?.allow_couples !== undefined && advancedFilters.allow_couples !== null) {
-      if (room.allow_couples !== advancedFilters.allow_couples) return false;
-    }
-
-    // ✅ Rent range
-    if (advancedFilters?.min_rent > 0 && room.rent_per_bed < advancedFilters.min_rent) return false;
-    if (advancedFilters?.max_rent < 100000 && room.rent_per_bed > advancedFilters.max_rent) return false;
-
-    // Search
-    const searchLower = searchQuery.toLowerCase();
-    if (searchQuery) {
-      const roomNumberStr = room.room_number?.toString() || '';
-      const propertyName = (room.property_name || '').toLowerCase();
-      const sharingType = (room.sharing_type || '').toLowerCase();
-      
-      const matchesTenantSearch = (room.bed_assignments || []).some((assignment: any) =>
-        !assignment.is_available && assignment.tenant_id &&
-        (assignment.tenant_name || '').toLowerCase().includes(searchLower)
-      );
-      
-      const matchesRoomSearch = 
-        roomNumberStr.toLowerCase().includes(searchLower) ||
-        propertyName.includes(searchLower) ||
-        sharingType.includes(searchLower);
-      
-      if (!matchesRoomSearch && !matchesTenantSearch) return false;
-    }
-
-    // Local room type filter (the quick-filter dropdowns at top)
-    if (selectedRoomType !== 'all') {
-      const sharingType = room.sharing_type || '';
-      const totalBeds = room.total_bed || 0;
-      if (selectedRoomType === 'single' && totalBeds !== 1) return false;
-      if (selectedRoomType === 'double' && totalBeds !== 2) return false;
-      if (selectedRoomType === 'triple' && totalBeds !== 3) return false;
-    }
-
-    return true;
-  });
-}, [rooms, searchQuery, selectedRoomType, selectedGenderPref, advancedFilters]);
-
+  }, [
+    rooms,
+    searchQuery,
+    selectedRoomType,
+    selectedGenderPref,
+    advancedFilters,
+  ]);
 
   // Memoized paginated rooms
   const paginatedRooms = useMemo(() => {
@@ -305,10 +406,8 @@ const filteredRooms = useMemo(() => {
 
   // Room selection handlers
   const handleRoomSelect = useCallback((roomId: string, selected: boolean) => {
-    setSelectedRooms(prev => 
-      selected 
-        ? [...prev, roomId]
-        : prev.filter(id => id !== roomId)
+    setSelectedRooms((prev) =>
+      selected ? [...prev, roomId] : prev.filter((id) => id !== roomId),
     );
   }, []);
 
@@ -320,374 +419,431 @@ const filteredRooms = useMemo(() => {
     setSelectedRooms([]);
   }, []);
 
-  
+  const enrichRoomsWithTenantNames = useCallback(
+    async (roomsData: RoomResponse[]) => {
+      // If no rooms, return early
+      if (!roomsData || roomsData.length === 0) {
+        return roomsData;
+      }
 
-const enrichRoomsWithTenantNames = useCallback(async (roomsData: RoomResponse[]) => {
-  
-  // If no rooms, return early
-  if (!roomsData || roomsData.length === 0) {
-    return roomsData;
-  }
-  
-  const enrichedRooms = await Promise.all(
-    roomsData.map(async (room) => {
-      const bedAssignments = room.bed_assignments || [];
-      
-      const enrichedBeds = await Promise.all(
-        bedAssignments.map(async (bed) => {
-          if (bed.tenant_id && !bed.tenant_name) {
-            try {
-            
-              const token = localStorage.getItem('admin_token');
-              const response = await fetch(`/api/tenants/${bed.tenant_id}`, {
-                headers: {
-                  'Authorization': token ? `Bearer ${token}` : '',
+      const enrichedRooms = await Promise.all(
+        roomsData.map(async (room) => {
+          const bedAssignments = room.bed_assignments || [];
+
+          const enrichedBeds = await Promise.all(
+            bedAssignments.map(async (bed) => {
+              if (bed.tenant_id && !bed.tenant_name) {
+                try {
+                  const token = localStorage.getItem("admin_token");
+                  const response = await fetch(
+                    `/api/tenants/${bed.tenant_id}`,
+                    {
+                      headers: {
+                        Authorization: token ? `Bearer ${token}` : "",
+                      },
+                    },
+                  );
+                  const result = await response.json();
+                  if (result.success && result.data) {
+                    const tenantData = result.data;
+
+                    // ✅ Store both tenant name AND partner name for search
+                    return {
+                      ...bed,
+                      tenant_name: tenantData.full_name,
+                      partner_name: tenantData.partner_full_name || null,
+                      is_couple_booking: tenantData.is_couple_booking || false,
+                      partner_phone: tenantData.partner_phone || null,
+                      partner_gender: tenantData.partner_gender || null,
+                    };
+                  }
+                } catch (error) {
+                  console.error(
+                    `Error fetching tenant ${bed.tenant_id}:`,
+                    error,
+                  );
                 }
-              });
-              const result = await response.json();
-              if (result.success && result.data) {
-                return { ...bed, tenant_name: result.data.full_name };
               }
-            } catch (error) {
-              console.error(`      ❌ Error:`, error);
-            }
-          }
-          return bed;
-        })
+              return bed;
+            }),
+          );
+          return { ...room, bed_assignments: enrichedBeds };
+        }),
       );
-      return { ...room, bed_assignments: enrichedBeds };
-    })
+      return enrichedRooms;
+    },
+    [],
   );
-  return enrichedRooms;
-}, []);
 
-// Fetch rooms with advanced filters
-const fetchFilteredRooms = useCallback(async (filters: FilterState) => {
-  try {
-    setLoading(true);
-    
-    const processedFilters = {
-      ...filters,
-      min_rent: Number(filters.min_rent),
-      max_rent: Number(filters.max_rent),
-      min_capacity: Number(filters.min_capacity),
-      max_capacity: Number(filters.max_capacity),
-      page: currentPage,
-      limit: itemsPerPage
-    };
-    
-    // ✅ Use the API function that includes auth token
-    const result = await getFilteredRooms(processedFilters);
-    
-    if (result && result.success) {
-      const roomsWithTenants = await enrichRoomsWithTenantNames(result.data);
+  // Fetch rooms with advanced filters
+  const fetchFilteredRooms = useCallback(
+    async (filters: FilterState) => {
+      try {
+        setLoading(true);
+
+        const processedFilters = {
+          ...filters,
+          min_rent: Number(filters.min_rent),
+          max_rent: Number(filters.max_rent),
+          min_capacity: Number(filters.min_capacity),
+          max_capacity: Number(filters.max_capacity),
+          page: currentPage,
+          limit: itemsPerPage,
+        };
+
+        // ✅ Use the API function that includes auth token
+        const result = await getFilteredRooms(processedFilters);
+
+        if (result && result.success) {
+          const roomsWithTenants = await enrichRoomsWithTenantNames(
+            result.data,
+          );
+          setRooms(roomsWithTenants);
+          const totalPages = Math.ceil(result.pagination?.total / itemsPerPage);
+          if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+          }
+          setSelectedRooms([]);
+        } else {
+          toast.error(
+            "Failed to load rooms: " + (result?.message || "Unknown error"),
+          );
+        }
+      } catch (error: any) {
+        console.error("Error fetching filtered rooms:", error);
+        toast.error(
+          "Failed to load rooms: " + (error.message || "Network error"),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, itemsPerPage, enrichRoomsWithTenantNames],
+  );
+
+  // Refresh handler
+  const handleRefresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { listRooms } = await import("@/lib/roomsApi");
+      const response: any = await listRooms();
+      let roomsData =
+        response && Array.isArray(response)
+          ? response
+          : response?.data && Array.isArray(response.data)
+            ? response.data
+            : [];
+
+      // Sort rooms numerically
+      roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+        const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ""), 10);
+        const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ""), 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+        }
+        return String(a.room_number).localeCompare(
+          String(b.room_number),
+          undefined,
+          { numeric: true },
+        );
+      });
+
+      // ✅ Enrich rooms with tenant names
+      const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
       setRooms(roomsWithTenants);
-      const totalPages = Math.ceil(result.pagination?.total / itemsPerPage);
-      if (currentPage > totalPages && totalPages > 0) {
-        setCurrentPage(totalPages);
+    } catch (error) {
+      console.error("Error refreshing rooms:", error);
+      toast.error("Failed to refresh rooms");
+    } finally {
+      setLoading(false);
+    }
+  }, [enrichRoomsWithTenantNames]);
+
+  // Handle bulk action completion - FROM YOUR ORIGINAL CODE
+  const handleBulkActionComplete = useCallback(
+    (updatedRooms?: RoomResponse[]) => {
+      if (updatedRooms) {
+        setRooms(updatedRooms);
+      } else {
+        if (advancedFilters) {
+          fetchFilteredRooms(advancedFilters);
+        } else {
+          handleRefresh();
+        }
       }
       setSelectedRooms([]);
-    } else {
-      toast.error('Failed to load rooms: ' + (result?.message || 'Unknown error'));
+    },
+    [fetchFilteredRooms, advancedFilters],
+  );
+
+  // Handle filter changes
+  const handleFilterChange = useCallback(
+    (filters: FilterState) => {
+      setAdvancedFilters(filters);
+      setCurrentPage(1);
+      fetchFilteredRooms(filters);
+    },
+    [fetchFilteredRooms],
+  );
+
+  // Inside your RoomsClient component, replace the handleExport function:
+
+  const handleExport = useCallback(() => {
+    try {
+      // Prepare data for Excel
+      const exportData = rooms.map((room) => ({
+        "Room Number": room.room_number,
+        Property: room.property_name,
+        "Sharing Type": room.sharing_type,
+        "Total Beds": room.total_bed,
+        "Occupied Beds": room.occupied_beds,
+        "Available Beds": (room.total_bed || 0) - (room.occupied_beds || 0),
+        "Total Rent": room.rent_per_bed,
+        Floor: room.floor,
+        "Gender Preference": Array.isArray(room.room_gender_preference)
+          ? room.room_gender_preference.join(", ")
+          : room.room_gender_preference || "Any",
+        "Allow Couples": room.allow_couples ? "Yes" : "No",
+        "Attached Bathroom": room.has_attached_bathroom ? "Yes" : "No",
+        Balcony: room.has_balcony ? "Yes" : "No",
+        AC: room.has_ac ? "Yes" : "No",
+        Amenities: Array.isArray(room.amenities)
+          ? room.amenities.join(", ")
+          : "",
+        Status: room.is_active ? "Active" : "Inactive",
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-size columns (optional but recommended)
+      const colWidths = [];
+      const headers = Object.keys(exportData[0] || {});
+      headers.forEach((header) => {
+        const maxLength = Math.max(
+          header.length,
+          ...exportData.map((row) => String(row[header] || "").length),
+        );
+        colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Cap at 50 chars
+      });
+      ws["!cols"] = colWidths;
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rooms");
+
+      // Generate Excel file
+      const fileName = `rooms-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      toast.success(`Exported ${exportData.length} rooms successfully!`);
+    } catch (error) {
+      console.error("Error exporting rooms:", error);
+      toast.error("Failed to export rooms");
     }
-  } catch (error: any) {
-    console.error('Error fetching filtered rooms:', error);
-    toast.error('Failed to load rooms: ' + (error.message || 'Network error'));
-  } finally {
-    setLoading(false);
-  }
-}, [currentPage, itemsPerPage, enrichRoomsWithTenantNames]);
-
-// Refresh handler
-const handleRefresh = useCallback(async () => {
-  try {
-    setLoading(true);
-    const { listRooms } = await import('@/lib/roomsApi');
-    const response: any = await listRooms();
-    let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
-    
-    // Sort rooms numerically
-    roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
-      const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
-      const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-      return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
-    });
-    
-    // ✅ Enrich rooms with tenant names
-    const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
-    setRooms(roomsWithTenants);
-  } catch (error) {
-    console.error('Error refreshing rooms:', error);
-    toast.error("Failed to refresh rooms");
-  } finally {
-    setLoading(false);
-  }
-}, [enrichRoomsWithTenantNames]);
-
-
-// Handle bulk action completion - FROM YOUR ORIGINAL CODE
-  const handleBulkActionComplete = useCallback((updatedRooms?: RoomResponse[]) => {
-    if (updatedRooms) {
-      setRooms(updatedRooms);
-    } else {
-      if (advancedFilters) {
-        fetchFilteredRooms(advancedFilters);
-      } else {
-        handleRefresh();
-      }
-    }
-    setSelectedRooms([]);
-  }, [fetchFilteredRooms, advancedFilters]);
-
-    // Handle filter changes
-  const handleFilterChange = useCallback((filters: FilterState) => {
-    setAdvancedFilters(filters);
-    setCurrentPage(1);
-    fetchFilteredRooms(filters);
-  }, [fetchFilteredRooms]);
-
-// Inside your RoomsClient component, replace the handleExport function:
-
-const handleExport = useCallback(() => {
-  try {
-    // Prepare data for Excel
-    const exportData = rooms.map(room => ({
-      'Room Number': room.room_number,
-      'Property': room.property_name,
-      'Sharing Type': room.sharing_type,
-      'Total Beds': room.total_bed,
-      'Occupied Beds': room.occupied_beds,
-      'Available Beds': (room.total_bed || 0) - (room.occupied_beds || 0),
-      'Total Rent': room.rent_per_bed,
-      'Floor': room.floor,
-      'Gender Preference': Array.isArray(room.room_gender_preference) 
-        ? room.room_gender_preference.join(', ') 
-        : room.room_gender_preference || 'Any',
-      'Allow Couples': room.allow_couples ? 'Yes' : 'No',
-      'Attached Bathroom': room.has_attached_bathroom ? 'Yes' : 'No',
-      'Balcony': room.has_balcony ? 'Yes' : 'No',
-      'AC': room.has_ac ? 'Yes' : 'No',
-      'Amenities': Array.isArray(room.amenities) ? room.amenities.join(', ') : '',
-      'Status': room.is_active ? 'Active' : 'Inactive'
-    }));
-
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    
-    // Auto-size columns (optional but recommended)
-    const colWidths = [];
-    const headers = Object.keys(exportData[0] || {});
-    headers.forEach(header => {
-      const maxLength = Math.max(
-        header.length,
-        ...exportData.map(row => String(row[header] || '').length)
-      );
-      colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Cap at 50 chars
-    });
-    ws['!cols'] = colWidths;
-
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Rooms");
-    
-    // Generate Excel file
-    const fileName = `rooms-export-${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    
-    toast.success(`Exported ${exportData.length} rooms successfully!`);
-  } catch (error) {
-    console.error('Error exporting rooms:', error);
-    toast.error("Failed to export rooms");
-  }
-}, [rooms]);
+  }, [rooms]);
 
   // Import handler
   const handleImport = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv,.xlsx,.xls';
-    
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,.xlsx,.xls";
+
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      
+
       toast.info("Import functionality - implement based on your backend API");
     };
-    
+
     input.click();
   }, []);
 
   // Callbacks for event handlers
-  const handlePageChange = useCallback((page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  }, [totalPages]);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= totalPages) {
+        setCurrentPage(page);
+      }
+    },
+    [totalPages],
+  );
 
   // Your original handleEdit function
-  const handleEdit = useCallback((room: RoomResponse) => {
-    
-    const roomToEdit = rooms.find(r => r.id === room.id);
-    if (!roomToEdit) {
-      toast.error("Room data not found. Please refresh the page.");
-      return;
-    }
-
-    const bedConfig:any = room.bed_assignments.map((bed)=>({...bed,bed_rent:bed.tenant_rent,bedNumber:bed.bed_number}))
-    
-    setIsEditMode(true);
-    setEditingRoomId(room.id.toString());
-    const capacity = room.total_bed || 0;
-    const sharingType = room.sharing_type || '';
-    
-    const standardCapacities = [1, 2, 3];
-    const isStandardCapacity = standardCapacities.includes(capacity);
-    let actualSharingType = sharingType;
-    
-    if (sharingType === 'other' || !isStandardCapacity) {
-      actualSharingType = 'other';
-    }
-    
-    const defaultForSharingType = actualSharingType === 'single' ? 1 : 
-                                 actualSharingType === 'double' ? 2 : 
-                                 actualSharingType === 'triple' ? 3 : 2;
-    
-    const isAutoCapacity = defaultForSharingType === capacity && actualSharingType !== 'other';
-
-    const existingPhotos = processPhotoUrls(room.photo_urls).filter(
-      (photo: { url: string | null; label: any }) => photo.url !== null
-    ) as { url: string; label?: string }[];
-
-    const genderPreferences = room.room_gender_preference 
-      ? Array.isArray(room.room_gender_preference) 
-        ? room.room_gender_preference.map(g => g.trim())
-        : typeof room.room_gender_preference === 'string'
-          ? room.room_gender_preference.split(',').map((g: string) => g.trim()).filter(Boolean)
-          : []
-      : [];
-
-    const isActive = Boolean(roomToEdit.is_active);
-    const allowCouples = Boolean(roomToEdit.allow_couples);
-    const hasAttachedBathroom = Boolean(roomToEdit.has_attached_bathroom);
-    const hasBalcony = Boolean(roomToEdit.has_balcony);
-    const hasAC = Boolean(roomToEdit.has_ac);
-
-    setFormData({
-      property_id: room.property_id.toString(),
-      room_number: room.room_number.toString(),
-      sharing_type: actualSharingType,
-      room_type:room.room_type || '',
-      capacity: capacity,
-      rent_per_bed: room.rent_per_bed || 0,
-      floor: room.floor ? room.floor.toString() : '',
-      has_attached_bathroom: hasAttachedBathroom,
-      has_balcony: hasBalcony,
-      has_ac: hasAC,
-      amenities: room.amenities || [],
-      photo_labels: {},
-      photos: [],
-      video: null,
-      video_label: room.video_label || '',
-      room_gender_preference: genderPreferences,
-      allow_couples: allowCouples,
-      is_active: isActive,
-      existingPhotos: existingPhotos,
-      photosToRemove: [],
-      isManualCapacity: !isAutoCapacity || actualSharingType === 'other',
-      customAmenityInput: '',
-      description: room.description || '',
-      beds_config: bedConfig || []
-    });
-    
-    setRoomDialogOpen(true);
-  }, [rooms]);
-
-const handleDelete = useCallback(async (id: string, roomName?: string) => {
-  const result = await Swal.fire({
-    title: "Are you sure?",
-    text: `You are about to delete "${roomName || "this room"}"`,
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#d33",
-    cancelButtonColor: "#3085d6",
-    confirmButtonText: "Yes, delete it!",
-    cancelButtonText: "Cancel",
-    background: "#fff",
-    backdrop: `rgba(0,0,0,0.4)`,
-    customClass: {
-      title: "text-lg font-bold",
-      popup: "rounded-xl",
-      confirmButton:
-        "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
-      cancelButton:
-        "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
-    },
-  });
-
-  if (result.isConfirmed) {
-    try {
-      const { deleteRoom } = await import("@/lib/roomsApi");
-      const res = await deleteRoom(id);
-
-      if (!res?.success) {
-        toast.error(res?.message || "Failed to delete room");
+  const handleEdit = useCallback(
+    (room: RoomResponse) => {
+      const roomToEdit = rooms.find((r) => r.id === room.id);
+      if (!roomToEdit) {
+        toast.error("Room data not found. Please refresh the page.");
         return;
       }
 
-      await Swal.fire({
-        title: "Deleted!",
-        text: "Room has been deleted successfully.",
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-        background: "#fff",
-        customClass: {
-          popup: "rounded-xl",
-          title: "text-lg font-bold text-green-600",
-        },
+      const bedConfig: any = room.bed_assignments.map((bed) => ({
+        ...bed,
+        bed_rent: bed.tenant_rent,
+        bedNumber: bed.bed_number,
+      }));
+
+      setIsEditMode(true);
+      setEditingRoomId(room.id.toString());
+      const capacity = room.total_bed || 0;
+      const sharingType = room.sharing_type || "";
+
+      const standardCapacities = [1, 2, 3];
+      const isStandardCapacity = standardCapacities.includes(capacity);
+      let actualSharingType = sharingType;
+
+      if (sharingType === "other" || !isStandardCapacity) {
+        actualSharingType = "other";
+      }
+
+      const defaultForSharingType =
+        actualSharingType === "single"
+          ? 1
+          : actualSharingType === "double"
+            ? 2
+            : actualSharingType === "triple"
+              ? 3
+              : 2;
+
+      const isAutoCapacity =
+        defaultForSharingType === capacity && actualSharingType !== "other";
+
+      const existingPhotos = processPhotoUrls(room.photo_urls).filter(
+        (photo: { url: string | null; label: any }) => photo.url !== null,
+      ) as { url: string; label?: string }[];
+
+      const genderPreferences = room.room_gender_preference
+        ? Array.isArray(room.room_gender_preference)
+          ? room.room_gender_preference.map((g) => g.trim())
+          : typeof room.room_gender_preference === "string"
+            ? room.room_gender_preference
+                .split(",")
+                .map((g: string) => g.trim())
+                .filter(Boolean)
+            : []
+        : [];
+
+      const isActive = Boolean(roomToEdit.is_active);
+      const allowCouples = Boolean(roomToEdit.allow_couples);
+      const hasAttachedBathroom = Boolean(roomToEdit.has_attached_bathroom);
+      const hasBalcony = Boolean(roomToEdit.has_balcony);
+      const hasAC = Boolean(roomToEdit.has_ac);
+
+      setFormData({
+        property_id: room.property_id.toString(),
+        room_number: room.room_number.toString(),
+        sharing_type: actualSharingType,
+        room_type: room.room_type || "",
+        capacity: capacity,
+        rent_per_bed: room.rent_per_bed || 0,
+        floor: room.floor ? room.floor.toString() : "",
+        has_attached_bathroom: hasAttachedBathroom,
+        has_balcony: hasBalcony,
+        has_ac: hasAC,
+        amenities: room.amenities || [],
+        photo_labels: {},
+        photos: [],
+        video: null,
+        video_label: room.video_label || "",
+        room_gender_preference: genderPreferences,
+        allow_couples: allowCouples,
+        is_active: isActive,
+        existingPhotos: existingPhotos,
+        photosToRemove: [],
+        isManualCapacity: !isAutoCapacity || actualSharingType === "other",
+        customAmenityInput: "",
+        description: room.description || "",
+        beds_config: bedConfig || [],
       });
 
-      setRooms((prev) => prev.filter((room) => room.id.toString() !== id));
-      setSelectedRooms((prev) => prev.filter((roomId) => roomId !== id));
+      setRoomDialogOpen(true);
+    },
+    [rooms],
+  );
 
-    } catch (err: any) {
-      console.error("Room delete error:", err);
-      toast.error(err?.response?.message || "Failed to delete room");
-    }
-  }
-}, []);
+  const handleDelete = useCallback(async (id: string, roomName?: string) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `You are about to delete "${roomName || "this room"}"`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(0,0,0,0.4)`,
+      customClass: {
+        title: "text-lg font-bold",
+        popup: "rounded-xl",
+        confirmButton:
+          "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
+        cancelButton:
+          "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
+      },
+    });
 
-const handleViewDetails = useCallback(async (room: RoomResponse) => {
-  try {
-    setLoading(true);
-    const { getRoomById } = await import('@/lib/roomsApi');
-    const response = await getRoomById(room.id.toString());
-    
-    // Handle the response correctly
-    let roomData = null;
-    if (response && response.success && response.data) {
-      roomData = response.data;
-    } else if (response && !response.success && response.data) {
-      roomData = response.data;
-    } else if (response && !response.data) {
-      roomData = response;
-    } else {
-      roomData = room;
+    if (result.isConfirmed) {
+      try {
+        const { deleteRoom } = await import("@/lib/roomsApi");
+        const res = await deleteRoom(id);
+
+        if (!res?.success) {
+          toast.error(res?.message || "Failed to delete room");
+          return;
+        }
+
+        await Swal.fire({
+          title: "Deleted!",
+          text: "Room has been deleted successfully.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+          background: "#fff",
+          customClass: {
+            popup: "rounded-xl",
+            title: "text-lg font-bold text-green-600",
+          },
+        });
+
+        setRooms((prev) => prev.filter((room) => room.id.toString() !== id));
+        setSelectedRooms((prev) => prev.filter((roomId) => roomId !== id));
+      } catch (err: any) {
+        console.error("Room delete error:", err);
+        toast.error(err?.response?.message || "Failed to delete room");
+      }
     }
-    
-    setSelectedRoom(roomData);
-    setDetailsDialogOpen(true);
-  } catch (error) {
-    console.error('Error fetching fresh room data:', error);
-    setSelectedRoom(room);
-    setDetailsDialogOpen(true);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
+
+  const handleViewDetails = useCallback(async (room: RoomResponse) => {
+    try {
+      setLoading(true);
+      const { getRoomById } = await import("@/lib/roomsApi");
+      const response = await getRoomById(room.id.toString());
+
+      // Handle the response correctly
+      let roomData = null;
+      if (response && response.success && response.data) {
+        roomData = response.data;
+      } else if (response && !response.success && response.data) {
+        roomData = response.data;
+      } else if (response && !response.data) {
+        roomData = response;
+      } else {
+        roomData = room;
+      }
+
+      setSelectedRoom(roomData);
+      setDetailsDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching fresh room data:", error);
+      setSelectedRoom(room);
+      setDetailsDialogOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleBedManagement = useCallback((room: RoomResponse) => {
     setSelectedRoom(room);
@@ -702,13 +858,13 @@ const handleViewDetails = useCallback(async (room: RoomResponse) => {
   // Your original resetForm function
   const resetForm = useCallback(() => {
     setFormData({
-      property_id: '',
-      room_number: '',
-      sharing_type: '',
-      room_type: '',
+      property_id: "",
+      room_number: "",
+      sharing_type: "",
+      room_type: "",
       capacity: 0,
       rent_per_bed: 0,
-      floor: '',
+      floor: "",
       has_attached_bathroom: false,
       has_balcony: false,
       has_ac: false,
@@ -716,15 +872,15 @@ const handleViewDetails = useCallback(async (room: RoomResponse) => {
       photo_labels: {},
       photos: [],
       video: null,
-      video_label: '',
+      video_label: "",
       room_gender_preference: [],
       allow_couples: false,
       is_active: true,
       existingPhotos: [],
       photosToRemove: [],
       isManualCapacity: false,
-      customAmenityInput: '',
-      description: '',
+      customAmenityInput: "",
+      description: "",
       beds_config: [],
     });
     setIsEditMode(false);
@@ -732,97 +888,120 @@ const handleViewDetails = useCallback(async (room: RoomResponse) => {
   }, []);
 
   // In rooms-client.tsx, update the Add New Room button click handler
-const handleAddRoomClick = useCallback(() => {
-  resetForm();
-  setRoomDialogOpen(true);
-}, [resetForm]);
+  const handleAddRoomClick = useCallback(() => {
+    resetForm();
+    setRoomDialogOpen(true);
+  }, [resetForm]);
 
   // Your original handleSubmit function
   const handleSubmit = useCallback(async () => {
-
-    
-    if (!formData.property_id || !formData.room_number || !formData.sharing_type || formData.rent_per_bed <= 0) {
-    
+    if (
+      !formData.property_id ||
+      !formData.room_number ||
+      !formData.sharing_type ||
+      formData.rent_per_bed <= 0
+    ) {
       toast.error("Please fill all required fields");
       return;
     }
 
     try {
       const formDataObj = new FormData();
-      
-      formDataObj.append('property_id', formData.property_id);
-      formDataObj.append('room_number', formData.room_number);
-      formDataObj.append('sharing_type', formData.sharing_type);
-    formDataObj.append('room_type', formData.room_type || 'standard');
-      formDataObj.append('total_beds', formData.capacity.toString());
-      formDataObj.append('rent_per_bed', formData.rent_per_bed.toString());
-      formDataObj.append('floor', formData.floor || '0');
-      
-      formDataObj.append('has_attached_bathroom', formData.has_attached_bathroom.toString());
-      formDataObj.append('has_balcony', formData.has_balcony.toString());
-      formDataObj.append('has_ac', formData.has_ac.toString());
-      formDataObj.append('allow_couples', formData.allow_couples.toString());
-      formDataObj.append('is_active', formData.is_active.toString());
-      
-      formDataObj.append('amenities', JSON.stringify(formData.amenities));
-      formDataObj.append('room_gender_preference', formData.room_gender_preference.join(','));
-      
-      formDataObj.append('description', formData.description || '');
-      formDataObj.append('video_label', formData.video_label || '');
 
-    formDataObj.append('beds_config', JSON.stringify(formData.beds_config));
-      
+      formDataObj.append("property_id", formData.property_id);
+      formDataObj.append("room_number", formData.room_number);
+      formDataObj.append("sharing_type", formData.sharing_type);
+      formDataObj.append("room_type", formData.room_type || "standard");
+      formDataObj.append("total_beds", formData.capacity.toString());
+      formDataObj.append("rent_per_bed", formData.rent_per_bed.toString());
+      formDataObj.append("floor", formData.floor || "0");
+
+      formDataObj.append(
+        "has_attached_bathroom",
+        formData.has_attached_bathroom.toString(),
+      );
+      formDataObj.append("has_balcony", formData.has_balcony.toString());
+      formDataObj.append("has_ac", formData.has_ac.toString());
+      formDataObj.append("allow_couples", formData.allow_couples.toString());
+      formDataObj.append("is_active", formData.is_active.toString());
+
+      formDataObj.append("amenities", JSON.stringify(formData.amenities));
+      formDataObj.append(
+        "room_gender_preference",
+        formData.room_gender_preference.join(","),
+      );
+
+      formDataObj.append("description", formData.description || "");
+      formDataObj.append("video_label", formData.video_label || "");
+
+      formDataObj.append("beds_config", JSON.stringify(formData.beds_config));
+
       if (isEditMode && editingRoomId) {
-        formDataObj.append('existing_photos', JSON.stringify(formData.existingPhotos));
-        formDataObj.append('remove_photos', JSON.stringify(formData.photosToRemove));
-        
-        const removeVideo = formData.photosToRemove.length > 0 ? 'true' : 'false';
-        formDataObj.append('remove_video', removeVideo);
+        formDataObj.append(
+          "existing_photos",
+          JSON.stringify(formData.existingPhotos),
+        );
+        formDataObj.append(
+          "remove_photos",
+          JSON.stringify(formData.photosToRemove),
+        );
+
+        const removeVideo =
+          formData.photosToRemove.length > 0 ? "true" : "false";
+        formDataObj.append("remove_video", removeVideo);
       }
 
       const photoLabels: { [key: string]: string } = {};
       formData.photos.forEach((file, index) => {
-        photoLabels[index] = formData.photo_labels[index] || 'Room View';
+        photoLabels[index] = formData.photo_labels[index] || "Room View";
       });
-      formDataObj.append('photo_labels', JSON.stringify(photoLabels));
+      formDataObj.append("photo_labels", JSON.stringify(photoLabels));
 
-      formData.photos.forEach(photo => {
-        formDataObj.append('photos', photo);
+      formData.photos.forEach((photo) => {
+        formDataObj.append("photos", photo);
       });
 
       if (formData.video) {
-        formDataObj.append('video', formData.video);
+        formDataObj.append("video", formData.video);
       }
 
       if (isEditMode && editingRoomId) {
-        const { updateRoom } = await import('@/lib/roomsApi');
+        const { updateRoom } = await import("@/lib/roomsApi");
         await updateRoom(editingRoomId, formDataObj);
       } else {
-        const { createRoom } = await import('@/lib/roomsApi');
+        const { createRoom } = await import("@/lib/roomsApi");
         await createRoom(formDataObj);
       }
 
       setRoomDialogOpen(false);
       resetForm();
-      
-     const { listRooms } = await import('@/lib/roomsApi');
-const response:any = await listRooms();
-let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
 
-// Sort rooms numerically
-roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
-  const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
-  const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
-  if (!isNaN(numA) && !isNaN(numB)) {
-    return numA - numB;
-  }
-  return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
-});
+      const { listRooms } = await import("@/lib/roomsApi");
+      const response: any = await listRooms();
+      let roomsData =
+        response && Array.isArray(response)
+          ? response
+          : response?.data && Array.isArray(response.data)
+            ? response.data
+            : [];
 
-setRooms(roomsData);
-      
+      // Sort rooms numerically
+      roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+        const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ""), 10);
+        const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ""), 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+        }
+        return String(a.room_number).localeCompare(
+          String(b.room_number),
+          undefined,
+          { numeric: true },
+        );
+      });
+
+      setRooms(roomsData);
     } catch (err: any) {
-      console.error('Error saving room:', err);
+      console.error("Error saving room:", err);
       toast.error(err.message || "Failed to save room");
     }
   }, [isEditMode, editingRoomId, formData, resetForm]);
@@ -835,76 +1014,98 @@ setRooms(roomsData);
   // Gallery items (memoized)
   const galleryItems = useMemo(() => {
     if (!selectedGalleryRoom) return [];
-    
-    const items: Array<{url: string, label?: string, type: 'photo' | 'video'}> = [];
-    
+
+    const items: Array<{
+      url: string;
+      label?: string;
+      type: "photo" | "video";
+    }> = [];
+
     const processedPhotos = processPhotoUrls(selectedGalleryRoom.photo_urls);
-    processedPhotos.forEach((photo: { url: any; label: any; }) => {
+    processedPhotos.forEach((photo: { url: any; label: any }) => {
       if (photo.url) {
-        items.push({ 
-          url: photo.url, 
-          label: photo.label || 'Room View', 
-          type: 'photo' 
+        items.push({
+          url: photo.url,
+          label: photo.label || "Room View",
+          type: "photo",
         });
       }
     });
-    
+
     if (selectedGalleryRoom.video_url) {
-      const videoUrl = getMediaUrl(selectedGalleryRoom.video_url, 'video');
+      const videoUrl = getMediaUrl(selectedGalleryRoom.video_url, "video");
       if (videoUrl) {
-        items.push({ 
-          url: videoUrl, 
-          label: selectedGalleryRoom.video_label || 'Room Video Walkthrough', 
-          type: 'video' 
+        items.push({
+          url: videoUrl,
+          label: selectedGalleryRoom.video_label || "Room Video Walkthrough",
+          type: "video",
         });
       }
     }
-    
+
     return items;
   }, [selectedGalleryRoom]);
 
-// Load data on component mount if initialRooms is empty
-useEffect(() => {
-  const loadData = async () => {
-    if (rooms.length === 0) {
-      try {
-        setLoading(true);
-        const { listRooms } = await import('@/lib/roomsApi');
-        const response: any = await listRooms();
-        let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
-        
-        // Sort rooms numerically
-        roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
-          const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
-          const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
-          if (!isNaN(numA) && !isNaN(numB)) {
-            return numA - numB;
-          }
-          return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
-        });
-        
-        const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
-        setRooms(roomsWithTenants);
-      } catch (error) {
-        console.error('Error loading rooms:', error);
-        toast.error("Failed to load rooms");
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-  loadData();
-}, [rooms.length, enrichRoomsWithTenantNames]);
+  // Load data on component mount if initialRooms is empty
+  useEffect(() => {
+    const loadData = async () => {
+      if (rooms.length === 0) {
+        try {
+          setLoading(true);
+          const { listRooms } = await import("@/lib/roomsApi");
+          const response: any = await listRooms();
+          let roomsData =
+            response && Array.isArray(response)
+              ? response
+              : response?.data && Array.isArray(response.data)
+                ? response.data
+                : [];
 
-useEffect(() => {
-  const enrichInitialRooms = async () => {
-    if (rooms.length > 0 && rooms[0]?.bed_assignments?.[0]?.tenant_name === undefined) {
-      const enrichedRooms = await enrichRoomsWithTenantNames(rooms);
-      setRooms(enrichedRooms);
-    }
-  };
-  enrichInitialRooms();
-}, [rooms.length]); // Run when rooms are first loaded
+          // Sort rooms numerically
+          roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+            const numA = parseInt(
+              String(a.room_number).replace(/[^0-9]/g, ""),
+              10,
+            );
+            const numB = parseInt(
+              String(b.room_number).replace(/[^0-9]/g, ""),
+              10,
+            );
+            if (!isNaN(numA) && !isNaN(numB)) {
+              return numA - numB;
+            }
+            return String(a.room_number).localeCompare(
+              String(b.room_number),
+              undefined,
+              { numeric: true },
+            );
+          });
+
+          const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
+          setRooms(roomsWithTenants);
+        } catch (error) {
+          console.error("Error loading rooms:", error);
+          toast.error("Failed to load rooms");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [rooms.length, enrichRoomsWithTenantNames]);
+
+  useEffect(() => {
+    const enrichInitialRooms = async () => {
+      if (
+        rooms.length > 0 &&
+        rooms[0]?.bed_assignments?.[0]?.tenant_name === undefined
+      ) {
+        const enrichedRooms = await enrichRoomsWithTenantNames(rooms);
+        setRooms(enrichedRooms);
+      }
+    };
+    enrichInitialRooms();
+  }, [rooms.length]); // Run when rooms are first loaded
 
   return (
     <div className=" ">
@@ -918,7 +1119,9 @@ useEffect(() => {
                 <DoorOpen className="h-3.5 w-3.5 text-blue-600" />
               </div>
               <div className="leading-tight">
-                <p className="text-[9px] text-gray-500 font-medium">Total Rooms</p>
+                <p className="text-[9px] text-gray-500 font-medium">
+                  Total Rooms
+                </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
                   {roomStats.totalRooms}
                 </p>
@@ -931,7 +1134,9 @@ useEffect(() => {
                 <Bed className="h-3.5 w-3.5 text-green-600" />
               </div>
               <div className="leading-tight">
-                <p className="text-[9px] text-gray-500 font-medium">Total Beds</p>
+                <p className="text-[9px] text-gray-500 font-medium">
+                  Total Beds
+                </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
                   {roomStats.totalBeds}
                 </p>
@@ -944,7 +1149,9 @@ useEffect(() => {
                 <Users className="h-3.5 w-3.5 text-purple-600" />
               </div>
               <div className="leading-tight">
-                <p className="text-[9px] text-gray-500 font-medium">Available Beds</p>
+                <p className="text-[9px] text-gray-500 font-medium">
+                  Available Beds
+                </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
                   {roomStats.availableBeds}
                 </p>
@@ -957,7 +1164,9 @@ useEffect(() => {
                 <Building2 className="h-3.5 w-3.5 text-amber-600" />
               </div>
               <div className="leading-tight">
-                <p className="text-[9px] text-gray-500 font-medium">Occupancy Rate</p>
+                <p className="text-[9px] text-gray-500 font-medium">
+                  Occupancy Rate
+                </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
                   {roomStats.occupancyRate}
                 </p>
@@ -970,8 +1179,8 @@ useEffect(() => {
       {/* Main Content Card */}
       <Card className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-180px)] overflow-y-auto relative">
         {/* Desktop Header - Hidden on mobile */}
-        <CardHeader className="hidden md:block bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white sticky top-0 z-50 -translate-y-1 pt-2 rounded-xl">
-          <div className="py-2  px-0  ">
+        <CardHeader className="hidden md:block bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white sticky top-0 z-50 -translate-y-1 pt-2 pb-2 rounded-xl">
+          <div className="py-2 px-0  ">
             <div className="flex flex-col space-y-3">
               {/* Top Row */}
               <div className="flex items-center justify-between ">
@@ -984,18 +1193,18 @@ useEffect(() => {
 
                   {/* Search */}
                   <div className="relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-  <input
-    type="text"
-    placeholder="Search by room number, property, or tenant name..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
+                    <input
+                      type="text"
+                      placeholder="Search by room number, property, or tenant name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
              bg-white/20 text-white placeholder-blue-100
              backdrop-blur-md border border-white/30
              shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-  />
-</div>
+                    />
+                  </div>
                 </div>
 
                 {/* RIGHT: Buttons */}
@@ -1021,54 +1230,51 @@ useEffect(() => {
                   </Button>
 
                   {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-  {selectedRooms.length > 0 && (can('edit_rooms') || can('delete_rooms')) && (
-                    <BulkActions
-                      selectedRooms={selectedRooms}
-                      onActionComplete={handleBulkActionComplete}
-                    />
-                  )}
+                  {selectedRooms.length > 0 &&
+                    (can("edit_rooms") || can("delete_rooms")) && (
+                      <BulkActions
+                        selectedRooms={selectedRooms}
+                        onActionComplete={handleBulkActionComplete}
+                      />
+                    )}
 
                   {/* Export Button */}
-                    {can('export_rooms') && (
-
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={handleExport}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export
-                  </Button>
-                    )}
+                  {can("export_rooms") && (
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                      onClick={handleExport}
+                    >
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  )}
 
                   {/* Import Button */}
-                   {can('import_rooms') && (
-
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={handleImportClick}
-
-                  >
-                    <Upload className="h-4 w-4" />
-                    Import
-                  </Button>
-                    )}
+                  {can("import_rooms") && (
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                      onClick={handleImportClick}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Import
+                    </Button>
+                  )}
 
                   {/* Add New Room Button */}
-                    {can('create_rooms') && (
-
-                  <Button
-                    className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center h-8"
-                    onClick={() => {
-                      resetForm();
-                      setRoomDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Room
-                  </Button>
-                    )}
+                  {can("create_rooms") && (
+                    <Button
+                      className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center h-8"
+                      onClick={() => {
+                        resetForm();
+                        setRoomDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Room
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1086,14 +1292,15 @@ useEffect(() => {
                   <BedDouble className="h-3 w-3" />
                 </div>
                 <span className="text-sm font-semibold">Rooms</span>
-                
+
                 {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-  {selectedRooms.length > 0 && (can('edit_rooms') || can('delete_rooms')) && (
-                  <BulkActions
-                    selectedRooms={selectedRooms}
-                    onActionComplete={handleBulkActionComplete}
-                  />
-                )}
+                {selectedRooms.length > 0 &&
+                  (can("edit_rooms") || can("delete_rooms")) && (
+                    <BulkActions
+                      selectedRooms={selectedRooms}
+                      onActionComplete={handleBulkActionComplete}
+                    />
+                  )}
               </div>
 
               {/* Right: Action Icons + Add Button */}
@@ -1119,63 +1326,60 @@ useEffect(() => {
                 </Button>
 
                 {/* Export Icon */}
-                  {can('export_rooms') && (
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                  onClick={handleExport}
-                >
-                  <Download className="h-3 w-3" />
-                </Button>
-                  )}
+                {can("export_rooms") && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+                    onClick={handleExport}
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                )}
 
                 {/* Import Icon */}
-                  {can('import_rooms') && (
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                 onClick={handleImportClick}
-
-                >
-                  <Upload className="h-3 w-3" />
-                </Button>
-                  )}
+                {can("import_rooms") && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+                    onClick={handleImportClick}
+                  >
+                    <Upload className="h-3 w-3" />
+                  </Button>
+                )}
 
                 {/* Add Room Button */}
-                  {can('create_rooms') && (
-                <Button
-                  size="sm"
-                  className="h-6 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
-                  onClick={() => {
-                    resetForm();
-                    setRoomDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
-                  )}
+                {can("create_rooms") && (
+                  <Button
+                    size="sm"
+                    className="h-6 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
+                    onClick={() => {
+                      resetForm();
+                      setRoomDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add
+                  </Button>
+                )}
               </div>
             </div>
 
             {/* Compact Search Bar */}
-<div className="relative py-1">
-  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
-  <input
-    type="text"
-    placeholder="Search room, property, or tenant..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
+            <div className="relative py-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
+              <input
+                type="text"
+                placeholder="Search room, property, or tenant..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
              bg-white/20 text-white placeholder-blue-100
              backdrop-blur-md border border-white/30
              shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-  />
-</div>
+              />
+            </div>
           </div>
         </CardHeader>
 
@@ -1185,67 +1389,91 @@ useEffect(() => {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <p className="mt-4 text-gray-500">Loading rooms...</p>
             </div>
-         ) : paginatedRooms.length === 0 ? (
-  <div className="flex flex-col items-center justify-center py-16 text-center">
-    {/* Ghost icon */}
-    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-      <DoorOpen className="h-8 w-8 text-gray-300" />
-    </div>
+          ) : paginatedRooms.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              {/* Ghost icon */}
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <DoorOpen className="h-8 w-8 text-gray-300" />
+              </div>
 
-    <h3 className="text-base font-semibold text-gray-800 mb-1">No Rooms Found</h3>
-    <p className="text-sm text-gray-500 max-w-xs mb-5">
-      {advancedFilters?.property_ids?.length || advancedFilters?.room_types?.length ||
-       advancedFilters?.gender_preferences?.length || advancedFilters?.availability_status !== 'any' ||
-       searchQuery || selectedRoomType !== 'all' || selectedGenderPref !== 'all'
-        ? 'No rooms match your current filters. Try adjusting or clearing them.'
-        : 'Get started by adding your first room.'}
-    </p>
+              <h3 className="text-base font-semibold text-gray-800 mb-1">
+                No Rooms Found
+              </h3>
+              <p className="text-sm text-gray-500 max-w-xs mb-5">
+                {advancedFilters?.property_ids?.length ||
+                advancedFilters?.room_types?.length ||
+                advancedFilters?.gender_preferences?.length ||
+                advancedFilters?.availability_status !== "any" ||
+                searchQuery ||
+                selectedRoomType !== "all" ||
+                selectedGenderPref !== "all"
+                  ? "No rooms match your current filters. Try adjusting or clearing them."
+                  : "Get started by adding your first room."}
+              </p>
 
-    <div className="flex items-center gap-2">
-      {/* Clear Filters button — only show when filters are active */}
-      {(advancedFilters?.property_ids?.length ||
-        advancedFilters?.room_types?.length ||
-        advancedFilters?.availability_status !== 'any' ||
-        searchQuery || selectedRoomType !== 'all' || selectedGenderPref !== 'all') && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-gray-600 border-gray-300"
-          onClick={() => {
-            setSearchQuery('');
-            setSelectedRoomType('all');
-            setSelectedGenderPref('all');
-            // reset advancedFilters by re-opening and resetting, or call handleFilterChange with defaults:
-            const DEFAULT_FILTERS = {
-              search: '', property_ids: [], room_types: [], gender_preferences: [],
-              amenities: [], has_attached_bathroom: undefined, has_balcony: undefined,
-              has_ac: undefined, allow_couples: undefined,
-              min_rent: 0, max_rent: 100000, min_capacity: 1, max_capacity: 10,
-              is_active: true, availability_status: 'any' as const,
-            };
-            handleFilterChange(DEFAULT_FILTERS);
-          }}
-        >
-          <X className="h-3.5 w-3.5" />
-          Clear All Filters
-        </Button>
-      )}
+              <div className="flex items-center gap-2">
+                {/* Clear Filters button — only show when filters are active */}
+                {(advancedFilters?.property_ids?.length ||
+                  advancedFilters?.room_types?.length ||
+                  advancedFilters?.availability_status !== "any" ||
+                  searchQuery ||
+                  selectedRoomType !== "all" ||
+                  selectedGenderPref !== "all") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-gray-600 border-gray-300"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedRoomType("all");
+                      setSelectedGenderPref("all");
+                      // reset advancedFilters by re-opening and resetting, or call handleFilterChange with defaults:
+                      const DEFAULT_FILTERS = {
+                        search: "",
+                        property_ids: [],
+                        room_types: [],
+                        gender_preferences: [],
+                        amenities: [],
+                        has_attached_bathroom: undefined,
+                        has_balcony: undefined,
+                        has_ac: undefined,
+                        allow_couples: undefined,
+                        min_rent: 0,
+                        max_rent: 100000,
+                        min_capacity: 1,
+                        max_capacity: 10,
+                        is_active: true,
+                        availability_status: "any" as const,
+                      };
+                      handleFilterChange(DEFAULT_FILTERS);
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Clear All Filters
+                  </Button>
+                )}
 
-      {/* Add Room button — only when no filters and has permission */}
-      {!searchQuery && selectedRoomType === 'all' && selectedGenderPref === 'all' &&
-       !advancedFilters?.property_ids?.length && can('create_rooms') && (
-        <Button
-          size="sm"
-          style={{ backgroundColor: '#004ab0' }}
-          className="text-white gap-1.5"
-          onClick={() => { resetForm(); setRoomDialogOpen(true); }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add First Room
-        </Button>
-      )}
-    </div>
-  </div>
+                {/* Add Room button — only when no filters and has permission */}
+                {!searchQuery &&
+                  selectedRoomType === "all" &&
+                  selectedGenderPref === "all" &&
+                  !advancedFilters?.property_ids?.length &&
+                  can("create_rooms") && (
+                    <Button
+                      size="sm"
+                      style={{ backgroundColor: "#004ab0" }}
+                      className="text-white gap-1.5"
+                      onClick={() => {
+                        resetForm();
+                        setRoomDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add First Room
+                    </Button>
+                  )}
+              </div>
+            </div>
           ) : (
             <>
               <RoomsGrid
@@ -1259,9 +1487,9 @@ useEffect(() => {
                 onDelete={handleDelete}
                 onBedManagement={handleBedManagement}
                 onOpenGallery={openGallery}
-                canEdit={can('edit_rooms')}           // ← ADD
-  canDelete={can('delete_rooms')}       // ← ADD
-  canManageBeds={can('manage_beds')}    // ← ADD
+                canEdit={can("edit_rooms")} // ← ADD
+                canDelete={can("delete_rooms")} // ← ADD
+                canManageBeds={can("manage_beds")} // ← ADD
               />
 
               {totalPages > 1 && (
@@ -1271,7 +1499,7 @@ useEffect(() => {
                   totalItems={filteredRooms.length}
                   itemsPerPage={itemsPerPage}
                   onPageChange={handlePageChange}
-                  className='bg-white px-6 sticky bottom-0 z-30'
+                  className="bg-white px-6 sticky bottom-0 z-30"
                 />
               )}
             </>
@@ -1280,13 +1508,13 @@ useEffect(() => {
       </Card>
 
       {/* Side Filter - Opens when filter icon is clicked */}
-   {/* Side Filter - Opens when filter icon is clicked */}
-<SideFilter
-  open={filterSidebarOpen}
-  onOpenChange={setFilterSidebarOpen}
-  onFilterChange={handleFilterChange}
-  hideTrigger={true} // Add this prop to hide the floating button
-/>
+      {/* Side Filter - Opens when filter icon is clicked */}
+      <SideFilter
+        open={filterSidebarOpen}
+        onOpenChange={setFilterSidebarOpen}
+        onFilterChange={handleFilterChange}
+        hideTrigger={true} // Add this prop to hide the floating button
+      />
 
       {/* Dialogs - Pass the correct props */}
       <RoomForm
@@ -1299,15 +1527,15 @@ useEffect(() => {
         properties={properties}
         rooms={rooms}
         editingRoomId={editingRoomId}
-         getExistingRoomsCount={getExistingRoomsCount}
+        getExistingRoomsCount={getExistingRoomsCount}
       />
 
       <RoomImportModal
-      isOpen={showImportModal}
-      onClose={() => setShowImportModal(false)}
-      onImport={handleImportFile}
-      importing={importing}
-    />
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportFile}
+        importing={importing}
+      />
 
       {selectedRoom && (
         <RoomDetailsDialog
@@ -1322,26 +1550,25 @@ useEffect(() => {
           room={selectedRoom}
           open={bedDialogOpen}
           onOpenChange={(open) => {
-    setBedDialogOpen(open);
-    // When dialog closes, also refresh the room data
-    if (!open && selectedRoom) {
-      // Optionally refresh the specific room data
-      handleRefresh();
-    }
-  }}
-    onRefresh={handleRefresh}  // Existing
-    onRoomUpdate={(updatedRoom) => {
-      // ✅ Update the selectedRoom state
-      setSelectedRoom(updatedRoom);
-      
-      // ✅ Update the rooms list
-      setRooms(prevRooms => 
-        prevRooms.map(room => 
-          room.id === updatedRoom.id ? updatedRoom : room
-        )
-      );
-      
-    }}
+            setBedDialogOpen(open);
+            // When dialog closes, also refresh the room data
+            if (!open && selectedRoom) {
+              // Optionally refresh the specific room data
+              handleRefresh();
+            }
+          }}
+          onRefresh={handleRefresh} // Existing
+          onRoomUpdate={(updatedRoom) => {
+            // ✅ Update the selectedRoom state
+            setSelectedRoom(updatedRoom);
+
+            // ✅ Update the rooms list
+            setRooms((prevRooms) =>
+              prevRooms.map((room) =>
+                room.id === updatedRoom.id ? updatedRoom : room,
+              ),
+            );
+          }}
         />
       )}
 
