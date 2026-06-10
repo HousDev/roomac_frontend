@@ -45,25 +45,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = (
-    email: string,
-    role: string,
-    token: string,
-    loginSource: "admin" | "tenant"
-  ) => {
-    // Derive loginSource from role if not explicitly provided
+const login = (
+  email: string,
+  role: string,
+  token: string,
+  loginSource?: "admin" | "tenant"
+) => {
+  // Derive source from JWT type or role — never store "undefined"
   const source = loginSource ?? (role === "admin" || role === "Admin" ? "admin" : "tenant");
 
-    localStorage.setItem("auth_token", token);
-    localStorage.setItem("auth_email", email);
-    localStorage.setItem("auth_role", role);
-    localStorage.setItem("auth_login_source", loginSource);
+  localStorage.setItem("auth_token", token);
+  localStorage.setItem("auth_email", email);
+  localStorage.setItem("auth_role", role);
+  localStorage.setItem("auth_login_source", source);  // ← always "admin" or "tenant"
 
-    // Set a minimal user immediately so redirects don't flash wrong dashboard
   setUser({ email, role, loginSource: source });
-    
-    fetchUser(email).finally(() => setLoading(false));
-  };
+  fetchUser(email).finally(() => setLoading(false));
+};
 
   const logout = () => {
     localStorage.removeItem("auth_token");
@@ -83,7 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem("auth_token");
       const email = localStorage.getItem("auth_email");
       const role = localStorage.getItem("auth_role");
-    const loginSource = localStorage.getItem("auth_login_source") as "admin" | "tenant" | null;
+    const loginSource = (() => {
+  const v = localStorage.getItem("auth_login_source");
+  if (!v || v === "undefined" || v === "null") return null;
+  return v as "admin" | "tenant";
+})();
       
       if (token && email && email !== "null" && email !== "undefined") {
         // Set minimal user immediately to prevent flash before fetchUser resolves

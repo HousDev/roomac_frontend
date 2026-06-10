@@ -13,7 +13,10 @@ export function Header() {
   const [loading, setLoading] = useState(true);
 // Read synchronously as initial state — no flash
 const [role, setRole] = useState(() => localStorage.getItem('auth_role') || '');
-const [loginSource] = useState(() => localStorage.getItem('auth_login_source') || '');
+const [loginSource] = useState(() => {
+  const v = localStorage.getItem('auth_login_source');
+  return (!v || v === 'undefined' || v === 'null') ? '' : v;
+});
 useEffect(() => {
   const stored = localStorage.getItem('auth_role');
   if (stored) setRole(stored);

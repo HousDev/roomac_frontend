@@ -51,7 +51,12 @@ import roomacLogo from "@/app/src/assets/images/image.png";
 import { useAuth } from "@/context/authContext";
 import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
 import { number } from "framer-motion";
-import { forceUnlockAudio, initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../utils/notificationSound";
+import {
+  forceUnlockAudio,
+  initNotificationSound,
+  playNotificationSound,
+  preloadNotificationSound,
+} from "../../utils/notificationSound";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -122,14 +127,12 @@ function NotificationPopup({
         return <Calendar className="h-4 w-4 text-green-600" />;
       case "document":
         return <FileText className="h-4 w-4 text-purple-600" />;
-        case "support_ticket":
+      case "support_ticket":
         return <Headphones className="h-4 w-4 text-indigo-600" />;
       default:
         return <Bell className="h-4 w-4 text-gray-600" />;
     }
   };
-
-  
 
   return (
     <div
@@ -243,7 +246,7 @@ const NAV_ITEMS = [
     icon: HelpCircle,
     path: "/tenant/requests",
   },
-  
+
   { id: "profile", label: "Profile", icon: User, path: "/tenant/profile" },
   {
     id: "settings",
@@ -263,7 +266,6 @@ const NAV_ITEMS = [
     icon: MessageSquare,
     path: "/tenant/support",
   },
-  
 ];
 
 // ─── Helper: determine if tenant is truly active ──────────────────────────────
@@ -294,7 +296,7 @@ function SidebarAccommodationCard({
   );
 
   // Debug log to see what's coming from backend
- 
+
   // Check if tenant has accommodation
   const hasAccommodation = tenant?.room_number && tenant?.bed_number;
 
@@ -316,7 +318,7 @@ function SidebarAccommodationCard({
 
   // Get property display
   const propertyDisplay = tenant?.property_name || "Roomac PG";
-  
+
   // Get location display
   const locationDisplay =
     tenant?.property_city ||
@@ -365,38 +367,37 @@ function SidebarAccommodationCard({
         {hasAccommodation ? (
           <>
             <div>
-            <p className="font-bold text-xs lg:text-sm text-white truncate relative z-10">
-              {propertyDisplay}
-            </p>
-            <p className="text-[9px] lg:text-[10px] text-blue-100 truncate relative z-10 mb-2 flex items-center gap-1">
-              <MapPin className="h-2 w-2 lg:h-2.5 lg:w-2.5 shrink-0" />
-              {tenant?.property_address || locationDisplay}
-            </p>
-            
-            {/* Show couple badge if applicable */}
-            {/* Show couple badge if applicable - Fixed condition */}
-{/* Show couple badge if applicable - Use is_couple_booking */}
-{(tenant?.is_couple_booking === true || tenant?.is_couple === true) && (
-  <div className="mt-1 flex justify-end">
-    <Badge className="bg-pink-500/30 text-white border-pink-300/30 text-[7px]">
-      👫 Couple Booking
-    </Badge>
-  </div>
-)}
+              <p className="font-bold text-xs lg:text-sm text-white truncate relative z-10">
+                {propertyDisplay}
+              </p>
+              <p className="text-[9px] lg:text-[10px] text-blue-100 truncate relative z-10 flex items-center gap-1">
+                <MapPin className="h-2 w-2 lg:h-2.5 lg:w-2.5 shrink-0" />
+                {tenant?.property_address || locationDisplay}
+              </p>
+              {/* Couple Booking Badge - Separate row */}
+              {(tenant?.is_couple_booking === 1 ||
+                tenant?.is_couple === 1) && (
+                <div>
+                  {" "}
+                  {/* ← ADD YELLOW BORDER TO SEE IF IT RENDERS */}
+                  <Badge className="bg-pink-500/40 text-white border-pink-300/40 text-[8px] px-2 py-0.5">
+                    Couple Booking
+                  </Badge>
+                </div>
+              )}
             </div>
-            
 
-            {/* Room details grid - NOW WITH CORRECT RENT FROM BED_ASSIGNMENTS */}
+            {/* Room details grid */}
             <div className="grid grid-cols-2 gap-1 lg:gap-1.5 relative z-10">
               {[
                 { label: "ROOM NO.", value: tenant?.room_number || "—" },
                 {
                   label: "BED",
-                  value: `#${tenant?.bed_number || "—"} ${bedTypeDisplay ? `(${bedTypeDisplay})` : ''}`,
+                  value: `#${tenant?.bed_number || "—"} ${bedTypeDisplay ? `(${bedTypeDisplay})` : ""}`,
                 },
                 {
                   label: "RENT/MONTH",
-                  value: `₹${rentAmount.toLocaleString("en-IN")}`,
+                  value: `₹${rentAmount?.toLocaleString("en-IN") || "—"}`,
                 },
                 {
                   label: "FLOOR",
@@ -416,7 +417,6 @@ function SidebarAccommodationCard({
                 </div>
               ))}
             </div>
-
           </>
         ) : (
           <div className="py-2 lg:py-3 text-center relative z-10">
@@ -433,57 +433,60 @@ function SidebarAccommodationCard({
         )}
 
         {/* Next Payment section */}
-      {/* Next Payment section */}
-{hasAccommodation && rentAmount && (
-  <div
-    className="mt-2 relative z-10 rounded-lg overflow-hidden"
-    style={{ background: "rgba(255,255,255,0.12)" }}
-  >
-    <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
-      <p className="text-[8px] lg:text-[9px] font-semibold uppercase tracking-widest text-blue-100 mb-1">
-        Next Payment
-      </p>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs lg:text-sm font-black text-white leading-none">
-            ₹{rentAmount.toLocaleString("en-IN")}
-          </p>
-          <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">
-            Monthly Rent
-          </p>
-        </div>
-        <div className="flex gap-1 lg:gap-1.5">
-          <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-            <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
-              Due in
-            </p>
-            <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
-              {daysLeft}d
-            </p>
+        {/* Next Payment section */}
+        {hasAccommodation && rentAmount && (
+          <div
+            className="mt-2 relative z-10 rounded-lg overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.12)" }}
+          >
+            <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
+              <p className="text-[8px] lg:text-[9px] font-semibold uppercase tracking-widest text-blue-100 mb-1">
+                Next Payment
+              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs lg:text-sm font-black text-white leading-none">
+                    ₹{rentAmount.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">
+                    Monthly Rent
+                  </p>
+                </div>
+                <div className="flex gap-1 lg:gap-1.5">
+                  <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
+                    <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+                      Due in
+                    </p>
+                    <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+                      {daysLeft}d
+                    </p>
+                  </div>
+                  <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
+                    <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+                      Date
+                    </p>
+                    <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+                      {dueDate}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-            <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
-              Date
-            </p>
-            <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
-              {dueDate}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+        )}
 
-{!hasAccommodation && (
-  <div className="mt-2 relative z-10 rounded-lg overflow-hidden" style={{ background: "rgba(255,255,255,0.12)" }}>
-    <div className="px-2 py-2 lg:px-2.5 lg:py-2 text-center">
-      <p className="text-[9px] lg:text-[10px] text-blue-100">
-        Rent details will be available once accommodation is assigned
-      </p>
-    </div>
-  </div>
-)}
+        {!hasAccommodation && (
+          <div
+            className="mt-2 relative z-10 rounded-lg overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.12)" }}
+          >
+            <div className="px-2 py-2 lg:px-2.5 lg:py-2 text-center">
+              <p className="text-[9px] lg:text-[10px] text-blue-100">
+                Rent details will be available once accommodation is assigned
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -790,200 +793,195 @@ function TenantHeader({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-    const handleMarkAsRead = useCallback(async (id:number) => {
+  const handleMarkAsRead = useCallback(
+    async (id: number) => {
       try {
-        
         await markNoticePeriodAsSeen(id);
-        
       } catch (error) {
-        console.error('Error marking notification as read:', error);
+        console.error("Error marking notification as read:", error);
       }
-    }, [notifications]);
+    },
+    [notifications],
+  );
 
- const handleNotificationClick = (n: Notification) => {
-  if (!n.is_read) onMarkNotificationRead(n.id);
-  setNotificationsOpen(false);
-  handleMarkAsRead(Number(n.related_entity_id)); // Ensure we mark as read in the backend
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.is_read) onMarkNotificationRead(n.id);
+    setNotificationsOpen(false);
+    handleMarkAsRead(Number(n.related_entity_id)); // Ensure we mark as read in the backend
 
-  const notificationType = n.type || n.notification_type || "general";
+    const notificationType = n.type || n.notification_type || "general";
 
-  if (notificationType === "payment") 
-    onNavigate("/tenant/payments");  // ← CHANGE THIS from "/tenant/portal#payments"
-  else if (notificationType === "complaint") 
-    onNavigate("/tenant/requests");
-  else if (notificationType === "maintenance") 
-    onNavigate("/tenant/requests");
-  else if (notificationType === "change_bed")
-    onNavigate("/tenant/requests");
-  else if (notificationType === "document") 
-    onNavigate("/tenant/documents");
-  else if (notificationType === "support_ticket")
-        onNavigate("/tenant/support");          // ← NEW
-  
-  else 
-    onNavigate("/tenant/notifications");  // ← CHANGE THIS from "/tenant/portal/#notifications"
-};
+    if (notificationType === "payment")
+      onNavigate("/tenant/payments"); // ← CHANGE THIS from "/tenant/portal#payments"
+    else if (notificationType === "complaint") onNavigate("/tenant/requests");
+    else if (notificationType === "maintenance") onNavigate("/tenant/requests");
+    else if (notificationType === "change_bed") onNavigate("/tenant/requests");
+    else if (notificationType === "document") onNavigate("/tenant/documents");
+    else if (notificationType === "support_ticket")
+      onNavigate("/tenant/support"); // ← NEW
+    else onNavigate("/tenant/notifications"); // ← CHANGE THIS from "/tenant/portal/#notifications"
+  };
 
   return (
     // ← Reduced header padding on mobile: py-2 on mobile, py-4 on lg+
-  <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
-  <div className="px-3 sm:px-6 py-2 lg:py-3 flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
+      <div className="px-3 sm:px-6 py-2 lg:py-3 flex items-center justify-between gap-2">
+        {/* Left */}
+        <div className="flex items-center gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden hover:bg-blue-700 h-8 w-8 flex-shrink-0"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
 
-    {/* Left */}
-    <div className="flex items-center gap-2 min-w-0">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden hover:bg-blue-700 h-8 w-8 flex-shrink-0"
-        onClick={onMenuClick}
-      >
-        <Menu className="h-6 w-6" />
-      </Button>
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base lg:text-xl font-semibold text-slate-900 leading-tight truncate">
+              Welcome back,{" "}
+              <span className="text-[#0149ab]">
+                {tenant?.salutation
+                  ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
+                  : tenant?.full_name?.split(" ")[0] || "Tenant"}
+                !👋
+              </span>
+            </h1>
+            <p className="text-slate-500 text-[10px] sm:text-xs flex items-center gap-1 mt-0.5 truncate">
+              <Building className="h-3 w-3 flex-shrink-0 text-slate-400" />
+              <span className="truncate">
+                {tenant?.property_name || "Roomac Heights"}
 
-      <div className="min-w-0">
-        <h1 className="text-sm sm:text-base lg:text-xl font-semibold text-slate-900 leading-tight truncate">
-          Welcome back,{" "}
-          <span className="text-[#0149ab]">
-            {tenant?.salutation
-              ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
-              : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
-          </span>
-        </h1>
-        <p className="text-slate-500 text-[10px] sm:text-xs flex items-center gap-1 mt-0.5 truncate">
-          <Building className="h-3 w-3 flex-shrink-0 text-slate-400" />
-          <span className="truncate">
-  {tenant?.property_name || "Roomac Heights"}
-
-  <span className="hidden sm:inline">
-    {" "}· Room {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
-  </span>
-</span>
-        </p>
-      </div>
-    </div>
-
-    {/* Right */}
-    <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
-
-      {/* Date — hidden on small screens */}
-      <p className="hidden sm:block text-[10px] sm:text-xs lg:text-sm font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
-        {new Date().toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}
-      </p>
-
-      {/* Date — short version on mobile only */}
-      <p className="block sm:hidden text-[10px] font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
-        {new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })}
-      </p>
-
-      {/* Bell */}
-      <div className="relative" ref={notificationsRef}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative hover:bg-slate-100 h-8 w-8 lg:h-9 lg:w-9"
-          onClick={() => setNotificationsOpen(!notificationsOpen)}
-        >
-          <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
-         {notificationCount > 0 && (
-  <Badge
-    variant="destructive"
-    className="absolute -top-1 -right-1 min-w-[16px] lg:min-w-[20px] h-4 lg:h-5 flex items-center justify-center text-[9px] lg:text-xs px-1"
-  >
-    {notificationCount}
-  </Badge>
-)}
-        </Button>
-        
-
-        {notificationsOpen && (
-          <NotificationPopup
-            notifications={notifications}
-            unreadCount={notificationCount}
-            onMarkAllRead={onMarkAllRead}
-            onNotificationClick={handleNotificationClick}
-            onClose={() => setNotificationsOpen(false)}
-            onViewAll={() => {
-              setNotificationsOpen(false);
-              onNavigate("/tenant/notifications");
-            }}
-            loading={loadingNotifications}
-          />
-        )}
-      </div>
-
-      {/* Profile Dropdown */}
-      <div className="relative" ref={profileRef}>
-        <Button
-          variant="ghost"
-          className="h-7 w-7 lg:h-9 lg:w-9 rounded-full p-0"
-          onClick={() => setProfileOpen(!profileOpen)}
-        >
-          <Avatar className="h-7 w-7 lg:h-9 lg:w-9">
-            <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
-            <AvatarFallback className="bg-[#fec40a] text-black text-xs font-semibold">
-              {tenant?.full_name?.charAt(0) || "T"}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
-
-        {profileOpen && (
-          <div className="absolute right-0 mt-2 w-44 sm:w-48 lg:w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-50">
-            <div className="p-2.5 lg:p-3 border-b border-slate-200">
-              <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">
-                {tenant?.full_name}
-              </p>
-              <p className="text-[10px] lg:text-xs text-slate-500 truncate">
-                {tenant?.email}
-              </p>
-            </div>
-            <div className="p-1">
-              <Button
-                variant="ghost"
-                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                onClick={() => {
-                  onNavigate("/tenant/profile");
-                  setProfileOpen(false);
-                }}
-              >
-                <User className="h-3.5 w-3.5 mr-2" /> Profile
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                onClick={() => {
-                  onNavigate("/tenant/settings");
-                  setProfileOpen(false);
-                }}
-              >
-                <Settings className="h-3.5 w-3.5 mr-2" /> Settings
-              </Button>
-            </div>
-            <div className="border-t border-slate-200 p-1">
-              <Button
-                variant="ghost"
-                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm text-red-600 hover:bg-red-50 hover:text-red-600"
-                onClick={() => {
-                  onLogout();
-                  setProfileOpen(false);
-                }}
-              >
-                <LogOut className="h-3.5 w-3.5 mr-2" /> Logout
-              </Button>
-            </div>
+                <span className="hidden sm:inline">
+                  {" "}
+                  · Room {tenant?.room_number || "204"} · Bed{" "}
+                  {tenant?.bed_number || "1"}
+                </span>
+              </span>
+            </p>
           </div>
-        )}
+        </div>
+
+        {/* Right */}
+        <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
+          {/* Date — hidden on small screens */}
+          <p className="hidden sm:block text-[10px] sm:text-xs lg:text-sm font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+
+          {/* Date — short version on mobile only */}
+          <p className="block sm:hidden text-[10px] font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
+            {new Date().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+
+          {/* Bell */}
+          <div className="relative" ref={notificationsRef}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative hover:bg-slate-100 h-8 w-8 lg:h-9 lg:w-9"
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+            >
+              <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+              {notificationCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-1 -right-1 min-w-[16px] lg:min-w-[20px] h-4 lg:h-5 flex items-center justify-center text-[9px] lg:text-xs px-1"
+                >
+                  {notificationCount}
+                </Badge>
+              )}
+            </Button>
+
+            {notificationsOpen && (
+              <NotificationPopup
+                notifications={notifications}
+                unreadCount={notificationCount}
+                onMarkAllRead={onMarkAllRead}
+                onNotificationClick={handleNotificationClick}
+                onClose={() => setNotificationsOpen(false)}
+                onViewAll={() => {
+                  setNotificationsOpen(false);
+                  onNavigate("/tenant/notifications");
+                }}
+                loading={loadingNotifications}
+              />
+            )}
+          </div>
+
+          {/* Profile Dropdown */}
+          <div className="relative" ref={profileRef}>
+            <Button
+              variant="ghost"
+              className="h-7 w-7 lg:h-9 lg:w-9 rounded-full p-0"
+              onClick={() => setProfileOpen(!profileOpen)}
+            >
+              <Avatar className="h-7 w-7 lg:h-9 lg:w-9">
+                <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
+                <AvatarFallback className="bg-[#fec40a] text-black text-xs font-semibold">
+                  {tenant?.full_name?.charAt(0) || "T"}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+
+            {profileOpen && (
+              <div className="absolute right-0 mt-2 w-44 sm:w-48 lg:w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-50">
+                <div className="p-2.5 lg:p-3 border-b border-slate-200">
+                  <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">
+                    {tenant?.full_name}
+                  </p>
+                  <p className="text-[10px] lg:text-xs text-slate-500 truncate">
+                    {tenant?.email}
+                  </p>
+                </div>
+                <div className="p-1">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
+                    onClick={() => {
+                      onNavigate("/tenant/profile");
+                      setProfileOpen(false);
+                    }}
+                  >
+                    <User className="h-3.5 w-3.5 mr-2" /> Profile
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
+                    onClick={() => {
+                      onNavigate("/tenant/settings");
+                      setProfileOpen(false);
+                    }}
+                  >
+                    <Settings className="h-3.5 w-3.5 mr-2" /> Settings
+                  </Button>
+                </div>
+                <div className="border-t border-slate-200 p-1">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm text-red-600 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => {
+                      onLogout();
+                      setProfileOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-3.5 w-3.5 mr-2" /> Logout
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</header>
+    </header>
   );
 }
 
@@ -1025,161 +1023,161 @@ export default function TenantLayout() {
 
   // Load notifications
   // Load notifications
- // Load notifications
-const loadNotifications = async (showLoading = true) => {
-  try {
-    if (showLoading) setLoadingNotifications(true);
-
-    const [notifs, count] = await Promise.all([
-      getTenantNotifications(20),
-      getUnreadNotificationCount(),
-    ]);
-
-
-    // Transform API notifications to match component format
-    const formattedNotifs = notifs.map((n) => {
-      return {
-        ...n,
-        type: n.notification_type, // Add type for backward compatibility
-      };
-    });
-
-    setNotifications(formattedNotifs);
-    setNotificationCount(count); // ✅ Update count immediately
-    
-  } catch (error) {
-    console.error("❌ Error loading notifications:", error);
-  } finally {
-    if (showLoading) setLoadingNotifications(false);
-    setInitialLoadDone(true);
-  }
-};
-
-// Initialize notification sound on first user interaction
-useEffect(() => {
-  // Preload sound when component mounts
-  preloadNotificationSound();
-  
-  // Initialize sound on first click/tap
-  const handleFirstInteraction = () => {
-    initNotificationSound();
-    window.removeEventListener("click", handleFirstInteraction);
-    window.removeEventListener("touchstart", handleFirstInteraction);
-    console.log("🔊 Audio unlocked by user interaction");
-  };
-  
-  window.addEventListener("click", handleFirstInteraction);
-  window.addEventListener("touchstart", handleFirstInteraction);
-  
-  // Also try to unlock on any key press
-  const handleKeyPress = () => {
-    initNotificationSound();
-    window.removeEventListener("keydown", handleKeyPress);
-  };
-  window.addEventListener("keydown", handleKeyPress);
-  
-  return () => {
-    window.removeEventListener("click", handleFirstInteraction);
-    window.removeEventListener("touchstart", handleFirstInteraction);
-    window.removeEventListener("keydown", handleKeyPress);
-  };
-}, []);
-
-  // Load notifications on mount 
-// Setup Socket.IO for real-time notifications
-useEffect(() => {
-  let socket: any = null;
-  let mounted = true;
-  
-  const setupSocket = async () => {
+  // Load notifications
+  const loadNotifications = async (showLoading = true) => {
     try {
-      const tenantId = getTenantId();
-      if (!tenantId) {
-        console.log("No tenant ID found, skipping socket setup");
-        return;
-      }
-      
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
-      // Dynamic import for socket.io-client
-      const ioModule = await import('socket.io-client');
-      const io = ioModule.default || ioModule;
-      
-      socket = io(apiUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+      if (showLoading) setLoadingNotifications(true);
+
+      const [notifs, count] = await Promise.all([
+        getTenantNotifications(20),
+        getUnreadNotificationCount(),
+      ]);
+
+      // Transform API notifications to match component format
+      const formattedNotifs = notifs.map((n) => {
+        return {
+          ...n,
+          type: n.notification_type, // Add type for backward compatibility
+        };
       });
-      
-      socket.on('connect', () => {
-  console.log('✅ Tenant Socket connected:', socket.id);
-  console.log('📡 Sending join_tenant_room with tenantId:', parseInt(tenantId));
-  // Send as direct value instead of object
-  socket.emit('join_tenant_room', parseInt(tenantId));
-   // Force unlock audio when socket connects
-  forceUnlockAudio();
-});
 
-// Also add this to confirm room join:
-socket.on('joined_room', (data: any) => {
-  console.log('✅ Successfully joined room:', data);
-});
-      
-      // Listen for new notifications
-      socket.on('new_notification', (notification: any) => {
-        if (!mounted) return;
-        
-        console.log("🔔 New notification received for tenant:", notification); console.log("🔔🔔🔔 TENANT RECEIVED NOTIFICATION:", notification);
-  console.log("Notification title:", notification.title);
-  console.log("Notification type:", notification.type);
-        
-        // Play sound with a small delay to ensure everything is ready
+      setNotifications(formattedNotifs);
+      setNotificationCount(count); // ✅ Update count immediately
+    } catch (error) {
+      console.error("❌ Error loading notifications:", error);
+    } finally {
+      if (showLoading) setLoadingNotifications(false);
+      setInitialLoadDone(true);
+    }
+  };
 
-    playNotificationSound();
-  
-        
-        // Immediately refresh notifications
+  // Initialize notification sound on first user interaction
+  useEffect(() => {
+    // Preload sound when component mounts
+    preloadNotificationSound();
+
+    // Initialize sound on first click/tap
+    const handleFirstInteraction = () => {
+      initNotificationSound();
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      console.log("🔊 Audio unlocked by user interaction");
+    };
+
+    window.addEventListener("click", handleFirstInteraction);
+    window.addEventListener("touchstart", handleFirstInteraction);
+
+    // Also try to unlock on any key press
+    const handleKeyPress = () => {
+      initNotificationSound();
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+    window.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+  }, []);
+
+  // Load notifications on mount
+  // Setup Socket.IO for real-time notifications
+  useEffect(() => {
+    let socket: any = null;
+    let mounted = true;
+
+    const setupSocket = async () => {
+      try {
+        const tenantId = getTenantId();
+        if (!tenantId) {
+          console.log("No tenant ID found, skipping socket setup");
+          return;
+        }
+
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+        // Dynamic import for socket.io-client
+        const ioModule = await import("socket.io-client");
+        const io = ioModule.default || ioModule;
+
+        socket = io(apiUrl, {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+        });
+
+        socket.on("connect", () => {
+          console.log("✅ Tenant Socket connected:", socket.id);
+          console.log(
+            "📡 Sending join_tenant_room with tenantId:",
+            parseInt(tenantId),
+          );
+          // Send as direct value instead of object
+          socket.emit("join_tenant_room", parseInt(tenantId));
+          // Force unlock audio when socket connects
+          forceUnlockAudio();
+        });
+
+        // Also add this to confirm room join:
+        socket.on("joined_room", (data: any) => {
+          console.log("✅ Successfully joined room:", data);
+        });
+
+        // Listen for new notifications
+        socket.on("new_notification", (notification: any) => {
+          if (!mounted) return;
+
+          console.log("🔔 New notification received for tenant:", notification);
+          console.log("🔔🔔🔔 TENANT RECEIVED NOTIFICATION:", notification);
+          console.log("Notification title:", notification.title);
+          console.log("Notification type:", notification.type);
+
+          // Play sound with a small delay to ensure everything is ready
+
+          playNotificationSound();
+
+          // Immediately refresh notifications
+          loadNotifications(false);
+
+          // Update count instantly
+          getUnreadNotificationCount().then((count) => {
+            if (mounted) setNotificationCount(count);
+          });
+        });
+
+        socket.on("disconnect", () => {
+          console.log("❌ Tenant Socket disconnected");
+        });
+
+        socket.on("connect_error", (err: any) => {
+          console.error("Socket connection error:", err);
+        });
+      } catch (err) {
+        console.error("Socket.IO setup error:", err);
+      }
+    };
+
+    setupSocket();
+
+    // Fallback polling every 3 seconds (reduced from 5 to 3 seconds for faster updates)
+    const interval = setInterval(() => {
+      if (mounted) {
         loadNotifications(false);
-        
-        // Update count instantly
-        getUnreadNotificationCount().then(count => {
+        getUnreadNotificationCount().then((count) => {
           if (mounted) setNotificationCount(count);
         });
-      });
-      
-      socket.on('disconnect', () => {
-        console.log('❌ Tenant Socket disconnected');
-      });
-      
-      socket.on('connect_error', (err: any) => {
-        console.error('Socket connection error:', err);
-      });
-      
-    } catch (err) {
-      console.error('Socket.IO setup error:', err);
-    }
-  };
-  
-  setupSocket();
-  
-  // Fallback polling every 3 seconds (reduced from 5 to 3 seconds for faster updates)
-  const interval = setInterval(() => {
-    if (mounted) {
-      loadNotifications(false);
-      getUnreadNotificationCount().then(count => {
-        if (mounted) setNotificationCount(count);
-      });
-    }
-  }, 3000);
-  
-  return () => {
-    mounted = false;
-    if (socket) socket.disconnect();
-    clearInterval(interval);
-  };
-}, []); // Empty dependency array - run once
+      }
+    }, 3000);
+
+    return () => {
+      mounted = false;
+      if (socket) socket.disconnect();
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - run once
 
   // Load notifications when notification popup opens
   const handleNotificationsOpen = () => {
@@ -1188,27 +1186,27 @@ socket.on('joined_room', (data: any) => {
     }
   };
 
-const getActiveId = () => {
-  const path = location.pathname;
-  const hash = location.hash;
-  
-  // Portal page par hain — hamesha "dashboard" active rahega sidebar mein
-  // Chahe hash #payments ya #notifications ho
-  if (path.includes("/portal")) {
-    return "dashboard";  // ← Yahi fix hai — hash ignore karo
-  }
-  
-  // Separate pages ke liye exact path match
-  if (path.includes("/payments")) return "payments";
-  if (path.includes("/notifications")) return "notifications";
-  if (path.includes("/documents")) return "documents";
-  if (path.includes("/profile")) return "profile";
-  if (path.includes("/settings")) return "settings";
-  if (path.includes("/requests")) return "request";
-  if (path.includes("/support")) return "support";
-  
-  return "dashboard";
-};
+  const getActiveId = () => {
+    const path = location.pathname;
+    const hash = location.hash;
+
+    // Portal page par hain — hamesha "dashboard" active rahega sidebar mein
+    // Chahe hash #payments ya #notifications ho
+    if (path.includes("/portal")) {
+      return "dashboard"; // ← Yahi fix hai — hash ignore karo
+    }
+
+    // Separate pages ke liye exact path match
+    if (path.includes("/payments")) return "payments";
+    if (path.includes("/notifications")) return "notifications";
+    if (path.includes("/documents")) return "documents";
+    if (path.includes("/profile")) return "profile";
+    if (path.includes("/settings")) return "settings";
+    if (path.includes("/requests")) return "request";
+    if (path.includes("/support")) return "support";
+
+    return "dashboard";
+  };
 
   const handleLogout = async () => {
     await logoutTenant();
