@@ -186,6 +186,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [isDemandPaymentOpen, setIsDemandPaymentOpen] = useState(false);
+  const [selectedDemandIds, setSelectedDemandIds] = useState<number[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
 const [selectedRooms, setSelectedRooms] = useState<number[]>([]);
 const [selectedTenants, setSelectedTenants] = useState<number[]>([]);
@@ -195,11 +196,17 @@ const [bulkSummary, setBulkSummary] = useState({
   totalTenants: 0,
   totalPending: 0,
 });
+const [isResendPopupOpen, setIsResendPopupOpen] = useState(false);
+const [resendDemand, setResendDemand] = useState<DemandPayment | null>(null);
+const [resendTenantPayments, setResendTenantPayments] = useState<any[]>([]);
+const [resendTenantFormData, setResendTenantFormData] = useState<any>(null);
+const [resendLoading, setResendLoading] = useState(false);
 
 const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
 const [exactPendingFilter, setExactPendingFilter] = useState("");
 const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
 const [roomFilterGlobal, setRoomFilterGlobal] = useState("");
+const [selectedReceiptIds, setSelectedReceiptIds] = useState<number[]>([]);
 const [showPendingRentOnly, setShowPendingRentOnly] = useState(false);
 const [showPendingRentOnlyDemands, setShowPendingRentOnlyDemands] = useState(false);
 const [accuratePendingRentMap, setAccuratePendingRentMap] = useState<Map<number, number>>(new Map());
@@ -2903,23 +2910,29 @@ exactPendingFilter,  // Pass the value
     }
   };
 
-const handleResendReminder = async (demand: DemandPayment) => {
+const handleResendReminder = async (demand: DemandPayment, newAmount?: number, newDueDate?: string, newDescription?: string) => {
   try {
     if (!demand.tenant_id) {
       toast.error("Tenant ID not found for this demand");
       return;
     }
 
-    toast.loading(`Sending reminder to ${demand.tenant_name}...`, { id: "resend-reminder" });
+    toast.loading(`Creating new demand for ${demand.tenant_name}...`, { id: "resend-reminder" });
     
-    // ✅ Pass the demand type in the request body
+    // Create a NEW demand record with the updated values
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/${demand.tenant_id}/resend-reminder`,
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/demands`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          demand_type: demand.payment_type  // ✅ Send the payment type
+          tenant_id: demand.tenant_id,
+          amount: newAmount || demand.amount,
+          due_date: newDueDate || demand.due_date,
+          payment_type: demand.payment_type,
+          description: newDescription || demand.description || `Payment reminder for ${demand.payment_type}`,
+          send_email: true,
+          send_sms: false
         })
       }
     );
@@ -2929,14 +2942,34 @@ const handleResendReminder = async (demand: DemandPayment) => {
     toast.dismiss("resend-reminder");
     
     if (data.success) {
-      toast.success(`Reminder sent to ${demand.tenant_name} successfully!`);
+      toast.success(`New demand created and sent to ${demand.tenant_name} successfully!`);
+      loadDemands(); // Refresh the demands list
     } else {
-      toast.error(data.message || "Failed to send reminder");
+      toast.error(data.message || "Failed to create demand");
     }
   } catch (error) {
     toast.dismiss("resend-reminder");
-    console.error("Error sending reminder:", error);
-    toast.error("Failed to send reminder");
+    console.error("Error creating demand:", error);
+    toast.error("Failed to create demand");
+  }
+};
+
+const handleResendClick = async (demand: DemandPayment) => {
+  setResendDemand(demand);
+  setIsResendPopupOpen(true);
+  setResendLoading(true);
+  try {
+    // Fetch tenant's payment history
+    const formResponse = await paymentApi.getTenantPaymentFormData(demand.tenant_id);
+    if (formResponse.success) setResendTenantFormData(formResponse.data);
+    
+    // Fetch all payments for this tenant
+    const tenantPayments = payments.filter(p => p.tenant_id === demand.tenant_id);
+    setResendTenantPayments(tenantPayments);
+  } catch (error) {
+    toast.error("Failed to load tenant payment details");
+  } finally {
+    setResendLoading(false);
   }
 };
 
@@ -3246,6 +3279,43 @@ const handleResendReminder = async (demand: DemandPayment) => {
             />
           </TabsContent>
 
+          {selectedDemandIds.length > 0 && (
+  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-2">
+    <span className="text-xs font-semibold text-red-700">{selectedDemandIds.length} selected</span>
+    <Button
+      size="sm"
+      className="h-7 text-[10px] bg-red-600 hover:bg-red-700 text-white px-2.5 ml-2"
+      // In the bulk delete button onClick handler
+onClick={async () => {
+  if (!confirm(`Delete ${selectedDemandIds.length} demand(s)?`)) return;
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/demands/bulk-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: selectedDemandIds })
+    });
+    const data = await response.json();
+    if (data.success) {
+      toast.success(data.message);
+      setSelectedDemandIds([]);
+      loadDemands();
+    } else {
+      toast.error(data.message || "Failed to delete demands");
+    }
+  } catch (error) {
+    toast.error("Failed to delete demands");
+  }
+}}
+    >
+      <Trash2 className="h-3 w-3 mr-1" />Delete Selected
+    </Button>
+    <Button variant="ghost" size="sm" className="h-7 text-[10px] text-slate-500 ml-auto"
+      onClick={() => setSelectedDemandIds([])}>
+      <X className="h-3 w-3 mr-1" />Clear
+    </Button>
+  </div>
+)}
+
           {/* Demands Tab Content */}
           <TabsContent value="demands" className="mt-0">
             <Card className="border-0 shadow-sm overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]">
@@ -3257,6 +3327,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                         <Table>
                           {/* COMPACT HEADER WITH SEARCH BARS */}
                          <colgroup>
+                         <col style={{ width: "40px" }} />
   <col style={{ width: "110px" }} />  {/* Demand Date */}
   <col style={{ width: "180px" }} />  {/* Tenant */}
   <col style={{ width: "130px" }} />  {/* Type */}
@@ -3268,6 +3339,26 @@ const handleResendReminder = async (demand: DemandPayment) => {
 
 <TableHeader className="bg-gray-200 border-b border-gray-300">
   <TableRow className="hover:bg-transparent">
+
+    {/* Checkbox Column - add BEFORE Demand Date column */}
+<TableHead className="w-[40px] py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1 items-center">
+    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+    <input
+      type="checkbox"
+      checked={selectedDemandIds.length === paginatedDemandsData().items.length && paginatedDemandsData().items.length > 0}
+      onChange={(e) => {
+        if (e.target.checked) {
+          setSelectedDemandIds(paginatedDemandsData().items.map((d: any) => d.id));
+        } else {
+          setSelectedDemandIds([]);
+        }
+      }}
+      className="w-3 h-3 accent-orange-500"
+    />
+  </div>
+</TableHead>
+
     {/* Demand Date Column */}
     <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
       <div className="flex flex-col gap-1">
@@ -3420,6 +3511,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                       </div>
                       <div className="overflow-y-auto flex-1 min-h-0">
                         <Table>
+                          <col style={{ width: "40px" }} />
                           <col style={{ width: "110px" }} />  {/* Demand Date */}
   <col style={{ width: "180px" }} />  {/* Tenant */}
   <col style={{ width: "120px" }} />  {/* Type */}
@@ -3453,6 +3545,19 @@ const handleResendReminder = async (demand: DemandPayment) => {
 
       return (
         <TableRow key={demand.id} className="hover:bg-slate-50">
+          <TableCell className="py-2 px-4">
+  <input
+    type="checkbox"
+    checked={selectedDemandIds.includes(demand.id)}
+    onChange={(e) => {
+      e.stopPropagation();
+      setSelectedDemandIds(prev =>
+        prev.includes(demand.id) ? prev.filter(id => id !== demand.id) : [...prev, demand.id]
+      );
+    }}
+    className="w-3 h-3 accent-orange-500"
+  />
+</TableCell>
           {/* Demand Date */}
           <TableCell className="py-2 text-xs whitespace-nowrap">
             {format(new Date(demand.created_at), "dd/MM/yy")}
@@ -3548,7 +3653,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                  onClick={() => handleResendReminder(demand)}
+                 onClick={() => handleResendClick(demand)}
                   title="Resend Payment Reminder"
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -3562,7 +3667,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                     size="sm"
                     variant="ghost"
                     className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                    onClick={() => handleResendReminder(demand)}
+                 onClick={() => handleResendClick(demand)}
                     title="Resend Payment Reminder"
                   >
                     <RefreshCw className="h-3 w-3" />
@@ -3585,7 +3690,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                  onClick={() => handleResendReminder(demand)}
+                  onClick={() => handleResendClick(demand)}
                   title="Resend Payment Reminder"
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -3598,7 +3703,7 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                  onClick={() => handleResendReminder(demand)}
+                  onClick={() => handleResendClick(demand)}
                   title="Resend Payment Reminder"
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -3834,6 +3939,41 @@ const handleResendReminder = async (demand: DemandPayment) => {
 
           {/* Receipts Tab Content */}
           <TabsContent value="receipts" className="mt-0">
+            {selectedReceiptIds.length > 0 && (
+  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg mb-2">
+    <span className="text-xs font-semibold text-blue-700">{selectedReceiptIds.length} selected</span>
+    <div className="flex gap-1.5 ml-2">
+      <Button size="sm" className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5"
+        onClick={() => selectedReceiptIds.forEach(id => handlePreviewReceipt(id))}>
+        <Eye className="h-3 w-3 mr-1" />Receipt
+      </Button>
+      <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white px-2.5"
+        onClick={async () => {
+          for (const id of selectedReceiptIds) {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/payments/receipts/${id}/send-email`, { method: 'POST' });
+          }
+          toast.success(`Email sent for ${selectedReceiptIds.length} receipt(s)`);
+        }}>
+        <Mail className="h-3 w-3 mr-1" />Email
+      </Button>
+      <Button size="sm" className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5"
+        onClick={() => toast.info("WhatsApp integration coming soon")}>
+        <MessageCircle className="h-3 w-3 mr-1" />WhatsApp
+      </Button>
+      <Button size="sm" variant="outline" className="h-7 text-[10px] px-2.5 border-blue-400 text-blue-700"
+        onClick={() => {
+          const receipt = receipts.find((r: any) => r.id === selectedReceiptIds[0]);
+          if (receipt) handleLedgerReport(receipt.tenant_id, {});
+        }}>
+        <FileText className="h-3 w-3 mr-1" />Ledger
+      </Button>
+    </div>
+    <Button variant="ghost" size="sm" className="h-7 ml-auto text-[10px] text-slate-500"
+      onClick={() => setSelectedReceiptIds([])}>
+      <X className="h-3 w-3 mr-1" />Clear
+    </Button>
+  </div>
+)}
             <ReceiptsTable
               receipts={receipts}
               loading={loading}
@@ -3865,6 +4005,8 @@ const handleResendReminder = async (demand: DemandPayment) => {
                   currentPage: 1,
                 }))
               }
+              selectedReceiptIds={selectedReceiptIds}  // ✅ ADD THIS
+    setSelectedReceiptIds={setSelectedReceiptIds}  // ✅ ADD THIS
             />
           </TabsContent>
         </Tabs>
@@ -4600,15 +4742,12 @@ const handleResendReminder = async (demand: DemandPayment) => {
         </DialogContent>
       </Dialog>
 
-{/* Demand Payment Dialog - With Bulk Mode */}
-{/* Demand Payment Dialog - With Bulk Mode and Checkboxes */}
 <Dialog
   open={isDemandPaymentOpen}
   onOpenChange={(open) => {
     setIsDemandPaymentOpen(open);
     if (!open) {
       resetDemandPaymentForm();
-      // Reset bulk selections
       setBulkMode(false);
       setSelectedRooms([]);
       setSelectedTenants([]);
@@ -4617,9 +4756,9 @@ const handleResendReminder = async (demand: DemandPayment) => {
     }
   }}
 >
-  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+  <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] sm:max-h-[88vh] p-0 gap-0 flex flex-col overflow-hidden">
     {/* Header */}
-    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
         <div>
           <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
@@ -4628,42 +4767,29 @@ const handleResendReminder = async (demand: DemandPayment) => {
             </div>
             {bulkMode ? "Bulk Demand Payment" : "Demand Payment"}
           </DialogTitle>
-          <DialogDescription className="text-orange-100 text-xs mt-0.5">
-            {bulkMode 
-              ? `Select property, rooms, and tenants to send payment demands in bulk (${demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"})` 
-              : "Create a payment request and notify a single tenant"}
+          <DialogDescription className="text-orange-100 text-[10px] mt-0.5">
+            {bulkMode ? "Select property, rooms & tenants to send bulk payment demands" : "Create a payment request for a single tenant"}
           </DialogDescription>
         </div>
         <div className="flex items-center gap-2">
-          {/* Toggle between Single and Bulk Mode */}
           <Button
             variant="ghost"
             size="sm"
-            className="text-white hover:bg-white/20 h-7 px-2 text-xs"
+            className="text-white hover:bg-white/20 h-6 px-2 text-[10px] border border-white/30"
             onClick={() => {
               setBulkMode(!bulkMode);
-              // Reset selections when toggling
               if (!bulkMode) {
                 setSelectedRooms([]);
                 setSelectedTenants([]);
-                setBulkStep(1);
                 setSelectedPropertyId("");
                 setSelectedRoomId("");
                 setRoomsWithPending([]);
               } else {
-                setDemandPayment({
-                  tenant_id: "",
-                  payment_type: "rent",
-                  amount: 0,
-                  due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-                  description: "",
-                  send_email: true,
-                  send_sms: false,
-                });
+                setDemandPayment({ tenant_id: "", payment_type: "rent", amount: 0, due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], description: "", send_email: true, send_sms: false });
               }
             }}
           >
-            {bulkMode ? "Single Tenant" : "Bulk Mode"}
+            {bulkMode ? <><User className="h-3 w-3 mr-1" />Single</> : <><Users className="h-3 w-3 mr-1" />Bulk</>}
           </Button>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
@@ -4675,204 +4801,199 @@ const handleResendReminder = async (demand: DemandPayment) => {
     </div>
 
     {/* Scrollable Body */}
-    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+    <div className="flex-1 overflow-y-auto p-3 space-y-3">
       {!bulkMode ? (
-        /* ===== SINGLE TENANT MODE ===== */
+        /* ===== SINGLE TENANT MODE - Compact ===== */
         <>
-          {/* Property + Room Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Property Selection */}
-<div className="space-y-1">
-  <Label className="text-[11px] font-medium text-slate-600">
-    Property <span className="text-red-500">*</span>
-  </Label>
-  <div className="relative">
-    <Select 
-      value={selectedPropertyId} 
-      onValueChange={handleDemandPropertyChange}
-      onOpenChange={(open) => {
-        if (open) {
-          // Reset search when opening
-          setPropertySearch("");
-          // Focus after a short delay
-          setTimeout(() => {
-            const searchInput = document.querySelector('[data-property-search-input]') as HTMLInputElement;
-            if (searchInput) searchInput.focus();
-          }, 100);
-        }
-      }}
-    >
-      <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-        <SelectValue placeholder="Select property..." />
-      </SelectTrigger>
-      <SelectContent 
-        className="max-h-[300px]"
-        position="popper"
-        sideOffset={5}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
-        {/* Search Input - with stable DOM */}
-        <div 
-          className="sticky top-0 bg-white p-2 border-b z-10"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <Input
-            data-property-search-input
-            placeholder="Search property..."
-            value={propertySearch}
-            onChange={(e) => {
-              const value = e.target.value;
-              setPropertySearch(value);
-              const filtered = properties.filter((property) =>
-                property.name.toLowerCase().includes(value.toLowerCase())
-              );
-              setFilteredProperties(filtered);
-            }}
-            className="h-7 text-xs"
-            onKeyDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-
-        {/* Properties List */}
-        <div className="max-h-[250px] overflow-y-auto">
-          {loadingProperties ? (
-            <div className="px-2 py-4 text-center text-xs text-slate-500">
-              <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-              Loading properties...
-            </div>
-          ) : filteredProperties.length === 0 ? (
-            <div className="px-2 py-4 text-center text-xs text-slate-500">
-              {propertySearch ? "No matching properties found" : "No properties available"}
-            </div>
-          ) : (
-            filteredProperties.map((property) => (
-              <SelectItem key={property.id} value={property.id.toString()}>
-                <div className="flex items-center gap-2">
-                  <Building className="h-3 w-3 text-slate-400" />
-                  <span className="text-xs">{property.name}</span>
-                </div>
-              </SelectItem>
-            ))
-          )}
-        </div>
-      </SelectContent>
-    </Select>
-  </div>
-</div>
-
-           {/* Room Selection */}
-<div className="space-y-1">
-  <Label className="text-[11px] font-medium text-slate-600">
-    Room <span className="text-red-500">*</span>
-  </Label>
-  <Select
-    value={selectedRoomId}
-    onValueChange={handleDemandRoomChange}
-    disabled={!selectedPropertyId || loadingRooms}
-    onOpenChange={(open) => {
-      if (open && selectedPropertyId) {
-        // Reset search when opening
-        setRoomSearch("");
-        // Focus after a short delay
-        setTimeout(() => {
-          const searchInput = document.querySelector('[data-room-search-input]') as HTMLInputElement;
-          if (searchInput) searchInput.focus();
-        }, 100);
-      }
-    }}
-  >
-    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-      <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
-    </SelectTrigger>
-    <SelectContent 
-      className="max-h-[300px]"
-      position="popper"
-      sideOffset={5}
-      onCloseAutoFocus={(e) => e.preventDefault()}
-    >
-      {/* Search Input */}
-      <div 
-        className="sticky top-0 bg-white p-2 border-b z-10"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <Input
-          data-room-search-input
-          placeholder="Search room..."
-          value={roomSearch}
-          onChange={(e) => {
-            const value = e.target.value;
-            setRoomSearch(value);
-            const filtered = rooms.filter((room) =>
-              room.room_number.toString().toLowerCase().includes(value.toLowerCase())
-            );
-            setFilteredRooms(filtered);
-          }}
-          className="h-7 text-xs"
-          disabled={!selectedPropertyId}
-          onKeyDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
-
-      {/* Rooms List */}
-      <div className="max-h-[250px] overflow-y-auto">
-        {loadingRooms ? (
-          <div className="px-2 py-4 text-center text-xs text-slate-500">
-            <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-            Loading rooms...
-          </div>
-        ) : filteredRooms.length === 0 ? (
-          <div className="px-2 py-4 text-center text-xs text-slate-500">
-            {roomSearch ? "No matching rooms found" : "No rooms available"}
-          </div>
-        ) : (
-          filteredRooms.map((room) => (
-            <SelectItem key={room.id} value={room.id.toString()}>
-              <div className="flex items-center gap-2">
-                <Home className="h-3 w-3 text-slate-400" />
-                <span className="text-xs">Room {room.room_number}</span>
-                <span className="text-[10px] text-slate-400">({room.sharing_type})</span>
-              </div>
-            </SelectItem>
-          ))
-        )}
-      </div>
-    </SelectContent>
-  </Select>
-  {loadingRooms && (
-    <div className="flex items-center gap-1 text-blue-600">
-      <Loader2 className="h-3 w-3 animate-spin" />
-      <span className="text-[10px]">Loading rooms...</span>
-    </div>
-  )}
-</div>
-          </div>
-
-          {/* Tenant Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Row 1: Property + Room + Tenant + Type in one row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">
-                Tenant <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={demandPayment.tenant_id}
-                onValueChange={handleDemandTenantSelect}
-                disabled={!selectedRoomId}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose a tenant..."} />
+              <Label className="text-[10px] font-medium text-slate-600">Property *</Label>
+              <Select value={selectedPropertyId} onValueChange={handleDemandPropertyChange}>
+                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
+                <SelectContent className="max-h-[250px]" position="popper" sideOffset={5} onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <div className="sticky top-0 bg-white p-1.5 border-b z-10" onMouseDown={(e) => e.stopPropagation()}>
+                    <Input
+                      placeholder="Search..."
+                      value={propertySearch}
+                      onChange={(e) => { setPropertySearch(e.target.value); setFilteredProperties(properties.filter(p => p.name.toLowerCase().includes(e.target.value.toLowerCase()))); }}
+                      className="h-6 text-xs"
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {filteredProperties.map((property) => (
+                      <SelectItem key={property.id} value={property.id.toString()}>
+                        <span className="text-xs">{property.name}</span>
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Room *</Label>
+              <Select value={selectedRoomId} onValueChange={handleDemandRoomChange} disabled={!selectedPropertyId || loadingRooms}>
+                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]" position="popper" sideOffset={5} onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <div className="sticky top-0 bg-white p-1.5 border-b z-10" onMouseDown={(e) => e.stopPropagation()}>
+                    <Input
+                      placeholder="Search..."
+                      value={roomSearch}
+                      onChange={(e) => { setRoomSearch(e.target.value); setFilteredRooms(rooms.filter(r => r.room_number.toString().toLowerCase().includes(e.target.value.toLowerCase()))); }}
+                      className="h-6 text-xs"
+                      disabled={!selectedPropertyId}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {filteredRooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id.toString()}>
+                        <span className="text-xs">Room {room.room_number} ({room.sharing_type})</span>
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Tenant *</Label>
+              <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect} disabled={!selectedRoomId}>
+                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant..."} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]">
                   {filteredTenants.map((tenant) => (
                     <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium">{tenant.full_name}</span>
-                          <span className="text-[10px] text-slate-500">{tenant.phone}</span>
-                        </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium">{tenant.full_name}</span>
+                        <span className="text-[10px] text-slate-400">{tenant.phone}</span>
                       </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {bookingLoading && <div className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin text-blue-500" /><span className="text-[9px] text-blue-500">Loading...</span></div>}
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Payment Type</Label>
+              <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rent" className="text-xs">Rent</SelectItem>
+                  <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Row 2: Amount + Due Date + Message */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Amount (₹) *</Label>
+              <Input type="number" placeholder="0" value={demandPayment.amount || ""} onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Due Date *</Label>
+              <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-7 text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium text-slate-600">Message</Label>
+              <Input placeholder="Optional note..." value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-7 text-xs" />
+            </div>
+          </div>
+
+          {/* Compact info cards when tenant selected */}
+          {demandPayment.tenant_id && paymentFormData && (
+            <div className="grid grid-cols-2 gap-2">
+              {/* Bed Info */}
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-2.5">
+                <p className="text-[10px] font-semibold text-slate-600 mb-1.5 flex items-center gap-1"><Bed className="h-3 w-3" />Assignment</p>
+                <div className="grid grid-cols-2 gap-1 text-[10px]">
+                  <div><span className="text-slate-400">Property:</span> <span className="font-medium">{paymentFormData.room_info?.property_name || 'N/A'}</span></div>
+                  <div><span className="text-slate-400">Room:</span> <span className="font-medium">{paymentFormData.room_info?.room_number || 'N/A'}</span></div>
+                  <div><span className="text-slate-400">Bed:</span> <span className="font-medium">#{paymentFormData.room_info?.bed_number || 'N/A'}</span></div>
+                  <div><span className="text-slate-400">Rent:</span> <span className="font-semibold text-green-600">₹{(paymentFormData.monthly_rent || 0).toLocaleString()}</span></div>
+                </div>
+              </div>
+
+              {/* Payment Summary */}
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-2.5">
+                <p className="text-[10px] font-semibold text-slate-600 mb-1.5 flex items-center gap-1"><IndianRupee className="h-3 w-3" />
+                  {demandPayment.payment_type === "security_deposit" ? "Deposit Summary" : "Rent Summary"}
+                </p>
+                {demandPayment.payment_type === "security_deposit" && securityDepositInfo ? (
+                  <div className="grid grid-cols-2 gap-1 text-[10px]">
+                    <div><span className="text-slate-400">Total:</span> <span className="font-semibold text-blue-600">₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}</span></div>
+                    <div><span className="text-slate-400">Paid:</span> <span className="font-medium text-green-600">₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}</span></div>
+                    <div className="col-span-2"><span className="text-slate-400">Pending:</span> <span className="font-bold text-amber-600">₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}</span></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1 text-[10px]">
+                    <div><span className="text-slate-400">Total Paid:</span> <span className="font-medium text-green-600">₹{(paymentFormData.total_paid || 0).toLocaleString()}</span></div>
+                    <div><span className="text-slate-400">Pending:</span> <span className="font-bold text-amber-600">₹{(paymentFormData.total_pending || 0).toLocaleString()}</span></div>
+                    {paymentFormData.unpaid_months?.length > 0 && (
+                      <div className="col-span-2"><span className="text-slate-400">Months due:</span> <span className="font-medium text-red-500">{paymentFormData.unpaid_months.length}</span></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Notifications - compact */}
+          <div className="flex items-center gap-4 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-medium text-slate-600">Notify via:</span>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3 h-3 accent-orange-500" />
+              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Mail className="h-2.5 w-2.5" />Email</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3 h-3 accent-orange-500" />
+              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Smartphone className="h-2.5 w-2.5" />SMS</span>
+            </label>
+          </div>
+        </>
+      ) : (
+        /* ===== BULK MODE - No steps, all visible simultaneously ===== */
+        <div className="space-y-3">
+          {/* Top Config Row: Property + Type + Due Date + Message */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-orange-700">Property *</Label>
+              <Select
+                value={selectedPropertyId}
+                onValueChange={async (value) => {
+                  setSelectedPropertyId(value);
+                  setSelectedRooms([]);
+                  setSelectedTenants([]);
+                  setBookingLoading(true);
+                  try {
+                    const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}&payment_type=${demandPayment.payment_type || 'rent'}`);
+                    const data = await response.json();
+                    if (data.success) setRoomsWithPending(data.data);
+                  } catch (error) { toast.error("Failed to fetch rooms"); }
+                  finally { setBookingLoading(false); }
+                }}
+              >
+                <SelectTrigger className="h-7 text-xs bg-white">
+                  <SelectValue placeholder="Select property..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties.map((prop) => (
+                    <SelectItem key={prop.id} value={prop.id.toString()}>
+                      <span className="text-xs">{prop.name}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -4880,559 +5001,234 @@ const handleResendReminder = async (demand: DemandPayment) => {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
-              <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
-                <SelectTrigger className="h-8 text-xs">
+              <Label className="text-[10px] font-semibold text-orange-700">Payment Type *</Label>
+              <Select
+                value={demandPayment.payment_type}
+                onValueChange={(value) => {
+                  setDemandPayment(prev => ({ ...prev, payment_type: value }));
+                  setSelectedRooms([]);
+                  setSelectedTenants([]);
+                  if (selectedPropertyId) fetchRoomsWithPendingPayments(parseInt(selectedPropertyId), value);
+                }}
+              >
+                <SelectTrigger className="h-7 text-xs bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="rent">Rent</SelectItem>
-                  <SelectItem value="security_deposit">Security Deposit</SelectItem>
+                  <SelectItem value="rent" className="text-xs">Rent</SelectItem>
+                  <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          {/* Amount, Due Date, Description */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">Amount (₹) *</Label>
-              <Input
-                type="number"
-                placeholder="Enter amount"
-                value={demandPayment.amount || ""}
-                onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
-                className="h-8 text-xs"
-              />
+              <Label className="text-[10px] font-semibold text-orange-700">Due Date *</Label>
+              <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-7 text-xs bg-white" />
             </div>
+
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
-              <Input
-                type="date"
-                value={demandPayment.due_date}
-                onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">Message</Label>
-              <Input
-                placeholder="Payment description"
-                value={demandPayment.description}
-                onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
-                className="h-8 text-xs"
-              />
+              <Label className="text-[10px] font-semibold text-orange-700">Message (Optional)</Label>
+              <Input placeholder="Note for tenants..." value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-7 text-xs bg-white" />
             </div>
           </div>
 
-          {/* Bed Assignment Table */}
-          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-
-          {/* Rent Summary Table - Only for rent payment type */}
-          {demandPayment.payment_type === "rent" && paymentFormData && (
-            <RentSummaryTable formData={paymentFormData} />
-          )}
-
-          {/* Security Deposit Info - Only for security deposit payment type */}
-          {demandPayment.payment_type === "security_deposit" && securityDepositInfo && (
-            <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-                  <IndianRupee className="h-3.5 w-3.5" />
-                  Security Deposit Information
-                </h4>
+          {/* Notifications row */}
+          <div className="flex items-center gap-4 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-medium text-slate-600">Notify via:</span>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3 h-3 accent-orange-500" />
+              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Mail className="h-2.5 w-2.5" />Email</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3 h-3 accent-orange-500" />
+              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Smartphone className="h-2.5 w-2.5" />SMS</span>
+            </label>
+            {selectedTenants.length > 0 && (
+              <div className="ml-auto flex items-center gap-2 bg-orange-100 px-2.5 py-1 rounded-full">
+                <Users className="h-3 w-3 text-orange-600" />
+                <span className="text-[10px] font-semibold text-orange-700">{selectedTenants.length} selected</span>
+                <span className="text-[10px] text-orange-600">• ₹{selectedTenants.reduce((total, tenantId) => {
+                  const tenant = roomsWithPending.flatMap(r => r.tenants || []).find((t: any) => t.id === tenantId);
+                  const pending = demandPayment.payment_type === "security_deposit" ? (tenant?.security_deposit_pending || 0) : (tenant?.total_pending || 0);
+                  return total + pending;
+                }, 0).toLocaleString()} pending</span>
               </div>
-              <div className="p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500">Property</p>
-                    <p className="text-sm font-medium">
-                      {securityDepositInfo.property_name || paymentFormData?.room_info?.property_name || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Room/Bed</p>
-                    <p className="text-sm font-medium">
-                      Room {securityDepositInfo.room_number || paymentFormData?.room_info?.room_number || 'N/A'}
-                      {securityDepositInfo.bed_number && ` • Bed #${securityDepositInfo.bed_number}`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="text-sm font-bold text-blue-600">
-                      ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Pending</p>
-                    <p className="text-sm font-bold text-amber-600">
-                      ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                {(securityDepositInfo.security_deposit || 0) > 0 && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span>Payment Progress</span>
-                      <span>
-                        {Math.round(
-                          ((securityDepositInfo.paid_amount || 0) /
-                            (securityDepositInfo.security_deposit || 1)) * 100
-                        )}
-                        %
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-                        style={{
-                          width: `${((securityDepositInfo.paid_amount || 0) /
-                            (securityDepositInfo.security_deposit || 1)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Notifications */}
-          <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
-            <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
-            <div className="flex gap-5">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={demandPayment.send_email}
-                  onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })}
-                  className="w-3.5 h-3.5 accent-orange-500"
-                />
-                <span className="text-xs text-slate-600">Email</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={demandPayment.send_sms}
-                  onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })}
-                  className="w-3.5 h-3.5 accent-orange-500"
-                />
-                <span className="text-xs text-slate-600">SMS</span>
-              </label>
-            </div>
-          </div>
-        </>
-      ) : (
-        /* ===== BULK MODE with Checkboxes ===== */
-        <>
-          {/* Step Indicator */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 1 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                1
-              </div>
-              <div className={`w-16 h-0.5 ${bulkStep >= 2 ? 'bg-orange-600' : 'bg-gray-200'}`} />
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 2 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                2
-              </div>
-              <div className={`w-16 h-0.5 ${bulkStep >= 3 ? 'bg-orange-600' : 'bg-gray-200'}`} />
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${bulkStep >= 3 ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                3
-              </div>
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              {selectedTenants.length} tenant(s) selected
-            </Badge>
+            )}
           </div>
 
-          {/* Step 1: Select Property + Payment Type */}
-          {bulkStep === 1 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div className="space-y-2">
-                <Label className="text-sm font-semibold">Select Property *</Label>
-                <Select 
-                  value={selectedPropertyId} 
-                  onValueChange={async (value) => {
-                    setSelectedPropertyId(value);
-                    setBookingLoading(true);
-                    try {
-                      const response = await fetch(
-  `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}&payment_type=${demandPayment.payment_type || 'rent'}`
-);
-                      const data = await response.json();
-                      if (data.success) {
-                        setRoomsWithPending(data.data);
-                      }
-                    } catch (error) {
-                      console.error("Error fetching rooms:", error);
-                      toast.error("Failed to fetch rooms");
-                    } finally {
-                      setBookingLoading(false);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Choose a property..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {properties.map((prop) => (
-                      <SelectItem key={prop.id} value={prop.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4" />
-                          {prop.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Payment Type *</Label>
-                <Select 
-                  value={demandPayment.payment_type} 
-                  onValueChange={(value) => {
-                    setDemandPayment(prev => ({ ...prev, payment_type: value }));
-                    // Refresh rooms with pending payments for the new payment type
-                    if (selectedPropertyId) {
-                      fetchRoomsWithPendingPayments(parseInt(selectedPropertyId), value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select payment type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rent">Rent</SelectItem>
-                    <SelectItem value="security_deposit">Security Deposit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-                </div>
-              
-
-              <div className="flex justify-end pt-4">
-                <Button
-                  onClick={() => setBulkStep(2)}
-                  disabled={!selectedPropertyId}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  Next: Select Rooms
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Select Rooms (with Checkboxes) */}
-          {bulkStep === 2 && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-semibold">
-                  Select Rooms (with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"})
-                </Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
+          {/* Rooms + Tenants side by side */}
+          {selectedPropertyId && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Rooms Panel */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="bg-slate-100 px-3 py-2 flex items-center justify-between border-b border-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Home className="h-3 w-3" />
+                    Rooms {roomsWithPending.length > 0 && <Badge className="text-[9px] px-1.5 py-0 bg-orange-100 text-orange-700 ml-1">{roomsWithPending.length}</Badge>}
+                  </span>
+                  <button
                     onClick={() => {
                       if (selectedRooms.length === roomsWithPending.length) {
                         setSelectedRooms([]);
+                        setSelectedTenants([]);
                       } else {
                         setSelectedRooms(roomsWithPending.map(r => r.id));
+                        // Auto-select all tenants from all rooms
+                        const allTenants = roomsWithPending.flatMap(r => r.tenants?.map((t: any) => t.id) || []);
+                        setSelectedTenants(allTenants);
                       }
                     }}
-                    className="h-7 text-xs"
+                    className="text-[9px] text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    <Checkbox className="mr-1" checked={selectedRooms.length === roomsWithPending.length} />
-                    {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All Rooms"}
-                  </Button>
+                    {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All"}
+                  </button>
                 </div>
-              </div>
-
-              {bookingLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-              ) : roomsWithPending.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No rooms with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"} payments found in this property
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto">
-                  {roomsWithPending.map((room) => {
-                    const isSelected = selectedRooms.includes(room.id);
-                    const totalPending = room.total_pending || room.tenants?.reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0) || 0;
-                    
-                    return (
-                      <Card
-                        key={room.id}
-                        className={`cursor-pointer transition-all ${isSelected ? "border-orange-500 bg-orange-50" : "hover:border-gray-300"}`}
-                        onClick={() => {
-                          setSelectedRooms(prev =>
-                            prev.includes(room.id) ? prev.filter(id => id !== room.id) : [...prev, room.id]
-                          );
-                        }}
-                      >
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Home className="h-4 w-4" />
-                              <span className="font-semibold text-sm">Room {room.room_number}</span>
-                              <Badge variant="outline" className="text-xs">{room.sharing_type || 'Standard'}</Badge>
+                <div className="max-h-[280px] overflow-y-auto">
+                  {bookingLoading ? (
+                    <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-orange-500" /></div>
+                  ) : roomsWithPending.length === 0 ? (
+                    <div className="text-center py-6 text-[10px] text-slate-400">
+                      {selectedPropertyId ? `No rooms with pending ${demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"}` : "Select a property first"}
+                    </div>
+                  ) : (
+                    roomsWithPending.map((room) => {
+                      const isSelected = selectedRooms.includes(room.id);
+                      const totalPending = room.total_pending || room.tenants?.reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0) || 0;
+                      return (
+                        <div
+                          key={room.id}
+                          className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-orange-50/50 transition-colors ${isSelected ? "bg-orange-50" : ""}`}
+                          onClick={() => {
+                            const newSelected = isSelected
+                              ? selectedRooms.filter(id => id !== room.id)
+                              : [...selectedRooms, room.id];
+                            setSelectedRooms(newSelected);
+                            // Auto-toggle tenants for this room
+                            const roomTenantIds = room.tenants?.map((t: any) => t.id) || [];
+                            if (isSelected) {
+                              setSelectedTenants(prev => prev.filter(id => !roomTenantIds.includes(id)));
+                            } else {
+                              setSelectedTenants(prev => [...new Set([...prev, ...roomTenantIds])]);
+                            }
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-3 h-3 accent-orange-500 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium text-slate-800">Room {room.room_number}</span>
+                              <Badge variant="outline" className="text-[9px] px-1 py-0">{room.sharing_type || 'Std'}</Badge>
                             </div>
-                            <Checkbox checked={isSelected} />
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[9px] text-slate-400">{room.tenants?.length || 0} tenant(s)</span>
+                              <span className="text-[9px] text-amber-600 font-medium">₹{totalPending.toLocaleString()}</span>
+                            </div>
                           </div>
-                          <div className="mt-2 text-xs text-gray-600">
-                            {room.tenants?.length || 0} tenant(s) with pending {demandPayment.payment_type === "security_deposit" ? "deposit" : "payments"}
-                          </div>
-                          <div className="text-xs text-amber-600 font-medium mt-1">
-                            Total Pending: ₹{totalPending.toLocaleString()}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setBulkStep(1)}>Back</Button>
-                <Button
-                  onClick={() => setBulkStep(3)}
-                  disabled={selectedRooms.length === 0}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  Next: Select Tenants
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Select Tenants (with Checkboxes) + Payment Details */}
-          {bulkStep === 3 && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-semibold">
-                  Select Tenants (with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "rent"})
-                </Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const allTenantIds = roomsWithPending
-                      .filter(r => selectedRooms.includes(r.id))
-                      .flatMap(r => r.tenants?.map((t: any) => t.id) || []);
-                    if (selectedTenants.length === allTenantIds.length) {
-                      setSelectedTenants([]);
-                    } else {
-                      setSelectedTenants(allTenantIds);
-                    }
-                  }}
-                  className="h-7 text-xs"
-                >
-                  <Checkbox className="mr-1" checked={selectedTenants.length > 0} />
-                  {selectedTenants.length === roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).length
-                    ? "Deselect All"
-                    : "Select All Tenants"}
-                </Button>
-              </div>
-
-              <div className="max-h-[300px] overflow-y-auto space-y-3">
-                {roomsWithPending
-                  .filter(room => selectedRooms.includes(room.id))
-                  .map((room) => (
-                    <Card key={room.id} className="overflow-hidden">
-                      <div className="bg-gray-50 px-3 py-2 border-b">
-                        <div className="flex items-center gap-2">
-                          <Home className="h-3.5 w-3.5" />
-                          <span className="font-semibold text-sm">Room {room.room_number}</span>
-                          <Badge variant="outline" className="text-xs">
-                            Total Pending: ₹{(room.total_pending || 0).toLocaleString()}
-                          </Badge>
                         </div>
-                      </div>
-                      <CardContent className="p-0">
-                        {room.tenants && room.tenants.length > 0 ? (
-                          room.tenants.map((tenant: any) => {
-                            const isSelected = selectedTenants.includes(tenant.id);
-                            const pendingAmount = demandPayment.payment_type === "security_deposit" 
-                              ? (tenant.security_deposit_pending || tenant.total_pending || 0)
-                              : (tenant.total_pending || 0);
-                            
-                            return (
-                              <div
-                                key={tenant.id}
-                                className={`p-3 border-b last:border-b-0 cursor-pointer transition-colors ${
-                                  isSelected ? "bg-orange-50" : "hover:bg-gray-50"
-                                }`}
-                                onClick={() => {
-                                  setSelectedTenants(prev =>
-                                    prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id]
-                                  );
-                                }}
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <User className="h-3.5 w-3.5" />
-                                      <span className="font-medium text-sm">{tenant.full_name}</span>
-                                      {tenant.bed_number && (
-                                        <Badge variant="outline" className="text-xs">Bed #{tenant.bed_number}</Badge>
-                                      )}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
-                                      <div className="flex items-center gap-1">
-                                        <Mail className="h-3 w-3" />
-                                        <span className="truncate">{tenant.email || 'No email'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Phone className="h-3 w-3" />
-                                        <span>{tenant.phone || 'No phone'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <IndianRupee className="h-3 w-3 text-amber-600" />
-                                        <span className="font-medium text-amber-600">
-                                          {demandPayment.payment_type === "security_deposit" ? "Deposit Pending" : "Rent Pending"}: ₹{pendingAmount.toLocaleString()}
-                                        </span>
-                                      </div>
-                                      <div className="text-gray-500">
-                                        {demandPayment.payment_type === "security_deposit" 
-                                          ? `Total Deposit: ₹${(tenant.total_security_deposit || 0).toLocaleString()}`
-                                          : `Monthly: ₹${(tenant.monthly_rent || 0).toLocaleString()}`}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <Checkbox checked={isSelected} />
-                                </div>
-                            </div>
-                            );
-                          })
-                        ) : (
-                          <div className="p-3 text-center text-gray-500 text-sm">
-                            No tenants with pending {demandPayment.payment_type === "security_deposit" ? "security deposit" : "payments"}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
-              {/* Payment Details Form */}
-              <div className="border-t pt-4 mt-2">
-                <Label className="text-sm font-semibold mb-3 block">Payment Demand Details</Label>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* <div className="space-y-1">
-                    <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
-                    <Select 
-                      value={demandPayment.payment_type} 
-                      onValueChange={async (value) => {
-                        setDemandPayment(prev => ({ ...prev, payment_type: value }));
-                        // Refresh to show correct pending amounts
-                        if (selectedPropertyId) {
-                          fetchRoomsWithPendingPayments(parseInt(selectedPropertyId) , value);
+              {/* Tenants Panel */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="bg-slate-100 px-3 py-2 flex items-center justify-between border-b border-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 flex items-center gap-1.5">
+                    <User className="h-3 w-3" />
+                    Tenants {selectedTenants.length > 0 && <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 ml-1">{selectedTenants.length} selected</Badge>}
+                  </span>
+                  {selectedRooms.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const allTenants = roomsWithPending
+                          .filter(r => selectedRooms.includes(r.id))
+                          .flatMap(r => r.tenants?.map((t: any) => t.id) || []);
+                        const allSelected = allTenants.every(id => selectedTenants.includes(id));
+                        if (allSelected) {
+                          setSelectedTenants(prev => prev.filter(id => !allTenants.includes(id)));
+                        } else {
+                          setSelectedTenants(prev => [...new Set([...prev, ...allTenants])]);
                         }
                       }}
+                      className="text-[9px] text-blue-600 hover:text-blue-800 font-medium"
                     >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="rent">Rent</SelectItem>
-                        <SelectItem value="security_deposit">Security Deposit</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div> */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
-                    <Input 
-                      type="date" 
-                      value={demandPayment.due_date} 
-                      onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} 
-                      className="h-8 text-xs" 
-                    />
-                  </div>
-                  <div className="space-y-1">
-<Label className="text-[11px] font-medium text-slate-600">Message (Optional)</Label>
-                  <Input 
-                    placeholder="Add a note for all selected tenants" 
-                    value={demandPayment.description} 
-                    onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} 
-                    className="h-8 text-xs mt-1" 
-                  />
-                    </div>
-                </div>
-                
-                <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200 mt-3">
-                  <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
-                  <div className="flex gap-5">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" />
-                      <span className="text-xs text-slate-600">Email</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3.5 h-3.5 accent-orange-500" />
-                      <span className="text-xs text-slate-600">SMS</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary */}
-              {selectedTenants.length > 0 && (
-                <div className="bg-orange-50 p-3 rounded-lg">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-semibold">Summary:</span>
-                    <span>{selectedTenants.length} tenant(s) selected</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-1">
-                    <span>Total {demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"} Pending:</span>
-                    <span className="font-bold text-amber-600">
-                      ₹{selectedTenants.reduce((total, tenantId) => {
-                        const tenant = roomsWithPending
-                          .flatMap(r => r.tenants || [])
-                          .find((t: any) => t.id === tenantId);
-                        const pendingAmount = demandPayment.payment_type === "security_deposit"
-                          ? (tenant?.security_deposit_pending || tenant?.total_pending || 0)
-                          : (tenant?.total_pending || 0);
-                        return total + pendingAmount;
-                      }, 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setBulkStep(2)}>Back</Button>
-                <Button 
-                  onClick={handleBulkSend} 
-                  disabled={bookingLoading || selectedTenants.length === 0} 
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  {bookingLoading ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending to {selectedTenants.length} tenants...</>
-                  ) : (
-                    `Send ${demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Rent"} Demand to ${selectedTenants.length} Tenants`
+                      {roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).every((t: any) => selectedTenants.includes(t.id)) ? "Deselect All" : "Select All"}
+                    </button>
                   )}
-                </Button>
+                </div>
+                <div className="max-h-[280px] overflow-y-auto">
+                  {selectedRooms.length === 0 ? (
+                    <div className="text-center py-6 text-[10px] text-slate-400">Select rooms to see tenants</div>
+                  ) : (
+                    roomsWithPending
+                      .filter(room => selectedRooms.includes(room.id))
+                      .flatMap(room => (room.tenants || []).map((tenant: any) => ({ ...tenant, room_number: room.room_number })))
+                      .map((tenant: any) => {
+                        const isSelected = selectedTenants.includes(tenant.id);
+                        const pendingAmount = demandPayment.payment_type === "security_deposit"
+                          ? (tenant.security_deposit_pending || tenant.total_pending || 0)
+                          : (tenant.total_pending || 0);
+                        return (
+                          <div
+                            key={tenant.id}
+                            className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-green-50/50 transition-colors ${isSelected ? "bg-green-50" : ""}`}
+                            onClick={() => setSelectedTenants(prev => prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id])}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="w-3 h-3 accent-green-500 flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-slate-800 truncate">{tenant.full_name}</span>
+                                {tenant.bed_number && <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0">Bed #{tenant.bed_number}</Badge>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[9px] text-slate-400">Room {tenant.room_number}</span>
+                                <span className="text-[9px] text-slate-400">{tenant.phone}</span>
+                                <span className="text-[9px] text-amber-600 font-medium ml-auto">₹{pendingAmount.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
 
-    {/* Footer - Only show for single tenant mode */}
-    {!bulkMode && (
-      <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setIsDemandPaymentOpen(false); resetDemandPaymentForm(); }} className="text-xs h-8 px-4">Cancel</Button>
-          <Button size="sm" onClick={handleDemandPayment} disabled={bookingLoading || !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date} className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Sending...</> : <><Send className="h-3 w-3 mr-1.5" /> Send Demand</>}
+    {/* Footer */}
+    <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-between items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => { setIsDemandPaymentOpen(false); resetDemandPaymentForm(); setBulkMode(false); setSelectedRooms([]); setSelectedTenants([]); setRoomsWithPending([]); }} className="text-xs h-7 px-3">
+          Cancel
+        </Button>
+        {bulkMode ? (
+          <Button size="sm" onClick={handleBulkSend} disabled={bookingLoading || selectedTenants.length === 0} className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
+            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</> : <><Send className="h-3 w-3 mr-1" />Send to {selectedTenants.length} Tenant{selectedTenants.length !== 1 ? 's' : ''}</>}
           </Button>
-        </div>
+        ) : (
+          <Button size="sm" onClick={handleDemandPayment} disabled={bookingLoading || !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date} className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
+            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</> : <><Send className="h-3 w-3 mr-1" />Send Demand</>}
+          </Button>
+        )}
       </div>
-    )}
+    </div>
   </DialogContent>
 </Dialog>
+
+
 
       {/* Approve Payment Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
@@ -6439,6 +6235,168 @@ const handleResendReminder = async (demand: DemandPayment) => {
         getTenantSalutation={getTenantSalutation}
         getTenantCountryCode={getTenantCountryCode}
       />
+
+      <Dialog open={isResendPopupOpen} onOpenChange={setIsResendPopupOpen}>
+  <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Regenerate & Resend Demand — {resendDemand?.tenant_name}
+          </DialogTitle>
+          <DialogDescription className="text-orange-100 text-[10px] mt-0.5">
+            Review payment status before resending demand
+          </DialogDescription>
+        </div>
+        <DialogClose asChild>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </DialogClose>
+      </div>
+    </div>
+
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {resendLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+        </div>
+      ) : (
+        <>
+          {/* Demand Summary */}
+          {resendDemand && (
+            <div className="grid grid-cols-3 gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+              <div>
+                <p className="text-[10px] text-orange-600">Demand Amount</p>
+                <p className="text-sm font-bold text-orange-800">₹{Number(resendDemand.amount).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-orange-600">Due Date</p>
+                <p className="text-sm font-bold text-orange-800">{format(new Date(resendDemand.due_date), "dd MMM yyyy")}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-orange-600">Type</p>
+                <p className="text-sm font-bold text-orange-800 capitalize">{resendDemand.payment_type?.replace("_", " ")}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Rent Summary Table */}
+          {resendTenantFormData && (
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200">
+                <p className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                  <IndianRupee className="h-3 w-3" />
+                  Payment Status — Previous to Current
+                </p>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="text-left p-2 text-[10px] font-semibold text-slate-600">Month</th>
+                      <th className="text-right p-2 text-[10px] font-semibold text-slate-600">Rent</th>
+                      <th className="text-right p-2 text-[10px] font-semibold text-slate-600">Paid</th>
+                      <th className="text-right p-2 text-[10px] font-semibold text-slate-600">Pending</th>
+                      <th className="text-center p-2 text-[10px] font-semibold text-slate-600">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(resendTenantFormData.month_wise_history || []).map((month: any, i: number) => (
+                      <tr key={i} className={`border-t border-slate-100 ${month.status === 'paid' ? 'bg-green-50/30' : month.pending > 0 ? 'bg-red-50/30' : ''}`}>
+                        <td className="p-2 font-medium">{month.month} {month.year}</td>
+                        <td className="p-2 text-right">₹{month.rent?.toLocaleString()}</td>
+                        <td className="p-2 text-right text-green-600">₹{month.paid?.toLocaleString()}</td>
+                        <td className="p-2 text-right">
+                          <span className={month.pending > 0 ? "text-red-600 font-semibold" : "text-green-600"}>
+                            ₹{month.pending?.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="p-2 text-center">
+                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
+                            month.status === 'paid' ? 'bg-green-100 text-green-700' :
+                            month.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>{month.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 border-t border-slate-200">
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500">Total Paid</p>
+                  <p className="text-sm font-bold text-green-600">₹{(resendTenantFormData.total_paid || 0).toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500">Total Pending</p>
+                  <p className="text-sm font-bold text-red-600">₹{(resendTenantFormData.total_pending || 0).toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500">Months Due</p>
+                  <p className="text-sm font-bold text-amber-600">{resendTenantFormData.unpaid_months?.length || 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Regenerate Options */}
+          <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-slate-600">New Amount (₹)</Label>
+              <Input
+                type="number"
+                value={resendDemand?.amount || ""}
+                onChange={(e) => setResendDemand(prev => prev ? {...prev, amount: parseFloat(e.target.value)} : prev)}
+                className="h-7 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-slate-600">New Due Date</Label>
+              <Input
+                type="date"
+                value={resendDemand?.due_date?.split('T')[0] || ""}
+                onChange={(e) => setResendDemand(prev => prev ? {...prev, due_date: e.target.value} : prev)}
+                className="h-7 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-slate-600">Description</Label>
+              <Input
+                placeholder="Optional..."
+                value={resendDemand?.description || ""}
+                onChange={(e) => setResendDemand(prev => prev ? {...prev, description: e.target.value} : prev)}
+                className="h-7 text-xs"
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+
+    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-between items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setIsResendPopupOpen(false)} className="text-xs h-7 px-3">
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={async () => {
+            if (!resendDemand) return;
+            await handleResendReminder(resendDemand);
+            setIsResendPopupOpen(false);
+          }}
+          className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white"
+        >
+          <Send className="h-3 w-3 mr-1" />
+          Regenerate & Send
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
@@ -7775,7 +7733,7 @@ const filteredGroups = pagination.items.map((group: any) => ({
 
 {/* Exact Pending Amount Filter */}
 <div className="space-y-1">
-  <Label className="text-xs font-semibold text-blue-700">Exact Pending Amount (₹)</Label>
+  <Label className="text-xs font-semibold text-blue-700">Pending Amount (₹)</Label>
   <Input
     type="number"
     placeholder="Enter exact amount e.g. 5000"
@@ -7927,6 +7885,8 @@ const ReceiptsTable = ({
   pagination,
   onPageChange,
   onItemsPerPageChange,
+   selectedReceiptIds,  // ✅ ADD THIS
+  setSelectedReceiptIds,  // ✅ ADD THIS
 }: any) => {
   // Add state for receipts column filters
   const [receiptFilters, setReceiptFilters] = useState({
@@ -8024,6 +7984,39 @@ const ReceiptsTable = ({
               <Table>
                 <TableHeader className="bg-gray-200 border-b border-gray-300">
                   <TableRow className="hover:bg-transparent">
+                    {/* Checkbox Column */}
+<TableHead className="w-[40px] py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1 items-center">
+    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+    <input
+      type="checkbox"
+      checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
+      onChange={(e) => {
+        if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
+        else setSelectedReceiptIds([]);
+      }}
+      className="w-3 h-3 accent-blue-500"
+    />
+  </div>
+</TableHead>
+
+{/* Receipt # Column */}
+<TableHead className="w-[80px] py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1">
+    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Receipt Number</span>
+    <Input
+      placeholder="Search..."
+      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+      value={receiptFilters.receipt_number}
+      onChange={(e) =>
+        setReceiptFilters({
+          ...receiptFilters,
+          receipt_number: e.target.value,
+        })
+      }
+    />
+  </div>
+</TableHead>
                     <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -8061,6 +8054,21 @@ const ReceiptsTable = ({
                         />
                       </div>
                     </TableHead>
+
+                    <TableHead className="w-[110px] py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1">
+    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide rounded">Type</span>
+    <select
+      value={receiptFilters.payment_type || "all"}
+      onChange={(e) => setReceiptFilters({...receiptFilters, payment_type: e.target.value})}
+      className="h-6 text-[10px] bg-white border-gray-300 px-1 rounded w-full"
+    >
+      <option value="all">All</option>
+      <option value="rent">Rent</option>
+      <option value="security_deposit">Security Deposit</option>
+    </select>
+  </div>
+</TableHead>
 
                     <TableHead className="w-[150px] py-2 px-2 bg-gray-200 text-left">
                       <div className="flex flex-col gap-1">
@@ -8144,8 +8152,11 @@ const ReceiptsTable = ({
             <div className="overflow-y-auto flex-1 min-h-0">
               <Table>
                 <colgroup>
+                <col style={{ width: "40px" }} />   {/* Checkbox */}
+  <col style={{ width: "80px" }} />   {/* Receipt # */}
                   <col style={{ width: "100px" }} /> {/* Date */}
                   <col style={{ width: "160px" }} /> {/* Tenant */}
+                  <col style={{ width: "110px" }} /> {/* Type */}
                   <col style={{ width: "150px" }} /> {/* Amount */}
                   <col style={{ width: "150px" }} /> {/* Method/Bank */}
                   <col style={{ width: "120px" }} /> {/* Room/Bed */}
@@ -8185,6 +8196,23 @@ const ReceiptsTable = ({
                               : ""
                           }`}
                         >
+                          {/* Checkbox */}
+<TableCell className="py-2 px-5">
+  <input
+    type="checkbox"
+    checked={selectedReceiptIds.includes(receipt.id)}
+    onChange={(e) => {
+      setSelectedReceiptIds(prev =>
+        prev.includes(receipt.id) ? prev.filter(id => id !== receipt.id) : [...prev, receipt.id]
+      );
+    }}
+    className="w-3 h-3 accent-blue-500"
+  />
+</TableCell>
+
+<TableCell className="py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
+  #{receipt.receipt_number || receipt.id}   {/* use receipt_number if available */}
+</TableCell>
                           <TableCell className="py-2 text-xs whitespace-nowrap">
                             {format(new Date(receipt.payment_date), "dd/MM/yy")}
                           </TableCell>
@@ -8205,6 +8233,13 @@ const ReceiptsTable = ({
                               )}
                             </div>
                           </TableCell>
+                          <TableCell className="py-2 text-center">
+  <Badge className={`text-[9px] px-1.5 py-0.5 ${
+    receipt.payment_type === 'security_deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+  }`}>
+    {receipt.payment_type === 'security_deposit' ? 'Security Deposit' : 'Rent'}
+  </Badge>
+</TableCell>
                           <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-center">
                             ₹{receipt.amount.toLocaleString()}
                           </TableCell>

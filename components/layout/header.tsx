@@ -12,15 +12,26 @@ export function Header() {
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
 // Read synchronously as initial state — no flash
-const [role, setRole] = useState(() => localStorage.getItem('auth_role') || '');
-const [loginSource] = useState(() => {
-  const v = localStorage.getItem('auth_login_source');
-  return (!v || v === 'undefined' || v === 'null') ? '' : v;
+const [authState] = useState(() => {
+  const role = localStorage.getItem('auth_role') || '';
+  const rawSource = localStorage.getItem('auth_login_source');
+  const source = (!rawSource || rawSource === 'undefined' || rawSource === 'null') ? '' : rawSource;
+  const token = localStorage.getItem('auth_token');
+  
+  // Derive from JWT type field if source is missing/corrupted
+  let derivedSource = source;
+  if (!derivedSource && token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      derivedSource = payload.type === 'admin' ? 'admin' : 'tenant';
+    } catch {
+      derivedSource = '';
+    }
+  }
+  
+  return { role, loginSource: derivedSource };
 });
-useEffect(() => {
-  const stored = localStorage.getItem('auth_role');
-  if (stored) setRole(stored);
-}, []);
+
 
   // Fetch settings on component mount
   useEffect(() => {
@@ -132,17 +143,24 @@ useEffect(() => {
             </Button>
           </a>
           
-          {(role === "admin" || role === "Admin" || loginSource === "admin") 
+{(authState.role === "admin" || authState.role === "Admin" || authState.loginSource === "admin")
   ? <Link href="/admin" className="transition-all duration-300 hover:scale-105">
       <Button size="sm" className="bg-primary hover:bg-primary/90">
-        {role.length === 0 ? "Login" : "Dashboard"}
+        {authState.role.length === 0 ? "Login" : "Dashboard"}
       </Button>
     </Link>
-  : <Link href="/tenant/portal" className="transition-all duration-300 hover:scale-105">
-      <Button size="sm" className="bg-primary hover:bg-primary/90">
-        {role.length === 0 ? "Login" : "Dashboard"}
-      </Button>
-    </Link>}
+  : authState.loginSource === "tenant"
+    ? <Link href="/tenant/portal" className="transition-all duration-300 hover:scale-105">
+        <Button size="sm" className="bg-primary hover:bg-primary/90">
+          Dashboard
+        </Button>
+      </Link>
+    : <Link href="/login" className="transition-all duration-300 hover:scale-105">
+        <Button size="sm" className="bg-primary hover:bg-primary/90">
+          Login
+        </Button>
+      </Link>
+}
         </div>
 
         {/* Mobile Menu Button */}

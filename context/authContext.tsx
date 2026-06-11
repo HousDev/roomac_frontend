@@ -51,13 +51,24 @@ const login = (
   token: string,
   loginSource?: "admin" | "tenant"
 ) => {
-  // Derive source from JWT type or role — never store "undefined"
   const source = loginSource ?? (role === "admin" || role === "Admin" ? "admin" : "tenant");
 
   localStorage.setItem("auth_token", token);
   localStorage.setItem("auth_email", email);
   localStorage.setItem("auth_role", role);
-  localStorage.setItem("auth_login_source", source);  // ← always "admin" or "tenant"
+  localStorage.setItem("auth_login_source", source);
+
+  // Clean up cross-session pollution
+  if (source === "admin") {
+    localStorage.removeItem("tenant_token");
+    localStorage.removeItem("tenant_id");
+    localStorage.removeItem("tenant_logged_in");
+    localStorage.removeItem("lastVisitedPath");
+  } else {
+    localStorage.removeItem("auth_last_path");
+    localStorage.removeItem("admin_last_path");
+    localStorage.removeItem("lastVisitedPath");
+  }
 
   setUser({ email, role, loginSource: source });
   fetchUser(email).finally(() => setLoading(false));
