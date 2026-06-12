@@ -59,6 +59,12 @@ interface PropertyFiltersProps {
     occupied_beds?: number;
     is_active?: boolean;
   }>;
+  rooms?: Array<{
+    id: number;
+    property_id: number;
+    total_bed: number;
+    occupied_beds: number;
+  }>;
 }
 
 const colors = { primary: "#004ab0", secondary: "#f9bd07" };
@@ -97,6 +103,7 @@ export default function PropertyFilters({
   propertiesLength,
   uniqueTags,
   properties,
+  rooms,
 }: PropertyFiltersProps) {
 
   const set = (key: keyof PropertyFilterState, val: string) =>
@@ -119,26 +126,62 @@ export default function PropertyFilters({
   }, [properties]);
 
   // Availability based on occupied_beds vs total_beds
-  const availCounts = useMemo(() => {
-   const counts = { available: 0, partial: 0, full: 0, total: properties.length, availableBeds: 0 };
-properties.forEach((p) => {
-  const occ = p.occupied_beds || 0;
-  const tot = p.total_beds || 0;
-  if (occ === 0) {
-    counts.available++;
-    counts.availableBeds += tot;
-  } else if (tot > 0 && occ >= tot) {
-    counts.full++;
-  } else if (occ > 0 && occ < tot) {
-    counts.partial++;
-    counts.availableBeds += (tot - occ);
+ // Replace the entire availCounts useMemo block
+const availCounts = useMemo(() => {
+  const counts = { available: 0, partial: 0, full: 0, total: 0, availableBeds: 0 };
+
+  if (rooms && rooms.length > 0) {
+    // Group rooms by property_id
+    const propertyMap = new Map<number, { total: number; occupied: number }>();
+    for (const room of rooms) {
+      const propId = room.property_id;
+      if (!propertyMap.has(propId)) {
+        propertyMap.set(propId, { total: 0, occupied: 0 });
+      }
+      const prop = propertyMap.get(propId)!;
+      prop.total += room.total_bed || 0;
+      prop.occupied += room.occupied_beds || 0;
+    }
+
+    for (const { total, occupied } of propertyMap.values()) {
+      counts.total++;
+      if (occupied === 0) {
+        counts.available++;
+        counts.availableBeds += total;
+      } else if (total > 0 && occupied >= total) {
+        counts.full++;
+      } else if (occupied > 0 && occupied < total) {
+        counts.partial++;
+        counts.availableBeds += (total - occupied);
+      } else {
+        // fallback
+        counts.available++;
+        counts.availableBeds += total;
+      }
+    }
   } else {
-    counts.available++;
-    counts.availableBeds += tot;
+    // Fallback to property-based calculation (original logic)
+    for (const p of properties) {
+      const occ = p.occupied_beds || 0;
+      const tot = p.total_beds || 0;
+      counts.total++;
+      if (occ === 0) {
+        counts.available++;
+        counts.availableBeds += tot;
+      } else if (tot > 0 && occ >= tot) {
+        counts.full++;
+      } else if (occ > 0 && occ < tot) {
+        counts.partial++;
+        counts.availableBeds += (tot - occ);
+      } else {
+        counts.available++;
+        counts.availableBeds += tot;
+      }
+    }
   }
-});
-return counts;
-  }, [properties]);
+
+  return counts;
+}, [rooms, properties]);
 
   const activeCount = useMemo(
     () => Object.values(filters).filter((v) => v !== "all").length,
@@ -155,11 +198,11 @@ return counts;
       )}
 
       <aside
-        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-white shadow-2xl
-          transition-transform duration-300 ease-in-out
-          w-full sm:w-[340px]
-          ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}
-      >
+  className={`fixed top-0 right-0 h-full z-40 flex flex-col bg-white shadow-2xl
+    transition-transform duration-300 ease-in-out
+    w-[75%] sm:w-[340px]
+    ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+>
         {/* Header */}
         <div
           className="flex-shrink-0 px-5 py-4 flex items-center justify-between"
@@ -274,7 +317,7 @@ return counts;
   <span className="flex items-center justify-between w-full gap-3">
     <span className="flex items-center gap-2">
       <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-      Partial
+      Partial Available
     </span>
     <span className="text-[10px] text-gray-400">{availCounts.partial} props</span>
   </span>
@@ -283,7 +326,7 @@ return counts;
   <span className="flex items-center justify-between w-full gap-3">
     <span className="flex items-center gap-2">
       <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-      Full
+      Fully Occupied
     </span>
     <span className="text-[10px] text-gray-400">{availCounts.full} props</span>
   </span>

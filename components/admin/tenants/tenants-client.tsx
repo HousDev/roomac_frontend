@@ -2027,21 +2027,26 @@ const FilterSelect = ({
 
   // Apply filters from sidebar
 // Apply filters from sidebar — commit pending state to applied state
+  // const applyFilters = () => {
+  //   const merged = {
+  //     ...filtersRef.current,
+  //     ...pendingFilters,
+  //     vacate_status: filtersRef.current.vacate_status,
+  //     include_deleted: filtersRef.current.include_deleted,
+  //   };
+  //   filtersRef.current = merged;
+  //   setFiltersState(merged);
+  //   setCoupleFilter(pendingCoupleFilter);
+  //   setPendingDeposit(pendingPendingDeposit);
+  //   setPendingRent(pendingPendingRent);
+  //   loadTenants(merged);
+  //   setIsFilterSidebarOpen(false);
+  // };
+
+
   const applyFilters = () => {
-    const merged = {
-      ...filtersRef.current,
-      ...pendingFilters,
-      vacate_status: filtersRef.current.vacate_status,
-      include_deleted: filtersRef.current.include_deleted,
-    };
-    filtersRef.current = merged;
-    setFiltersState(merged);
-    setCoupleFilter(pendingCoupleFilter);
-    setPendingDeposit(pendingPendingDeposit);
-    setPendingRent(pendingPendingRent);
-    loadTenants(merged);
-    setIsFilterSidebarOpen(false);
-  };
+  setIsFilterSidebarOpen(false);
+};
 
   // Handle column search change
   const handleColumnSearchChange = useCallback(
@@ -2897,27 +2902,26 @@ onChange={(value) => handleFilterChange({ ...filters, has_credentials: value ===
             </button>
           </th>
           {/* Sticky: ACTIONS */}
-<th className="md:sticky left-8 z-20 bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">
-            ACTIONS
-          </th>
-          {/* Sticky: STATUS */}
-       <th className="md:sticky left-[176px] z-10 bg-gray-50 px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 border-b top-0" style={{ width: "200px", minWidth: "200px" }}>
+<th className="md:sticky left-12 z-20 bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">
+  ACTIONS
+</th>
+<th className="md:sticky left-[176px] z-10 bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 border-b top-0" style={{ width: "160px", minWidth: "160px", boxShadow: "2px 0 0 0 #e5e7eb" }}>
   STATUS
 </th>
           {/* Sticky: NAME */}
-      <th className="sticky left-[376px] z-10 bg-gray-50 px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-44 border-r border-gray-200 border-b" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+      <th className="md:sticky left-[336px] z-10 bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-44 border-r border-gray-200 border-b" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
   NAME
 </th>
           {/* Scrollable columns */}
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">CONTACT</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">CHECK-IN DATE</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-48 border-r border-gray-200 border-b">PROPERTY & ROOM</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">MONTHLY RENT</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">SECURITY DEPOSIT</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">PAYMENTS</th>
-          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">LOCATION</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">CONTACT</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">CHECK-IN DATE</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-48 border-r border-gray-200 border-b">PROPERTY & ROOM</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">MONTHLY RENT</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">SECURITY DEPOSIT</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">PAYMENTS</th>
+          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">LOCATION</th>
                   {(activeTab === "vacated" || activeTab === "deleted") && (
-            <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-b">VACATED DATE</th>
+            <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-b">VACATED DATE</th>
           )}
         </tr>
 
@@ -2926,25 +2930,28 @@ onChange={(value) => handleFilterChange({ ...filters, has_credentials: value ===
           {/* Sticky: checkbox empty */}
           <td className="md:sticky left-0 z-10 bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200" />
           {/* Sticky: actions empty */}
-          <td className="md:sticky left-8 z-10 bg-white px-2 py-1.5 border-r border-gray-200" />
-          {/* Sticky: status search */}
-<td className="md:sticky left-[176px] z-10 bg-white px-2 py-1.5 border-r border-gray-200" style={{ width: "200px", minWidth: "200px" }}>
-            <Input
-              placeholder="Status..."
-              value={columnSearch.status}
-              onChange={(e) => handleColumnSearchChange("status", e.target.value)}
-              className="h-6 text-[10px] w-full border-gray-200"
-            />
-          </td>
-          {/* Sticky: name search */}
-<td className="md:sticky left-[376px] z-10 bg-white px-2 py-1.5 border-r border-gray-200" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
-            <Input
-              placeholder="Name..."
-              value={columnSearch.name}
-              onChange={(e) => handleColumnSearchChange("name", e.target.value)}
-              className="h-6 text-[10px] w-full border-gray-200"
-            />
-          </td>
+{/* Sticky: actions empty – change left-8 to left-12 */}
+<td className="md:sticky left-12 z-10 bg-white px-2 py-1.5 border-r border-gray-200" />
+
+{/* Sticky: status search – change left-[128px] to left-[176px] and width to 160px */}
+<td className="md:sticky left-[176px] z-10 bg-white px-1 py-1.5 border-r border-gray-200" style={{ width: "160px", minWidth: "160px", boxShadow: "2px 0 0 0 #e5e7eb" }}>
+  <Input
+    placeholder="Status..."
+    value={columnSearch.status}
+    onChange={(e) => handleColumnSearchChange("status", e.target.value)}
+    className="h-6 text-[10px] w-full border-gray-200"
+  />
+</td>
+
+{/* Sticky: name search – change left-[268px] to left-[336px] */}
+<td className="md:sticky left-[336px] z-10 bg-white px-2 py-1.5 border-r border-gray-200" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+  <Input
+    placeholder="Name..."
+    value={columnSearch.name}
+    onChange={(e) => handleColumnSearchChange("name", e.target.value)}
+    className="h-6 text-[10px] w-full border-gray-200"
+  />
+</td>
           {/* Scrollable: contact */}
           <td className="px-2 py-1.5 border-r border-gray-200">
             <Input
@@ -3097,8 +3104,7 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                 className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowBg}`}
               >
                 {/* ── Sticky: Checkbox ── */}
-                <td className={`md:last:sticky left-0 z-10 ${rowBg} group-hover:bg-blue-50 w-8 px-2 py-2 text-center border-r border-gray-200`}>
-                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
+<td className={`md:sticky left-0 z-10 ${rowBg} group-hover:bg-blue-50 w-8 px-2 py-2 text-center border-r border-gray-200`}>   <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
                     {selectedTenantIds.includes(String(tenant.id)) ? (
                       <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
                     ) : (
@@ -3108,10 +3114,10 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                 </td>
 
                 {/* ── Sticky: Actions ── */}
-                <td className={`md:sticky left-8 z-10 ${rowBg} group-hover:bg-blue-100/40 px-2 py-2 border-r border-gray-200 bg-white`}>
+<td className={`md:sticky left-12 z-10 ${rowBg} group-hover:bg-blue-100/40 px-1 py-2 border-r border-gray-200 bg-white`}>
                   <div className="flex items-center justify-center gap-1.5">
                     <Link href={`/admin/tenants/${getViewTenantId(tenant)}`} className="text-blue-500 hover:text-blue-700 transition-colors" title="View Details">
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3 h-3" />
                     </Link>
                     {can("edit_tenants") && activeTab !== "deleted" && (
                       <button
@@ -3133,7 +3139,7 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                         className="text-green-600 hover:text-green-800 transition-colors"
                         title="Edit Tenant"
                       >
-                        <Edit className="w-3.5 h-3.5" />
+                        <Edit className="w-3 h-3" />
                       </button>
                     )}
                     {can("manage_tenant_credentials") && activeTab !== "deleted" && (
@@ -3146,39 +3152,39 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                         className="text-orange-500 hover:text-orange-700 transition-colors"
                         title={tenant.has_credentials ? "Reset Password" : "Create Login"}
                       >
-                        <Key className="w-3.5 h-3.5" />
+                        <Key className="w-3 h-3" />
                       </button>
                     )}
                     {can("manage_tenant_portal") && activeTab !== "deleted" && (
                       <button onClick={() => handleTogglePortalAccess(tenant)} className="text-purple-500 hover:text-purple-700 transition-colors" title={tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}>
-                        <Globe className={`w-3.5 h-3.5 ${!tenant.portal_access_enabled ? "opacity-50" : ""}`} />
+                        <Globe className={`w-3 h-3 ${!tenant.portal_access_enabled ? "opacity-50" : ""}`} />
                       </button>
                     )}
                     {can("delete_tenants") && activeTab !== "deleted" && (
                       <button onClick={() => handleDelete(tenant)} className="text-red-500 hover:text-red-700 transition-colors" title="Delete Tenant">
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     )}
                     {activeTab === "deleted" && (
                       <button onClick={() => handleRestoreVacatedTenant(tenant)} className="text-green-500 hover:text-green-700 transition-colors" title="Restore to Vacated">
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <RefreshCw className="w-3 h-3" />
                       </button>
                     )}
                   </div>
                 </td>
 
                 {/* ── Sticky: Status badges (NOW IN SINGLE ROW) ── */}
-                <td className={`md:sticky left-[176px] z-10 ${rowBg} group-hover:bg-blue-50 px-2 py-2 border-r border-gray-200`} style={{ width: "200px", minWidth: "200px" }}>
+<td className={`md:sticky left-[176px] z-10 ${rowBg} group-hover:bg-blue-50 px-1 py-2 border-r border-gray-200`} style={{ width: "160px", minWidth: "160px", boxShadow: "2px 0 0 0 #e5e7eb" }}>
                   <div className="flex flex-row gap-1 items-center whitespace-nowrap">
-                    <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold whitespace-nowrap ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                    <Badge className={`text-[7px] px-1.5 py-0 h-4 font-semibold whitespace-nowrap ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
                       {tenant.is_active ? "Active" : "Inactive"}
                     </Badge>
                     {tenant.portal_access_enabled ? (
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 whitespace-nowrap">
+                      <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 whitespace-nowrap">
                         <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-gray-300 text-gray-400 whitespace-nowrap">
+                      <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-gray-300 text-gray-400 whitespace-nowrap">
                         No Portal
                       </Badge>
                     )}
@@ -3195,20 +3201,23 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                 </td>
 
                 {/* ── Sticky: Name ── */}
-                <td className={`md:sticky left-[376px] z-10 ${rowBg} group-hover:bg-blue-50 px-2 py-2 border-r border-gray-200`} style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+<td className={`md:sticky left-[336px] z-10 ${rowBg} group-hover:bg-blue-50 px-2 py-2 border-r border-gray-200`} style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
                   <Link href={`/admin/tenants/${tenant.id}`} className="flex items-center gap-2">
                     {tenant.photo_url ? (
                       <img src={tenant.photo_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-semibold text-[9px]">
+                        <span className="text-white font-semibold text-[7px]">
                           {tenant.full_name?.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
                         </span>
                       </div>
                     )}
-                   <div className="min-w-0">
-  <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden">
-    <div className="font-medium text-xs text-gray-900 truncate max-w-[120px]">
+                 <div className="min-w-0">
+  <div className="flex items-center gap-1">
+    <div
+      className="font-medium text-xs text-gray-900 whitespace-nowrap"
+      title={`${tenant.salutation || ""} ${tenant.full_name}`}
+    >
       <span className="text-gray-400 mr-0.5">
         {tenant.salutation || ""}
       </span>
@@ -3286,7 +3295,7 @@ const securityDeposit = vacateRecord?.security_deposit_amount
                 </td>
 
                 {/* ── Payments ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+                {/* <td className="px-2 py-2 border-r border-gray-200">
                   {(() => {
                     const payments = tenant.payments || [];
                     const paid = payments
@@ -3323,7 +3332,58 @@ return (
   </div>
 );
                   })()}
-                </td>
+                </td> */}
+
+                {/* ── Payments ── */}
+<td className="px-2 py-2 border-r border-gray-200">
+  {(() => {
+    const payments = tenant.payments || [];
+    const paid = payments
+      .filter((p) => p.status === "approved" || p.status === "paid")
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    const isVacated = tenant.has_vacated === true;
+    const refundableAmount = vacateRecord?.refundable_amount || 0;
+    const totalRefunded = payments
+      .filter((p) => (p as any).payment_type === "deposit_refund")
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    const remainingRefund = refundableAmount - totalRefunded;
+    const needsRefund = isVacated && remainingRefund > 0;
+    const isFullyRefunded = isVacated && refundableAmount > 0 && totalRefunded >= refundableAmount;
+    const isSettledNoRefund = isVacated && refundableAmount === 0;
+
+    return (
+      <div className="flex items-center gap-2 whitespace-nowrap flex-wrap">
+        <span className="text-[10px] font-semibold text-green-600">
+          ₹{paid.toLocaleString()}
+        </span>
+        <span className="text-[9px] text-gray-400">
+          ({payments.length} txn)
+        </span>
+        {isVacated && needsRefund && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-5 px-2 text-[9px] bg-green-100 text-green-700 border-green-200 hover:bg-green-400 whitespace-nowrap rounded-md"
+            onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
+          >
+            <Shield className="w-2.5 h-2.5 mr-1 flex-shrink-0" />
+            Pay ₹{remainingRefund.toLocaleString()}
+          </Button>
+        )}
+        {isFullyRefunded && (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-green-200">
+            Settled
+          </Badge>
+        )}
+        {isSettledNoRefund && (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-gray-100 text-gray-500">
+            No Refund
+          </Badge>
+        )}
+      </div>
+    );
+  })()}
+</td>
 
                 {/* ── Location ── */}
                 <td className="px-2 py-2 border-r border-gray-200">
