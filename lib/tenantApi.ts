@@ -1232,6 +1232,7 @@ export async function processVacatedTenantRefund(
     payment_mode: string;
     bank_name?: string;
     transaction_id?: string;
+    payment_date?: string;
     remark?: string;
   }
 ): Promise<ApiResult<any>> {
@@ -1249,6 +1250,7 @@ export async function processVacatedTenantPayment(
   data: {
     amount: number;
     payment_mode: string;
+    payment_date?: string;
     bank_name?: string;
     transaction_id?: string;
     remark?: string;

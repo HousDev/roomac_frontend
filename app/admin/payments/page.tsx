@@ -123,7 +123,7 @@ import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDial
 import { useSocketIO } from "@/hooks/useSocketIO";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { Checkbox } from "@radix-ui/react-checkbox";
-import Swal from "sweetalert2";
+import MySwal from "@/app/utils/swal"; // adjust path if needed
 // Types
 interface PaymentFormData {
   tenant: {
@@ -2960,13 +2960,32 @@ const handleResendClick = async (demand: DemandPayment) => {
   setIsResendPopupOpen(true);
   setResendLoading(true);
   try {
-    // Fetch tenant's payment history
-    const formResponse = await paymentApi.getTenantPaymentFormData(demand.tenant_id);
-    if (formResponse.success) setResendTenantFormData(formResponse.data);
+    // Check if this is a security deposit demand
+    const isSecurityDeposit = demand.payment_type === "security_deposit";
     
-    // Fetch all payments for this tenant
-    const tenantPayments = payments.filter(p => p.tenant_id === demand.tenant_id);
-    setResendTenantPayments(tenantPayments);
+    if (isSecurityDeposit) {
+      // For security deposit, fetch deposit info
+      const depositResponse = await paymentApi.getSecurityDepositInfo(demand.tenant_id);
+      if (depositResponse.success) {
+        // Set security deposit data in a format that can be displayed
+        setResendTenantFormData({
+          is_security_deposit: true,
+          security_deposit_info: depositResponse.data,
+          tenant_name: demand.tenant_name,
+          tenant_id: demand.tenant_id
+        });
+      }
+    } else {
+      // For rent, fetch payment history as before
+      const formResponse = await paymentApi.getTenantPaymentFormData(demand.tenant_id);
+      if (formResponse.success) {
+        setResendTenantFormData(formResponse.data);
+      }
+      
+      // Fetch all payments for this tenant
+      const tenantPayments = payments.filter(p => p.tenant_id === demand.tenant_id);
+      setResendTenantPayments(tenantPayments);
+    }
   } catch (error) {
     toast.error("Failed to load tenant payment details");
   } finally {
@@ -3326,7 +3345,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
       size="sm"
       className="h-7 text-[10px] bg-red-600 hover:bg-red-700 text-white px-2.5 ml-2"
       onClick={async () => {
-        const result = await Swal.fire({
+        const result = await MySwal.fire({
           title: 'Delete Demands?',
           html: `You are about to delete <b>${selectedDemandIds.length}</b> demand${selectedDemandIds.length !== 1 ? 's' : ''}. This action cannot be undone!`,
           icon: 'warning',
@@ -3347,7 +3366,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
           });
           const data = await response.json();
           if (data.success) {
-            await Swal.fire({
+            await MySwal.fire({
               title: 'Deleted!',
               text: data.message,
               icon: 'success',
@@ -3702,72 +3721,30 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
           </TableCell>
 
           {/* Actions Column with Status Progress Bar */}
-          <TableCell className="py-2">
-            {demand.status === 'paid' ? (
-              <div className="flex items-center justify-center gap-2">
-                <Badge className="bg-green-100 text-green-800">Paid</Badge>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                 onClick={() => handleResendClick(demand)}
-                  title="Resend Payment Reminder"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : demand.status === 'partial' ? (
-              <div className="flex flex-col gap-1 min-w-[140px]">
-                <div className="flex justify-between items-center">
-                  <Badge className="bg-blue-100 text-blue-800">Partial</Badge>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                 onClick={() => handleResendClick(demand)}
-                    title="Resend Payment Reminder"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                  <div 
-                    className="bg-blue-600 rounded-full h-1.5" 
-                    style={{ width: `${((demand.paid_amount || 0) / (demand.amount || 1)) * 100}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-slate-500 text-center">
-                  ₹{(demand.paid_amount || 0).toLocaleString()} / ₹{(demand.amount || 0).toLocaleString()}
-                </span>
-              </div>
-            ) : demand.status === 'overdue' ? (
-              <div className="flex items-center justify-center gap-2">
-                <Badge className="bg-red-100 text-red-800">Overdue</Badge>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                  onClick={() => handleResendClick(demand)}
-                  title="Resend Payment Reminder"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2">
-                <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-                  onClick={() => handleResendClick(demand)}
-                  title="Resend Payment Reminder"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-          </TableCell>
+          {/* Actions Column - status badge + resend only, NO progress bar */}
+<TableCell className="py-2">
+  <div className="flex items-center justify-center gap-2">
+    <Badge className={`text-[10px] px-2 py-0.5 ${
+      demand.status === 'paid'    ? 'bg-green-100 text-green-800' :
+      demand.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+      demand.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                                    'bg-yellow-100 text-yellow-800'
+    }`}>
+      {demand.status === 'partial'
+        ? `Partial · ₹${(demand.paid_amount || 0).toLocaleString()}/${(demand.amount || 0).toLocaleString()}`
+        : demand.status}
+    </Badge>
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
+      onClick={() => handleResendClick(demand)}
+      title="Resend Payment Reminder"
+    >
+      <RefreshCw className="h-3 w-3" />
+    </Button>
+  </div>
+</TableCell>
         </TableRow>
       );
     })
@@ -4056,24 +4033,17 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
 
     {/* Bulk Email */}
     <Button size="sm"
-  className="h-7 text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2.5 gap-1"
+  className="h-7 text-[10px] text-white px-2.5 gap-1"
   onClick={async () => {
-    const result = await Swal.fire({
-      title: 'Send Receipt Emails?',
-      html: `Send receipt PDFs to <b>${selectedReceiptIds.length}</b> tenant(s) via email?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#7c3aed',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: '✉️ Yes, Send',
-      cancelButtonText: 'Cancel',
-      reverseButtons: false,
-      customClass: {
-        confirmButton: 'swal2-confirm',
-        cancelButton: 'swal2-cancel',
-        popup: 'swal2-popup'
-      }
-    });
+    const result = await MySwal.fire({
+  title: 'Send Receipt Emails?',
+  html: `Send receipt PDFs to <b>${selectedReceiptIds.length}</b> tenant(s) via email?`,
+  icon: 'question',
+  showCancelButton: true,
+  confirmButtonText: '✉️ Yes, Send',
+  cancelButtonText: 'Cancel',
+  reverseButtons: false,
+});
     
     if (!result.isConfirmed) return;
     
@@ -4090,7 +4060,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
       const data = await response.json();
       toast.dismiss(loadingToast);
       if (data.success) {
-        await Swal.fire({ 
+        await MySwal.fire({ 
           title: 'Emails Sent!', 
           text: data.message, 
           icon: 'success', 
@@ -4110,7 +4080,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
 
 <Button size="sm"
   variant="outline"
-  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-50 gap-1"
+  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-500 gap-1"
   onClick={async () => {
     // Step 1: Get selected receipt objects
     const selectedReceipts = receipts.filter((r: any) => selectedReceiptIds.includes(Number(r.id)));
@@ -4253,11 +4223,11 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     {/* Download Ledgers ZIP */}
 <Button size="sm"
   variant="outline"
-  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-50 gap-1"
+  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-500 gap-1"
   onClick={async () => {
     // Get selected receipts
     const selectedReceipts = receipts.filter((r: any) => selectedReceiptIds.includes(Number(r.id)));
-    console.log("Selected receipts for ZIP:", selectedReceipts);
+    
     
     // ✅ USE EXACT SAME LOGIC AS PREVIEW BUTTON
     let tenantIds: number[] = [];
@@ -4269,8 +4239,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
         tenantIds.push(Number(tenantId));
       }
     }
-    
-    console.log("Extracted tenant IDs (direct):", tenantIds);
+  
     
     // Approach 2: Fetch from API (SAME AS PREVIEW BUTTON)
     if (tenantIds.length === 0 && selectedReceipts.length > 0) {
@@ -4317,7 +4286,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
               `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/${receipt.id}`
             );
             const data = await response.json();
-            console.log(`Payment ${receipt.id} API response for ZIP:`, data);
+           
             
             if (data.success && data.data) {
               return data.data.tenant_id || data.data.tenantId || null;
@@ -4333,7 +4302,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
         tenantIds = [...new Set(paymentTenantIds.filter((id): id is number => id !== null && !isNaN(Number(id))))];
         
         toast.dismiss("fetch-payments-zip");
-        console.log("Tenant IDs from payments API for ZIP:", tenantIds);
+       
       } catch (error) {
         toast.dismiss("fetch-payments-zip");
         console.error("Failed to fetch payment details:", error);
@@ -4342,7 +4311,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     
     // Filter out null/undefined values
     const validTenantIds = tenantIds.filter(id => id != null && !isNaN(Number(id)));
-    console.log("Final valid tenant IDs for ZIP:", validTenantIds);
+   
     
     if (validTenantIds.length === 0) {
       toast.error("No tenants found for selected receipts. Please ensure receipts are approved.");
@@ -4367,7 +4336,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
       }
       
       const blob = await response.blob();
-      console.log("ZIP blob size:", blob.size);
+     
       
       toast.dismiss(loadingToast);
       
@@ -4398,8 +4367,8 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
 
     {/* WhatsApp */}
     <Button size="sm" variant="outline"
-      className="h-7 text-[10px] px-2.5 border-green-500 text-green-700 hover:bg-green-50 gap-1"
-      onClick={() => Swal.fire({
+      className="h-7 text-[10px] px-2.5 border-green-500 text-green-700 hover:bg-green-400  gap-1"
+      onClick={() => MySwal.fire({
         title: 'WhatsApp Integration',
         text: 'WhatsApp bulk send requires WhatsApp Business API. Configure in Settings → Integrations.',
         icon: 'info',
@@ -5182,11 +5151,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
         </DialogContent>
       </Dialog>
 
-{/* ============================================================
-    DEMAND PAYMENT DIALOG — drop-in replacement for the existing
-    <Dialog open={isDemandPaymentOpen} …> block in page.tsx
-    No logic removed — only the JSX / layout changed.
-    ============================================================ */}
+{/* DEMAND PAYMENT DIALOG */}
 <Dialog
   open={isDemandPaymentOpen}
   onOpenChange={(open) => {
@@ -5201,36 +5166,34 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     }
   }}
 >
-  <DialogContent className="max-w-3xl w-[96vw] max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden rounded-2xl border-0 shadow-2xl">
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
 
-    {/* ── HEADER ── */}
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3.5 flex items-center justify-between flex-shrink-0 rounded-t-2xl">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-          <Bell className="h-4 w-4 text-white" />
-        </div>
+    {/* ── HEADER — same style as Add Payment ── */}
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+      <div className="flex items-center justify-between">
         <div>
-          <DialogTitle className="text-white text-sm font-semibold leading-none">
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-md">
+              <Bell className="h-3.5 w-3.5" />
+            </div>
             Demand Payment
           </DialogTitle>
-          <p className="text-blue-300 text-[10px] mt-0.5">
-            Send a payment request to one tenant or many at once
-          </p>
+          <DialogDescription className="text-blue-100 text-xs mt-0.5">
+            Send a payment request to a tenant or multiple tenants
+          </DialogDescription>
         </div>
+        <DialogClose asChild>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </DialogClose>
       </div>
-      <DialogClose asChild>
-        <button className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </DialogClose>
-    </div>
 
-    {/* ── TAB BAR ── */}
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 flex-shrink-0">
-      <div className="flex border-b border-white/10">
+      {/* Mode toggle — sits inside header like a sub-nav */}
+      <div className="flex gap-1 mt-3">
         {[
-          { id: false, label: "Single Tenant", icon: User },
-          { id: true,  label: "Bulk Mode",     icon: Users },
+          { id: false, label: "Single tenant", icon: User },
+          { id: true,  label: "Bulk mode",     icon: Users },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={String(id)}
@@ -5244,17 +5207,17 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                 setRoomsWithPending([]);
                 setDemandPayment({
                   tenant_id: "", payment_type: "rent", amount: 0,
-                  due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split("T")[0],
+                  due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
                   description: "", send_email: true, send_sms: false,
                 });
               } else {
                 setDemandPayment(prev => ({ ...prev, tenant_id: "" }));
               }
             }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors
               ${bulkMode === id
-                ? "border-blue-400 text-white"
-                : "border-transparent text-blue-300/70 hover:text-blue-200"}`}
+                ? "bg-white text-blue-700"
+                : "text-blue-100 hover:bg-white/10"}`}
           >
             <Icon className="h-3 w-3" />
             {label}
@@ -5264,108 +5227,153 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     </div>
 
     {/* ── SCROLLABLE BODY ── */}
-    <div className="flex-1 overflow-y-auto bg-[#f0f4ff]">
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-      {/* ═══════════════════════════════════════════
+      {/* ══════════════════════════════════
           SINGLE TENANT TAB
-      ═══════════════════════════════════════════ */}
+      ══════════════════════════════════ */}
       {!bulkMode && (
-        <div className="p-4 space-y-3">
-
-          {/* Row 1: Property / Room / Tenant / Type */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Property */}
+        <>
+          {/* Row 1: Property + Room */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Property <span className="text-red-500">*</span>
-              </label>
-              <Select value={selectedPropertyId} onValueChange={handleDemandPropertyChange}>
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 focus:ring-blue-500">
-                  <SelectValue placeholder="Select…" />
+              </Label>
+              <Select
+                value={selectedPropertyId}
+                onValueChange={handleDemandPropertyChange}
+                onOpenChange={(open) => {
+                  if (open) setTimeout(() => propertySearchInputRef.current?.focus(), 50);
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
-                <SelectContent className="max-h-56" position="popper" sideOffset={4}
-                  onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="sticky top-0 bg-white p-1.5 border-b z-10"
-                    onMouseDown={(e) => e.stopPropagation()}>
-                    <Input placeholder="Search…" value={propertySearch}
-                      onChange={(e) => { setPropertySearch(e.target.value); setFilteredProperties(properties.filter(p => p.name.toLowerCase().includes(e.target.value.toLowerCase()))); }}
-                      className="h-6 text-xs" onKeyDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />
+                <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
+                  <div className="sticky top-0 bg-white p-2 border-b z-10"
+                    onPointerDown={(e) => e.stopPropagation()}>
+                    <Input
+                      ref={propertySearchInputRef}
+                      placeholder="Search property..."
+                      value={propertySearch}
+                      onChange={(e) => handlePropertySearch(e.target.value)}
+                      className="h-7 text-xs"
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </div>
-                  <div className="max-h-40 overflow-y-auto">
-                    {filteredProperties.map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        <span className="text-xs">{p.name}</span>
-                      </SelectItem>
-                    ))}
+                  <div className="max-h-[250px] overflow-y-auto">
+                    {loadingProperties ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />Loading...
+                      </div>
+                    ) : filteredProperties.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">No properties found</div>
+                    ) : (
+                      filteredProperties.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <Building className="h-3 w-3 text-slate-400" />
+                            <span className="text-xs">{p.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </div>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Room */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Room <span className="text-red-500">*</span>
-              </label>
-              <Select value={selectedRoomId} onValueChange={handleDemandRoomChange}
-                disabled={!selectedPropertyId || loadingRooms}>
+              </Label>
+              <Select
+                value={selectedRoomId}
+                onValueChange={handleDemandRoomChange}
+                disabled={!selectedPropertyId || loadingRooms}
+              >
                 <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room…"} />
+                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
                 </SelectTrigger>
-                <SelectContent className="max-h-56" position="popper" sideOffset={4}
-                  onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="sticky top-0 bg-white p-1.5 border-b z-10"
-                    onMouseDown={(e) => e.stopPropagation()}>
-                    <Input placeholder="Search…" value={roomSearch}
-                      onChange={(e) => { setRoomSearch(e.target.value); setFilteredRooms(rooms.filter(r => r.room_number.toString().toLowerCase().includes(e.target.value.toLowerCase()))); }}
-                      className="h-6 text-xs" disabled={!selectedPropertyId}
-                      onKeyDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />
+                <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
+                  <div className="sticky top-0 bg-white p-2 border-b z-10"
+                    onPointerDown={(e) => e.stopPropagation()}>
+                    <Input
+                      placeholder="Search room..."
+                      value={roomSearch}
+                      onChange={(e) => handleRoomSearch(e.target.value)}
+                      className="h-7 text-xs"
+                      disabled={!selectedPropertyId}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </div>
-                  <div className="max-h-40 overflow-y-auto">
+                  <div className="max-h-[250px] overflow-y-auto">
                     {filteredRooms.map((r) => (
                       <SelectItem key={r.id} value={r.id.toString()}>
-                        <span className="text-xs">Room {r.room_number} ({r.sharing_type})</span>
+                        <div className="flex items-center gap-2">
+                          <Home className="h-3 w-3 text-slate-400" />
+                          <span className="text-xs">Room {r.room_number}</span>
+                          <span className="text-[10px] text-slate-400">({r.sharing_type})</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </div>
                 </SelectContent>
               </Select>
+              {loadingRooms && (
+                <div className="flex items-center gap-1 text-blue-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span className="text-[10px]">Loading rooms...</span>
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* Tenant */}
+          {/* Row 2: Tenant + Payment Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Tenant <span className="text-red-500">*</span>
-              </label>
-              <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect}
-                disabled={!selectedRoomId}>
+              </Label>
+              <Select
+                value={demandPayment.tenant_id}
+                onValueChange={handleDemandTenantSelect}
+                disabled={!selectedRoomId}
+              >
                 <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant…"} />
+                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant..."} />
                 </SelectTrigger>
-                <SelectContent className="max-h-56">
-                  {filteredTenants.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()}>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium">{t.full_name}</span>
-                        <span className="text-[10px] text-slate-400">{t.phone}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[300px]">
+                  {filteredTenants.length === 0 && selectedRoomId ? (
+                    <div className="px-2 py-4 text-center text-xs text-slate-500">No tenants in this room</div>
+                  ) : (
+                    filteredTenants.map((t) => (
+                      <SelectItem key={t.id} value={t.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3 w-3 text-slate-400" />
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium">{t.full_name}</span>
+                            <span className="text-[10px] text-slate-400">{t.phone}</span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {bookingLoading && (
-                <div className="flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                  <span className="text-[9px] text-blue-600">Loading…</span>
+                <div className="flex items-center gap-1 text-blue-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span className="text-[10px]">Loading tenant details...</span>
                 </div>
               )}
             </div>
 
-            {/* Payment Type */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
-                Type
-              </label>
+              <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
               <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
                 <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                   <SelectValue />
@@ -5378,138 +5386,132 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
             </div>
           </div>
 
-          {/* Row 2: Amount / Due Date / Description */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Tenant summary — shown after selection, same style as BedAssignmentTable */}
+{demandPayment.tenant_id && paymentFormData && (
+  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+        <Bed className="h-3.5 w-3.5" />
+        Bed Assignment Details
+      </h4>
+    </div>
+    <div className="p-4">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Property</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Room</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Bed #</th>
+            {/* Show different header based on payment type */}
+            <th className="text-left p-2 text-xs font-medium text-slate-600">
+              {demandPayment.payment_type === "security_deposit" ? "Security Deposit" : "Monthly Rent"}
+            </th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">
+              {demandPayment.payment_type === "security_deposit" ? "Deposit Pending" : "Rent Pending"}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-t border-slate-200">
+            <td className="p-2 text-sm">{paymentFormData.room_info?.property_name || "N/A"}</td>
+            <td className="p-2 text-sm">{paymentFormData.room_info?.room_number || "N/A"}</td>
+            <td className="p-2 text-sm font-medium">
+              {paymentFormData.room_info?.bed_number ? `#${paymentFormData.room_info.bed_number}` : "—"}
+            </td>
+            {/* Show Security Deposit total or Monthly Rent */}
+            <td className="p-2 text-sm font-semibold text-blue-600">
+              {demandPayment.payment_type === "security_deposit" 
+                ? `₹${(securityDepositInfo?.security_deposit || 0).toLocaleString()}`
+                : `₹${(paymentFormData.monthly_rent || 0).toLocaleString()}`
+              }
+            </td>
+            {/* Show Pending Amount */}
+            <td className="p-2 text-sm font-semibold text-amber-600">
+              ₹{demandPayment.payment_type === "security_deposit"
+                ? (securityDepositInfo?.pending_amount || 0).toLocaleString()
+                : (paymentFormData.total_pending || 0).toLocaleString()}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
+          {/* Row 3: Amount + Due Date + Description */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Amount (₹) <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
-                <Input type="number" placeholder="0"
+                <Input
+                  type="number"
+                  placeholder="0"
                   value={demandPayment.amount || ""}
                   onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
-                  className="h-8 text-xs pl-7 bg-white" />
+                  className="pl-7 h-8 text-xs"
+                />
               </div>
             </div>
+
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Due Date <span className="text-red-500">*</span>
-              </label>
-              <Input type="date" value={demandPayment.due_date}
+              </Label>
+              <Input
+                type="date"
+                value={demandPayment.due_date}
                 onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
-                className="h-8 text-xs bg-white" />
+                className="h-8 text-xs"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
-                Note (optional)
-              </label>
-              <Input placeholder="Message for tenant…"
+
+            <div className="space-y-1 col-span-2 sm:col-span-1">
+              <Label className="text-[11px] font-medium text-slate-600">Note (optional)</Label>
+              <Input
+                placeholder="Message for tenant"
                 value={demandPayment.description}
                 onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
-                className="h-8 text-xs bg-white" />
+                className="h-8 text-xs"
+              />
             </div>
           </div>
 
-          {/* Tenant info cards — shown after selection */}
-          {demandPayment.tenant_id && paymentFormData && (
-            <div className="grid grid-cols-2 gap-2">
-              {/* Assignment card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                <p className="text-[10px] font-bold text-[#0f2557] mb-2 flex items-center gap-1 uppercase tracking-wide">
-                  <Bed className="h-3 w-3" /> Assignment
-                </p>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <div><span className="text-slate-400">Property:</span><br />
-                    <span className="font-semibold text-slate-700">{paymentFormData.room_info?.property_name || "N/A"}</span>
-                  </div>
-                  <div><span className="text-slate-400">Room / Bed:</span><br />
-                    <span className="font-semibold text-slate-700">
-                      {paymentFormData.room_info?.room_number || "N/A"}
-                      {paymentFormData.room_info?.bed_number ? ` • Bed #${paymentFormData.room_info.bed_number}` : ""}
-                    </span>
-                  </div>
-                  <div className="col-span-2 mt-1 pt-1 border-t border-slate-100">
-                    <span className="text-slate-400">Monthly Rent:</span>
-                    <span className="ml-1 font-bold text-green-600">₹{(paymentFormData.monthly_rent || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment summary card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                <p className="text-[10px] font-bold text-[#0f2557] mb-2 flex items-center gap-1 uppercase tracking-wide">
-                  <IndianRupee className="h-3 w-3" />
-                  {demandPayment.payment_type === "security_deposit" ? "Deposit" : "Rent"} Summary
-                </p>
-                {demandPayment.payment_type === "security_deposit" && securityDepositInfo ? (
-                  <div className="grid grid-cols-3 gap-1 text-[10px]">
-                    <div className="text-center bg-blue-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Total</p>
-                      <p className="font-bold text-blue-700">₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="text-center bg-green-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Paid</p>
-                      <p className="font-bold text-green-700">₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="text-center bg-amber-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Pending</p>
-                      <p className="font-bold text-amber-700">₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1 text-[10px]">
-                    <div className="text-center bg-green-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Paid</p>
-                      <p className="font-bold text-green-700">₹{(paymentFormData.total_paid || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="text-center bg-amber-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Pending</p>
-                      <p className="font-bold text-amber-700">₹{(paymentFormData.total_pending || 0).toLocaleString()}</p>
-                    </div>
-                    <div className="text-center bg-red-50 rounded-lg p-1.5">
-                      <p className="text-slate-400">Months Due</p>
-                      <p className="font-bold text-red-600">{paymentFormData.unpaid_months?.length || 0}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Notify row */}
-          <div className="flex items-center gap-4 bg-white px-3 py-2 rounded-xl border border-slate-200">
-            <span className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">Notify via:</span>
+          <div className="flex items-center gap-4 pt-1">
+            <span className="text-[11px] font-medium text-slate-600">Notify via:</span>
             {[
-              { key: "send_email", icon: Mail, label: "Email" },
-              { key: "send_sms",   icon: Smartphone, label: "SMS" },
+              { key: "send_email", icon: Mail,       label: "Email" },
+              { key: "send_sms",   icon: Smartphone, label: "SMS"   },
             ].map(({ key, icon: Icon, label }) => (
               <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input type="checkbox"
+                <input
+                  type="checkbox"
                   checked={demandPayment[key]}
                   onChange={(e) => setDemandPayment({ ...demandPayment, [key]: e.target.checked })}
-                  className="w-3 h-3 accent-blue-700 rounded" />
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
                 <Icon className="h-3 w-3 text-slate-500" />
-                <span className="text-[10px] text-slate-600">{label}</span>
+                <span className="text-[11px] text-slate-600">{label}</span>
               </label>
             ))}
           </div>
-        </div>
+        </>
       )}
 
-      {/* ═══════════════════════════════════════════
+      {/* ══════════════════════════════════
           BULK MODE TAB
-      ═══════════════════════════════════════════ */}
+      ══════════════════════════════════ */}
       {bulkMode && (
-        <div className="p-4 space-y-3">
-
-          {/* Config strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-            {/* Property */}
+        <>
+          {/* Config row: Property + Type + Due Date + Note */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Property <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <Select
                 value={selectedPropertyId}
                 onValueChange={async (value) => {
@@ -5527,8 +5529,8 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                   finally { setBookingLoading(false); }
                 }}
               >
-                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
-                  <SelectValue placeholder="Select property…" />
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
                 <SelectContent>
                   {properties.map((p) => (
@@ -5540,11 +5542,8 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
               </Select>
             </div>
 
-            {/* Payment Type */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
-                Type <span className="text-red-500">*</span>
-              </label>
+              <Label className="text-[11px] font-medium text-slate-600">Type</Label>
               <Select
                 value={demandPayment.payment_type}
                 onValueChange={(value) => {
@@ -5554,7 +5553,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                   if (selectedPropertyId) fetchRoomsWithPendingPayments(parseInt(selectedPropertyId), value);
                 }}
               >
-                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -5564,75 +5563,68 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
               </Select>
             </div>
 
-            {/* Due Date */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+              <Label className="text-[11px] font-medium text-slate-600">
                 Due Date <span className="text-red-500">*</span>
-              </label>
-              <Input type="date" value={demandPayment.due_date}
+              </Label>
+              <Input
+                type="date"
+                value={demandPayment.due_date}
                 onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
-                className="h-8 text-xs bg-slate-50" />
+                className="h-8 text-xs bg-white"
+              />
             </div>
 
-            {/* Message */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
-                Note (optional)
-              </label>
-              <Input placeholder="Note for tenants…"
+              <Label className="text-[11px] font-medium text-slate-600">Note (optional)</Label>
+              <Input
+                placeholder="Message for tenants..."
                 value={demandPayment.description}
                 onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
-                className="h-8 text-xs bg-slate-50" />
+                className="h-8 text-xs bg-white"
+              />
             </div>
           </div>
 
-          {/* Notify + selection badge */}
-          <div className="flex items-center gap-4 bg-white px-3 py-2 rounded-xl border border-slate-200">
-            <span className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">Notify:</span>
+          {/* Notify row */}
+          <div className="flex items-center gap-4">
+            <span className="text-[11px] font-medium text-slate-600">Notify via:</span>
             {[
               { key: "send_email", icon: Mail,       label: "Email" },
               { key: "send_sms",   icon: Smartphone, label: "SMS"   },
             ].map(({ key, icon: Icon, label }) => (
               <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input type="checkbox" checked={demandPayment[key]}
+                <input
+                  type="checkbox"
+                  checked={demandPayment[key]}
                   onChange={(e) => setDemandPayment({ ...demandPayment, [key]: e.target.checked })}
-                  className="w-3 h-3 accent-blue-700 rounded" />
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
                 <Icon className="h-3 w-3 text-slate-500" />
-                <span className="text-[10px] text-slate-600">{label}</span>
+                <span className="text-[11px] text-slate-600">{label}</span>
               </label>
             ))}
-
             {selectedTenants.length > 0 && (
-              <div className="ml-auto flex items-center gap-2 bg-[#0f2557] px-3 py-1 rounded-full">
-                <Users className="h-3 w-3 text-blue-300" />
-                <span className="text-[10px] font-semibold text-white">{selectedTenants.length} selected</span>
-                <span className="text-[10px] text-blue-300">
-                  · ₹{roomsWithPending
-                    .flatMap(r => r.tenants || [])
-                    .filter((t: any) => selectedTenants.includes(t.id))
-                    .reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0)
-                    .toLocaleString()}
-                </span>
-              </div>
+              <span className="ml-auto text-[11px] text-slate-500">
+                {selectedTenants.length} tenant{selectedTenants.length !== 1 ? "s" : ""} selected
+              </span>
             )}
           </div>
 
-          {/* Rooms + Tenants panels */}
+          {/* Rooms + Tenants panels — only shown after property selected */}
           {selectedPropertyId && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-              {/* ── Rooms panel ── */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-white flex items-center gap-1.5">
-                    <Home className="h-3 w-3" />
-                    Rooms
+              {/* Rooms panel */}
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                    <Home className="h-3.5 w-3.5" />
+                    Rooms with pending
                     {roomsWithPending.length > 0 && (
-                      <span className="bg-blue-400 text-white text-[9px] px-1.5 py-0.5 rounded-full ml-1">
-                        {roomsWithPending.length}
-                      </span>
+                      <span className="text-[10px] text-slate-500">({roomsWithPending.length})</span>
                     )}
-                  </span>
+                  </h4>
                   <button
                     onClick={() => {
                       if (selectedRooms.length === roomsWithPending.length) {
@@ -5643,19 +5635,18 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                         setSelectedTenants(roomsWithPending.flatMap(r => r.tenants?.map((t: any) => t.id) || []));
                       }
                     }}
-                    className="text-[9px] text-blue-300 hover:text-white font-medium transition-colors"
+                    className="text-[10px] text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All"}
+                    {selectedRooms.length === roomsWithPending.length ? "Deselect all" : "Select all"}
                   </button>
                 </div>
-
-                <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100">
+                <div className="max-h-[240px] overflow-y-auto divide-y divide-slate-100">
                   {bookingLoading ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                     </div>
                   ) : roomsWithPending.length === 0 ? (
-                    <div className="text-center py-8 text-[10px] text-slate-400">
+                    <div className="text-center py-8 text-xs text-slate-400">
                       {selectedPropertyId
                         ? `No rooms with pending ${demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"}`
                         : "Select a property first"}
@@ -5678,24 +5669,21 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                               ? [...new Set([...selectedTenants, ...roomTenantIds])]
                               : selectedTenants.filter(id => !roomTenantIds.includes(id)));
                           }}
-                          className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors
                             ${isSelected ? "bg-blue-50" : "hover:bg-slate-50"}`}
                         >
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                            ${isSelected ? "bg-[#496ab8] border-[#1b3778]" : "border-slate-300"}`}>
+                            ${isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"}`}>
                             {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-semibold text-slate-800">Room {room.room_number}</span>
-                              <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
-                                {room.sharing_type || "Std"}
-                              </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-slate-800">Room {room.room_number}</span>
+                              <span className="text-[10px] text-slate-400">{room.tenants?.length || 0} tenant(s)</span>
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[9px] text-slate-400">{room.tenants?.length || 0} tenant(s)</span>
-                              <span className="text-[9px] font-semibold text-amber-600">₹{totalPending.toLocaleString()}</span>
-                            </div>
+                            <span className="text-[10px] text-slate-500">
+                              Pending: ₹{totalPending.toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       );
@@ -5704,18 +5692,16 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                 </div>
               </div>
 
-              {/* ── Tenants panel ── */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-white flex items-center gap-1.5">
-                    <User className="h-3 w-3" />
+              {/* Tenants panel */}
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
                     Tenants
                     {selectedTenants.length > 0 && (
-                      <span className="bg-green-400 text-white text-[9px] px-1.5 py-0.5 rounded-full ml-1">
-                        {selectedTenants.length}
-                      </span>
+                      <span className="text-[10px] text-slate-500">({selectedTenants.length} selected)</span>
                     )}
-                  </span>
+                  </h4>
                   {selectedRooms.length > 0 && (
                     <button
                       onClick={() => {
@@ -5727,22 +5713,19 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                           ? selectedTenants.filter(id => !allIds.includes(id))
                           : [...new Set([...selectedTenants, ...allIds])]);
                       }}
-                      className="text-[9px] text-blue-300 hover:text-white font-medium transition-colors"
+                      className="text-[10px] text-blue-600 hover:text-blue-700 font-medium"
                     >
                       {roomsWithPending
                         .filter(r => selectedRooms.includes(r.id))
                         .flatMap(r => r.tenants || [])
                         .every((t: any) => selectedTenants.includes(t.id))
-                        ? "Deselect All" : "Select All"}
+                        ? "Deselect all" : "Select all"}
                     </button>
                   )}
                 </div>
-
-                <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100">
+                <div className="max-h-[240px] overflow-y-auto divide-y divide-slate-100">
                   {selectedRooms.length === 0 ? (
-                    <div className="text-center py-8 text-[10px] text-slate-400">
-                      Select rooms to see tenants
-                    </div>
+                    <div className="text-center py-8 text-xs text-slate-400">Select rooms to see tenants</div>
                   ) : (
                     roomsWithPending
                       .filter(room => selectedRooms.includes(room.id))
@@ -5760,26 +5743,23 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                                 ? prev.filter(id => id !== tenant.id)
                                 : [...prev, tenant.id]
                             )}
-                            className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
-                              ${isSelected ? "bg-green-50" : "hover:bg-slate-50"}`}
+                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors
+                              ${isSelected ? "bg-blue-50" : "hover:bg-slate-50"}`}
                           >
                             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                              ${isSelected ? "bg-green-600 border-green-600" : "border-slate-300"}`}>
+                              ${isSelected ? "bg-blue-600 border-blue-600" : "border-slate-300"}`}>
                               {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-semibold text-slate-800 truncate">{tenant.full_name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-slate-800 truncate">{tenant.full_name}</span>
                                 {tenant.bed_number && (
-                                  <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                                    Bed #{tenant.bed_number}
-                                  </span>
+                                  <span className="text-[10px] text-slate-400 flex-shrink-0">Bed #{tenant.bed_number}</span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[9px] text-slate-400">Room {tenant.room_number}</span>
-                                {tenant.phone && <span className="text-[9px] text-slate-400">{tenant.phone}</span>}
-                                <span className="text-[9px] font-semibold text-amber-600 ml-auto">₹{pending.toLocaleString()}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400">Room {tenant.room_number}</span>
+                                <span className="text-[10px] text-slate-500">· ₹{pending.toLocaleString()} pending</span>
                               </div>
                             </div>
                           </div>
@@ -5790,45 +5770,57 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
 
-    {/* ── FOOTER ── */}
-    <div className="bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-between gap-3 flex-shrink-0 rounded-b-2xl">
-      <button
-        onClick={() => {
-          setIsDemandPaymentOpen(false);
-          resetDemandPaymentForm();
-          setBulkMode(false);
-          setSelectedRooms([]);
-          setSelectedTenants([]);
-          setRoomsWithPending([]);
-        }}
-        className="text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
-      >
-        Cancel
-      </button>
-
-      <button
-        disabled={
-          bookingLoading ||
-          (bulkMode
-            ? selectedTenants.length === 0
-            : !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date)
-        }
-        onClick={bulkMode ? handleBulkSend : handleDemandPayment}
-        className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white
-          bg-[#0f2557] hover:bg-[#162f6e] disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors shadow-md shadow-blue-900/20"
-      >
-        {bookingLoading
-          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
-          : bulkMode
-            ? <><Send className="h-3.5 w-3.5" />Send to {selectedTenants.length} Tenant{selectedTenants.length !== 1 ? "s" : ""}</>
-            : <><Send className="h-3.5 w-3.5" />Send Demand</>
-        }
-      </button>
+    {/* ── FOOTER — same style as Add Payment ── */}
+    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setIsDemandPaymentOpen(false);
+            resetDemandPaymentForm();
+            setBulkMode(false);
+            setSelectedRooms([]);
+            setSelectedTenants([]);
+            setRoomsWithPending([]);
+          }}
+          className="text-xs h-8 px-4"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          disabled={
+            bookingLoading ||
+            (bulkMode
+              ? selectedTenants.length === 0
+              : !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date)
+          }
+          onClick={bulkMode ? handleBulkSend : handleDemandPayment}
+          className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+        >
+          {bookingLoading ? (
+            <>
+              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+              Sending...
+            </>
+          ) : bulkMode ? (
+            <>
+              <Send className="h-3 w-3 mr-1.5" />
+              Send to {selectedTenants.length} tenant{selectedTenants.length !== 1 ? "s" : ""}
+            </>
+          ) : (
+            <>
+              <Send className="h-3 w-3 mr-1.5" />
+              Send Demand
+            </>
+          )}
+        </Button>
+      </div>
     </div>
 
   </DialogContent>
@@ -6840,17 +6832,17 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
         getTenantCountryCode={getTenantCountryCode}
       />
 
-      <Dialog open={isResendPopupOpen} onOpenChange={setIsResendPopupOpen}>
+<Dialog open={isResendPopupOpen} onOpenChange={setIsResendPopupOpen}>
   <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
-    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+    <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-4 py-3 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
         <div>
           <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Regenerate & Resend Demand — {resendDemand?.tenant_name}
           </DialogTitle>
-          <DialogDescription className="text-orange-100 text-[10px] mt-0.5">
-            Review payment status before resending demand
+          <DialogDescription className="text-blue-100 text-[10px] mt-0.5">
+            Review {resendDemand?.payment_type === 'security_deposit' ? 'security deposit' : 'payment'} status before resending demand
           </DialogDescription>
         </div>
         <DialogClose asChild>
@@ -6864,30 +6856,119 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
       {resendLoading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
         </div>
       ) : (
         <>
           {/* Demand Summary */}
           {resendDemand && (
-            <div className="grid grid-cols-3 gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="grid grid-cols-3 gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div>
-                <p className="text-[10px] text-orange-600">Demand Amount</p>
-                <p className="text-sm font-bold text-orange-800">₹{Number(resendDemand.amount).toLocaleString()}</p>
+                <p className="text-[10px] text-blue-600">Demand Amount</p>
+                <p className="text-sm font-bold text-blue-800">₹{Number(resendDemand.amount).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-[10px] text-orange-600">Due Date</p>
-                <p className="text-sm font-bold text-orange-800">{format(new Date(resendDemand.due_date), "dd MMM yyyy")}</p>
+                <p className="text-[10px] text-blue-600">Due Date</p>
+                <p className="text-sm font-bold text-blue-800">{format(new Date(resendDemand.due_date), "dd MMM yyyy")}</p>
               </div>
               <div>
-                <p className="text-[10px] text-orange-600">Type</p>
-                <p className="text-sm font-bold text-orange-800 capitalize">{resendDemand.payment_type?.replace("_", " ")}</p>
+                <p className="text-[10px] text-blue-600">Type</p>
+                <p className="text-sm font-bold text-blue-800 capitalize">
+                  {resendDemand.payment_type === 'security_deposit' ? 'Security Deposit' : 'Rent'}
+                </p>
               </div>
             </div>
           )}
 
-          {/* Rent Summary Table */}
-          {resendTenantFormData && (
+          {/* SHOW SECURITY DEPOSIT DETAILS for security deposit demands */}
+          {resendTenantFormData?.is_security_deposit && (
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200">
+                <p className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Shield className="h-3 w-3" />
+                  Security Deposit Status
+                </p>
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <p className="text-[10px] text-slate-500">Total Security Deposit</p>
+                    <p className="text-sm font-bold text-blue-600">
+                      ₹{(resendTenantFormData.security_deposit_info?.security_deposit || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Already Paid</p>
+                    <p className="text-sm font-medium text-green-600">
+                      ₹{(resendTenantFormData.security_deposit_info?.paid_amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Pending Amount</p>
+                    <p className="text-sm font-bold text-amber-600">
+                      ₹{(resendTenantFormData.security_deposit_info?.pending_amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Status</p>
+                    <Badge className={`text-[10px] px-2 py-0.5 ${
+                      (resendTenantFormData.security_deposit_info?.pending_amount || 0) === 0
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {(resendTenantFormData.security_deposit_info?.pending_amount || 0) === 0 ? 'Fully Paid' : 'Pending'}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                {(resendTenantFormData.security_deposit_info?.security_deposit || 0) > 0 && (
+                  <div className="mt-2">
+                    <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                      <span>Payment Progress</span>
+                      <span>
+                        {Math.round(
+                          ((resendTenantFormData.security_deposit_info?.paid_amount || 0) /
+                            (resendTenantFormData.security_deposit_info?.security_deposit || 1)) * 100
+                        )}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                        style={{
+                          width: `${((resendTenantFormData.security_deposit_info?.paid_amount || 0) /
+                            (resendTenantFormData.security_deposit_info?.security_deposit || 1)) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Property Info for security deposit */}
+                {resendTenantFormData.security_deposit_info?.property_name && (
+                  <div className="mt-4 pt-3 border-t border-slate-200">
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span className="text-slate-400">Property:</span>
+                        <span className="ml-1 font-medium">{resendTenantFormData.security_deposit_info.property_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Room/Bed:</span>
+                        <span className="ml-1 font-medium">
+                          Room {resendTenantFormData.security_deposit_info.room_number || 'N/A'}
+                          {resendTenantFormData.security_deposit_info.bed_number && ` • Bed #${resendTenantFormData.security_deposit_info.bed_number}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SHOW RENT SUMMARY for rent demands */}
+          {resendTenantFormData && !resendTenantFormData.is_security_deposit && (
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="bg-slate-50 px-3 py-2 border-b border-slate-200">
                 <p className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
@@ -6992,7 +7073,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
             await handleResendReminder(resendDemand);
             setIsResendPopupOpen(false);
           }}
-          className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white"
+          className="text-xs h-7 px-4 bg-gradient-to-r from-blue-700 to-blue-500 text-white"
         >
           <Send className="h-3 w-3 mr-1" />
           Regenerate & Send
