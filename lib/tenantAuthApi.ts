@@ -13,6 +13,7 @@ export type TenantLoginResponse = {
   error?: string;
   otp?: string;
   message?: string;
+  role?: string;  // ← ADD THIS
 };
 
 export type TenantProfile = {
@@ -147,12 +148,15 @@ export async function loginTenant(
 
 
     if (res.success && res.token) {
-      setTenantToken(res.token);
-      if (res.tenant_id) {
-        setTenantId(res.tenant_id);
-        localStorage.setItem("tenant_logged_in", "true");
-      }
+  // Only store tenant_token if this is actually a tenant login
+  if (res.role === "tenant") {
+    setTenantToken(res.token);
+    if (res.tenant_id) {
+      setTenantId(res.tenant_id);
+      localStorage.setItem("tenant_logged_in", "true");
     }
+  }
+}
 
     return res;
   } catch (error: any) {

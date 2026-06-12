@@ -2930,7 +2930,6 @@ const calculateNoticePeriodStatus = () => {
   type="date" 
   value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
   onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)} 
-  min={new Date().toISOString().split("T")[0]}
   required 
   className="h-9" 
 />
