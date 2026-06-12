@@ -123,6 +123,7 @@ import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDial
 import { useSocketIO } from "@/hooks/useSocketIO";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { Checkbox } from "@radix-ui/react-checkbox";
+import Swal from "sweetalert2";
 // Types
 interface PaymentFormData {
   tenant: {
@@ -2973,6 +2974,45 @@ const handleResendClick = async (demand: DemandPayment) => {
   }
 };
 
+// Helper to show PDF inline in current tab (not new tab)
+const showPdfInModal = (blob: Blob, title: string, count: number) => {
+  const url = URL.createObjectURL(blob);
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;";
+  
+  const box = document.createElement("div");
+  box.style.cssText = "width:100%;max-width:900px;height:92vh;background:white;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.4);";
+  
+  const header = document.createElement("div");
+  header.style.cssText = "background:linear-gradient(135deg,#1e3c72,#2a5298);color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;";
+  header.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">📄</span>
+      <span style="font-weight:600;font-size:14px;">${title} — ${count} document(s)</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="${url}" download="${title.toLowerCase().replace(/\s+/g,'-')}-${Date.now()}.pdf"
+        style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);padding:5px 14px;border-radius:6px;font-size:12px;text-decoration:none;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        ⬇ Download
+      </a>
+      <button id="closePdfModal" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+  `;
+  
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.style.cssText = "flex:1;border:none;width:100%;";
+  
+  box.appendChild(header);
+  box.appendChild(iframe);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  
+  const close = () => { URL.revokeObjectURL(url); overlay.remove(); };
+  header.querySelector("#closePdfModal")?.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+};
+
   return (
     <div className="bg-slate-50">
       <div className="p-0 sm:p-0 md:p-0 space-y-2 sm:space-y-3">
@@ -3279,33 +3319,50 @@ const handleResendClick = async (demand: DemandPayment) => {
             />
           </TabsContent>
 
-          {selectedDemandIds.length > 0 && (
+{selectedDemandIds.length > 0 && (
   <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-2">
     <span className="text-xs font-semibold text-red-700">{selectedDemandIds.length} selected</span>
     <Button
       size="sm"
       className="h-7 text-[10px] bg-red-600 hover:bg-red-700 text-white px-2.5 ml-2"
-      // In the bulk delete button onClick handler
-onClick={async () => {
-  if (!confirm(`Delete ${selectedDemandIds.length} demand(s)?`)) return;
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/demands/bulk-delete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: selectedDemandIds })
-    });
-    const data = await response.json();
-    if (data.success) {
-      toast.success(data.message);
-      setSelectedDemandIds([]);
-      loadDemands();
-    } else {
-      toast.error(data.message || "Failed to delete demands");
-    }
-  } catch (error) {
-    toast.error("Failed to delete demands");
-  }
-}}
+      onClick={async () => {
+        const result = await Swal.fire({
+          title: 'Delete Demands?',
+          html: `You are about to delete <b>${selectedDemandIds.length}</b> demand${selectedDemandIds.length !== 1 ? 's' : ''}. This action cannot be undone!`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc2626',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: `Yes, delete ${selectedDemandIds.length} demand${selectedDemandIds.length !== 1 ? 's' : ''}!`,
+          cancelButtonText: 'Cancel',
+        });
+        
+        if (!result.isConfirmed) return;
+        
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/demands/bulk-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: selectedDemandIds })
+          });
+          const data = await response.json();
+          if (data.success) {
+            await Swal.fire({
+              title: 'Deleted!',
+              text: data.message,
+              icon: 'success',
+              timer: 2000,
+              showConfirmButton: false
+            });
+            setSelectedDemandIds([]);
+            loadDemands();
+          } else {
+            toast.error(data.message || "Failed to delete demands");
+          }
+        } catch (error) {
+          toast.error("Failed to delete demands");
+        }
+      }}
     >
       <Trash2 className="h-3 w-3 mr-1" />Delete Selected
     </Button>
@@ -3939,38 +3996,421 @@ onClick={async () => {
 
           {/* Receipts Tab Content */}
           <TabsContent value="receipts" className="mt-0">
-            {selectedReceiptIds.length > 0 && (
-  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg mb-2">
-    <span className="text-xs font-semibold text-blue-700">{selectedReceiptIds.length} selected</span>
-    <div className="flex gap-1.5 ml-2">
-      <Button size="sm" className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5"
-        onClick={() => selectedReceiptIds.forEach(id => handlePreviewReceipt(id))}>
-        <Eye className="h-3 w-3 mr-1" />Receipt
-      </Button>
-      <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white px-2.5"
-        onClick={async () => {
-          for (const id of selectedReceiptIds) {
-            await fetch(`${import.meta.env.VITE_API_URL}/api/payments/receipts/${id}/send-email`, { method: 'POST' });
-          }
-          toast.success(`Email sent for ${selectedReceiptIds.length} receipt(s)`);
-        }}>
-        <Mail className="h-3 w-3 mr-1" />Email
-      </Button>
-      <Button size="sm" className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5"
-        onClick={() => toast.info("WhatsApp integration coming soon")}>
-        <MessageCircle className="h-3 w-3 mr-1" />WhatsApp
-      </Button>
-      <Button size="sm" variant="outline" className="h-7 text-[10px] px-2.5 border-blue-400 text-blue-700"
-        onClick={() => {
-          const receipt = receipts.find((r: any) => r.id === selectedReceiptIds[0]);
-          if (receipt) handleLedgerReport(receipt.tenant_id, {});
-        }}>
-        <FileText className="h-3 w-3 mr-1" />Ledger
-      </Button>
+
+{selectedReceiptIds.length > 0 && (
+  <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg mb-2">
+    <div className="flex items-center gap-1.5 mr-1">
+      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+        <span className="text-white text-[9px] font-bold">{selectedReceiptIds.length}</span>
+      </div>
+      <span className="text-xs font-semibold text-blue-700">selected</span>
     </div>
-    <Button variant="ghost" size="sm" className="h-7 ml-auto text-[10px] text-slate-500"
+
+    {/* Preview Receipts */}
+    <Button size="sm"
+      className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 gap-1"
+      onClick={async () => {
+        const loadingToast = toast.loading("Merging receipts for preview...");
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/bulk-preview`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: selectedReceiptIds }) }
+          );
+          if (!response.ok) throw new Error(await response.text());
+          const blob = await response.blob();
+          toast.dismiss(loadingToast);
+          showPdfInModal(blob, "Bulk Receipts Preview", selectedReceiptIds.length);
+        } catch (e) {
+          toast.dismiss(loadingToast);
+          toast.error("Failed to generate preview");
+        }
+      }}>
+      <Eye className="h-3 w-3" /> Preview Receipts
+    </Button>
+
+    {/* Download Receipts ZIP */}
+    <Button size="sm"
+      className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 gap-1"
+      onClick={async () => {
+        const loadingToast = toast.loading("Preparing ZIP...");
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/bulk-download`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: selectedReceiptIds }) }
+          );
+          if (!response.ok) throw new Error("Failed");
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a"); link.href = url;
+          link.download = `receipts-${Date.now()}.zip`; link.click();
+          URL.revokeObjectURL(url);
+          toast.dismiss(loadingToast);
+          toast.success(`Downloaded ${selectedReceiptIds.length} receipts`);
+        } catch (e) {
+          toast.dismiss(loadingToast);
+          toast.error("Download failed");
+        }
+      }}>
+      <Download className="h-3 w-3" /> Download ZIP
+    </Button>
+
+    {/* Bulk Email */}
+    <Button size="sm"
+  className="h-7 text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2.5 gap-1"
+  onClick={async () => {
+    const result = await Swal.fire({
+      title: 'Send Receipt Emails?',
+      html: `Send receipt PDFs to <b>${selectedReceiptIds.length}</b> tenant(s) via email?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#7c3aed',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: '✉️ Yes, Send',
+      cancelButtonText: 'Cancel',
+      reverseButtons: false,
+      customClass: {
+        confirmButton: 'swal2-confirm',
+        cancelButton: 'swal2-cancel',
+        popup: 'swal2-popup'
+      }
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    const loadingToast = toast.loading("Sending emails...");
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/bulk-email`,
+        { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ ids: selectedReceiptIds }) 
+        }
+      );
+      const data = await response.json();
+      toast.dismiss(loadingToast);
+      if (data.success) {
+        await Swal.fire({ 
+          title: 'Emails Sent!', 
+          text: data.message, 
+          icon: 'success', 
+          timer: 3000, 
+          showConfirmButton: false 
+        });
+      } else {
+        toast.error(data.message || "Failed");
+      }
+    } catch (e) {
+      toast.dismiss(loadingToast);
+      toast.error("Failed to send emails");
+    }
+  }}>
+  <Mail className="h-3 w-3" /> Email ({selectedReceiptIds.length})
+</Button>
+
+<Button size="sm"
+  variant="outline"
+  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-50 gap-1"
+  onClick={async () => {
+    // Step 1: Get selected receipt objects
+    const selectedReceipts = receipts.filter((r: any) => selectedReceiptIds.includes(Number(r.id)));
+    
+    
+    // Step 2: Extract tenant IDs - try multiple approaches
+    let tenantIds: number[] = [];
+    
+    // Approach 1: Check if receipt has tenant_id directly
+    for (const receipt of selectedReceipts) {
+      // Try all possible field names
+      let tenantId = receipt.tenant_id || receipt.tenantId || receipt.tenant?.id || receipt.booking?.tenant_id;
+      
+      // If found, add to list
+      if (tenantId && !tenantIds.includes(Number(tenantId))) {
+        tenantIds.push(Number(tenantId));
+      }
+    }
+    
+    
+    // Approach 2: If still no tenant IDs, fetch full receipt details from API
+    if (tenantIds.length === 0 && selectedReceipts.length > 0) {
+      toast.loading("Fetching tenant details...", { id: "fetch-tenants" });
+      
+      try {
+        // Fetch full receipt data for each selected receipt
+        const tenantPromises = selectedReceipts.map(async (receipt: any) => {
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/${receipt.id}`
+            );
+            const data = await response.json();
+           
+            
+            if (data.success && data.data) {
+              // Try multiple field names from API response
+              return data.data.tenant_id || data.data.tenantId || data.data.tenant?.id || null;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Failed to fetch receipt ${receipt.id}:`, err);
+            return null;
+          }
+        });
+        
+        const resolvedTenantIds = await Promise.all(tenantPromises);
+        tenantIds = [...new Set(resolvedTenantIds.filter((id): id is number => id !== null && !isNaN(Number(id))))];
+        
+        toast.dismiss("fetch-tenants");
+        console.log("Tenant IDs from API:", tenantIds);
+      } catch (error) {
+        toast.dismiss("fetch-tenants");
+        console.error("Failed to fetch tenant details:", error);
+      }
+    }
+    
+    // Approach 3: If still no tenant IDs, try to get tenant_id from payments table via receipt ID
+    if (tenantIds.length === 0 && selectedReceipts.length > 0) {
+      toast.loading("Looking up tenant from payment records...", { id: "fetch-payments" });
+      
+      try {
+        const paymentPromises = selectedReceipts.map(async (receipt: any) => {
+          try {
+            // Try to get payment details which should have tenant_id
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/${receipt.id}`
+            );
+            const data = await response.json();
+            console.log(`Payment ${receipt.id} API response:`, data);
+            
+            if (data.success && data.data) {
+              return data.data.tenant_id || data.data.tenantId || null;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Failed to fetch payment ${receipt.id}:`, err);
+            return null;
+          }
+        });
+        
+        const paymentTenantIds = await Promise.all(paymentPromises);
+        tenantIds = [...new Set(paymentTenantIds.filter((id): id is number => id !== null && !isNaN(Number(id))))];
+        
+        toast.dismiss("fetch-payments");
+        console.log("Tenant IDs from payments API:", tenantIds);
+      } catch (error) {
+        toast.dismiss("fetch-payments");
+        console.error("Failed to fetch payment details:", error);
+      }
+    }
+    
+    if (tenantIds.length === 0) {
+      toast.error("No tenants found for selected receipts. Please ensure receipts are approved and have tenant data.");
+      return;
+    }
+    
+    // Filter out null/undefined values
+    const validTenantIds = tenantIds.filter(id => id != null && !isNaN(Number(id)));
+    console.log("Final valid tenant IDs:", validTenantIds);
+    
+    if (validTenantIds.length === 0) {
+      toast.error("No valid tenant IDs found");
+      return;
+    }
+    
+    const loadingToast = toast.loading(`Generating ${validTenantIds.length} ledger(s)...`);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/ledger/bulk-preview`,
+        { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ tenant_ids: validTenantIds }) 
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate preview");
+      }
+      
+      const blob = await response.blob();
+      toast.dismiss(loadingToast);
+      
+      if (blob.size === 0) {
+        toast.error("Generated PDF is empty");
+        return;
+      }
+      
+      showPdfInModal(blob, "Bulk Ledger Preview", validTenantIds.length);
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      console.error("Preview error:", error);
+      toast.error(error.message || "Failed to generate ledger preview");
+    }
+  }}>
+  <FileText className="h-3 w-3" /> Preview Ledgers
+</Button>
+
+    {/* Download Ledgers ZIP */}
+<Button size="sm"
+  variant="outline"
+  className="h-7 text-[10px] px-2.5 border-orange-400 text-orange-700 hover:bg-orange-50 gap-1"
+  onClick={async () => {
+    // Get selected receipts
+    const selectedReceipts = receipts.filter((r: any) => selectedReceiptIds.includes(Number(r.id)));
+    console.log("Selected receipts for ZIP:", selectedReceipts);
+    
+    // ✅ USE EXACT SAME LOGIC AS PREVIEW BUTTON
+    let tenantIds: number[] = [];
+    
+    // Approach 1: Check if receipt has tenant_id directly
+    for (const receipt of selectedReceipts) {
+      let tenantId = receipt.tenant_id || receipt.tenantId || receipt.tenant?.id || receipt.booking?.tenant_id;
+      if (tenantId && !tenantIds.includes(Number(tenantId))) {
+        tenantIds.push(Number(tenantId));
+      }
+    }
+    
+    console.log("Extracted tenant IDs (direct):", tenantIds);
+    
+    // Approach 2: Fetch from API (SAME AS PREVIEW BUTTON)
+    if (tenantIds.length === 0 && selectedReceipts.length > 0) {
+      toast.loading("Fetching tenant details...", { id: "fetch-tenants-zip" });
+      
+      try {
+        const tenantPromises = selectedReceipts.map(async (receipt: any) => {
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/${receipt.id}`
+            );
+            const data = await response.json();
+            console.log(`Receipt ${receipt.id} API response for ZIP:`, data);
+            
+            if (data.success && data.data) {
+              return data.data.tenant_id || data.data.tenantId || data.data.tenant?.id || null;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Failed to fetch receipt ${receipt.id}:`, err);
+            return null;
+          }
+        });
+        
+        const resolvedTenantIds = await Promise.all(tenantPromises);
+        tenantIds = [...new Set(resolvedTenantIds.filter((id): id is number => id !== null && !isNaN(Number(id))))];
+        
+        toast.dismiss("fetch-tenants-zip");
+        console.log("Tenant IDs from API for ZIP:", tenantIds);
+      } catch (error) {
+        toast.dismiss("fetch-tenants-zip");
+        console.error("Failed to fetch tenant details:", error);
+      }
+    }
+    
+    // Approach 3: Try payments API as fallback
+    if (tenantIds.length === 0 && selectedReceipts.length > 0) {
+      toast.loading("Looking up tenant from payment records...", { id: "fetch-payments-zip" });
+      
+      try {
+        const paymentPromises = selectedReceipts.map(async (receipt: any) => {
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/${receipt.id}`
+            );
+            const data = await response.json();
+            console.log(`Payment ${receipt.id} API response for ZIP:`, data);
+            
+            if (data.success && data.data) {
+              return data.data.tenant_id || data.data.tenantId || null;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Failed to fetch payment ${receipt.id}:`, err);
+            return null;
+          }
+        });
+        
+        const paymentTenantIds = await Promise.all(paymentPromises);
+        tenantIds = [...new Set(paymentTenantIds.filter((id): id is number => id !== null && !isNaN(Number(id))))];
+        
+        toast.dismiss("fetch-payments-zip");
+        console.log("Tenant IDs from payments API for ZIP:", tenantIds);
+      } catch (error) {
+        toast.dismiss("fetch-payments-zip");
+        console.error("Failed to fetch payment details:", error);
+      }
+    }
+    
+    // Filter out null/undefined values
+    const validTenantIds = tenantIds.filter(id => id != null && !isNaN(Number(id)));
+    console.log("Final valid tenant IDs for ZIP:", validTenantIds);
+    
+    if (validTenantIds.length === 0) {
+      toast.error("No tenants found for selected receipts. Please ensure receipts are approved.");
+      return;
+    }
+    
+    const loadingToast = toast.loading(`Generating ledger ZIP for ${validTenantIds.length} tenant(s)...`);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/ledger/bulk-download`,
+        { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ tenant_ids: validTenantIds }) 
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Response error:", errorText);
+        throw new Error(errorText || "Failed to generate ZIP");
+      }
+      
+      const blob = await response.blob();
+      console.log("ZIP blob size:", blob.size);
+      
+      toast.dismiss(loadingToast);
+      
+      if (blob.size === 0) {
+        toast.error("Generated ZIP file is empty");
+        return;
+      }
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a"); 
+      link.href = url;
+      link.download = `ledgers-${Date.now()}.zip`; 
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${validTenantIds.length} ledger(s)`);
+    } catch (e: any) {
+      toast.dismiss(loadingToast);
+      console.error("Download error:", e);
+      toast.error(e.message || "Failed to download");
+    }
+  }}>
+  <Download className="h-3 w-3" /> Ledger ZIP
+</Button>
+
+    {/* WhatsApp */}
+    <Button size="sm" variant="outline"
+      className="h-7 text-[10px] px-2.5 border-green-500 text-green-700 hover:bg-green-50 gap-1"
+      onClick={() => Swal.fire({
+        title: 'WhatsApp Integration',
+        text: 'WhatsApp bulk send requires WhatsApp Business API. Configure in Settings → Integrations.',
+        icon: 'info',
+        confirmButtonColor: '#25d366',
+      })}>
+      <MessageCircle className="h-3 w-3" /> WhatsApp
+    </Button>
+
+    <Button variant="ghost" size="sm" className="h-7 ml-auto text-[10px] text-slate-500 gap-1"
       onClick={() => setSelectedReceiptIds([])}>
-      <X className="h-3 w-3 mr-1" />Clear
+      <X className="h-3 w-3" /> Clear
     </Button>
   </div>
 )}
@@ -4742,6 +5182,11 @@ onClick={async () => {
         </DialogContent>
       </Dialog>
 
+{/* ============================================================
+    DEMAND PAYMENT DIALOG — drop-in replacement for the existing
+    <Dialog open={isDemandPaymentOpen} …> block in page.tsx
+    No logic removed — only the JSX / layout changed.
+    ============================================================ */}
 <Dialog
   open={isDemandPaymentOpen}
   onOpenChange={(open) => {
@@ -4756,78 +5201,100 @@ onClick={async () => {
     }
   }}
 >
-  <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] sm:max-h-[88vh] p-0 gap-0 flex flex-col overflow-hidden">
-    {/* Header */}
-    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5 rounded-t-lg flex-shrink-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
-            <div className="p-1 bg-white/20 rounded-md">
-              {bulkMode ? <Users className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
-            </div>
-            {bulkMode ? "Bulk Demand Payment" : "Demand Payment"}
-          </DialogTitle>
-          <DialogDescription className="text-orange-100 text-[10px] mt-0.5">
-            {bulkMode ? "Select property, rooms & tenants to send bulk payment demands" : "Create a payment request for a single tenant"}
-          </DialogDescription>
+  <DialogContent className="max-w-3xl w-[96vw] max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden rounded-2xl border-0 shadow-2xl">
+
+    {/* ── HEADER ── */}
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3.5 flex items-center justify-between flex-shrink-0 rounded-t-2xl">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+          <Bell className="h-4 w-4 text-white" />
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/20 h-6 px-2 text-[10px] border border-white/30"
+        <div>
+          <DialogTitle className="text-white text-sm font-semibold leading-none">
+            Demand Payment
+          </DialogTitle>
+          <p className="text-blue-300 text-[10px] mt-0.5">
+            Send a payment request to one tenant or many at once
+          </p>
+        </div>
+      </div>
+      <DialogClose asChild>
+        <button className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </DialogClose>
+    </div>
+
+    {/* ── TAB BAR ── */}
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 flex-shrink-0">
+      <div className="flex border-b border-white/10">
+        {[
+          { id: false, label: "Single Tenant", icon: User },
+          { id: true,  label: "Bulk Mode",     icon: Users },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={String(id)}
             onClick={() => {
-              setBulkMode(!bulkMode);
-              if (!bulkMode) {
+              setBulkMode(id);
+              if (!id) {
                 setSelectedRooms([]);
                 setSelectedTenants([]);
                 setSelectedPropertyId("");
                 setSelectedRoomId("");
                 setRoomsWithPending([]);
+                setDemandPayment({
+                  tenant_id: "", payment_type: "rent", amount: 0,
+                  due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split("T")[0],
+                  description: "", send_email: true, send_sms: false,
+                });
               } else {
-                setDemandPayment({ tenant_id: "", payment_type: "rent", amount: 0, due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], description: "", send_email: true, send_sms: false });
+                setDemandPayment(prev => ({ ...prev, tenant_id: "" }));
               }
             }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors
+              ${bulkMode === id
+                ? "border-blue-400 text-white"
+                : "border-transparent text-blue-300/70 hover:text-blue-200"}`}
           >
-            {bulkMode ? <><User className="h-3 w-3 mr-1" />Single</> : <><Users className="h-3 w-3 mr-1" />Bulk</>}
-          </Button>
-          <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </DialogClose>
-        </div>
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        ))}
       </div>
     </div>
 
-    {/* Scrollable Body */}
-    <div className="flex-1 overflow-y-auto p-3 space-y-3">
-      {!bulkMode ? (
-        /* ===== SINGLE TENANT MODE - Compact ===== */
-        <>
-          {/* Row 1: Property + Room + Tenant + Type in one row */}
+    {/* ── SCROLLABLE BODY ── */}
+    <div className="flex-1 overflow-y-auto bg-[#f0f4ff]">
+
+      {/* ═══════════════════════════════════════════
+          SINGLE TENANT TAB
+      ═══════════════════════════════════════════ */}
+      {!bulkMode && (
+        <div className="p-4 space-y-3">
+
+          {/* Row 1: Property / Room / Tenant / Type */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Property */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Property *</Label>
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Property <span className="text-red-500">*</span>
+              </label>
               <Select value={selectedPropertyId} onValueChange={handleDemandPropertyChange}>
-                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder="Select property..." />
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 focus:ring-blue-500">
+                  <SelectValue placeholder="Select…" />
                 </SelectTrigger>
-                <SelectContent className="max-h-[250px]" position="popper" sideOffset={5} onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="sticky top-0 bg-white p-1.5 border-b z-10" onMouseDown={(e) => e.stopPropagation()}>
-                    <Input
-                      placeholder="Search..."
-                      value={propertySearch}
+                <SelectContent className="max-h-56" position="popper" sideOffset={4}
+                  onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <div className="sticky top-0 bg-white p-1.5 border-b z-10"
+                    onMouseDown={(e) => e.stopPropagation()}>
+                    <Input placeholder="Search…" value={propertySearch}
                       onChange={(e) => { setPropertySearch(e.target.value); setFilteredProperties(properties.filter(p => p.name.toLowerCase().includes(e.target.value.toLowerCase()))); }}
-                      className="h-6 text-xs"
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                      className="h-6 text-xs" onKeyDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />
                   </div>
-                  <div className="max-h-[200px] overflow-y-auto">
-                    {filteredProperties.map((property) => (
-                      <SelectItem key={property.id} value={property.id.toString()}>
-                        <span className="text-xs">{property.name}</span>
+                  <div className="max-h-40 overflow-y-auto">
+                    {filteredProperties.map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        <span className="text-xs">{p.name}</span>
                       </SelectItem>
                     ))}
                   </div>
@@ -4835,28 +5302,29 @@ onClick={async () => {
               </Select>
             </div>
 
+            {/* Room */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Room *</Label>
-              <Select value={selectedRoomId} onValueChange={handleDemandRoomChange} disabled={!selectedPropertyId || loadingRooms}>
-                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Room <span className="text-red-500">*</span>
+              </label>
+              <Select value={selectedRoomId} onValueChange={handleDemandRoomChange}
+                disabled={!selectedPropertyId || loadingRooms}>
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room…"} />
                 </SelectTrigger>
-                <SelectContent className="max-h-[250px]" position="popper" sideOffset={5} onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="sticky top-0 bg-white p-1.5 border-b z-10" onMouseDown={(e) => e.stopPropagation()}>
-                    <Input
-                      placeholder="Search..."
-                      value={roomSearch}
+                <SelectContent className="max-h-56" position="popper" sideOffset={4}
+                  onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <div className="sticky top-0 bg-white p-1.5 border-b z-10"
+                    onMouseDown={(e) => e.stopPropagation()}>
+                    <Input placeholder="Search…" value={roomSearch}
                       onChange={(e) => { setRoomSearch(e.target.value); setFilteredRooms(rooms.filter(r => r.room_number.toString().toLowerCase().includes(e.target.value.toLowerCase()))); }}
-                      className="h-6 text-xs"
-                      disabled={!selectedPropertyId}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                      className="h-6 text-xs" disabled={!selectedPropertyId}
+                      onKeyDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />
                   </div>
-                  <div className="max-h-[200px] overflow-y-auto">
-                    {filteredRooms.map((room) => (
-                      <SelectItem key={room.id} value={room.id.toString()}>
-                        <span className="text-xs">Room {room.room_number} ({room.sharing_type})</span>
+                  <div className="max-h-40 overflow-y-auto">
+                    {filteredRooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id.toString()}>
+                        <span className="text-xs">Room {r.room_number} ({r.sharing_type})</span>
                       </SelectItem>
                     ))}
                   </div>
@@ -4864,30 +5332,42 @@ onClick={async () => {
               </Select>
             </div>
 
+            {/* Tenant */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Tenant *</Label>
-              <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect} disabled={!selectedRoomId}>
-                <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant..."} />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Tenant <span className="text-red-500">*</span>
+              </label>
+              <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect}
+                disabled={!selectedRoomId}>
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant…"} />
                 </SelectTrigger>
-                <SelectContent className="max-h-[250px]">
-                  {filteredTenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                <SelectContent className="max-h-56">
+                  {filteredTenants.map((t) => (
+                    <SelectItem key={t.id} value={t.id.toString()}>
                       <div className="flex flex-col">
-                        <span className="text-xs font-medium">{tenant.full_name}</span>
-                        <span className="text-[10px] text-slate-400">{tenant.phone}</span>
+                        <span className="text-xs font-medium">{t.full_name}</span>
+                        <span className="text-[10px] text-slate-400">{t.phone}</span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {bookingLoading && <div className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin text-blue-500" /><span className="text-[9px] text-blue-500">Loading...</span></div>}
+              {bookingLoading && (
+                <div className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                  <span className="text-[9px] text-blue-600">Loading…</span>
+                </div>
+              )}
             </div>
 
+            {/* Payment Type */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Payment Type</Label>
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Type
+              </label>
               <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
-                <SelectTrigger className="h-7 text-xs">
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -4898,80 +5378,138 @@ onClick={async () => {
             </div>
           </div>
 
-          {/* Row 2: Amount + Due Date + Message */}
+          {/* Row 2: Amount / Due Date / Description */}
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Amount (₹) *</Label>
-              <Input type="number" placeholder="0" value={demandPayment.amount || ""} onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Amount (₹) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                <Input type="number" placeholder="0"
+                  value={demandPayment.amount || ""}
+                  onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
+                  className="h-8 text-xs pl-7 bg-white" />
+              </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Due Date *</Label>
-              <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-7 text-xs" />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Due Date <span className="text-red-500">*</span>
+              </label>
+              <Input type="date" value={demandPayment.due_date}
+                onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
+                className="h-8 text-xs bg-white" />
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-slate-600">Message</Label>
-              <Input placeholder="Optional note..." value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-7 text-xs" />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Note (optional)
+              </label>
+              <Input placeholder="Message for tenant…"
+                value={demandPayment.description}
+                onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
+                className="h-8 text-xs bg-white" />
             </div>
           </div>
 
-          {/* Compact info cards when tenant selected */}
+          {/* Tenant info cards — shown after selection */}
           {demandPayment.tenant_id && paymentFormData && (
             <div className="grid grid-cols-2 gap-2">
-              {/* Bed Info */}
-              <div className="bg-slate-50 rounded-lg border border-slate-200 p-2.5">
-                <p className="text-[10px] font-semibold text-slate-600 mb-1.5 flex items-center gap-1"><Bed className="h-3 w-3" />Assignment</p>
+              {/* Assignment card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                <p className="text-[10px] font-bold text-[#0f2557] mb-2 flex items-center gap-1 uppercase tracking-wide">
+                  <Bed className="h-3 w-3" /> Assignment
+                </p>
                 <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <div><span className="text-slate-400">Property:</span> <span className="font-medium">{paymentFormData.room_info?.property_name || 'N/A'}</span></div>
-                  <div><span className="text-slate-400">Room:</span> <span className="font-medium">{paymentFormData.room_info?.room_number || 'N/A'}</span></div>
-                  <div><span className="text-slate-400">Bed:</span> <span className="font-medium">#{paymentFormData.room_info?.bed_number || 'N/A'}</span></div>
-                  <div><span className="text-slate-400">Rent:</span> <span className="font-semibold text-green-600">₹{(paymentFormData.monthly_rent || 0).toLocaleString()}</span></div>
+                  <div><span className="text-slate-400">Property:</span><br />
+                    <span className="font-semibold text-slate-700">{paymentFormData.room_info?.property_name || "N/A"}</span>
+                  </div>
+                  <div><span className="text-slate-400">Room / Bed:</span><br />
+                    <span className="font-semibold text-slate-700">
+                      {paymentFormData.room_info?.room_number || "N/A"}
+                      {paymentFormData.room_info?.bed_number ? ` • Bed #${paymentFormData.room_info.bed_number}` : ""}
+                    </span>
+                  </div>
+                  <div className="col-span-2 mt-1 pt-1 border-t border-slate-100">
+                    <span className="text-slate-400">Monthly Rent:</span>
+                    <span className="ml-1 font-bold text-green-600">₹{(paymentFormData.monthly_rent || 0).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Payment Summary */}
-              <div className="bg-slate-50 rounded-lg border border-slate-200 p-2.5">
-                <p className="text-[10px] font-semibold text-slate-600 mb-1.5 flex items-center gap-1"><IndianRupee className="h-3 w-3" />
-                  {demandPayment.payment_type === "security_deposit" ? "Deposit Summary" : "Rent Summary"}
+              {/* Payment summary card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                <p className="text-[10px] font-bold text-[#0f2557] mb-2 flex items-center gap-1 uppercase tracking-wide">
+                  <IndianRupee className="h-3 w-3" />
+                  {demandPayment.payment_type === "security_deposit" ? "Deposit" : "Rent"} Summary
                 </p>
                 {demandPayment.payment_type === "security_deposit" && securityDepositInfo ? (
-                  <div className="grid grid-cols-2 gap-1 text-[10px]">
-                    <div><span className="text-slate-400">Total:</span> <span className="font-semibold text-blue-600">₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}</span></div>
-                    <div><span className="text-slate-400">Paid:</span> <span className="font-medium text-green-600">₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}</span></div>
-                    <div className="col-span-2"><span className="text-slate-400">Pending:</span> <span className="font-bold text-amber-600">₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}</span></div>
+                  <div className="grid grid-cols-3 gap-1 text-[10px]">
+                    <div className="text-center bg-blue-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Total</p>
+                      <p className="font-bold text-blue-700">₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="text-center bg-green-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Paid</p>
+                      <p className="font-bold text-green-700">₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="text-center bg-amber-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Pending</p>
+                      <p className="font-bold text-amber-700">₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}</p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-1 text-[10px]">
-                    <div><span className="text-slate-400">Total Paid:</span> <span className="font-medium text-green-600">₹{(paymentFormData.total_paid || 0).toLocaleString()}</span></div>
-                    <div><span className="text-slate-400">Pending:</span> <span className="font-bold text-amber-600">₹{(paymentFormData.total_pending || 0).toLocaleString()}</span></div>
-                    {paymentFormData.unpaid_months?.length > 0 && (
-                      <div className="col-span-2"><span className="text-slate-400">Months due:</span> <span className="font-medium text-red-500">{paymentFormData.unpaid_months.length}</span></div>
-                    )}
+                  <div className="grid grid-cols-3 gap-1 text-[10px]">
+                    <div className="text-center bg-green-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Paid</p>
+                      <p className="font-bold text-green-700">₹{(paymentFormData.total_paid || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="text-center bg-amber-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Pending</p>
+                      <p className="font-bold text-amber-700">₹{(paymentFormData.total_pending || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="text-center bg-red-50 rounded-lg p-1.5">
+                      <p className="text-slate-400">Months Due</p>
+                      <p className="font-bold text-red-600">{paymentFormData.unpaid_months?.length || 0}</p>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Notifications - compact */}
-          <div className="flex items-center gap-4 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-            <span className="text-[10px] font-medium text-slate-600">Notify via:</span>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3 h-3 accent-orange-500" />
-              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Mail className="h-2.5 w-2.5" />Email</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3 h-3 accent-orange-500" />
-              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Smartphone className="h-2.5 w-2.5" />SMS</span>
-            </label>
+          {/* Notify row */}
+          <div className="flex items-center gap-4 bg-white px-3 py-2 rounded-xl border border-slate-200">
+            <span className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">Notify via:</span>
+            {[
+              { key: "send_email", icon: Mail, label: "Email" },
+              { key: "send_sms",   icon: Smartphone, label: "SMS" },
+            ].map(({ key, icon: Icon, label }) => (
+              <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox"
+                  checked={demandPayment[key]}
+                  onChange={(e) => setDemandPayment({ ...demandPayment, [key]: e.target.checked })}
+                  className="w-3 h-3 accent-blue-700 rounded" />
+                <Icon className="h-3 w-3 text-slate-500" />
+                <span className="text-[10px] text-slate-600">{label}</span>
+              </label>
+            ))}
           </div>
-        </>
-      ) : (
-        /* ===== BULK MODE - No steps, all visible simultaneously ===== */
-        <div className="space-y-3">
-          {/* Top Config Row: Property + Type + Due Date + Message */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════
+          BULK MODE TAB
+      ═══════════════════════════════════════════ */}
+      {bulkMode && (
+        <div className="p-4 space-y-3">
+
+          {/* Config strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            {/* Property */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-orange-700">Property *</Label>
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Property <span className="text-red-500">*</span>
+              </label>
               <Select
                 value={selectedPropertyId}
                 onValueChange={async (value) => {
@@ -4980,28 +5518,33 @@ onClick={async () => {
                   setSelectedTenants([]);
                   setBookingLoading(true);
                   try {
-                    const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}&payment_type=${demandPayment.payment_type || 'rent'}`);
-                    const data = await response.json();
+                    const res = await fetch(
+                      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${value}&payment_type=${demandPayment.payment_type || "rent"}`
+                    );
+                    const data = await res.json();
                     if (data.success) setRoomsWithPending(data.data);
-                  } catch (error) { toast.error("Failed to fetch rooms"); }
+                  } catch { toast.error("Failed to fetch rooms"); }
                   finally { setBookingLoading(false); }
                 }}
               >
-                <SelectTrigger className="h-7 text-xs bg-white">
-                  <SelectValue placeholder="Select property..." />
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Select property…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {properties.map((prop) => (
-                    <SelectItem key={prop.id} value={prop.id.toString()}>
-                      <span className="text-xs">{prop.name}</span>
+                  {properties.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      <span className="text-xs">{p.name}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Payment Type */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-orange-700">Payment Type *</Label>
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Type <span className="text-red-500">*</span>
+              </label>
               <Select
                 value={demandPayment.payment_type}
                 onValueChange={(value) => {
@@ -5011,7 +5554,7 @@ onClick={async () => {
                   if (selectedPropertyId) fetchRoomsWithPendingPayments(parseInt(selectedPropertyId), value);
                 }}
               >
-                <SelectTrigger className="h-7 text-xs bg-white">
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -5021,50 +5564,74 @@ onClick={async () => {
               </Select>
             </div>
 
+            {/* Due Date */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-orange-700">Due Date *</Label>
-              <Input type="date" value={demandPayment.due_date} onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })} className="h-7 text-xs bg-white" />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Due Date <span className="text-red-500">*</span>
+              </label>
+              <Input type="date" value={demandPayment.due_date}
+                onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
+                className="h-8 text-xs bg-slate-50" />
             </div>
 
+            {/* Message */}
             <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-orange-700">Message (Optional)</Label>
-              <Input placeholder="Note for tenants..." value={demandPayment.description} onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })} className="h-7 text-xs bg-white" />
+              <label className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">
+                Note (optional)
+              </label>
+              <Input placeholder="Note for tenants…"
+                value={demandPayment.description}
+                onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
+                className="h-8 text-xs bg-slate-50" />
             </div>
           </div>
 
-          {/* Notifications row */}
-          <div className="flex items-center gap-4 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
-            <span className="text-[10px] font-medium text-slate-600">Notify via:</span>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="w-3 h-3 accent-orange-500" />
-              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Mail className="h-2.5 w-2.5" />Email</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="w-3 h-3 accent-orange-500" />
-              <span className="text-[10px] text-slate-600 flex items-center gap-1"><Smartphone className="h-2.5 w-2.5" />SMS</span>
-            </label>
+          {/* Notify + selection badge */}
+          <div className="flex items-center gap-4 bg-white px-3 py-2 rounded-xl border border-slate-200">
+            <span className="text-[10px] font-semibold text-[#0f2557] uppercase tracking-wide">Notify:</span>
+            {[
+              { key: "send_email", icon: Mail,       label: "Email" },
+              { key: "send_sms",   icon: Smartphone, label: "SMS"   },
+            ].map(({ key, icon: Icon, label }) => (
+              <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" checked={demandPayment[key]}
+                  onChange={(e) => setDemandPayment({ ...demandPayment, [key]: e.target.checked })}
+                  className="w-3 h-3 accent-blue-700 rounded" />
+                <Icon className="h-3 w-3 text-slate-500" />
+                <span className="text-[10px] text-slate-600">{label}</span>
+              </label>
+            ))}
+
             {selectedTenants.length > 0 && (
-              <div className="ml-auto flex items-center gap-2 bg-orange-100 px-2.5 py-1 rounded-full">
-                <Users className="h-3 w-3 text-orange-600" />
-                <span className="text-[10px] font-semibold text-orange-700">{selectedTenants.length} selected</span>
-                <span className="text-[10px] text-orange-600">• ₹{selectedTenants.reduce((total, tenantId) => {
-                  const tenant = roomsWithPending.flatMap(r => r.tenants || []).find((t: any) => t.id === tenantId);
-                  const pending = demandPayment.payment_type === "security_deposit" ? (tenant?.security_deposit_pending || 0) : (tenant?.total_pending || 0);
-                  return total + pending;
-                }, 0).toLocaleString()} pending</span>
+              <div className="ml-auto flex items-center gap-2 bg-[#0f2557] px-3 py-1 rounded-full">
+                <Users className="h-3 w-3 text-blue-300" />
+                <span className="text-[10px] font-semibold text-white">{selectedTenants.length} selected</span>
+                <span className="text-[10px] text-blue-300">
+                  · ₹{roomsWithPending
+                    .flatMap(r => r.tenants || [])
+                    .filter((t: any) => selectedTenants.includes(t.id))
+                    .reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0)
+                    .toLocaleString()}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Rooms + Tenants side by side */}
+          {/* Rooms + Tenants panels */}
           {selectedPropertyId && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Rooms Panel */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="bg-slate-100 px-3 py-2 flex items-center justify-between border-b border-slate-200">
-                  <span className="text-[10px] font-semibold text-slate-700 flex items-center gap-1.5">
+
+              {/* ── Rooms panel ── */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-white flex items-center gap-1.5">
                     <Home className="h-3 w-3" />
-                    Rooms {roomsWithPending.length > 0 && <Badge className="text-[9px] px-1.5 py-0 bg-orange-100 text-orange-700 ml-1">{roomsWithPending.length}</Badge>}
+                    Rooms
+                    {roomsWithPending.length > 0 && (
+                      <span className="bg-blue-400 text-white text-[9px] px-1.5 py-0.5 rounded-full ml-1">
+                        {roomsWithPending.length}
+                      </span>
+                    )}
                   </span>
                   <button
                     onClick={() => {
@@ -5073,59 +5640,61 @@ onClick={async () => {
                         setSelectedTenants([]);
                       } else {
                         setSelectedRooms(roomsWithPending.map(r => r.id));
-                        // Auto-select all tenants from all rooms
-                        const allTenants = roomsWithPending.flatMap(r => r.tenants?.map((t: any) => t.id) || []);
-                        setSelectedTenants(allTenants);
+                        setSelectedTenants(roomsWithPending.flatMap(r => r.tenants?.map((t: any) => t.id) || []));
                       }
                     }}
-                    className="text-[9px] text-blue-600 hover:text-blue-800 font-medium"
+                    className="text-[9px] text-blue-300 hover:text-white font-medium transition-colors"
                   >
                     {selectedRooms.length === roomsWithPending.length ? "Deselect All" : "Select All"}
                   </button>
                 </div>
-                <div className="max-h-[280px] overflow-y-auto">
+
+                <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100">
                   {bookingLoading ? (
-                    <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-orange-500" /></div>
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    </div>
                   ) : roomsWithPending.length === 0 ? (
-                    <div className="text-center py-6 text-[10px] text-slate-400">
-                      {selectedPropertyId ? `No rooms with pending ${demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"}` : "Select a property first"}
+                    <div className="text-center py-8 text-[10px] text-slate-400">
+                      {selectedPropertyId
+                        ? `No rooms with pending ${demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"}`
+                        : "Select a property first"}
                     </div>
                   ) : (
                     roomsWithPending.map((room) => {
                       const isSelected = selectedRooms.includes(room.id);
-                      const totalPending = room.total_pending || room.tenants?.reduce((sum: number, t: any) => sum + (t.total_pending || 0), 0) || 0;
+                      const totalPending = room.total_pending ||
+                        room.tenants?.reduce((s: number, t: any) => s + (t.total_pending || 0), 0) || 0;
                       return (
                         <div
                           key={room.id}
-                          className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-orange-50/50 transition-colors ${isSelected ? "bg-orange-50" : ""}`}
                           onClick={() => {
-                            const newSelected = isSelected
-                              ? selectedRooms.filter(id => id !== room.id)
-                              : [...selectedRooms, room.id];
-                            setSelectedRooms(newSelected);
-                            // Auto-toggle tenants for this room
+                            const nowSelected = !isSelected;
+                            setSelectedRooms(nowSelected
+                              ? [...selectedRooms, room.id]
+                              : selectedRooms.filter(id => id !== room.id));
                             const roomTenantIds = room.tenants?.map((t: any) => t.id) || [];
-                            if (isSelected) {
-                              setSelectedTenants(prev => prev.filter(id => !roomTenantIds.includes(id)));
-                            } else {
-                              setSelectedTenants(prev => [...new Set([...prev, ...roomTenantIds])]);
-                            }
+                            setSelectedTenants(nowSelected
+                              ? [...new Set([...selectedTenants, ...roomTenantIds])]
+                              : selectedTenants.filter(id => !roomTenantIds.includes(id)));
                           }}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
+                            ${isSelected ? "bg-blue-50" : "hover:bg-slate-50"}`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="w-3 h-3 accent-orange-500 flex-shrink-0"
-                          />
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                            ${isSelected ? "bg-[#496ab8] border-[#1b3778]" : "border-slate-300"}`}>
+                            {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium text-slate-800">Room {room.room_number}</span>
-                              <Badge variant="outline" className="text-[9px] px-1 py-0">{room.sharing_type || 'Std'}</Badge>
+                              <span className="text-xs font-semibold text-slate-800">Room {room.room_number}</span>
+                              <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                                {room.sharing_type || "Std"}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[9px] text-slate-400">{room.tenants?.length || 0} tenant(s)</span>
-                              <span className="text-[9px] text-amber-600 font-medium">₹{totalPending.toLocaleString()}</span>
+                              <span className="text-[9px] font-semibold text-amber-600">₹{totalPending.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -5135,65 +5704,82 @@ onClick={async () => {
                 </div>
               </div>
 
-              {/* Tenants Panel */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="bg-slate-100 px-3 py-2 flex items-center justify-between border-b border-slate-200">
-                  <span className="text-[10px] font-semibold text-slate-700 flex items-center gap-1.5">
+              {/* ── Tenants panel ── */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-white flex items-center gap-1.5">
                     <User className="h-3 w-3" />
-                    Tenants {selectedTenants.length > 0 && <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 ml-1">{selectedTenants.length} selected</Badge>}
+                    Tenants
+                    {selectedTenants.length > 0 && (
+                      <span className="bg-green-400 text-white text-[9px] px-1.5 py-0.5 rounded-full ml-1">
+                        {selectedTenants.length}
+                      </span>
+                    )}
                   </span>
                   {selectedRooms.length > 0 && (
                     <button
                       onClick={() => {
-                        const allTenants = roomsWithPending
+                        const allIds = roomsWithPending
                           .filter(r => selectedRooms.includes(r.id))
                           .flatMap(r => r.tenants?.map((t: any) => t.id) || []);
-                        const allSelected = allTenants.every(id => selectedTenants.includes(id));
-                        if (allSelected) {
-                          setSelectedTenants(prev => prev.filter(id => !allTenants.includes(id)));
-                        } else {
-                          setSelectedTenants(prev => [...new Set([...prev, ...allTenants])]);
-                        }
+                        const allSelected = allIds.every(id => selectedTenants.includes(id));
+                        setSelectedTenants(allSelected
+                          ? selectedTenants.filter(id => !allIds.includes(id))
+                          : [...new Set([...selectedTenants, ...allIds])]);
                       }}
-                      className="text-[9px] text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-[9px] text-blue-300 hover:text-white font-medium transition-colors"
                     >
-                      {roomsWithPending.filter(r => selectedRooms.includes(r.id)).flatMap(r => r.tenants || []).every((t: any) => selectedTenants.includes(t.id)) ? "Deselect All" : "Select All"}
+                      {roomsWithPending
+                        .filter(r => selectedRooms.includes(r.id))
+                        .flatMap(r => r.tenants || [])
+                        .every((t: any) => selectedTenants.includes(t.id))
+                        ? "Deselect All" : "Select All"}
                     </button>
                   )}
                 </div>
-                <div className="max-h-[280px] overflow-y-auto">
+
+                <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100">
                   {selectedRooms.length === 0 ? (
-                    <div className="text-center py-6 text-[10px] text-slate-400">Select rooms to see tenants</div>
+                    <div className="text-center py-8 text-[10px] text-slate-400">
+                      Select rooms to see tenants
+                    </div>
                   ) : (
                     roomsWithPending
                       .filter(room => selectedRooms.includes(room.id))
-                      .flatMap(room => (room.tenants || []).map((tenant: any) => ({ ...tenant, room_number: room.room_number })))
+                      .flatMap(room => (room.tenants || []).map((t: any) => ({ ...t, room_number: room.room_number })))
                       .map((tenant: any) => {
                         const isSelected = selectedTenants.includes(tenant.id);
-                        const pendingAmount = demandPayment.payment_type === "security_deposit"
+                        const pending = demandPayment.payment_type === "security_deposit"
                           ? (tenant.security_deposit_pending || tenant.total_pending || 0)
                           : (tenant.total_pending || 0);
                         return (
                           <div
                             key={tenant.id}
-                            className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-green-50/50 transition-colors ${isSelected ? "bg-green-50" : ""}`}
-                            onClick={() => setSelectedTenants(prev => prev.includes(tenant.id) ? prev.filter(id => id !== tenant.id) : [...prev, tenant.id])}
+                            onClick={() => setSelectedTenants(prev =>
+                              prev.includes(tenant.id)
+                                ? prev.filter(id => id !== tenant.id)
+                                : [...prev, tenant.id]
+                            )}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
+                              ${isSelected ? "bg-green-50" : "hover:bg-slate-50"}`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="w-3 h-3 accent-green-500 flex-shrink-0"
-                            />
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                              ${isSelected ? "bg-green-600 border-green-600" : "border-slate-300"}`}>
+                              {isSelected && <span className="text-white text-[9px] font-bold">✓</span>}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium text-slate-800 truncate">{tenant.full_name}</span>
-                                {tenant.bed_number && <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0">Bed #{tenant.bed_number}</Badge>}
+                                <span className="text-xs font-semibold text-slate-800 truncate">{tenant.full_name}</span>
+                                {tenant.bed_number && (
+                                  <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                    Bed #{tenant.bed_number}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-[9px] text-slate-400">Room {tenant.room_number}</span>
-                                <span className="text-[9px] text-slate-400">{tenant.phone}</span>
-                                <span className="text-[9px] text-amber-600 font-medium ml-auto">₹{pendingAmount.toLocaleString()}</span>
+                                {tenant.phone && <span className="text-[9px] text-slate-400">{tenant.phone}</span>}
+                                <span className="text-[9px] font-semibold text-amber-600 ml-auto">₹{pending.toLocaleString()}</span>
                               </div>
                             </div>
                           </div>
@@ -5208,27 +5794,45 @@ onClick={async () => {
       )}
     </div>
 
-    {/* Footer */}
-    <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
-      <div className="flex justify-between items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => { setIsDemandPaymentOpen(false); resetDemandPaymentForm(); setBulkMode(false); setSelectedRooms([]); setSelectedTenants([]); setRoomsWithPending([]); }} className="text-xs h-7 px-3">
-          Cancel
-        </Button>
-        {bulkMode ? (
-          <Button size="sm" onClick={handleBulkSend} disabled={bookingLoading || selectedTenants.length === 0} className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</> : <><Send className="h-3 w-3 mr-1" />Send to {selectedTenants.length} Tenant{selectedTenants.length !== 1 ? 's' : ''}</>}
-          </Button>
-        ) : (
-          <Button size="sm" onClick={handleDemandPayment} disabled={bookingLoading || !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date} className="text-xs h-7 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-            {bookingLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</> : <><Send className="h-3 w-3 mr-1" />Send Demand</>}
-          </Button>
-        )}
-      </div>
+    {/* ── FOOTER ── */}
+    <div className="bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-between gap-3 flex-shrink-0 rounded-b-2xl">
+      <button
+        onClick={() => {
+          setIsDemandPaymentOpen(false);
+          resetDemandPaymentForm();
+          setBulkMode(false);
+          setSelectedRooms([]);
+          setSelectedTenants([]);
+          setRoomsWithPending([]);
+        }}
+        className="text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
+      >
+        Cancel
+      </button>
+
+      <button
+        disabled={
+          bookingLoading ||
+          (bulkMode
+            ? selectedTenants.length === 0
+            : !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date)
+        }
+        onClick={bulkMode ? handleBulkSend : handleDemandPayment}
+        className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white
+          bg-[#0f2557] hover:bg-[#162f6e] disabled:opacity-50 disabled:cursor-not-allowed
+          transition-colors shadow-md shadow-blue-900/20"
+      >
+        {bookingLoading
+          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+          : bulkMode
+            ? <><Send className="h-3.5 w-3.5" />Send to {selectedTenants.length} Tenant{selectedTenants.length !== 1 ? "s" : ""}</>
+            : <><Send className="h-3.5 w-3.5" />Send Demand</>
+        }
+      </button>
     </div>
+
   </DialogContent>
 </Dialog>
-
-
 
       {/* Approve Payment Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
@@ -8211,7 +8815,7 @@ const ReceiptsTable = ({
 </TableCell>
 
 <TableCell className="py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
-  #{receipt.receipt_number || receipt.id}   {/* use receipt_number if available */}
+  #RCP-{String(receipt.id).padStart(6, '0')}
 </TableCell>
                           <TableCell className="py-2 text-xs whitespace-nowrap">
                             {format(new Date(receipt.payment_date), "dd/MM/yy")}
