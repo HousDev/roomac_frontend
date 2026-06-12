@@ -380,6 +380,8 @@ export default function ExpensesManagement() {
   const [receiptPreview, setReceiptPreview] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<Record<string, any>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const isInitializingEdit = useRef(false);
+
 const [vendors, setVendors] = useState<any[]>([]);
   // Filters
 
@@ -665,7 +667,7 @@ if (colSearch.expenseDate) {
     const newItemObj = {
       id: Date.now() + Math.random(),
       name: "",
-      category: form.category_name || "Groceries",
+      category: form.category_name || "",
       qty: "",
       price: "",
       total_amount: 0,
@@ -718,7 +720,8 @@ function openEdit(exp: any) {
     ? exp.items.map((i: any) => ({
         id: i.id || Math.random(),
         name: i.name || i.item_name,
-        category: i.category || i.category_name || "Groceries",
+        category: i.category || i.category_name || "",
+        sub_category: i.sub_category || i.sub_category_name || "",
         qty: i.qty || i.quantity || "",
         price: i.price || i.unit_price || "",
         total_amount: i.total_amount || ((Number(i.qty) || 0) * (Number(i.price) || 0)),
@@ -727,6 +730,7 @@ function openEdit(exp: any) {
         id: Date.now() + Math.random(),
         name: "",
         category: exp.category_name || "Groceries",
+        sub_category: exp.sub_category_name || "",
         qty: "",
         price: "",
         total_amount: 0,
@@ -750,10 +754,15 @@ function openEdit(exp: any) {
     }
   }
   
-  setForm({
+const matchedCategory = categories.find((c: any) => c.name === exp.category_name);
+const resolvedCategoryId = matchedCategory 
+  ? String(matchedCategory.id) 
+  : (parseInt(exp.category_id) ? String(exp.category_id) : "");
+isInitializingEdit.current = true; // useEffect ko ek baar skip karo
+setForm({
     property_id: String(exp.property_id),
     property_name: exp.property_name,
-    category_id: String(exp.category_id),
+    category_id: resolvedCategoryId,
     category_name: exp.category_name,
     total_amount: exp.total_amount || exp.amount || "",
     vendor_name: exp.vendor_name || "",
@@ -762,6 +771,8 @@ function openEdit(exp: any) {
     added_by_name: exp.added_by_name,
     notes: exp.notes || "",
     items: initialItems,
+    sub_category_id: String(exp.sub_category_id || ""),
+    sub_category_name: exp.sub_category_name || "",
   });
   
   // Set payment details from database columns
@@ -801,6 +812,20 @@ function openEdit(exp: any) {
   setErrors({});
   setReceiptFile(null);
   setReceiptPreview(exp.receipt_name || "");
+  // Pehle subcategories fetch karo, phir modal open karo
+  if (exp.category_name) {
+    getSubcategoriesByCategory(exp.category_name)
+      .then((res: any) => {
+        const subs = (res?.data || []).map((s: any) => ({
+          id: String(s.subcategory_id),
+          name: s.subcategory_name,
+        }));
+        setDynamicSubCategories(subs);
+      })
+      .catch(() => setDynamicSubCategories([]));
+  } else {
+    setDynamicSubCategories([]);
+  }
   setShowModal(true);
 }
 
@@ -862,11 +887,17 @@ async function save() {
       expenseDate = expenseDate.split('T')[0];
     }
     
-    const payload = {
-      property_id: form.property_id,
-      property_name: form.property_name,
-      category_id: form.category_id,
-      category_name: form.category_name,
+    const firstItemWithSub = updatedItems.find((i: any) => i.sub_category);
+const subCatName = firstItemWithSub?.sub_category || null;
+const subCatObj = subCatName ? dynamicSubCategories.find((s: any) => s.name === subCatName) : null;
+
+const payload = {
+  property_id: form.property_id,
+  property_name: form.property_name,
+  category_id: form.category_id,
+  category_name: form.category_name,
+  sub_category_id: subCatObj?.id || null,
+  sub_category_name: subCatName,
       total_amount: expenseTotalAmount,
       total_paid: 0,
       balance: expenseTotalAmount,
@@ -994,18 +1025,36 @@ async function save() {
   }
 
   // Auto-sync category from Basic Info to first purchase item
-  useEffect(() => {
-    if (form.category_name && form.items.length > 0) {
-      const firstItem = form.items[0];
-      if (firstItem.category !== form.category_name) {
-        setItems(
-          form.items.map((item: any, idx: number) =>
-            idx === 0 ? { ...item, category: form.category_name } : item
-          )
-        );
-      }
-    }
-  }, [form.category_name]);
+// Auto-sync category from Basic Info to all items + reset sub_category
+//   useEffect(() => {
+//   if (form.category_name && form.items.length > 0) {
+//     setItems(
+//       form.items.map((item: any) => ({
+//         ...item,
+//         category: form.category_name,
+//         // Edit mode mein sub_category reset mat karo — sirf category change hone par reset
+//         sub_category: editId ? (item.sub_category || "") : "",
+//       }))
+//     );
+//   }
+// }, [form.category_name]);
+
+
+useEffect(() => {
+  if (isInitializingEdit.current) {
+    isInitializingEdit.current = false;
+    return;
+  }
+  if (form.category_name && form.items.length > 0) {
+    const updatedItems = form.items.map((item: any) => ({
+      ...item,
+      category: form.category_name,
+      sub_category: "",   // ✅ clear subcategory when category changes
+    }));
+    setItems(updatedItems);
+  }
+}, [form.category_name]);
+
 
 const processPayment = async () => {
   if (!paymentModal.expense) return;
@@ -1389,8 +1438,37 @@ useEffect(() => {
           </button>
           <button
             onClick={async () => {
-              // your delete logic (same as before)
-            }}
+  const result = await Swal.fire({
+    title: 'Delete Selected?',
+    text: `You are about to delete ${bulkSelected.size} expense(s). This cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete all!',
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    width: '400px',
+    padding: '1.5rem',
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4'
+    },
+    buttonsStyling: false,
+  });
+  if (!result.isConfirmed) return;
+  try {
+    await Promise.all([...bulkSelected].map(id => deleteExpense(id)));
+    toast.success(`${bulkSelected.size} expenses deleted`);
+    setBulkSelected(new Set());
+    setSelectAll(false);
+    await loadExpenses();
+  } catch (err: any) {
+    toast.error(err.message || "Bulk delete failed");
+  }
+}}
             style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 7, fontSize: "clamp(11px, 3.5vw, 12px)", fontWeight: 700, color: "#DC2626", cursor: "pointer", whiteSpace: "nowrap" }}
           >
             <svg width="11" height="11" fill="none" stroke="#DC2626" strokeWidth="2" viewBox="0 0 24 24">
@@ -1730,7 +1808,7 @@ useEffect(() => {
       {/* Modal header – compact */}
       <div style={{ padding: "12px 18px 8px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 10 }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1A2B6D" }}>{editId ? "✏️ Edit Expense" : "➕ Add Expense"}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#1A2B6D" }}>{editId ? " Edit Expense" : " Add Expense"}</div>
           <div style={{ fontSize: 10, color: "#8892A4", marginTop: 2 }}><span style={{ color: "#E53E3E" }}>*</span> required</div>
         </div>
         <button onClick={() => setShowModal(false)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #E8ECF4", background: "#F8FAFF", cursor: "pointer", fontSize: 16, color: "#8892A4" }}>×</button>
@@ -1782,8 +1860,12 @@ useEffect(() => {
                       <input type="text" value={item.name || ""} onChange={(e) => updateItem(item.id, "name", e.target.value)} placeholder="Item name" list={`items-list-${item.id}`} style={{ ...inp(), fontSize: 11, padding: "5px 8px", borderRadius: 6 }} />
                       <datalist id={`items-list-${item.id}`}>{purchasedItems.map(pi => <option key={pi} value={pi} />)}</datalist>
                     </div>
-                    <select value={item.sub_category || ""} onChange={(e) => updateItem(item.id, "sub_category", e.target.value)} style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6 }}>
+                   <select value={item.sub_category || ""} onChange={(e) => updateItem(item.id, "sub_category", e.target.value)} style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6 }}>
                       <option value="">Select Sub Cat</option>
+                      {/* Show current value as option if not yet in loaded list */}
+                      {item.sub_category && !dynamicSubCategories.find(s => s.name === item.sub_category) && (
+                        <option value={item.sub_category}>{item.sub_category}</option>
+                      )}
                       {dynamicSubCategories.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                     </select>
                     <input type="number" value={item.qty || ""} onChange={(e) => updateItem(item.id, "qty", e.target.value)} placeholder="Qty" style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6, textAlign: "center" }} />

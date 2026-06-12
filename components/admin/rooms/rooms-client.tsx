@@ -60,6 +60,7 @@ interface RoomsClientProps {
 }
 
 interface FilterState {
+  availability_status: string;
   search: string;
   property_ids: string[];
   room_types: string[];
@@ -74,6 +75,7 @@ interface FilterState {
   min_capacity: number;
   max_capacity: number;
   is_active: boolean;
+  floors: number[];
 }
 
 export default function RoomsClient({
@@ -144,28 +146,28 @@ export default function RoomsClient({
   });
 
   // Memoized room stats with safe defaults
-  const roomStats = useMemo(() => {
-    const safeRooms = Array.isArray(rooms) ? rooms : [];
+  // const roomStats = useMemo(() => {
+  //   const safeRooms = Array.isArray(rooms) ? rooms : [];
 
-    const totalBeds = safeRooms.reduce(
-      (sum, room) => sum + (room?.total_bed || 0),
-      0,
-    );
-    const occupiedBeds = safeRooms.reduce(
-      (sum, room) => sum + (room?.occupied_beds || 0),
-      0,
-    );
-    const availableBeds = totalBeds - occupiedBeds;
-    const occupancyRate =
-      totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+  //   const totalBeds = safeRooms.reduce(
+  //     (sum, room) => sum + (room?.total_bed || 0),
+  //     0,
+  //   );
+  //   const occupiedBeds = safeRooms.reduce(
+  //     (sum, room) => sum + (room?.occupied_beds || 0),
+  //     0,
+  //   );
+  //   const availableBeds = totalBeds - occupiedBeds;
+  //   const occupancyRate =
+  //     totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
-    return {
-      totalRooms: safeRooms.length,
-      totalBeds,
-      availableBeds,
-      occupancyRate: `${occupancyRate}%`,
-    };
-  }, [rooms]);
+  //   return {
+  //     totalRooms: safeRooms.length,
+  //     totalBeds,
+  //     availableBeds,
+  //     occupancyRate: `${occupancyRate}%`,
+  //   };
+  // }, [rooms]);
 
   const handleImportClick = useCallback(() => {
     setShowImportModal(true);
@@ -238,32 +240,30 @@ export default function RoomsClient({
       if (!room) return false;
 
       // Property filter
-      if (advancedFilters?.property_ids?.length > 0) {
-        if (
-          !advancedFilters.property_ids.some(
-            (id) => String(id) === String(room.property_id),
-          )
-        ) {
+      const propertyIds = advancedFilters?.property_ids ?? [];
+      if (propertyIds.length > 0) {
+        if (!propertyIds.some((id) => String(id) === String(room.property_id))) {
           return false;
         }
       }
 
       // Room type filter
-      if (advancedFilters?.room_types?.length > 0) {
-        if (
-          !advancedFilters.room_types.includes(room.room_type) &&
-          !advancedFilters.room_types.includes(room.sharing_type)
-        ) {
+      const roomTypes = Array.isArray(advancedFilters?.room_types)
+        ? advancedFilters!.room_types
+        : [];
+      if (roomTypes.length > 0) {
+        if (!roomTypes.includes(room.room_type) && !roomTypes.includes(room.sharing_type)) {
           return false;
         }
       }
 
       // Gender preferences filter
-      if (advancedFilters?.gender_preferences?.length > 0) {
+      const genderPreferences = advancedFilters?.gender_preferences;
+      if (Array.isArray(genderPreferences) && genderPreferences.length > 0) {
         const roomPrefs = Array.isArray(room.room_gender_preference)
           ? room.room_gender_preference
           : [];
-        const hasMatch = advancedFilters.gender_preferences.some((pref) =>
+        const hasMatch = genderPreferences.some((pref) =>
           roomPrefs.some((rp) => rp.toLowerCase() === pref.toLowerCase()),
         );
         if (!hasMatch) return false;
@@ -291,11 +291,18 @@ export default function RoomsClient({
       }
 
       // Amenities filter
-      if (advancedFilters?.amenities?.length > 0) {
+      const advAmenities = advancedFilters?.amenities ?? [];
+      if (advAmenities.length > 0) {
         const roomAmenities = room.amenities || [];
-        if (!advancedFilters.amenities.every((a) => roomAmenities.includes(a)))
-          return false;
+        if (!advAmenities.every((a) => roomAmenities.includes(a))) return false;
       }
+
+      // Floor filter
+if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
+  if (!advancedFilters.floors.includes(room.floor)) {
+    return false;
+  }
+}
 
       // Boolean filters
       if (
@@ -328,12 +335,14 @@ export default function RoomsClient({
 
       // Rent range
       if (
-        advancedFilters?.min_rent > 0 &&
+        advancedFilters?.min_rent !== undefined &&
+        advancedFilters.min_rent > 0 &&
         room.rent_per_bed < advancedFilters.min_rent
       )
         return false;
       if (
-        advancedFilters?.max_rent < 100000 &&
+        advancedFilters?.max_rent !== undefined &&
+        advancedFilters.max_rent < 100000 &&
         room.rent_per_bed > advancedFilters.max_rent
       )
         return false;
@@ -396,6 +405,16 @@ export default function RoomsClient({
     advancedFilters,
   ]);
 
+
+    // Memoized stats based on filtered rooms (auto-updates with filters)
+  const filteredStats = useMemo(() => {
+    const totalRooms = filteredRooms.length;
+    const totalBeds = filteredRooms.reduce((sum, r) => sum + (r.total_bed || 0), 0);
+    const occupiedBeds = filteredRooms.reduce((sum, r) => sum + (r.occupied_beds || 0), 0);
+    const availableBeds = totalBeds - occupiedBeds;
+    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+    return { totalRooms, totalBeds, availableBeds, occupancyRate: `${occupancyRate}%` };
+  }, [filteredRooms]);
   // Memoized paginated rooms
   const paginatedRooms = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1123,7 +1142,7 @@ export default function RoomsClient({
                   Total Rooms
                 </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
-                  {roomStats.totalRooms}
+                  {filteredStats.totalRooms}
                 </p>
               </div>
             </div>
@@ -1138,7 +1157,7 @@ export default function RoomsClient({
                   Total Beds
                 </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
-                  {roomStats.totalBeds}
+                  {filteredStats.totalBeds}
                 </p>
               </div>
             </div>
@@ -1153,7 +1172,7 @@ export default function RoomsClient({
                   Available Beds
                 </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
-                  {roomStats.availableBeds}
+                  {filteredStats.availableBeds}
                 </p>
               </div>
             </div>
@@ -1168,7 +1187,7 @@ export default function RoomsClient({
                   Occupancy Rate
                 </p>
                 <p className="text-xs md:text-lg font-bold text-gray-900">
-                  {roomStats.occupancyRate}
+                  {filteredStats.occupancyRate}
                 </p>
               </div>
             </div>
@@ -1434,6 +1453,7 @@ export default function RoomsClient({
                         room_types: [],
                         gender_preferences: [],
                         amenities: [],
+                        floors: [],
                         has_attached_bathroom: undefined,
                         has_balcony: undefined,
                         has_ac: undefined,
@@ -1513,8 +1533,8 @@ export default function RoomsClient({
         open={filterSidebarOpen}
         onOpenChange={setFilterSidebarOpen}
         onFilterChange={handleFilterChange}
-        hideTrigger={true} // Add this prop to hide the floating button
-      />
+        hideTrigger={true}
+         rooms={rooms}      />
 
       {/* Dialogs - Pass the correct props */}
       <RoomForm

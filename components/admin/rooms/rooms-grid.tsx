@@ -210,21 +210,21 @@ const RoomCard = memo(({
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
             <div className="flex items-center gap-0.5 bg-gray-50 px-1.5 py-0.5 rounded">
               <Building className="h-3 w-3" />
-              <span>F{room.floor || 'G'}</span>
+              <span>{room.floor || 'G'}</span>
             </div>
-            {room.has_attached_bathroom && (
+{!!room.has_attached_bathroom && (
               <div className="flex items-center gap-0.5 bg-blue-50 px-1.5 py-0.5 rounded">
                 <Bath className="h-3 w-3 text-blue-500" />
                 <span>Bath</span>
               </div>
             )}
-            {room.has_ac && (
+            {!!room.has_ac && (
               <div className="flex items-center gap-0.5 bg-cyan-50 px-1.5 py-0.5 rounded">
                 <Wind className="h-3 w-3 text-cyan-500" />
                 <span>AC</span>
               </div>
             )}
-            {room.has_balcony && (
+            {!!room.has_balcony && (
               <div className="flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded">
                 <Sun className="h-3 w-3 text-amber-500" />
                 <span>Balcony</span>

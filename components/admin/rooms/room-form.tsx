@@ -350,7 +350,17 @@ export function RoomForm({
 
   // Room limit state
   const [roomLimitReached, setRoomLimitReached] = useState(false);
+const [bedLimitReached, setBedLimitReached] = useState(false);
 
+  // Get total beds already used in a property (sum of total_beds of its rooms)
+const getExistingBedsCount = useCallback(
+  (propertyId: string): number => {
+    return rooms
+      .filter(r => String(r.property_id) === propertyId)
+      .reduce((sum, r) => sum + (r.total_bed || 0), 0);
+  },
+  [rooms]
+);
   // ─── KEY CHANGE: bedRentInputs — controlled string state per bed ─────────────
   const [bedRentInputs, setBedRentInputs] = useState<Record<number, string>>({});
 
@@ -546,6 +556,43 @@ export function RoomForm({
     }
   }, [isEditMode, open, rooms, editingRoomId, setFormData, syncBedRentInputs]);
 
+
+  // ─── Bed limit validation (similar to room limit) ─────────────────────────
+useEffect(() => {
+  if (!formData.property_id) {
+    setBedLimitReached(false);
+    return;
+  }
+
+  const property = properties.find(p => String(p.id) === String(formData.property_id));
+  const propertyTotalBeds = property?.total_beds || 0;
+  const existingBeds = getExistingBedsCount(String(formData.property_id));
+
+  let newBedsCount = formData.capacity; // beds in current room
+  if (isEditMode && editingRoomId) {
+    // In edit mode, subtract the original room's bed count before adding new count
+    const originalRoom = rooms.find(r => String(r.id) === String(editingRoomId));
+    const originalBeds = originalRoom?.total_bed || 0;
+    newBedsCount = formData.capacity;
+    const netChange = newBedsCount - originalBeds;
+    const wouldBeTotal = existingBeds + netChange;
+    if (wouldBeTotal > propertyTotalBeds) {
+      setBedLimitReached(true);
+      toast.error(`Property bed limit exceeded. Maximum ${propertyTotalBeds} beds allowed.`);
+    } else {
+      setBedLimitReached(false);
+    }
+  } else {
+    // New room: total would be existingBeds + newBedsCount
+    const wouldBeTotal = existingBeds + newBedsCount;
+    if (propertyTotalBeds > 0 && wouldBeTotal > propertyTotalBeds) {
+      setBedLimitReached(true);
+      toast.error(`Property bed limit exceeded. Maximum ${propertyTotalBeds} beds allowed.`);
+    } else {
+      setBedLimitReached(false);
+    }
+  }
+}, [formData.property_id, formData.capacity, isEditMode, editingRoomId, properties, rooms, getExistingBedsCount]);
   // ── Capacity change → redistribute + rebuild beds ────────────────────────────
   useEffect(() => {
     const current = formData.beds_config || [];
@@ -606,14 +653,35 @@ export function RoomForm({
   }, [setFormData, syncBedRentInputs]);
 
   const handleCapacityChange = useCallback((value: string) => {
-    const num = value === '' ? 0 : parseInt(value, 10);
-    const valid = isNaN(num) ? 0 : num;
-    setFormData((prev: RoomFormData) => {
-      const def = sharingTypeToCapacity[prev.sharing_type] || 2;
-      const manual = prev.sharing_type === 'other' || (prev.sharing_type ? valid !== def : false);
-      return { ...prev, capacity: valid, isManualCapacity: manual };
-    });
-  }, [setFormData]);
+  let num = value === '' ? 0 : parseInt(value, 10);
+  if (isNaN(num)) num = 0;
+
+  // --- Bed limit capping logic ---
+  if (formData.property_id) {
+    const property = properties.find(p => String(p.id) === String(formData.property_id));
+    const propertyTotalBeds = property?.total_beds || 0;
+    const existingBeds = getExistingBedsCount(String(formData.property_id));
+    let maxAllowed = propertyTotalBeds - existingBeds; // for new room
+
+    if (isEditMode && editingRoomId) {
+      // Subtract the original room's beds for edit mode
+      const originalRoom = rooms.find(r => String(r.id) === String(editingRoomId));
+      const originalBeds = originalRoom?.total_bed || 0;
+      maxAllowed = propertyTotalBeds - (existingBeds - originalBeds);
+    }
+
+    if (propertyTotalBeds > 0 && num > maxAllowed && maxAllowed >= 0) {
+      toast.error(`Cannot exceed property bed limit. Maximum ${maxAllowed} additional bed(s) allowed.`);
+      num = maxAllowed; // cap to the maximum allowed
+    }
+  }
+
+  setFormData((prev: RoomFormData) => {
+    const def = sharingTypeToCapacity[prev.sharing_type] || 2;
+    const manual = prev.sharing_type === 'other' || (prev.sharing_type ? num !== def : false);
+    return { ...prev, capacity: num, isManualCapacity: manual };
+  });
+}, [formData.property_id, properties, getExistingBedsCount, isEditMode, editingRoomId, rooms, setFormData]);
 
   // Total rent field change → distribute equally to all beds + sync inputs
   const handleTotalRentChange = useCallback((value: string) => {
@@ -874,6 +942,11 @@ const goToNextTab = () => {
       if (!formData.rent_per_bed || formData.rent_per_bed <= 0) { toast.error('Please enter a valid total room rent'); setCurrentTab('details'); return; }
       if (!formData.room_gender_preference.length) {
   toast.error('Please select at least one gender preference');
+  setCurrentTab('details');
+  return;
+}
+if (bedLimitReached) {
+  toast.error('Cannot save: property bed limit would be exceeded.');
   setCurrentTab('details');
   return;
 }
@@ -1157,7 +1230,7 @@ const goToNextTab = () => {
                           onChange={e => handleCapacityChange(e.target.value)}
                           className="h-7 text-[10px] border-slate-200 bg-slate-50"
                           placeholder="e.g. 2"
-                          disabled={roomLimitReached}
+disabled={roomLimitReached }
                         />
                       </F>
 
@@ -1185,7 +1258,7 @@ const goToNextTab = () => {
                         size="sm" 
                         onClick={applyRoomRentToAllBeds}
                         className="mt-1.5 h-6 text-[9px] w-full border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-300"
-                        disabled={roomLimitReached}
+disabled={roomLimitReached }
                       >
                         <Wallet className="h-3 w-3 mr-1" /> Distribute rent equally to all beds
                       </Button>
@@ -1294,7 +1367,7 @@ const goToNextTab = () => {
                             value={bed.bed_type || ''}
                             onValueChange={v => handleBedTypeChange(bed.bed_number, v)}
                             key={`bed-type-${bed.bed_number}`}
-                            disabled={roomLimitReached}
+disabled={roomLimitReached }
                           >
                             <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
                               <SelectValue placeholder="Select type" />
@@ -1333,7 +1406,7 @@ const goToNextTab = () => {
                             onBlur={() => handleBedRentBlur(bed.bed_number)}
                             placeholder="Bed rent"
                             className="h-7 text-[10px] border-slate-200 bg-slate-50"
-                            disabled={roomLimitReached}
+disabled={roomLimitReached }
                           />
                         </div>
                       </div>

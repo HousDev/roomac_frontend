@@ -42,6 +42,8 @@ export interface BedAssignment {
 }
 
 export type RoomResponse = {
+  success: RoomResponse;
+  data: any;
   is_available: unknown;
   id: number;
   property_id: number;
@@ -120,6 +122,7 @@ export type BedPayload = {
 };
 
 export interface ApiResult<T = any> {
+  pagination: any;
   success: boolean;
   message: string;
   data?: T;

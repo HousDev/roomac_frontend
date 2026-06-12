@@ -52,7 +52,10 @@ import {
 import { consumeMasters } from "@/lib/masterApi";
 
 import PropertyHeader from "./PropertyHeader";
-import PropertyFilters from "./PropertyFilters";
+import PropertyFilters, {
+  PropertyFilterState,
+  DEFAULT_PROPERTY_FILTERS,
+} from "./PropertyFilters";
 import { getColumns, filters, getBulkActions, getActions } from "./table-config";
 import PropertyImportModal from "./PropertyImportModal";
 import Swal from "sweetalert2";
@@ -167,6 +170,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
+  const [propFilters, setPropFilters] = useState<PropertyFilterState>(DEFAULT_PROPERTY_FILTERS);
+
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -266,7 +271,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
             let occupiedBeds = p.occupied_beds || 0;
 
             // If not, fetch it separately
-            if (occupiedBeds === 0 && p.total_beds > 0) {
+if (p.total_beds > 0) {
               try {
                 const statsRes = await getPropertyOccupancyStats(p.id);
                 if (statsRes.success) {
@@ -364,51 +369,48 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   }, []); // Run once on mount
 
   // Filter properties when search/filters change
-  useEffect(() => {
-    let filtered = [...properties];
+ useEffect(() => {
+  let filtered = [...properties];
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(property => {
-        const name = property.name?.toLowerCase() || '';
-        const area = property.area?.toLowerCase() || '';
-        const manager = property.property_manager_name?.toLowerCase() || '';
-        const description = property.description?.toLowerCase() || '';
-        const tags = Array.isArray(property.tags) ? property.tags : [];
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(p =>
+      p.name?.toLowerCase().includes(q) ||
+      p.area?.toLowerCase().includes(q) ||
+      p.property_manager_name?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      (Array.isArray(p.tags) && p.tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q)))
+    );
+  }
+  if (propFilters.status !== "all") {
+    filtered = filtered.filter(p =>
+      propFilters.status === "true" ? p.is_active : !p.is_active
+    );
+  }
+  if (propFilters.availability !== "all") {
+    filtered = filtered.filter(p => {
+      const occ = p.occupied_beds || 0, tot = p.total_beds || 0;
+if (propFilters.availability === "available") return occ === 0;
+      if (propFilters.availability === "full") return tot > 0 && occ >= tot;
+      if (propFilters.availability === "partial") return occ > 0 && occ < tot;
+      return true;
+    });
+  }
+  if (propFilters.location !== "all") {
+    filtered = filtered.filter(p => p.area === propFilters.location);
+  }
+  if (propFilters.tag !== "all") {
+    filtered = filtered.filter(p => {
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      return tags.some(t => typeof t === 'string' && t.toLowerCase() === propFilters.tag);
+    });
+  }
+  if (propFilters.manager !== "all") {
+    filtered = filtered.filter(p => p.property_manager_name === propFilters.manager);
+  }
 
-        return (
-          name.includes(query) ||
-          area.includes(query) ||
-          manager.includes(query) ||
-          description.includes(query) ||
-          tags.some(tag =>
-            tag && typeof tag === 'string' && tag.toLowerCase().includes(query)
-          )
-        );
-      });
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(property =>
-        statusFilter === "true" ? property.is_active : !property.is_active
-      );
-    }
-
-    // Tag filter
-    if (tagFilter !== "all") {
-      filtered = filtered.filter(property => {
-        const tags = Array.isArray(property.tags) ? property.tags : [];
-        return tags.some(tag =>
-          tag && typeof tag === 'string' &&
-          tag.toLowerCase() === tagFilter.toLowerCase()
-        );
-      });
-    }
-
-    setFilteredProperties(filtered);
-  }, [properties, searchQuery, statusFilter, tagFilter]);
+  setFilteredProperties(filtered);
+}, [properties, searchQuery, propFilters]);
 
   // Update showBulkActions
   useEffect(() => {
@@ -1457,8 +1459,10 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onRefresh={() => loadProperties(true)}
-          onFilterClick={() => setSidebarOpen(true)}
-          onExport={handleExportToExcel}
+onFilterClick={() => {
+  loadProperties(true);  // force fresh occupancy data
+  setSidebarOpen(true);
+}}          onExport={handleExportToExcel}
           onImport={handleImportClick}
           onAddProperty={() => {
             handleFormReset();
@@ -1471,11 +1475,10 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
           handleBulkAction={handleBulkAction}
           statusFilter={statusFilter}
           tagFilter={tagFilter}
-          onClearFilters={() => {
-            setSearchQuery('');
-            setStatusFilter('all');
-            setTagFilter('all');
-          }}
+         onClearFilters={() => {
+  setSearchQuery('');
+  setPropFilters(DEFAULT_PROPERTY_FILTERS);
+}}
           setSidebarOpen={setSidebarOpen}
           canCreate={can('create_properties')}
           canExport={can('export_properties')}
@@ -1535,27 +1538,21 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       </Card>
 
       {/* Filters Sidebar */}
-      <PropertyFilters
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        tagFilter={tagFilter}
-        onTagFilterChange={setTagFilter}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        uniqueTags={uniqueTags}
-        filteredPropertiesLength={filteredProperties.length}
-        propertiesLength={properties.length}
-        onApplyFilters={() => { }}
-        onClearFilters={() => {
-          setSearchQuery('');
-          setStatusFilter('all');
-          setTagFilter('all');
-        }}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      />
+    <PropertyFilters
+  sidebarOpen={sidebarOpen}
+  setSidebarOpen={setSidebarOpen}
+  filters={propFilters}
+  onFiltersChange={setPropFilters}
+  onClearFilters={() => {
+    setSearchQuery('');
+    setPropFilters(DEFAULT_PROPERTY_FILTERS);
+  }}
+  onApplyFilters={() => {}}
+  filteredPropertiesLength={filteredProperties.length}
+  propertiesLength={properties.length}
+  uniqueTags={uniqueTags}
+  properties={properties}
+/>
 
       {/* Modals */}
       <TagsBulkModal
