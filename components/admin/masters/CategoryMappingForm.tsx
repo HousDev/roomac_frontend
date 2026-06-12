@@ -92,13 +92,13 @@ category_id: initialData?.category_id || selectedCategory.trim(),        categor
               type="text"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              disabled={isEdit}
+            
               placeholder="e.g. Cleaning, Food, Maintenance"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
-            {isEdit && (
+            {/* {isEdit && (
               <p className="text-xs text-gray-400 mt-1">Category cannot be changed while editing</p>
-            )}
+            )} */}
           </div>
 
           {/* Subcategories */}

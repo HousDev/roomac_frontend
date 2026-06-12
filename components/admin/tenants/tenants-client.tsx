@@ -175,18 +175,36 @@ export default function TenantsClient({
   const [paymentModalAmount, setPaymentModalAmount] = useState(0);
 
   // const [filters, setFiltersState] = useState<TenantFilters>({});
-  const [filters, setFiltersState] = useState<TenantFilters>({
+ const [filters, setFiltersState] = useState<TenantFilters>({
     vacate_status: "non_vacated",
   });
-  // Column search for the header
-  const [columnSearch, setColumnSearch] = useState({
-    name: "",
-    contact: "",
-    occupation: "",
-    property: "",
-    payments: "",
-    status: "",
+
+  // Sidebar pending state — only applied when user clicks "Apply Filters"
+  const [pendingFilters, setPendingFilters] = useState<TenantFilters>({
+    vacate_status: "non_vacated",
   });
+
+const [coupleFilter, setCoupleFilter] = useState(false);
+const [pendingCoupleFilter, setPendingCoupleFilter] = useState(false);
+
+  const [pendingDeposit, setPendingDeposit] = useState(false);
+  const [pendingPendingDeposit, setPendingPendingDeposit] = useState(false);
+const [pendingRent, setPendingRent] = useState(false);
+const [pendingPendingRent, setPendingPendingRent] = useState(false);
+  // Column search for the header
+const [columnSearch, setColumnSearch] = useState({
+  name: "",
+  contact: "",
+  occupation: "",
+  property: "",
+  payments: "",
+  status: "",
+  location: "",
+  checkInDate: "",
+  monthlyRent: "",
+  securityDeposit: "",
+  vacatedDate: "",
+});
 
   // Toggle selection
   const toggleSelection = useCallback((tenantId: string) => {
@@ -221,10 +239,17 @@ export default function TenantsClient({
       const useFilters = customFilters || filtersRef.current;
       const res = await listTenants({ ...useFilters, pageSize: 1000 });
 
-      if (res?.success && Array.isArray(res.data)) {
-        setTenants(res.data);
-        setCurrentPage(1);
-      } else {
+     if (res?.success && Array.isArray(res.data)) {
+  const normalizedData = res.data.map((tenant: any) => ({
+    ...tenant,
+    is_active: tenant.is_active == 1 || tenant.is_active === true,
+    portal_access_enabled: tenant.portal_access_enabled == 1 || tenant.portal_access_enabled === true,
+    has_credentials: tenant.has_credentials == 1 || tenant.has_credentials === true,
+    has_vacated: tenant.has_vacated == 1 || tenant.has_vacated === true,
+  }));
+  setTenants(normalizedData);
+  setCurrentPage(1);
+} else {
         toast.error(res?.message || "Failed to load tenants");
         setTenants([]);
       }
@@ -239,9 +264,20 @@ export default function TenantsClient({
   }, []);
 
   // Add this useEffect to trigger re-render when activeTab changes
+// Trigger re-render when activeTab changes
   useEffect(() => {
     setForceUpdate((prev) => prev + 1);
   }, [activeTab]);
+
+  // Sync pending filters from applied filters when sidebar opens
+  useEffect(() => {
+    if (isFilterSidebarOpen) {
+      setPendingFilters({ ...filters });
+      setPendingCoupleFilter(coupleFilter);
+      setPendingPendingDeposit(pendingDeposit);
+      setPendingPendingRent(pendingRent);
+    }
+  }, [isFilterSidebarOpen]);
 
   // Handle column search
   const handleColumnSearch = useCallback(() => {
@@ -379,6 +415,11 @@ export default function TenantsClient({
         property: "",
         payments: "",
         status: "",
+        location: "",
+        checkInDate: "",
+        monthlyRent: "",
+        securityDeposit: "",
+        vacatedDate: "",
       });
 
       let filters;
@@ -483,25 +524,31 @@ export default function TenantsClient({
     loadTenants(emptyFilters);
   }, [loadTenants, activeTab]);
 
-  const clearSidebarFilters = useCallback(() => {
-    const emptyFilters = {
-      search: filters.search || "",
-      is_active: "",
-      portal_access_enabled: "",
-      has_credentials: "",
-      gender: "",
-      occupation_category: "",
-      city: "",
-      state: "",
-      preferred_sharing: "",
-      // PRESERVE the current tab's vacate_status
-      vacate_status: activeTab === "vacated" ? "vacated" : "non_vacated",
-    };
-    filtersRef.current = emptyFilters;
-    setFiltersState(emptyFilters);
-    loadTenants(emptyFilters);
-    setIsFilterSidebarOpen(false);
-  }, [filters.search, loadTenants, activeTab]);
+ const clearSidebarFilters = useCallback(() => {
+  const emptyFilters = {
+    search: filters.search || "",
+    is_active: "",
+    portal_access_enabled: "",
+    has_credentials: "",
+    gender: "",
+    occupation_category: "",
+    city: "",
+    state: "",
+    preferred_sharing: "",
+    vacate_status: activeTab === "vacated" ? "vacated" : "non_vacated",
+  };
+  filtersRef.current = emptyFilters;
+  setFiltersState(emptyFilters);
+  setPendingFilters(emptyFilters);
+  setPendingDeposit(false);
+  setPendingPendingDeposit(false);
+  setPendingRent(false);
+  setPendingPendingRent(false);
+  setCoupleFilter(false);
+  setPendingCoupleFilter(false);
+  loadTenants(emptyFilters);
+  setIsFilterSidebarOpen(false);
+}, [filters.search, loadTenants, activeTab]);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -817,9 +864,9 @@ export default function TenantsClient({
       let exportData = [];
 
       // Show loading toast
-      toast.loading(`Exporting ${activeTab} tenants...`, {
-        id: "export-loading",
-      });
+      // toast.loading(`Exporting ${activeTab} tenants...`, {
+      //   id: "export-loading",
+      // });
 
       // Fetch data based on active tab
       if (activeTab === "vacated") {
@@ -856,7 +903,7 @@ export default function TenantsClient({
         // All Tenants tab - use current tenants state
         exportData = tenants;
         toast.dismiss("export-loading");
-        toast.success(`Exporting ${exportData.length} tenants`);
+        // toast.success(`Exporting ${exportData.length} tenants`);
       }
 
       if (exportData.length === 0) {
@@ -1039,16 +1086,19 @@ export default function TenantsClient({
 
   // Update the activeFiltersCount calculation to EXCLUDE vacate_status
   const activeFiltersCount = useMemo(() => {
-    // Filter out vacate_status and search from the count
-    const filterEntries = Object.entries(filters).filter(([key, value]) => {
-      if (key === "vacate_status") return false; // EXCLUDE vacate_status
-      if (key === "search") return false; // EXCLUDE search (handled separately)
-      if (key === "include_deleted") return false; // ✅ ADD THIS
+  const filterEntries = Object.entries(filters).filter(([key, value]) => {
+    if (key === "vacate_status") return false;
+    if (key === "search") return false;
+    if (key === "include_deleted") return false;
+    return value !== "" && value !== undefined && value !== null;
+  });
+  let count = filterEntries.length;
+  if (pendingDeposit) count++;
+  if (pendingRent) count++;
+  if (coupleFilter) count++;
 
-      return value !== "" && value !== undefined && value !== null;
-    });
-    return filterEntries.length;
-  }, [filters]);
+  return count;
+}, [filters, pendingDeposit, pendingRent]);
 
   const filteredTenants = useMemo(() => {
     let filtered = tenants;
@@ -1063,6 +1113,29 @@ export default function TenantsClient({
           t.email?.toLowerCase().includes(q) ||
           t.phone?.toLowerCase().includes(q),
       );
+    }
+// Apply couple filter
+// Apply couple filter
+if (coupleFilter) {
+  filtered = filtered.filter(tenant => tenant.is_couple_booking == 1 || tenant.is_couple_booking === true);
+}
+    if (columnSearch.location) {
+      const q = columnSearch.location.toLowerCase();
+      filtered = filtered.filter(
+        (t) =>
+          t.city?.toLowerCase().includes(q) ||
+          t.state?.toLowerCase().includes(q),
+      );
+    }
+    if (columnSearch.checkInDate) {
+      const q = columnSearch.checkInDate.toLowerCase();
+      filtered = filtered.filter((t) => {
+        if (!t.check_in_date) return false;
+        const d = new Date(t.check_in_date).toLocaleDateString("en-IN", {
+          day: "2-digit", month: "short", year: "numeric",
+        }).toLowerCase();
+        return d.includes(q);
+      });
     }
     if (columnSearch.occupation) {
       const q = columnSearch.occupation.toLowerCase();
@@ -1082,6 +1155,115 @@ export default function TenantsClient({
           t.current_assignment?.room_number?.toString().includes(q),
       );
     }
+    if (columnSearch.monthlyRent) {
+  const q = columnSearch.monthlyRent.replace(/[₹,]/g, "").trim();
+  const amount = parseFloat(q);
+  if (!isNaN(amount)) {
+    filtered = filtered.filter((t) => {
+      const vr = t.vacate_records?.[0];
+      const rent = vr?.rent_amount
+        ? Number(vr.rent_amount)
+        : t.current_assignment?.tenant_rent
+          ? Number(t.current_assignment.tenant_rent)
+          : t.current_assignment?.rent_per_bed
+            ? Number(t.current_assignment.rent_per_bed)
+            : (t as any).monthly_rent
+              ? Number((t as any).monthly_rent)
+              : 0;
+      return String(rent).includes(q);
+    });
+  }
+}
+if (columnSearch.securityDeposit) {
+  const q = columnSearch.securityDeposit.replace(/[₹,]/g, "").trim();
+  filtered = filtered.filter((t) => {
+    const vr = t.vacate_records?.[0];
+    const dep = vr?.security_deposit_amount
+      ? Number(vr.security_deposit_amount)
+      : t.current_assignment?.security_deposit
+        ? Number(t.current_assignment.security_deposit)
+        : (t as any).security_deposit
+          ? Number((t as any).security_deposit)
+          : 0;
+    return String(dep).includes(q);
+  });
+}
+
+// Apply pending deposit filter
+if (pendingDeposit) {
+  filtered = filtered.filter(tenant => {
+    // Security deposit required (from assignment or vacate record)
+    const requiredDeposit = tenant.vacate_records?.[0]?.security_deposit_amount
+      ?? tenant.current_assignment?.security_deposit
+      ?? (tenant as any).security_deposit
+      ?? 0;
+    // Amount already paid as security deposit
+    const payments = tenant.payments || [];
+    const depositPaid = payments
+      .filter(p => p.payment_type === 'security_deposit' && (p.status === 'approved' || p.status === 'paid'))
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    return depositPaid < requiredDeposit;
+  });
+}
+
+// Apply pending rent filter
+// Inside filteredTenants useMemo, replace the pendingRent section:
+
+if (pendingRent) {
+  filtered = filtered.filter(tenant => {
+    // Calculate expected rent based on monthly rent and number of months since joining
+    const monthlyRent = tenant.current_assignment?.tenant_rent ||
+                        tenant.current_assignment?.rent_per_bed ||
+                        (tenant as any).monthly_rent ||
+                        0;
+    // Estimate months since joining (based on check_in_date)
+    let monthsSinceJoining = 0;
+    if (tenant.check_in_date) {
+      const checkIn = new Date(tenant.check_in_date);
+      const now = new Date();
+      monthsSinceJoining = (now.getFullYear() - checkIn.getFullYear()) * 12 +
+                          (now.getMonth() - checkIn.getMonth());
+      if (monthsSinceJoining < 1) monthsSinceJoining = 1;
+    } else {
+      monthsSinceJoining = 1;
+    }
+
+    const expectedRent = monthlyRent * monthsSinceJoining;
+
+    // Total paid rent from approved/paid payments
+    const payments = tenant.payments || [];
+    const totalPaid = payments
+      .filter(p => p.payment_type === 'rent' && (p.status === 'approved' || p.status === 'paid'))
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Tenant has pending rent if total paid < expected rent
+    return totalPaid < expectedRent;
+  });
+}
+
+if (columnSearch.payments) {
+  const q = columnSearch.payments.replace(/[₹,]/g, "").trim();
+  filtered = filtered.filter((t) => {
+    const payments = t.payments || [];
+    const paid = payments
+      .filter((p) => p.status === "approved" || p.status === "paid")
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    return String(paid).includes(q);
+  });
+}
+if (columnSearch.vacatedDate) {
+  const q = columnSearch.vacatedDate.toLowerCase();
+  filtered = filtered.filter((t) => {
+    const vr = t.vacate_records?.[0];
+    if (!vr?.requested_vacate_date) return false;
+    const d = new Date(vr.requested_vacate_date).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+    }).toLowerCase();
+    return d.includes(q);
+  });
+}
+
+
     if (columnSearch.status) {
       const q = columnSearch.status.toLowerCase();
       filtered = filtered.filter((t) => {
@@ -1099,7 +1281,7 @@ export default function TenantsClient({
       });
     }
     return filtered;
-  }, [tenants, columnSearch]);
+}, [tenants, columnSearch, pendingDeposit, pendingRent, coupleFilter]);
 
   const paginatedTenants = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -1776,52 +1958,53 @@ export default function TenantsClient({
   );
 
   // FilterSelect component for sidebar
-  const FilterSelect = ({
-    label,
-    value,
-    onChange,
-    options,
-    placeholder = "All",
-  }: {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    options: Array<{ value: string; label: string }>;
-    placeholder?: string;
-  }) => {
-    const validOptions = options.filter((opt) => opt.value !== "");
-    return (
-      <div className="space-y-1">
-        <Label className="text-xs font-medium text-gray-600">{label}</Label>
-        <Select
-          value={value || "all"}
-          onValueChange={(value) => onChange(value === "all" ? "" : value)}
-        >
-          <SelectTrigger className="h-8 text-xs border-gray-200">
-            <SelectValue>
-              {value
-                ? validOptions.find((opt) => opt.value === value)?.label
-                : placeholder}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">
-              {placeholder}
+const FilterSelect = ({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "All",
+}: {
+  label: string;
+  value: string | boolean | undefined;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+}) => {
+  let stringValue = "";
+  if (value === true) stringValue = "true";
+  else if (value === false) stringValue = "false";
+  else stringValue = value || "";
+
+  const selectedOption = options.find(opt => opt.value === stringValue);
+  const displayValue = selectedOption ? selectedOption.label : placeholder;
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-medium text-gray-600">{label}</Label>
+      <Select
+        value={stringValue || "all"}
+        onValueChange={(val) => onChange(val === "all" ? "" : val)}
+      >
+        <SelectTrigger className="h-8 text-xs border-gray-200">
+          <SelectValue placeholder={placeholder}>
+            {displayValue}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-xs">
+            {placeholder}
+          </SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} className="text-xs">
+              {option.label}
             </SelectItem>
-            {validOptions.map((option) => (
-              <SelectItem
-                key={option.value}
-                value={option.value}
-                className="text-xs"
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
 
   // Handle bulk action
   const handleBulkAction = useCallback(
@@ -1843,8 +2026,20 @@ export default function TenantsClient({
   );
 
   // Apply filters from sidebar
+// Apply filters from sidebar — commit pending state to applied state
   const applyFilters = () => {
-    loadTenants(filters);
+    const merged = {
+      ...filtersRef.current,
+      ...pendingFilters,
+      vacate_status: filtersRef.current.vacate_status,
+      include_deleted: filtersRef.current.include_deleted,
+    };
+    filtersRef.current = merged;
+    setFiltersState(merged);
+    setCoupleFilter(pendingCoupleFilter);
+    setPendingDeposit(pendingPendingDeposit);
+    setPendingRent(pendingPendingRent);
+    loadTenants(merged);
     setIsFilterSidebarOpen(false);
   };
 
@@ -2057,7 +2252,7 @@ export default function TenantsClient({
           <span className="xs:hidden sm:hidden inline">Deleted</span>
         </button>
       </div>
-      <Card className="flex flex-col max-h-[550px] md:max-h-[560px] overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">
+      <Card className="flex flex-col  overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">
         {" "}
         <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
           {/* Desktop View (lg and above) */}
@@ -2095,323 +2290,177 @@ export default function TenantsClient({
               </Button>
 
               {/* Filter */}
-              <Sheet
-                open={isFilterSidebarOpen}
-                onOpenChange={setIsFilterSidebarOpen}
-              >
-                <SheetTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
-                  >
-                    <Filter className="w-3.5 h-3.5 mr-1" />
-                    Filters
-                    {activeFiltersCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-400 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                        {activeFiltersCount}
-                      </span>
-                    )}
-                  </Button>
-                </SheetTrigger>
-                <SheetContent
-                  side="right"
-                  className="w-72 p-0 bg-white flex flex-col gap-0"
-                >
-                  {/* HEADER */}
-                  <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-white" />
-                      <span className="text-sm font-semibold text-white">
-                        Advanced Filters
-                      </span>
-                      {activeFiltersCount > 0 && (
-                        <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
-                          {activeFiltersCount}
-                        </Badge>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setIsFilterSidebarOpen(false)}
-                      className="text-white/70 hover:text-white transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+        <Sheet open={isFilterSidebarOpen} onOpenChange={setIsFilterSidebarOpen}>
+  <SheetTrigger asChild>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
+    >
+      <Filter className="w-3.5 h-3.5 mr-1" />
+      Filters
+      {activeFiltersCount > 0 && (
+        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-400 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+          {activeFiltersCount}
+        </span>
+      )}
+    </Button>
+  </SheetTrigger>
 
-                  {/* BODY */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                    {/* STATUS & ACCESS */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                        <ShieldCheck className="w-3 h-3" />
-                        Status & Access
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        <div>
-                          <Label className="text-[10px] text-gray-500 mb-1 block">
-                            Account
-                          </Label>
-                          <FilterSelect
-                            label=""
-                            value={filters.is_active || ""}
-                            onChange={(value) =>
-                              handleFilterChange({
-                                ...filters,
-                                is_active: value === "true",
-                              })
-                            }
-                            options={[
-                              { value: "true", label: "Active" },
-                              { value: "false", label: "Inactive" },
-                            ]}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-gray-500 mb-1 block">
-                            Portal
-                          </Label>
-                          <FilterSelect
-                            label=""
-                            value={filters.portal_access_enabled || ""}
-                            onChange={(value) =>
-                              handleFilterChange({
-                                ...filters,
-                                portal_access_enabled: value === "true",
-                              })
-                            }
-                            options={[
-                              { value: "true", label: "Enabled" },
-                              { value: "false", label: "Disabled" },
-                            ]}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-gray-500 mb-1 block">
-                            Login
-                          </Label>
-                          <FilterSelect
-                            label=""
-                            value={filters.has_credentials || ""}
-                            onChange={(value) =>
-                              handleFilterChange({
-                                ...filters,
-                                has_credentials: value === "true",
-                              })
-                            }
-                            options={[
-                              { value: "true", label: "Has Login" },
-                              { value: "false", label: "No Login" },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                    </div>
+  <SheetContent side="right" className="w-[85vw] sm:w-96 p-0 bg-white flex flex-col gap-0">
+    {/* HEADER */}
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <SlidersHorizontal className="w-4 h-4 text-white" />
+        <span className="text-sm font-semibold text-white">Advanced Filters</span>
+        {activeFiltersCount > 0 && (
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
+            {activeFiltersCount}
+          </Badge>
+        )}
+      </div>
+      <button onClick={() => setIsFilterSidebarOpen(false)} className="text-white/70 hover:text-white transition-colors">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
 
-                    {/* PERSONAL INFORMATION */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                        <Users className="w-3 h-3" />
-                        Personal Information
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        <div>
-                          <Label className="text-[10px] text-gray-500 mb-1 block">
-                            Gender
-                          </Label>
-                          <FilterSelect
-                            label=""
-                            value={filters.gender || ""}
-                            onChange={(value) =>
-                              handleFilterChange({ ...filters, gender: value })
-                            }
-                            options={[
-                              { value: "Male", label: "Male" },
-                              { value: "Female", label: "Female" },
-                              { value: "Other", label: "Other" },
-                            ]}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-gray-500 mb-1 block">
-                            Occupation
-                          </Label>
-                          <FilterSelect
-                            label=""
-                            value={filters.occupation_category || ""}
-                            onChange={(value) =>
-                              handleFilterChange({
-                                ...filters,
-                                occupation_category: value,
-                              })
-                            }
-                            options={[
-                              { value: "Service", label: "Service" },
-                              { value: "Business", label: "Business" },
-                              { value: "Student", label: "Student" },
-                              { value: "Other", label: "Other" },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                    </div>
+    {/* BODY */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      {/* STATUS & ACCESS */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+          <ShieldCheck className="w-3 h-3" />
+          Status & Access
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+         {/* <div>
+  <Label className="text-[10px] text-gray-500 mb-1 block">Portal</Label>
+  <FilterSelect
+    label=""
+    value={filters.portal_access_enabled}
+   onChange={(value) => {
+      handleFilterChange({ ...filters, portal_access_enabled: value === "" ? undefined : value });
+    }}
+    options={[
+      { value: "true", label: "Portal" },
+      { value: "false", label: "No Portal" },
+    ]}
+  />
+</div> */}
+          <div>
+            <Label className="text-[10px] text-gray-500 mb-1 block">Login</Label>
+            <FilterSelect
+              label=""
+              value={filters.has_credentials || ""}
+onChange={(value) => handleFilterChange({ ...filters, has_credentials: value === "" ? undefined : value })}
+              options={[
+                { value: "true", label: "Has Login" },
+                { value: "false", label: "No Login" },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
 
-                    {/* LOCATION */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                        <MapPin className="w-3 h-3" />
-                        Location
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        <div className="relative">
-                          <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="City"
-                            value={filters.city || ""}
-                            onChange={(e) =>
-                              handleFilterChange({
-                                ...filters,
-                                city: e.target.value,
-                              })
-                            }
-                            className="pl-6 h-7 text-xs border-gray-200 w-full rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </div>
-                        <div className="relative">
-                          <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="State"
-                            value={filters.state || ""}
-                            onChange={(e) =>
-                              handleFilterChange({
-                                ...filters,
-                                state: e.target.value,
-                              })
-                            }
-                            className="pl-6 h-7 text-xs border-gray-200 w-full rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </div>
-                      </div>
-                    </div>
+      {/* PERSONAL INFORMATION */}
+    {/* PERSONAL INFORMATION */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+          <Users className="w-3 h-3" />
+          Personal Information
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-[10px] text-gray-500 mb-1 block">Gender</Label>
+            <FilterSelect
+              label=""
+              value={filters.gender || ""}
+              onChange={(value) => handleFilterChange({ ...filters, gender: value })}
+              options={[
+                { value: "Male", label: "Male" },
+                { value: "Female", label: "Female" },
+                { value: "Other", label: "Other" },
+              ]}
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-500 mb-1 block">City</Label>
+            <div className="relative">
+              <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder="City..."
+                value={filters.city || ""}
+                onChange={(e) => handleFilterChange({ ...filters, city: e.target.value })}
+                className="pl-6 h-8 text-xs border-gray-200 w-full rounded-md border focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
-                    {/* PREFERENCES */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                        <Bed className="w-3 h-3" />
-                        Preferences
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-gray-500 mb-1 block">
-                          Sharing
-                        </Label>
-                        <FilterSelect
-                          label=""
-                          value={filters.preferred_sharing || ""}
-                          onChange={(value) =>
-                            handleFilterChange({
-                              ...filters,
-                              preferred_sharing: value,
-                            })
-                          }
-                          options={[
-                            { value: "single", label: "Single" },
-                            { value: "double", label: "Double" },
-                            { value: "triple", label: "Triple" },
-                          ]}
-                        />
-                      </div>
-                    </div>
+      {/* FINANCIAL STATUS - ADVANCED FILTERS */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+          <IndianRupee className="w-3 h-3" />
+          Financial Status
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="pendingDeposit"
+              checked={pendingDeposit}
+              onChange={(e) => setPendingDeposit(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="pendingDeposit" className="text-xs text-gray-700 cursor-pointer">
+              Pending Deposit
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="pendingRent"
+              checked={pendingRent}
+              onChange={(e) => setPendingRent(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="pendingRent" className="text-xs text-gray-700 cursor-pointer">
+              Pending Rent
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    id="coupleFilter"
+    checked={coupleFilter}
+    onChange={(e) => setCoupleFilter(e.target.checked)}
+    className="rounded border-gray-300"
+  />
+  <Label htmlFor="coupleFilter" className="text-xs text-gray-700 cursor-pointer">
+    Couple Booking
+  </Label>
+</div>
+        
+        </div>
+        <p className="text-[9px] text-gray-400">
+          Show tenants with incomplete security deposit, unpaid rent.
+        </p>
+      </div>
+    </div>
 
-                    {/* VACATE STATUS FILTER - Simplified */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                        <Calendar className="w-3 h-3" />
-                        Vacate Status
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant={
-                            filters.vacate_status === "active"
-                              ? "default"
-                              : "outline"
-                          }
-                          size="sm"
-                          className={`h-8 text-xs ${
-                            filters.vacate_status === "active"
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "border-gray-200 text-gray-700 hover:bg-red-500"
-                          }`}
-                          onClick={() =>
-                            handleFilterChange({
-                              ...filters,
-                              vacate_status:
-                                filters.vacate_status === "active"
-                                  ? undefined
-                                  : "active",
-                            })
-                          }
-                        >
-                          <User className="w-3 h-3 mr-1" />
-                          Active
-                        </Button>
-                        <Button
-                          variant={
-                            filters.vacate_status === "vacated"
-                              ? "default"
-                              : "outline"
-                          }
-                          size="sm"
-                          className={`h-8 text-xs ${
-                            filters.vacate_status === "vacated"
-                              ? "bg-purple-600 text-white hover:bg-purple-700"
-                              : "border-gray-200 text-gray-700 hover:bg-gray-600"
-                          }`}
-                          onClick={() =>
-                            handleFilterChange({
-                              ...filters,
-                              vacate_status:
-                                filters.vacate_status === "vacated"
-                                  ? undefined
-                                  : "vacated",
-                            })
-                          }
-                        >
-                          <Calendar className="w-3 h-3 mr-1" />
-                          Vacated
-                        </Button>
-                      </div>
-                      <p className="text-[9px] text-gray-400">
-                        {filters.vacate_status === "active" &&
-                          "Showing tenants currently assigned to beds"}
-                        {filters.vacate_status === "vacated" &&
-                          "Showing tenants who have vacated their beds"}
-                        {!filters.vacate_status && "Showing all tenants"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* FOOTER */}
-                  <div className="border-t p-3 flex gap-2 bg-gray-50">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs h-8"
-                      onClick={clearSidebarFilters}
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-                      onClick={applyFilters}
-                    >
-                      Apply Filters
-                    </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>
+    {/* FOOTER */}
+    <div className="border-t p-3 flex gap-2 bg-gray-50">
+      <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={clearSidebarFilters}>
+        Reset
+      </Button>
+      <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={applyFilters}>
+        Apply Filters
+      </Button>
+    </div>
+  </SheetContent>
+</Sheet>
 
               {/* Bulk Actions Dropdown */}
               {(can("edit_tenants") || can("delete_tenants")) && (
@@ -2830,562 +2879,480 @@ export default function TenantsClient({
           )}
         </CardHeader>
         {/* ── TABLE CONTAINER WITH SINGLE HORIZONTAL SCROLL ── */}
-        <div className="flex-1 overflow-auto min-h-0 max-h-full">
-          <div className="overflow-x-auto overflow-y-auto h-full ">
-            {" "}
-            <table
-              className="w-full border-collapse"
-              style={{ minWidth: "780px" }}
-            >
-              {/* Column Headers */}
-              <thead className=" bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                {/* Column Titles Row */}
-                <tr>
-                  {/* SELECT - tight, no excess padding */}
-                  <th className="w-8 px-2 py-2 text-center">
-                    <button
-                      onClick={toggleSelectAll}
-                      className="flex items-center justify-center w-4 h-4 mx-auto"
-                    >
-                      {selectedTenantIds.length === tenants.length &&
-                      tenants.length > 0 ? (
-                        <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                      ) : (
-                        <Square className="w-3.5 h-3.5 text-gray-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36">
-                    NAME
-                  </th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40">
-                    CONTACT
-                  </th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28">
-                    OCCUPATION
-                  </th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36">
-                    PROPERTY & ROOM
-                  </th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-20">
-                    PAYMENTS
-                  </th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28">
-                    STATUS
-                  </th>
-                  <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-12">
-                    ACTIONS
-                  </th>
-                </tr>
-                {/* Search Inputs Row */}
-                <tr className="border-t border-gray-100 bg-white">
-                  <td className="w-8 px-2 py-1.5 text-center">{/* empty */}</td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      placeholder="Search name..."
-                      value={columnSearch.name}
-                      onChange={(e) =>
-                        handleColumnSearchChange("name", e.target.value)
-                      }
-                      className="h-6 text-[10px] w-full border-gray-200 focus:border-blue-300"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      placeholder="Search email/phone..."
-                      value={columnSearch.contact}
-                      onChange={(e) =>
-                        handleColumnSearchChange("contact", e.target.value)
-                      }
-                      className="h-6 text-[10px] w-full border-gray-200 focus:border-blue-300"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      placeholder="Search occupation..."
-                      value={columnSearch.occupation}
-                      onChange={(e) =>
-                        handleColumnSearchChange("occupation", e.target.value)
-                      }
-                      className="h-6 text-[10px] w-full border-gray-200 focus:border-blue-300"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      placeholder="Search property..."
-                      value={columnSearch.property}
-                      onChange={(e) =>
-                        handleColumnSearchChange("property", e.target.value)
-                      }
-                      className="h-6 text-[10px] w-full border-gray-200 focus:border-blue-300"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <span className="text-[9px] text-gray-300 italic">—</span>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <Input
-                      placeholder="Search status..."
-                      value={columnSearch.status}
-                      onChange={(e) =>
-                        handleColumnSearchChange("status", e.target.value)
-                      }
-                      className="h-6 text-[10px] w-full border-gray-200 focus:border-blue-300"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5" />
-                </tr>
-              </thead>
+<div className="flex-1 overflow-hidden min-h-0">
+  <div className="overflow-auto max-h-[500px] md:max-h-[480px]" style={{ overflowX: "auto", overflowY: "auto" }}>
+    <table className="w-full border-collapse border border-gray-200" style={{ minWidth: "1600px" }}>
+<thead className="bg-gray-50 border-b border-gray-200" style={{ position: "sticky", top: 0, zIndex: 30 }}>
 
-              {/* Data Rows */}
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
-                        <span className="text-xs text-gray-400">
-                          Loading tenants...
+        {/* ── Column Title Row ── */}
+        <tr className="border-b border-gray-200">
+          {/* Sticky: checkbox */}
+          <th className="md:sticky left-0 z-10 bg-gray-50 w-8 px-2 py-2 text-center border-r border-gray-200 border-b">
+            <button onClick={toggleSelectAll} className="flex items-center justify-center w-4 h-4 mx-auto">
+              {selectedTenantIds.length === tenants.length && tenants.length > 0 ? (
+                <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-gray-400" />
+              )}
+            </button>
+          </th>
+          {/* Sticky: ACTIONS */}
+<th className="md:sticky left-8 z-20 bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">
+            ACTIONS
+          </th>
+          {/* Sticky: STATUS */}
+       <th className="md:sticky left-[176px] z-10 bg-gray-50 px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 border-b top-0" style={{ width: "200px", minWidth: "200px" }}>
+  STATUS
+</th>
+          {/* Sticky: NAME */}
+      <th className="sticky left-[376px] z-10 bg-gray-50 px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-44 border-r border-gray-200 border-b" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+  NAME
+</th>
+          {/* Scrollable columns */}
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">CONTACT</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">CHECK-IN DATE</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-48 border-r border-gray-200 border-b">PROPERTY & ROOM</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200 border-b">MONTHLY RENT</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">SECURITY DEPOSIT</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200 border-b">PAYMENTS</th>
+          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">LOCATION</th>
+                  {(activeTab === "vacated" || activeTab === "deleted") && (
+            <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-28 border-b">VACATED DATE</th>
+          )}
+        </tr>
+
+        {/* ── Search Inputs Row ── */}
+        <tr className="border-t border-gray-100 bg-white">
+          {/* Sticky: checkbox empty */}
+          <td className="md:sticky left-0 z-10 bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200" />
+          {/* Sticky: actions empty */}
+          <td className="md:sticky left-8 z-10 bg-white px-2 py-1.5 border-r border-gray-200" />
+          {/* Sticky: status search */}
+<td className="md:sticky left-[176px] z-10 bg-white px-2 py-1.5 border-r border-gray-200" style={{ width: "200px", minWidth: "200px" }}>
+            <Input
+              placeholder="Status..."
+              value={columnSearch.status}
+              onChange={(e) => handleColumnSearchChange("status", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* Sticky: name search */}
+<td className="md:sticky left-[376px] z-10 bg-white px-2 py-1.5 border-r border-gray-200" style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+            <Input
+              placeholder="Name..."
+              value={columnSearch.name}
+              onChange={(e) => handleColumnSearchChange("name", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* Scrollable: contact */}
+          <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="Phone..."
+              value={columnSearch.contact}
+              onChange={(e) => handleColumnSearchChange("contact", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* check-in date */}
+          <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="e.g. Jan 2024..."
+              value={columnSearch.checkInDate}
+              onChange={(e) => handleColumnSearchChange("checkInDate", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* property/room */}
+          <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="Property/room..."
+              value={columnSearch.property}
+              onChange={(e) => handleColumnSearchChange("property", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* monthly rent — no search */}
+           <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="e.g. 5000..."
+              value={columnSearch.monthlyRent}
+              onChange={(e) => handleColumnSearchChange("monthlyRent", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* security deposit search */}
+          <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="e.g. 10000..."
+              value={columnSearch.securityDeposit}
+              onChange={(e) => handleColumnSearchChange("securityDeposit", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+          {/* payments — no search */}
+{/* payments search */}
+<td className="px-2 py-1.5 border-r border-gray-200">
+  <Input
+    placeholder="e.g. 5000..."
+    value={columnSearch.payments}
+    onChange={(e) => handleColumnSearchChange("payments", e.target.value)}
+    className="h-6 text-[10px] w-full border-gray-200"
+  />
+</td>          {/* location */}
+          <td className="px-2 py-1.5 border-r border-gray-200">
+            <Input
+              placeholder="City/state..."
+              value={columnSearch.location}
+              onChange={(e) => handleColumnSearchChange("location", e.target.value)}
+              className="h-6 text-[10px] w-full border-gray-200"
+            />
+          </td>
+           {(activeTab === "vacated" || activeTab === "deleted") && (
+  <td className="px-2 py-1.5">
+    <Input
+      placeholder="e.g. Jan 2024..."
+      value={columnSearch.vacatedDate || ""}
+      onChange={(e) => handleColumnSearchChange("vacatedDate" as any, e.target.value)}
+      className="h-6 text-[10px] w-full border-gray-200"
+    />
+  </td>
+)}
+        </tr>
+      </thead>
+
+      <tbody>
+        {loading ? (
+          <tr>
+            <td colSpan={activeTab === "vacated" || activeTab === "deleted" ? 12 : 11} className="py-16 text-center border-b border-gray-200">
+              <div className="flex flex-col items-center gap-2">
+                <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
+                <span className="text-xs text-gray-400">Loading tenants...</span>
+              </div>
+            </td>
+          </tr>
+        ) : filteredTenants.length === 0 ? (
+          <tr>
+            <td colSpan={activeTab === "vacated" || activeTab === "deleted" ? 12 : 11} className="py-16 text-center border-b border-gray-200">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Users2 className="w-6 h-6 text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">No tenants found</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Add your first tenant to get started</p>
+                </div>
+                {can("create_tenants") && (
+                  <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
+                    <Plus className="w-3 h-3 mr-1" /> Add Tenant
+                  </Button>
+                )}
+              </div>
+            </td>
+          </tr>
+        ) : (
+          paginatedTenants.map((tenant, idx) => {
+            const vacateRecord = tenant.vacate_records?.[0];
+const rowBg = "bg-white";
+            // ── MONTHLY RENT (Improved fallback) ──
+            // Priority: vacateRecord.rent_amount → current_assignment.tenant_rent → current_assignment.rent_per_bed → tenant.monthly_rent → tenant.rent_per_bed → 0
+           // REPLACE WITH:
+const monthlyRent = vacateRecord?.rent_amount
+  ? Number(vacateRecord.rent_amount)
+  : tenant.current_assignment?.tenant_rent
+    ? Number(tenant.current_assignment.tenant_rent)
+    : tenant.current_assignment?.rent_per_bed
+      ? Number(tenant.current_assignment.rent_per_bed)
+      : (tenant as any).monthly_rent
+        ? Number((tenant as any).monthly_rent)
+        : (tenant as any).rent_per_bed
+          ? Number((tenant as any).rent_per_bed)
+          : 0;
+
+// ── SECURITY DEPOSIT ──
+const securityDeposit = vacateRecord?.security_deposit_amount
+  ? Number(vacateRecord.security_deposit_amount)
+  : tenant.current_assignment?.security_deposit
+    ? Number(tenant.current_assignment.security_deposit)
+    : (tenant as any).security_deposit
+      ? Number((tenant as any).security_deposit)
+      : 0;
+            // ── CHECK-IN DATE (same as "Member Since" in detail page) ──
+            const checkInDate = tenant.check_in_date
+              ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "—";
+
+            // ── COUPLE check ──
+            const isCouple =
+              tenant.is_couple_booking === true ||
+              (tenant.is_couple_booking as any) === 1;
+
+            return (
+              <tr
+                key={tenant.id}
+                className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowBg}`}
+              >
+                {/* ── Sticky: Checkbox ── */}
+                <td className={`md:last:sticky left-0 z-10 ${rowBg} group-hover:bg-blue-50 w-8 px-2 py-2 text-center border-r border-gray-200`}>
+                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
+                    {selectedTenantIds.includes(String(tenant.id)) ? (
+                      <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                    ) : (
+                      <Square className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400" />
+                    )}
+                  </button>
+                </td>
+
+                {/* ── Sticky: Actions ── */}
+                <td className={`md:sticky left-8 z-10 ${rowBg} group-hover:bg-blue-100/40 px-2 py-2 border-r border-gray-200 bg-white`}>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Link href={`/admin/tenants/${getViewTenantId(tenant)}`} className="text-blue-500 hover:text-blue-700 transition-colors" title="View Details">
+                      <Eye className="w-3.5 h-3.5" />
+                    </Link>
+                    {can("edit_tenants") && activeTab !== "deleted" && (
+                      <button
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            const fullTenant = await getTenant(tenant.id);
+                            if (fullTenant.success && fullTenant.data) {
+                              setSelectedTenant(fullTenant.data);
+                              setIsEditDialogOpen(true);
+                            } else toast.error("Failed to load tenant details");
+                          } catch (error) {
+                            console.error(error);
+                            toast.error("Failed to load tenant details");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-800 transition-colors"
+                        title="Edit Tenant"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {can("manage_tenant_credentials") && activeTab !== "deleted" && (
+                      <button
+                        onClick={() => {
+                          setSelectedTenant(tenant);
+                          setCredentialPassword("");
+                          setIsCredentialDialogOpen(true);
+                        }}
+                        className="text-orange-500 hover:text-orange-700 transition-colors"
+                        title={tenant.has_credentials ? "Reset Password" : "Create Login"}
+                      >
+                        <Key className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {can("manage_tenant_portal") && activeTab !== "deleted" && (
+                      <button onClick={() => handleTogglePortalAccess(tenant)} className="text-purple-500 hover:text-purple-700 transition-colors" title={tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}>
+                        <Globe className={`w-3.5 h-3.5 ${!tenant.portal_access_enabled ? "opacity-50" : ""}`} />
+                      </button>
+                    )}
+                    {can("delete_tenants") && activeTab !== "deleted" && (
+                      <button onClick={() => handleDelete(tenant)} className="text-red-500 hover:text-red-700 transition-colors" title="Delete Tenant">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {activeTab === "deleted" && (
+                      <button onClick={() => handleRestoreVacatedTenant(tenant)} className="text-green-500 hover:text-green-700 transition-colors" title="Restore to Vacated">
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+
+                {/* ── Sticky: Status badges (NOW IN SINGLE ROW) ── */}
+                <td className={`md:sticky left-[176px] z-10 ${rowBg} group-hover:bg-blue-50 px-2 py-2 border-r border-gray-200`} style={{ width: "200px", minWidth: "200px" }}>
+                  <div className="flex flex-row gap-1 items-center whitespace-nowrap">
+                    <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold whitespace-nowrap ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                      {tenant.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {tenant.portal_access_enabled ? (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 whitespace-nowrap">
+                        <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-gray-300 text-gray-400 whitespace-nowrap">
+                        No Portal
+                      </Badge>
+                    )}
+                    {tenant.has_credentials ? (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-green-300 text-green-600 bg-green-50 whitespace-nowrap">
+                        <LogIn className="w-2 h-2 mr-0.5" />Login
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-orange-300 text-orange-500 whitespace-nowrap">
+                        No Login
+                      </Badge>
+                    )}
+                  </div>
+                </td>
+
+                {/* ── Sticky: Name ── */}
+                <td className={`md:sticky left-[376px] z-10 ${rowBg} group-hover:bg-blue-50 px-2 py-2 border-r border-gray-200`} style={{ boxShadow: "4px 0 6px -2px rgba(0,0,0,0.15)" }}>
+                  <Link href={`/admin/tenants/${tenant.id}`} className="flex items-center gap-2">
+                    {tenant.photo_url ? (
+                      <img src={tenant.photo_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-semibold text-[9px]">
+                          {tenant.full_name?.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
                         </span>
                       </div>
-                    </td>
-                  </tr>
-                ) : tenants.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Users2 className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">
-                            No tenants found
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Add your first tenant to get started
-                          </p>
-                        </div>
-                        {can("create_tenants") && (
-                          <Button
-                            size="sm"
-                            className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => setIsAddDialogOpen(true)}
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Add Tenant
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedTenants.map((tenant, idx) => (
-                    <tr
-                      key={tenant.id}
-                      className={`border-b border-gray-100 hover:bg-blue-50/40 transition-colors group ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
-                    >
-                      {/* Selection Checkbox */}
-                      <td className="w-8 px-2 py-2 text-center">
-                        <button
-                          onClick={() => toggleSelection(String(tenant.id))}
-                          className="flex items-center justify-center w-4 h-4 mx-auto"
-                        >
-                          {selectedTenantIds.includes(String(tenant.id)) ? (
-                            <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                          ) : (
-                            <Square className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400" />
-                          )}
-                        </button>
-                      </td>
+                    )}
+                   <div className="min-w-0">
+  <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden">
+    <div className="font-medium text-xs text-gray-900 truncate max-w-[120px]">
+      <span className="text-gray-400 mr-0.5">
+        {tenant.salutation || ""}
+      </span>
+      {tenant.full_name}
+    </div>
 
-                      {/* Name Column */}
-                      <td className="px-3 py-2.5 cursor-pointer">
-                        <Link
-                          href={`/admin/tenants/${tenant.id}`}
-                          className="flex items-center gap-2 min-w-0 group cursor-pointer"
-                          onClick={() =>
-                            console.log("🔗 Clicking tenant:", {
-                              id: tenant.id,
-                              name: tenant.full_name,
-                              is_primary: tenant.is_primary_tenant,
-                              partner_id: tenant.partner_tenant_id,
-                            })
-                          }
-                        >
-                          <div>
-                            {tenant.photo_url ? (
-                              <img
-                                src={tenant.photo_url}
-                                alt=""
-                                className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                                <span className="text-white font-semibold text-[10px] ">
-                                  {tenant.full_name
-                                    ?.split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .substring(0, 2)
-                                    .toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-medium text-xs text-gray-900 truncate leading-tight ">
-                              <span className="text-gray-500 mr-1">
-                                {(tenant.salutation || "").toUpperCase()}
-                              </span>
-                              {(tenant.full_name || "")
-                                .toLowerCase()
-                                .replace(/\b\w/g, (char) => char.toUpperCase())}
-                            </div>
-                            <div className="text-[10px] text-gray-400 capitalize leading-tight">
-                              {tenant.gender?.toLowerCase() || "N/A"}
-                            </div>
-                            <div className="text-[9px] text-blue-600 font-semibold">
-                              TID-{tenant.id}
-                            </div>
-                          </div>
-                        </Link>
-                      </td>
+    {isCouple && (
+      <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-100 text-pink-700 border-pink-200 border shrink-0">
+        Couple
+      </Badge>
+    )}
 
-                      {/* Contact Column */}
-                      <td className="px-2 py-2.5">
-                        <div className="space-y-0.5 min-w-0">
-                          <a
-                            href={`mailto:${tenant.email}`}
-                            className="text-[10px] text-gray-700 truncate flex items-center gap-1 hover:text-blue-600 transition-colors"
-                          >
-                            <Mail className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">
-                              {tenant.email || "No email"}
-                            </span>
-                          </a>
-                          <a
-                            href={`tel:${tenant.country_code || ""}${tenant.phone || ""}`}
-                            className="text-[10px] text-gray-500 flex items-center gap-1 hover:text-blue-600 transition-colors"
-                          >
-                            <Phone className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                            <span>
-                              {tenant.country_code || ""}{" "}
-                              {tenant.phone || "No phone"}
-                            </span>
-                          </a>
-                          {tenant.city && (
-                            <div className="text-[10px] text-gray-400 flex items-center gap-1">
-                              <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-                              <span className="truncate">
-                                {tenant.city}
-                                {tenant.state && `, ${tenant.state}`}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
+    {tenant.is_primary_tenant === false && (
+      <Badge className="text-[8px] px-1 py-0 h-3.5 bg-rose-100 text-rose-600 border-rose-200 border shrink-0">
+        Partner
+      </Badge>
+    )}
+  </div>
+</div>
+                  </Link>
+                </td>
 
-                      {/* Occupation Column */}
-                      <td className="px-2 py-2.5">
-                        <div className="space-y-0.5">
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] px-1.5 py-0 h-4 font-medium border-blue-200 text-blue-700 bg-blue-50 leading-none"
-                          >
-                            {tenant.occupation_category || "Other"}
-                          </Badge>
-                          <div className="text-[10px] text-gray-600 leading-tight truncate max-w-[100px]">
-                            {tenant.exact_occupation ||
-                              tenant.occupation ||
-                              "Not specified"}
-                          </div>
-                        </div>
-                      </td>
+                {/* ── Contact ── */}
+                <td className="px-2 py-2 border-r border-gray-200">
+                  <div className="text-[10px] text-gray-700 whitespace-nowrap">
+                    <a href={`tel:${tenant.country_code || ""}${tenant.phone || ""}`} className="hover:text-blue-600">
+                      {tenant.country_code} {tenant.phone}
+                    </a>
+                  </div>
+                </td>
 
-                      {/* Property Column */}
-                      <td className="px-2 py-2.5">
-                        {tenant.current_assignment ||
-                        tenant.assigned_room_id ? (
-                          <div className="space-y-0.5">
-                            <div className="text-[10px] font-medium text-gray-800 flex items-center gap-1">
-                              <Building className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                              <span className="truncate max-w-[110px]">
-                                {tenant.current_assignment?.property_name ||
-                                  tenant.assigned_property_name ||
-                                  "Unknown"}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                              <Bed className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                              <span>
-                                Room{" "}
-                                {tenant.current_assignment?.room_number ||
-                                  tenant.assigned_room_number ||
-                                  "N/A"}{" "}
-                                · Bed{" "}
-                                {tenant.current_assignment?.bed_number ||
-                                  tenant.assigned_bed_number ||
-                                  "N/A"}
-                              </span>
-                            </div>
-                            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-green-50 text-green-700 border border-green-200 leading-none">
-                              <CheckCircle className="w-2 h-2 mr-0.5" />
-                              Assigned
-                            </Badge>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                            <Building className="w-2.5 h-2.5" />
-                            <span>No assignment</span>
-                          </div>
-                        )}
-                      </td>
+                {/* ── Check-in Date ── */}
+                <td className="px-2 py-2 border-r border-gray-200">
+                  <div className="text-[10px] text-gray-700 whitespace-nowrap">
+                    {checkInDate}
+                  </div>
+                </td>
 
-                      {/* Payments Column */}
-                      <td className="px-2 py-2.5">
-                        {(() => {
-                          const payments = tenant.payments || [];
+                {/* ── Property & Room (NOW SINGLE LINE) ── */}
+                <td className="px-2 py-2 border-r border-gray-200">
+                  {tenant.current_assignment || tenant.assigned_room_id ? (
+                    <div className="text-[10px] text-gray-800 flex items-center gap-1 whitespace-nowrap">
+                      <Building className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+                      <span className="truncate max-w-[110px] font-medium">
+                        {tenant.current_assignment?.property_name || tenant.assigned_property_name || "Unknown"}
+                      </span>
+                      <span className="text-gray-400">·</span>
+                      <span>
+                        Rm {tenant.current_assignment?.room_number || tenant.assigned_room_number || "N/A"} · B{tenant.current_assignment?.bed_number || tenant.assigned_bed_number || "N/A"}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 whitespace-nowrap">No assignment</span>
+                  )}
+                </td>
 
-                          const paid = payments
-                            .filter(
-                              (p) =>
-                                p.status === "approved" || p.status === "paid",
-                            )
-                            .reduce((sum, p) => sum + (p.amount || 0), 0);
+                {/* ── Monthly Rent ── */}
+                <td className="px-2 py-2 whitespace-nowrap border-r border-gray-200">
+                  <div className="text-[11px] font-semibold text-green-600">
+                    ₹{monthlyRent.toLocaleString()}
+                  </div>
+                  {monthlyRent === 0 && (
+                    <div className="text-[9px] text-gray-400">Not set</div>
+                  )}
+                </td>
 
-                          const isVacated = tenant.has_vacated === true;
-                          const vacateRecord = tenant.vacate_records?.[0];
-                          const refundableAmount =
-                            vacateRecord?.refundable_amount || 0;
+                {/* ── Security Deposit ── */}
+                <td className="px-2 py-2 whitespace-nowrap border-r border-gray-200">
+                  <div className="text-[11px] text-gray-700">
+                    ₹{securityDeposit.toLocaleString()}
+                  </div>
+                  {securityDeposit === 0 && (
+                    <div className="text-[9px] text-gray-400">Not set</div>
+                  )}
+                </td>
 
-                          const totalRefunded = payments
-                            .filter((p) => p.payment_type === "deposit_refund")
-                            .reduce((sum, p) => sum + (p.amount || 0), 0);
+                {/* ── Payments ── */}
+                <td className="px-2 py-2 border-r border-gray-200">
+                  {(() => {
+                    const payments = tenant.payments || [];
+                    const paid = payments
+                      .filter((p) => p.status === "approved" || p.status === "paid")
+                      .reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const isVacated = tenant.has_vacated === true;
+                    const refundableAmount = vacateRecord?.refundable_amount || 0;
+                    const totalRefunded = payments
+                      .filter((p) => (p as any).payment_type === "deposit_refund")
+                      .reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const remainingRefund = refundableAmount - totalRefunded;
+                    const needsRefund = isVacated && remainingRefund > 0;
+return (
+  <div className="flex items-center gap-2 whitespace-nowrap">
+    <span className="text-[10px] font-semibold text-green-600">
+      ₹{paid.toLocaleString()}
+    </span>
 
-                          const remainingRefund =
-                            refundableAmount - totalRefunded;
-                          const needsRefund = isVacated && remainingRefund > 0;
-                          const isFullyRefunded =
-                            isVacated &&
-                            refundableAmount > 0 &&
-                            totalRefunded >= refundableAmount;
-                          const isSettledNoRefund =
-                            isVacated && refundableAmount === 0;
+    <span className="text-[9px] text-gray-400">
+      ({payments.length} txn)
+    </span>
 
-                          return (
-                            <div className="space-y-0.5">
-                              <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
-                                <span>₹{paid.toLocaleString()}</span>
-                              </div>
-                              <div className="text-[9px] text-gray-400">
-                                {payments.length} txn
-                              </div>
+    {isVacated && needsRefund && (
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-5 px-2 text-[9px] bg-green-100 text-green-700 border-green-200 hover:bg-green-400 whitespace-nowrap rounded-md"
+        onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
+      >
+        <Shield className="w-2.5 h-2.5 mr-1 flex-shrink-0" />
+        Pay ₹{remainingRefund.toLocaleString()}
+      </Button>
+    )}
+  </div>
+);
+                  })()}
+                </td>
 
-                              {isVacated && (
-                                <div className="mt-1">
-                                  {needsRefund && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600 w-full"
-                                      onClick={() =>
-                                        handleVacatedTenantRefund(
-                                          tenant,
-                                          remainingRefund,
-                                        )
-                                      }
-                                    >
-                                      <Shield className="w-2.5 h-2.5 mr-1" />
-                                      Pay ₹{remainingRefund.toLocaleString()}
-                                    </Button>
-                                  )}
-                                  {isFullyRefunded && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] px-1.5 py-0 h-5 bg-green-100 text-green-700 border-green-200 w-full justify-center"
-                                    >
-                                      Settled
-                                    </Badge>
-                                  )}
-                                  {isSettledNoRefund && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500 w-full justify-center"
-                                    >
-                                      No Refund
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </td>
+                {/* ── Location ── */}
+                <td className="px-2 py-2 border-r border-gray-200">
+                  <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                    {[tenant.city, tenant.state].filter(Boolean).join(", ") || "—"}
+                  </div>
+                </td>
 
-                      {/* Status Column */}
-                      <td className="px-2 py-2.5">
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-0.5 sm:gap-1">
-                          <Badge
-                            className={`text-[9px] px-1.5 py-0 h-4 font-semibold leading-none whitespace-nowrap ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}
-                          >
-                            {tenant.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                          {tenant.portal_access_enabled ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 leading-none whitespace-nowrap"
-                            >
-                              <ShieldCheck className="w-2 h-2 mr-0.5" />
-                              Portal
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 border-gray-300 text-gray-400 leading-none whitespace-nowrap"
-                            >
-                              No Portal
-                            </Badge>
-                          )}
-                          {tenant.has_credentials ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 border-green-300 text-green-600 bg-green-50 leading-none whitespace-nowrap"
-                            >
-                              <LogIn className="w-2 h-2 mr-0.5" />
-                              Login
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 border-orange-300 text-orange-500 leading-none whitespace-nowrap"
-                            >
-                              No Login
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="px-2 py-2.5 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 hover:bg-gray-200 rounded-md "
-                            >
-                              <MoreVertical className="w-3.5 h-3.5 text-gray-500" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem className="text-xs" asChild>
-                              <Link
-                                href={`/admin/tenants/${getViewTenantId(tenant)}`}
-                              >
-                                <Eye className="w-3 h-3 mr-2" /> View Details
-                              </Link>
-                            </DropdownMenuItem>
-                            {/* ✅ ADD THIS RESTORE BUTTON FOR DELETED TAB */}
-                            {activeTab === "deleted" && (
-                              <DropdownMenuItem
-                                className="text-xs text-green-600"
-                                onClick={() =>
-                                  handleRestoreVacatedTenant(tenant)
-                                }
-                              >
-                                <RefreshCw className="w-3 h-3 mr-2" /> Restore
-                                to Vacated
-                              </DropdownMenuItem>
-                            )}
-
-                            {can("edit_tenants") && activeTab !== "deleted" && (
-                              <DropdownMenuItem
-                                className="text-xs"
-                                onClick={async () => {
-                                  // Fetch full tenant data before opening edit dialog
-                                  setLoading(true);
-                                  try {
-                                    const fullTenant = await getTenant(
-                                      tenant.id,
-                                    );
-                                    if (fullTenant.success && fullTenant.data) {
-                                      setSelectedTenant(fullTenant.data);
-                                      setIsEditDialogOpen(true);
-                                    } else {
-                                      toast.error(
-                                        "Failed to load tenant details",
-                                      );
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      "Error loading tenant:",
-                                      error,
-                                    );
-                                    toast.error(
-                                      "Failed to load tenant details",
-                                    );
-                                  } finally {
-                                    setLoading(false);
-                                  }
-                                }}
-                              >
-                                <Edit className="w-3 h-3 mr-2" /> Edit
-                              </DropdownMenuItem>
-                            )}
-                            {can("manage_tenant_credentials") &&
-                              activeTab !== "deleted" && (
-                                <DropdownMenuItem
-                                  className="text-xs"
-                                  onClick={() => {
-                                    setSelectedTenant(tenant);
-                                    setCredentialPassword("");
-                                    setIsCredentialDialogOpen(true);
-                                  }}
-                                >
-                                  <Key className="w-3 h-3 mr-2 text-gray-500" />{" "}
-                                  {tenant.has_credentials
-                                    ? "Reset Password"
-                                    : "Create Login"}
-                                </DropdownMenuItem>
-                              )}
-
-                            {can("manage_tenant_portal") &&
-                              activeTab !== "deleted" && (
-                                <DropdownMenuItem
-                                  className="text-xs"
-                                  onClick={() =>
-                                    handleTogglePortalAccess(tenant)
-                                  }
-                                >
-                                  <Globe className="w-3 h-3 mr-2 text-gray-500" />{" "}
-                                  {tenant.portal_access_enabled
-                                    ? "Disable Portal"
-                                    : "Enable Portal"}
-                                </DropdownMenuItem>
-                              )}
-
-                            {can("delete_tenants") &&
-                              activeTab !== "deleted" && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-xs text-red-600"
-                                    onClick={() => handleDelete(tenant)}
-                                  >
-                                    <Trash2 className="w-3 h-3 mr-2" /> Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
+                {/* ── Vacated Date ── */}
+                {(activeTab === "vacated" || activeTab === "deleted") && (
+                  <td className="px-2 py-2 text-[10px] text-gray-600 whitespace-nowrap">
+                    {tenant.has_vacated && vacateRecord?.requested_vacate_date ? (
+                      new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    ) : "—"}
+                  </td>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
+
         {/* ── STICKY PAGINATION BAR ── */}
         {!loading && tenants.length > 0 && (
           <div className="sticky bottom-0 z-10 bg-white border-t border-gray-200 shadow-sm">

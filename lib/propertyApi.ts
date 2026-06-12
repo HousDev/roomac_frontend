@@ -412,9 +412,7 @@ export async function getBulkPropertyAnalytics(propertyIds: (number | string)[])
   }
 }
 
-// lib/propertyApi.ts
 
-// lib/propertyApi.ts
 export const getPropertyOccupancyStats = async (propertyId: string) => {
   try {
     const response = await fetch(`/api/properties/${propertyId}/occupancy-stats`);

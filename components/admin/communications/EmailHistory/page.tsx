@@ -4458,25 +4458,7 @@ const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-
 
         {/* Search + Pills */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
-          {/* <div className="flex items-center gap-1.5 bg-white border border-[#E4E8F0] rounded-lg px-2.5 py-1.5 flex-1 min-w-[120px] md:min-w-[200px]">
-            <input
-              value={search}
-              onChange={handleSearch}
-              placeholder="Search name, email, subject…"
-              className="border-none bg-transparent text-xs text-[#1A2340] outline-none w-full font-inherit"
-            />
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setPage(1);
-                }}
-                className="border-none bg-transparent text-[#9BA5BF] cursor-pointer text-sm"
-              >
-                ×
-              </button>
-            )}
-          </div> */}
+       
           {pills.map((p) => (
             <FilterPill
               key={p.key}
@@ -4490,32 +4472,7 @@ const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-
         </div>
 
         {/* Bulk Action Bar */}
-        {someSelected && (
-         <div className="flex items-center gap-1.5 bg-[#E6F1FB] border border-[#185FA5] rounded-lg px-2 py-1.5 mb-2 flex-nowrap overflow-x-auto">
-  <span className="text-[10px] font-semibold text-[#185FA5] whitespace-nowrap shrink-0">
-    {selectedIds.size} selected
-  </span>
-  <button
-    onClick={handleBulkDelete}
-    disabled={bulkDeleting}
-    className="bg-[#A32D2D] text-white border-none rounded-md px-2 py-1 text-[10px] font-semibold disabled:opacity-60 whitespace-nowrap shrink-0"
-  >
-    {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
-  </button>
-  <button
-    onClick={() => exportToExcel(logs.filter((r) => selectedIds.has(r.id)), "selected_logs")}
-    className="bg-[#0F6E56] text-white border-none rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shrink-0"
-  >
-    Export
-  </button>
-  <button
-    onClick={() => setSelectedIds(new Set())}
-    className="border border-[#185FA5] text-[#185FA5] rounded-md px-2 py-1 text-[10px] cursor-pointer ml-auto whitespace-nowrap shrink-0 bg-transparent"
-  >
-    Clear
-  </button>
-</div>
-        )}
+       
 
         {/* Table */}
         <div className="bg-white border border-[#E4E8F0] rounded-xl ">

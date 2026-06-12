@@ -126,16 +126,18 @@ original_id?: number;
     created_at: string;
   }>;
   current_assignment?: {
-    id: number;
-    room_id: number;
-    bed_number: number;
-    tenant_gender: string;
-    is_available: boolean;
-    room_number: string;
-    property_name: string;
-    property_id: number;
-    
-  };
+  id: number;
+  room_id: number;
+  bed_number: number;
+  tenant_gender: string;
+  is_available: boolean;
+  room_number: string;
+  property_name: string;
+  property_id: number;
+  tenant_rent?: number | string;
+  rent_per_bed?: number | string;
+  security_deposit?: number | string;
+};
   assigned_room_id?: number;
   assigned_bed_number?: number;
   assigned_room_number?: string;
