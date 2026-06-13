@@ -570,6 +570,7 @@ const loadDetailedStats = async () => {
 
   const loadPayments = async () => {
     try {
+      
       const response = await paymentApi.getPayments();
       if (response.success) {
         setPayments(response.data || []);
@@ -1943,16 +1944,17 @@ const groupPaymentsByTenant = (
 
   payments.forEach((payment) => {
     const tenantId = payment.tenant_id;
-    const tenantName = getTenantName(tenantId);
+    const firstPayment = payments.find((p: any) => p.tenant_id === tenantId);
+const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
     const tenantPhone = getTenantPhone(tenantId);
     const completeTenant = tenants.find((t) => t.id === tenantId);
 
     if (!grouped[tenantId]) {
       grouped[tenantId] = {
         tenant_id: tenantId,
-        tenant_name: tenantName,
-        tenant_phone: tenantPhone,
-        tenant_email: completeTenant?.email || "",
+        tenant_name: firstPayment?.tenant_name || tenantName,
+  tenant_phone: firstPayment?.tenant_phone || getTenantPhone(tenantId),
+  tenant_email: completeTenant?.email || firstPayment?.tenant_email || "",
         tenant_salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
         tenant_country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
         total_amount: 0,

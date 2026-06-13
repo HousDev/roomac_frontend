@@ -91,7 +91,9 @@ const PERMISSIONS_LIST = [
 { action: "approve_payments", label: "Approve Payments", module: "Payments" },
 { action: "reject_payments", label: "Reject Payments", module: "Payments" },
 { action: "view_receipts", label: "View Receipts", module: "Payments" },
+{ action: "view_demand_payments", label: "View Demand Payments", module: "Payments" },
 { action: "send_demand_payment", label: "Send Demand Payment", module: "Payments" },
+{ action: "view_payments_assigned_only", label: "View Only Assigned Property Payments", module: "Payments" },
 
 
  { action: "view_expenses", label: "View Expenses", module: "Expenses" },
