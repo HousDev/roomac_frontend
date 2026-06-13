@@ -63,6 +63,8 @@ const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set())
 const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const { can } = useAuth();
+const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
   // Search filters for all columns
   const [searchFilters, setSearchFilters] = useState({
@@ -464,35 +466,42 @@ const handleBulkDelete = async () => {
       </div>
       {/* Bulk Actions Bar */}
 {can('delete_requests') && selectedRequests.size > 0 && (
-  <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
-    <div className="flex items-center gap-3">
-      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-        {selectedRequests.size} {selectedRequests.size === 1 ? 'request' : 'requests'} selected
+  <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-2 sm:p-3 animate-in slide-in-from-top-2">
+    <div className="flex items-center justify-between gap-2">
+      
+      <Badge
+        variant="secondary"
+        className="bg-blue-100 text-blue-700 text-xs sm:text-sm whitespace-nowrap"
+      >
+        {selectedRequests.size}{" "}
+        {selectedRequests.size === 1 ? "request" : "requests"} selected
       </Badge>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => setSelectedRequests(new Set())}
-        className="text-gray-500 hover:text-gray-700"
-      >
-        <X className="h-4 w-4 mr-1" />
-        Clear
-      </Button>
-    </div>
-    <div className="flex gap-2">
-      <Button 
-        variant="destructive" 
-        size="sm"
-        onClick={() => setShowBulkDeleteDialog(true)}
-        className="bg-red-600 hover:bg-red-700"
-      >
-        <XCircle className="h-4 w-4 mr-1" />
-        Delete Selected
-      </Button>
+
+      <div className="flex items-center gap-1 sm:gap-2 ml-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSelectedRequests(new Set())}
+          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setShowBulkDeleteDialog(true)}
+          className="h-7 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm bg-red-600 hover:bg-red-700"
+        >
+          <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Delete Selected</span>
+          <span className="sm:hidden">Delete</span>
+        </Button>
+      </div>
+
     </div>
   </div>
 )}
-
       {/* Main Table Card */}
       <Card className="shadow-sm border-0  sticky top-48 z-10">
        
@@ -508,336 +517,417 @@ const handleBulkDelete = async () => {
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              {/* Scrollable Table - No horizontal scroll */}
-<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedRequests.size > 0 
-    ? 'max-h-[310px] md:max-h-[400px]'
-    : 'max-h-[390px] md:max-h-[480px]'
-}`}>                <Table className="w-full ">
-                  <TableHeader className=" bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-  {can('delete_requests') && (
-  <div className="py-2 flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
-      onCheckedChange={handleSelectAll}
-      aria-label="Select all"
-    />
-  </div>
-  )}
-</TableHead>
-                      {/* ID Column */}
-                      <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                            <span className="font-semibold text-gray-700 text-xs">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search ID..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.id}
-                            onChange={(e) => handleSearchChange('id', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Tenant Column */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Title Column */}
-                      <TableHead className="w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Title</span>
-                          <Input 
-                            placeholder="Search title..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.title}
-                            onChange={(e) => handleSearchChange('title', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Property Column */}
-                      <TableHead className="w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Property</span>
-                          <Input 
-                            placeholder="Search property..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.property}
-                            onChange={(e) => handleSearchChange('property', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Priority Column */}
-                      <TableHead className="w-[110px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                            <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.priority} 
-                            onValueChange={(value) => handleSearchChange('priority', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Status Column */}
-                      <TableHead className="w-[130px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
-                            <span className="font-semibold text-gray-700 text-xs">Status</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.status} 
-                            onValueChange={(value) => handleSearchChange('status', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="resolved">Resolved</SelectItem>
-                              <SelectItem value="closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Assigned To Column */}
-                      <TableHead className="w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Assigned To</span>
-                          <Input 
-                            placeholder="Search assigned..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.assignedTo}
-                            onChange={(e) => handleSearchChange('assignedTo', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Date Column */}
-                      <TableHead className="w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                            <span className="font-semibold text-gray-700 text-xs">Date</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.date}
-                            onChange={(e) => handleSearchChange('date', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Actions Column */}
-                      <TableHead className="w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700 text-xs">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {filteredRequests.map((request, index) => (
-                      <TableRow 
-                        key={request.id} 
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
-                      >
-                        {/* Checkbox Cell */}
-<TableCell className="w-[50px]">
-  {can('delete_requests') && (
-  <div className="flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.has(request.id)}
-      onCheckedChange={() => handleSelectRequest(request.id)}
-      aria-label={`Select request ${request.id}`}
-    />
-  </div>
-  )}
-</TableCell>
-                        <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
-                          <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                            #{request.id}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="font-medium flex items-center gap-1">
-                              <User className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.tenant_name || "Unknown"}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {request.tenant_email || "No email"}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="font-medium text-xs truncate">
-                              {request.title}
-                            </div>
-                            {request.maintenance_data && (
-                              <div className="flex items-center gap-1">
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  {request.maintenance_data.issue_category}
-                                </Badge>
-                                {request.maintenance_data.location && (
-                                  <span className="text-[10px] text-gray-500 truncate">
-                                    • {request.maintenance_data.location}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="flex items-center gap-1">
-                            <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs truncate">
-                              {request.property_name || "N/A"}
-                            </span>
-                          </div>
-                          {request.room_number && (
-                            <div className="text-[10px] text-gray-500 mt-0.5 truncate">
-                              Room: {request.room_number}
-                            </div>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          {getPriorityBadge(request.priority)}
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {getStatusBadge(request.status)}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          {request.staff_name ? (
-                            <div>
-                              <div className="text-xs font-medium truncate">
-                                {request.staff_name}
-                              </div>
-                              {request.staff_role && (
-                                <div className="text-[10px] text-gray-500 truncate">
-                                  {request.staff_role}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">Unassigned</span>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-xs whitespace-nowrap">
-                            {new Date(request.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </div>
-                          <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {new Date(request.created_at).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
-                                disabled={updating}
-                              >
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuLabel className="text-xs text-blue-600">Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleViewDetails(request)}
-                                className="cursor-pointer text-xs"
-                              >
-                                <Eye className="h-3.5 w-3.5 mr-2" />
-                                View Details
-                              </DropdownMenuItem>
-                              {can('manage_maintenance') && (
+         <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedRequests.size > 0 
+      ? 'max-h-[260px] md:max-h-[360px]'
+      : 'max-h-[390px] md:max-h-[440px]'
+  }`}>
+    <table className="w-full min-w-[1200px] table-fixed border-collapse">
 
-                              <DropdownMenuItem
-                                onClick={() => handleOpenAssignStaff(request)}
-                                className="cursor-pointer text-xs"
-                              >
-                                <UserPlus className="h-3.5 w-3.5 mr-2" />
-                                Assign Staff
-                              </DropdownMenuItem>
-                              )}
-                              {can('manage_maintenance') && (
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b-2 border-blue-200">
 
-                              <DropdownMenuItem
-                                onClick={() => handleOpenUpdateStatus(request)}
-                                className="cursor-pointer text-xs"
-                              >
-                                <Settings className="h-3.5 w-3.5 mr-2" />
-                                Update Status
-                              </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox 
+                  checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
               </div>
+            )}
+          </th>
+
+          {/* ID - 80px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search ID..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.id}
+                onChange={(e) => handleSearchChange('id', e.target.value)}
+              />
             </div>
+          </th>
+
+          {/* Actions - 100px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[100px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Tenant - 160px */}
+          <th className="w-[160px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+              <Input 
+                placeholder="Search tenant..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Title - remaining */}
+          <th className="bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Title</span>
+              <Input 
+                placeholder="Search title..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.title}
+                onChange={(e) => handleSearchChange('title', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Property - 140px */}
+          <th className="w-[140px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Property</span>
+              <Input 
+                placeholder="Search property..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.property}
+                onChange={(e) => handleSearchChange('property', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Priority - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
+                <span className="font-semibold text-gray-700 text-xs">Priority</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.priority} 
+                onValueChange={(value) => handleSearchChange('priority', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
+                <span className="font-semibold text-gray-700 text-xs">Status</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.status} 
+                onValueChange={(value) => handleSearchChange('status', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Assigned To - 130px */}
+          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Assigned To</span>
+              <Input 
+                placeholder="Search assigned..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.assignedTo}
+                onChange={(e) => handleSearchChange('assignedTo', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Date - 120px */}
+          <th className="w-[120px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                <span className="font-semibold text-gray-700 text-xs">Date</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.date}
+                onChange={(e) => handleSearchChange('date', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {filteredRequests
+          .slice(
+            (currentPage - 1) * (itemsPerPage === 'all' ? filteredRequests.length : Number(itemsPerPage)),
+            currentPage * (itemsPerPage === 'all' ? filteredRequests.length : Number(itemsPerPage))
+          )
+          .map((request, index) => {
+            const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
+            return (
+              <tr
+                key={request.id}
+                className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
+              >
+                {/* Checkbox - sticky */}
+                <td className={`md:sticky md:left-0 z-[10] w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {can('delete_requests') && (
+                    <div className="flex justify-center">
+                      <Checkbox 
+                        checked={selectedRequests.has(request.id)}
+                        onCheckedChange={() => handleSelectRequest(request.id)}
+                        aria-label={`Select request ${request.id}`}
+                      />
+                    </div>
+                  )}
+                </td>
+
+                {/* ID - sticky */}
+                <td className={`md:sticky md:left-[40px] z-[10] w-[80px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                    <span className="truncate">#{request.id}</span>
+                  </div>
+                </td>
+
+                {/* Actions - sticky - icon buttons with labels */}
+                <td className={`md:sticky md:left-[120px] z-[10] w-[100px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-0.5">
+                    {/* View */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                      title="View Details"
+                      onClick={() => handleViewDetails(request)}
+                    >
+                      <Eye className="h-3.5 w-3.5 text-blue-500" />
+                    </Button>
+
+                    {/* Assign Staff */}
+                    {can('manage_maintenance') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
+                        title="Assign Staff"
+                        onClick={() => handleOpenAssignStaff(request)}
+                      >
+                        <UserPlus className="h-3.5 w-3.5 text-green-600" />
+                      </Button>
+                    )}
+
+                    {/* Update Status */}
+                    {can('manage_maintenance') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                        title="Update Status"
+                        onClick={() => handleOpenUpdateStatus(request)}
+                      >
+                        <Settings className="h-3.5 w-3.5 text-purple-500" />
+                      </Button>
+                    )}
+                  </div>
+                </td>
+
+                {/* Tenant */}
+                <td className={`w-[160px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                      <User className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {request.tenant_name || "Unknown"}
+                      </div>
+                      <div className="text-[10px] text-gray-500 truncate">
+                        {request.tenant_email || "No email"}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                {/* Title */}
+                <td className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-medium text-gray-800 line-clamp-1">
+                      {request.title}
+                    </div>
+                    {request.maintenance_data && (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 border-0 shadow-sm flex-shrink-0">
+                          {request.maintenance_data.issue_category}
+                        </Badge>
+                        {request.maintenance_data.location && (
+                          <span className="text-[10px] text-gray-500 truncate">
+                            • {request.maintenance_data.location}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </td>
+
+                {/* Property */}
+                <td className={`w-[140px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs truncate">{request.property_name || "N/A"}</span>
+                  </div>
+                  {request.room_number && (
+                    <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                      Room: {request.room_number}
+                    </div>
+                  )}
+                </td>
+
+                {/* Priority */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {getPriorityBadge(request.priority)}
+                </td>
+
+                {/* Status */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {getStatusBadge(request.status)}
+                </td>
+
+                {/* Assigned To */}
+                <td className={`w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {request.staff_name ? (
+                    <div>
+                      <div className="text-xs font-medium truncate">{request.staff_name}</div>
+                      {request.staff_role && (
+                        <div className="text-[10px] text-gray-500 truncate">{request.staff_role}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Unassigned</span>
+                  )}
+                </td>
+
+                {/* Date */}
+                <td className={`w-[120px] ${rowBgClass} py-2 px-2`}>
+                  <div className="text-xs font-medium whitespace-nowrap">
+                    {new Date(request.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                  <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                    {new Date(request.created_at).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </div>
+                </td>
+
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination - complaint table jaisa */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+
+      {/* Left */}
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          {filteredRequests.length}/{requests.length} requests
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={itemsPerPage.toString()}
+            onValueChange={(val) => {
+              setItemsPerPage(val === "all" ? "all" : parseInt(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {currentPage}/
+          {Math.ceil(
+            filteredRequests.length /
+              (itemsPerPage === "all" ? filteredRequests.length : Number(itemsPerPage))
+          ) || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={
+            currentPage >=
+            Math.ceil(
+              filteredRequests.length /
+                (itemsPerPage === "all" ? filteredRequests.length : Number(itemsPerPage))
+            )
+          }
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>

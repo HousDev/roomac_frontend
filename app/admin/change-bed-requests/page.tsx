@@ -615,12 +615,7 @@ const handleBulkDelete = async () => {
 </div>
       {/* Main Table Card */}
       <Card className="shadow-sm border-0 overflow-hidden mb-2">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Change Bed Requests</CardTitle>
-          <CardDescription className="text-xs">
-            Showing {currentItems.length} of {sortedRequests.length} requests
-          </CardDescription>
-        </CardHeader>
+       
         <CardContent className="p-0">
           {filteredRequests.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
@@ -635,361 +630,396 @@ const handleBulkDelete = async () => {
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              {/* Scrollable Table */}
-<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedRequests.size > 0
-    ? 'max-h-[170px] md:max-h-[410px]'
-    : 'max-h-[310px] md:max-h-[410px]'
-}`}>                <Table className="w-full">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      {/* Checkbox Column */}
-<TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-   {can('delete_requests') && (
+          <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedRequests.size > 0
+      ? 'max-h-[200px] md:max-h-[380px]'
+      : 'max-h-[290px] md:max-h-[380px]'
+  }`}>
+    <table className="w-full min-w-[1200px] table-fixed border-collapse">
 
-  <div className="py-2 flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
-      onCheckedChange={handleSelectAll}
-      aria-label="Select all"
-    />
-  </div>
-   )}
-</TableHead>
-                      {/* ID Column */}
-                      <TableHead className="w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_request_id')}>
-                            <span className="font-semibold text-gray-700 text-xs">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="ID..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.id}
-                            onChange={(e) => handleSearchChange('id', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Tenant Column */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
-                            <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Current Room Column */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Current Room</span>
-                          <Input 
-                            placeholder="Search..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.current_room}
-                            onChange={(e) => handleSearchChange('current_room', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Requested Room Column */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Requested Room</span>
-                          <Input 
-                            placeholder="Search..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.requested_room}
-                            onChange={(e) => handleSearchChange('requested_room', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Shifting Date Column */}
-                      <TableHead className="w-[130px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('shifting_date')}>
-                            <span className="font-semibold text-gray-700 text-xs">Shifting</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.shifting_date}
-                            onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Status Column */}
-                      <TableHead className="w-[110px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('request_status')}>
-                            <span className="font-semibold text-gray-700 text-xs">Status</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.status} 
-                            onValueChange={(value) => handleSearchChange('status', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="approved">Approved</SelectItem>
-                              <SelectItem value="rejected">Rejected</SelectItem>
-                              <SelectItem value="processed">Processed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Priority Column */}
-                      <TableHead className="w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                            <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.priority} 
-                            onValueChange={(value) => handleSearchChange('priority', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Created Date Column */}
-                      <TableHead className="w-[110px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                            <span className="font-semibold text-gray-700 text-xs">Created</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.created}
-                            onChange={(e) => handleSearchChange('created', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Actions Column */}
-                      <TableHead className="w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700 text-xs">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {currentItems.map((request, index) => (
-                      <TableRow 
-                        key={request.id} 
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
-                      >
-                        {/* Checkbox Cell */}
-<TableCell className="w-[50px]">
-    {can('delete_requests') && (
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b-2 border-blue-200">
 
-  <div className="flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.has(request.id)}
-      onCheckedChange={() => handleSelectRequest(request.id)}
-      aria-label={`Select request ${request.id}`}
-    />
-  </div>
-    )}
-</TableCell>
-                        <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
-                          <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                            #{request.tenant_request_id}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="font-medium flex items-center gap-1">
-                              <User className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.tenant_name}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
-                              <Phone className="h-2 w-2" />
-                              {request.tenant_phone}
-                            </div>
-                            {request.tenant_email && (
-                              <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
-                                <Mail className="h-2 w-2" />
-                                {request.tenant_email}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.current_property_name}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              R{request.current_room_number} • B{request.current_bed_number}
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              ₹{request.current_rent}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.requested_property_name}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              R{request.requested_room_number}
-                              {request.assigned_bed_number && ` • B${request.assigned_bed_number}`}
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              ₹{request.requested_rent}
-                            </div>
-                            <div className="text-[10px] text-gray-500">
-                              {request.requested_occupied_beds}/{request.requested_total_beds} occ
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          {request.shifting_date ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 text-gray-400" />
-                                <span className="text-xs">
-                                  {format(new Date(request.shifting_date), 'dd MMM')}
-                                </span>
-                              </div>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                {new Date(request.shifting_date) > new Date() ? 'Upcoming' : 'Past'}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-500">Not specified</span>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          {getStatusBadge(request.request_status)}
-                        </TableCell>
-                        
-                        <TableCell>
-                          {getPriorityBadge(request.priority)}
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-xs whitespace-nowrap">
-                            {format(new Date(request.created_at), 'dd MMM')}
-                          </div>
-                          <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {format(new Date(request.created_at), 'hh:mm a')}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => viewRequestDetails(request.id)}
-                              className="h-7 w-7 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {can('manage_change_bed') && (
-
-                            <Button
-                              size="sm"
-                              onClick={() => openStatusUpdateDialog(request)}
-                              className="h-7 px-2 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                            >
-                              Update
-                            </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox 
+                  checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
               </div>
+            )}
+          </th>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t bg-white">
-                  <div className="text-xs text-gray-500">
-                    Showing {startIndex + 1} to {Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length} entries
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                      disabled={pagination.page <= 1}
-                      className="h-8 text-xs"
-                    >
-                      <ChevronLeft className="h-3 w-3 mr-1" />
-                      Previous
-                    </Button>
-                    <span className="text-xs text-gray-600">
-                      Page {pagination.page} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={pagination.page >= totalPages}
-                      className="h-8 text-xs"
-                    >
-                      Next
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  </div>
+          {/* ID - 80px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_request_id')}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search ID..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.id}
+                onChange={(e) => handleSearchChange('id', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Actions - 90px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Tenant - 170px */}
+          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
+                <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search tenant..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Current Room - 170px */}
+          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Current Room</span>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.current_room}
+                onChange={(e) => handleSearchChange('current_room', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Requested Room - 170px */}
+          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Requested Room</span>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.requested_room}
+                onChange={(e) => handleSearchChange('requested_room', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Shifting Date - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('shifting_date')}>
+                <span className="font-semibold text-gray-700 text-xs">Shifting</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.shifting_date}
+                onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('request_status')}>
+                <span className="font-semibold text-gray-700 text-xs">Status</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.status} 
+                onValueChange={(value) => handleSearchChange('status', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="processed">Processed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Priority - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
+                <span className="font-semibold text-gray-700 text-xs">Priority</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.priority} 
+                onValueChange={(value) => handleSearchChange('priority', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Created - 120px */}
+          <th className="w-[120px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                <span className="font-semibold text-gray-700 text-xs">Created</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.created}
+                onChange={(e) => handleSearchChange('created', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {currentItems.map((request, index) => (
+          <tr
+            key={request.id}
+            className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
+              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+            }`}
+          >
+            {/* Checkbox - sticky white */}
+            <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+              {can('delete_requests') && (
+                <div className="flex justify-center">
+                  <Checkbox 
+                    checked={selectedRequests.has(request.id)}
+                    onCheckedChange={() => handleSelectRequest(request.id)}
+                    aria-label={`Select request ${request.id}`}
+                  />
                 </div>
               )}
-            </div>
+            </td>
+
+            {/* ID - sticky white */}
+            <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                <span className="truncate">#{request.tenant_request_id}</span>
+              </div>
+            </td>
+
+            {/* Actions - sticky white */}
+            <td className="md:sticky md:left-[120px] z-[30] w-[90px] bg-white border-r border-gray-100 py-2 px-1">
+              <div className="flex items-center gap-0.5 flex-nowrap">
+                {/* View */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => viewRequestDetails(request.id)}
+                  className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                  title="View Details"
+                >
+                  <Eye className="h-3 w-3 text-blue-500" />
+                </Button>
+
+                {/* Update Status */}
+                {can('manage_change_bed') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => openStatusUpdateDialog(request)}
+                    className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                    title="Update Status"
+                  >
+                    <Settings className="h-3 w-3 text-purple-500" />
+                  </Button>
+                )}
+              </div>
+            </td>
+
+            {/* Tenant */}
+            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="flex items-center gap-1">
+                <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                  <User className="h-3 w-3 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium truncate">
+                    {request.tenant_name}
+                  </div>
+                  <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                    <Phone className="h-2 w-2 flex-shrink-0" />
+                    {request.tenant_phone}
+                  </div>
+                  {request.tenant_email && (
+                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                      <Mail className="h-2 w-2 flex-shrink-0" />
+                      {request.tenant_email}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </td>
+
+            {/* Current Room */}
+            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                <span className="text-xs truncate">{request.current_property_name}</span>
+              </div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                R{request.current_room_number} • B{request.current_bed_number}
+              </div>
+              <div className="text-[10px] text-gray-500">
+                ₹{request.current_rent}
+              </div>
+            </td>
+
+            {/* Requested Room */}
+            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                <span className="text-xs truncate">{request.requested_property_name}</span>
+              </div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                R{request.requested_room_number}
+                {request.assigned_bed_number && ` • B${request.assigned_bed_number}`}
+              </div>
+              <div className="text-[10px] text-gray-500">
+                ₹{request.requested_rent}
+              </div>
+              <div className="text-[10px] text-gray-500">
+                {request.requested_occupied_beds}/{request.requested_total_beds} occ
+              </div>
+            </td>
+
+            {/* Shifting Date */}
+            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              {request.shifting_date ? (
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs whitespace-nowrap">
+                      {format(new Date(request.shifting_date), 'dd MMM yyyy')}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-0 shadow-sm">
+                    {new Date(request.shifting_date) > new Date() ? 'Upcoming' : 'Past'}
+                  </Badge>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400">Not specified</span>
+              )}
+            </td>
+
+            {/* Status */}
+            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              {getStatusBadge(request.request_status)}
+            </td>
+
+            {/* Priority */}
+            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              {getPriorityBadge(request.priority)}
+            </td>
+
+            {/* Created */}
+            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
+              <div className="text-xs font-medium whitespace-nowrap">
+                {format(new Date(request.created_at), 'dd MMM yyyy')}
+              </div>
+              <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                {format(new Date(request.created_at), 'hh:mm a')}
+              </div>
+            </td>
+
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+
+      {/* Left */}
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          Showing {startIndex + 1}–{Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={String(pagination.pageSize)}
+            onValueChange={(val) => {
+              handlePageChange(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(pagination.page - 1)}
+          disabled={pagination.page <= 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {pagination.page}/{totalPages || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(pagination.page + 1)}
+          disabled={pagination.page >= totalPages}
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>

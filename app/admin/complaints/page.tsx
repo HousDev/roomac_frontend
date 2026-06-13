@@ -517,21 +517,21 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
             </div>
           ) : (
        <div className="relative">
-  {/* Single scrollable container - both horizontal and vertical scrolling together */}
   <div className={`overflow-auto rounded-lg border border-gray-200 transition-all duration-300 ${
     selectedComplaints.size > 0 
-      ? 'max-h-[350px] md:max-h-[350px]'
-      : 'max-h-[380px] md:max-h-[430px]'
+      ? 'max-h-[350px] md:max-h-[380px]'
+      : 'max-h-[400px] md:max-h-[430px]'
   }`}>
     
-    {/* Single unified table */}
-    <Table className="relative min-w-[1100px] table-fixed">
-      {/* Sticky Header - stays at top when scrolling vertically */}
-      <TableHeader className="sticky top-0 z-40 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-        <TableRow className="hover:bg-transparent">
+    {/* ✅ Native table - not shadcn Table component */}
+    <table className="w-full min-w-[1100px] table-fixed border-collapse">
+
+      {/* ✅ Native thead with sticky */}
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b border-gray-200">
           
-          {/* Checkbox - 40px - sticky left only on desktop */}
-          <TableHead className="md:sticky left-0 z-50 w-[40px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          {/* Checkbox - 40px */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
             {can('delete_requests') && (
               <div className="py-2 flex justify-center">
                 <Checkbox 
@@ -541,10 +541,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 />
               </div>
             )}
-          </TableHead>
+          </th>
 
-          {/* ID - 90px - sticky left only on desktop */}
-          <TableHead className="md:sticky left-[40px] z-50 w-[90px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          {/* ID - 90px */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
                 <span className="font-semibold text-gray-700 text-xs">ID</span>
@@ -557,10 +557,16 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 onChange={(e) => handleSearchChange('id', e.target.value)}
               />
             </div>
-          </TableHead>
+          </th>
+           {/* Actions - 90px */}
+          <th className="w-[90px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
 
-          {/* Tenant - 130px - sticky left only on desktop */}
-          <TableHead className="md:sticky left-[130px] z-50 w-[130px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          {/* Tenant - 130px */}
+          <th className="md:sticky md:left-[130px] z-[60] w-[130px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Tenant</span>
               <Input 
@@ -570,25 +576,20 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 onChange={(e) => handleSearchChange('tenant', e.target.value)}
               />
             </div>
-          </TableHead>
+          </th>
 
-          {/* Actions - 90px - only sticky top */}
-          <TableHead className="sticky top-0 z-40 w-[90px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Actions</span>
-            </div>
-          </TableHead>
+         
 
           {/* Property / Room - 150px */}
-          <TableHead className="sticky top-0 z-40 w-[150px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          <th className="w-[150px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Property / Room</span>
               <div className="h-6" />
             </div>
-          </TableHead>
+          </th>
 
-          {/* Complaint Details - remaining width */}
-          <TableHead className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          {/* Complaint Details */}
+          <th className="bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Complaint Details</span>
               <Input 
@@ -598,10 +599,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 onChange={(e) => handleSearchChange('complaint', e.target.value)}
               />
             </div>
-          </TableHead>
+          </th>
 
           {/* Priority - 120px */}
-          <TableHead className="sticky top-0 z-40 w-[120px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
                 <span className="font-semibold text-gray-700 text-xs">Priority</span>
@@ -623,10 +624,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 </SelectContent>
               </Select>
             </div>
-          </TableHead>
+          </th>
 
           {/* Status - 120px */}
-          <TableHead className="sticky top-0 z-40 w-[120px] bg-white/95 backdrop-blur-sm border-r border-gray-200">
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
                 <span className="font-semibold text-gray-700 text-xs">Status</span>
@@ -648,10 +649,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 </SelectContent>
               </Select>
             </div>
-          </TableHead>
+          </th>
 
-          {/* Date & Time - 130px - no right border */}
-          <TableHead className="sticky top-0 z-40 w-[130px] bg-white/95 backdrop-blur-sm">
+          {/* Date & Time - 130px */}
+          <th className="w-[130px] bg-white text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
                 <span className="font-semibold text-gray-700 text-xs">Date & Time</span>
@@ -664,13 +665,13 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 onChange={(e) => handleSearchChange('date', e.target.value)}
               />
             </div>
-          </TableHead>
+          </th>
 
-        </TableRow>
-      </TableHeader>
+        </tr>
+      </thead>
 
-      {/* Scrollable Body */}
-      <TableBody>
+      {/* ✅ Native tbody - shadcn TableBody/TableRow/TableCell still work fine here */}
+      <tbody>
         {filteredComplaints
           .slice(
             (currentPage - 1) * (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage)),
@@ -679,12 +680,12 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
           .map((complaint, index) => {
             const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
             return (
-              <TableRow 
-                key={complaint.id} 
-                className={`hover:bg-blue-50/40 transition-colors duration-150 ${rowBgClass}`}
+              <tr
+                key={complaint.id}
+                className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
               >
-                {/* Checkbox - 40px - sticky left only on desktop */}
-                <TableCell className={`md:sticky left-0 z-30 w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Checkbox */}
+                <td className={`md:sticky md:left-0 z-[30] w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   {can('delete_requests') && (
                     <div className="flex justify-center">
                       <Checkbox 
@@ -694,30 +695,18 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                       />
                     </div>
                   )}
-                </TableCell>
+                </td>
 
-                {/* ID - 90px - sticky left only on desktop */}
-                <TableCell className={`md:sticky left-[40px] z-30 w-[90px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* ID */}
+                <td className={`md:sticky md:left-[40px] z-[30] w-[90px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   <div className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
                     <span className="truncate">#{complaint.id}</span>
                   </div>
-                </TableCell>
+                </td>
 
-                {/* Tenant - 130px - sticky left only on desktop */}
-                <TableCell className={`md:sticky left-[130px] z-30 w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="flex items-center gap-1">
-                    <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
-                      <User className="h-3 w-3 text-blue-600" />
-                    </div>
-                    <span className="text-xs font-medium truncate">
-                      {complaint.tenant_name || "Unknown"}
-                    </span>
-                  </div>
-                </TableCell>
-
-                {/* Actions - 90px */}
-                <TableCell className={`w-[90px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {/* Actions */}
+                <td className={`w-[90px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   <div className="flex items-center gap-0.5">
                     <Button
                       variant="ghost"
@@ -756,10 +745,24 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                       </Button>
                     )}
                   </div>
-                </TableCell>
+                </td>
 
-                {/* Property & Room - 150px */}
-                <TableCell className={`w-[150px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Tenant */}
+                <td className={`md:sticky md:left-[130px] z-[30] w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                      <User className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <span className="text-xs font-medium truncate">
+                      {complaint.tenant_name || "Unknown"}
+                    </span>
+                  </div>
+                </td>
+
+              
+
+                {/* Property & Room */}
+                <td className={`w-[150px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1 text-xs text-gray-700">
                       <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
@@ -772,10 +775,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                       </div>
                     )}
                   </div>
-                </TableCell>
+                </td>
 
-                {/* Complaint Details - remaining */}
-                <TableCell className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Complaint Details */}
+                <td className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-1">
                       <span className="text-xs font-medium text-gray-800 line-clamp-1">
@@ -796,15 +799,15 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                        "No reason specified"}
                     </div>
                   </div>
-                </TableCell>
+                </td>
 
-                {/* Priority - 120px */}
-                <TableCell className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Priority */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   {getPriorityBadge(complaint.priority)}
-                </TableCell>
+                </td>
 
-                {/* Status - 120px */}
-                <TableCell className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Status */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full inline-block whitespace-nowrap
                     ${complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
                     ${complaint.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : ''}
@@ -814,10 +817,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                     {complaint.status === 'in_progress' ? 'In Progress' : 
                      complaint.status?.charAt(0).toUpperCase() + complaint.status?.slice(1) || 'Pending'}
                   </span>
-                </TableCell>
+                </td>
 
-                {/* Date & Time - 130px */}
-                <TableCell className={`w-[130px] ${rowBgClass} py-2 px-2`}>
+                {/* Date & Time */}
+                <td className={`w-[130px] ${rowBgClass} py-2 px-2`}>
                   <div className="space-y-0.5">
                     <div className="text-xs font-medium whitespace-nowrap">
                       {new Date(complaint.created_at).toLocaleDateString('en-US', {
@@ -833,95 +836,80 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                       })}
                     </div>
                   </div>
-                </TableCell>
+                </td>
 
-              </TableRow>
+              </tr>
             );
           })}
-      </TableBody>
-    </Table>
+      </tbody>
+    </table>
   </div>
 
-  {/* Pagination - sticky at bottom */}
-<div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-    
-    {/* Left */}
-    <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
-      <span className="text-gray-500 whitespace-nowrap">
-        {filteredComplaints.length}/{complaints.length} complaints
-      </span>
-
-      <div className="flex items-center gap-1">
-        <span className="hidden sm:inline text-gray-600">
-          Rows:
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          {filteredComplaints.length}/{complaints.length} complaints
         </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={itemsPerPage.toString()}
+            onValueChange={(val) => {
+              setItemsPerPage(val === "all" ? "all" : parseInt(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-        <Select
-          value={itemsPerPage.toString()}
-          onValueChange={(val) => {
-            setItemsPerPage(val === "all" ? "all" : parseInt(val));
-            setCurrentPage(1);
-          }}
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
         >
-          <SelectTrigger className="h-7 w-[58px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="10">10</SelectItem>
-            <SelectItem value="50">50</SelectItem>
-            <SelectItem value="100">100</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-          </SelectContent>
-        </Select>
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {currentPage}/
+          {Math.ceil(
+            filteredComplaints.length /
+              (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
+          ) || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={
+            currentPage >=
+            Math.ceil(
+              filteredComplaints.length /
+                (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
+            )
+          }
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
       </div>
     </div>
-
-    {/* Right */}
-    <div className="flex items-center justify-between sm:justify-end gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() =>
-          setCurrentPage((prev) => Math.max(prev - 1, 1))
-        }
-        disabled={currentPage === 1}
-        className="h-7 px-2 text-[11px]"
-      >
-        Prev
-      </Button>
-
-      <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
-        {currentPage}/
-        {Math.ceil(
-          filteredComplaints.length /
-            (itemsPerPage === "all"
-              ? filteredComplaints.length
-              : Number(itemsPerPage))
-        ) || 1}
-      </span>
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setCurrentPage((prev) => prev + 1)}
-        disabled={
-          currentPage >=
-          Math.ceil(
-            filteredComplaints.length /
-              (itemsPerPage === "all"
-                ? filteredComplaints.length
-                : Number(itemsPerPage))
-          )
-        }
-        className="h-7 px-2 text-[11px]"
-      >
-        Next
-      </Button>
-    </div>
   </div>
-</div>
 </div>
           )}
         </CardContent>
