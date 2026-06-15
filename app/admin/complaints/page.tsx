@@ -77,6 +77,9 @@ export default function ComplaintsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [adminNotes, setAdminNotes] = useState("");
   const { can } = useAuth();
+  // Add these with your other state declarations
+const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
   // Add these state variables for search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -375,7 +378,7 @@ export default function ComplaintsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
+      <div className="flex flex-col items-center justify-center  gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
         <p className="text-gray-600">Loading complaints...</p>
       </div>
@@ -465,34 +468,42 @@ export default function ComplaintsPage() {
 
       {/* Bulk Actions Bar */}
 {can('delete_requests') && selectedComplaints.size > 0 && (
-        <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-              {selectedComplaints.size} {selectedComplaints.size === 1 ? 'complaint' : 'complaints'} selected
-            </Badge>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setSelectedComplaints(new Set())}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="destructive" 
-              size="sm"
-              onClick={() => setShowBulkDeleteDialog(true)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <XCircle className="h-4 w-4 mr-1" />
-              Delete Selected
-            </Button>
-          </div>
-        </div>
-      )}
+  <div className="sticky top-36 z-10 mb-3 bg-white rounded-lg border border-blue-200 shadow-sm px-2 py-2">
+    <div className="flex items-center justify-between gap-2 overflow-x-auto">
+      
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge
+          variant="secondary"
+          className="bg-blue-100 text-blue-700 text-[10px] sm:text-xs px-2 py-0.5 h-6 whitespace-nowrap"
+        >
+          {selectedComplaints.size}{" "}
+          {selectedComplaints.size === 1 ? "complaint" : "complaints"} selected
+        </Badge>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSelectedComplaints(new Set())}
+          className="h-6 px-1.5 text-[11px] text-gray-500 hover:text-gray-700 whitespace-nowrap"
+        >
+          <X className="h-3 w-3 mr-1" />
+          Clear
+        </Button>
+
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setShowBulkDeleteDialog(true)}
+          className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700 whitespace-nowrap"
+        >
+          <XCircle className="h-3 w-3 mr-1" />
+          Delete Selected
+        </Button>
+      </div>
+
+    </div>
+  </div>
+)}
 
       <Card className="shadow-sm border-0 sticky top-44 z-10">
         <CardContent className="p-0">
@@ -505,296 +516,401 @@ export default function ComplaintsPage() {
               <p className="text-gray-500 mb-4">No tenant complaints have been submitted yet.</p>
             </div>
           ) : (
-            <div className="relative">
-              <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-                selectedComplaints.size > 0 
-                  ? 'max-h-[300px] md:max-h-[390px]'
-                  : 'max-h-[380px] md:max-h-[480px]'
-              }`}>
-                <Table className="relative">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                          {can('delete_requests') && (
+       <div className="relative">
+  <div className={`overflow-auto rounded-lg border border-gray-200 transition-all duration-300 ${
+    selectedComplaints.size > 0 
+      ? 'max-h-[350px] md:max-h-[380px]'
+      : 'max-h-[400px] md:max-h-[430px]'
+  }`}>
+    
+    {/* ✅ Native table - not shadcn Table component */}
+    <table className="w-full min-w-[1100px] table-fixed border-collapse">
 
-                        <div className="py-2 flex justify-center">
-                          <Checkbox 
-                            checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
-                            onCheckedChange={handleSelectAll}
-                            aria-label="Select all"
-                          />
-                        </div>
-                          )}
-                      </TableHead>
-                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                            <span className="font-semibold text-gray-700">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search ID..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.id}
-                            onChange={(e) => handleSearchChange('id', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700">Tenant</span>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[250px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700">Complaint Details</span>
-                          <Input 
-                            placeholder="Search complaints..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.complaint}
-                            onChange={(e) => handleSearchChange('complaint', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[120px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                            <span className="font-semibold text-gray-700">Priority</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.priority} 
-                            onValueChange={(value) => handleSearchChange('priority', value)}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-gray-200">
-                              <SelectValue placeholder="All Priorities" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Priorities</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
-                            <span className="font-semibold text-gray-700">Status</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.status} 
-                            onValueChange={(value) => handleSearchChange('status', value)}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-gray-200">
-                              <SelectValue placeholder="All Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="resolved">Resolved</SelectItem>
-                              <SelectItem value="closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                            <span className="font-semibold text-gray-700">Date</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search date..." 
-                            type="date"
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.date}
-                            onChange={(e) => handleSearchChange('date', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {filteredComplaints.map((complaint, index) => (
-                      <TableRow 
-                        key={complaint.id} 
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
+      {/* ✅ Native thead with sticky */}
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b border-gray-200">
+          
+          {/* Checkbox - 40px */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox 
+                  checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
+              </div>
+            )}
+          </th>
+
+          {/* ID - 90px */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search ID..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.id}
+                onChange={(e) => handleSearchChange('id', e.target.value)}
+              />
+            </div>
+          </th>
+           {/* Actions - 90px */}
+          <th className="w-[90px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Tenant - 130px */}
+          <th className="md:sticky md:left-[130px] z-[60] w-[130px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+              <Input 
+                placeholder="Search tenant..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+         
+
+          {/* Property / Room - 150px */}
+          <th className="w-[150px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Property / Room</span>
+              <div className="h-6" />
+            </div>
+          </th>
+
+          {/* Complaint Details */}
+          <th className="bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Complaint Details</span>
+              <Input 
+                placeholder="Search complaints..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.complaint}
+                onChange={(e) => handleSearchChange('complaint', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Priority - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
+                <span className="font-semibold text-gray-700 text-xs">Priority</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.priority} 
+                onValueChange={(value) => handleSearchChange('priority', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
+                <span className="font-semibold text-gray-700 text-xs">Status</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.status} 
+                onValueChange={(value) => handleSearchChange('status', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Date & Time - 130px */}
+          <th className="w-[130px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                <span className="font-semibold text-gray-700 text-xs">Date & Time</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.date}
+                onChange={(e) => handleSearchChange('date', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      {/* ✅ Native tbody - shadcn TableBody/TableRow/TableCell still work fine here */}
+      <tbody>
+        {filteredComplaints
+          .slice(
+            (currentPage - 1) * (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage)),
+            currentPage * (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage))
+          )
+          .map((complaint, index) => {
+            const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
+            return (
+              <tr
+                key={complaint.id}
+                className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
+              >
+                {/* Checkbox */}
+                <td className={`md:sticky md:left-0 z-[30] w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {can('delete_requests') && (
+                    <div className="flex justify-center">
+                      <Checkbox 
+                        checked={selectedComplaints.has(complaint.id)}
+                        onCheckedChange={() => handleSelectComplaint(complaint.id)}
+                        aria-label={`Select complaint ${complaint.id}`}
+                      />
+                    </div>
+                  )}
+                </td>
+
+                {/* ID */}
+                <td className={`md:sticky md:left-[40px] z-[30] w-[90px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                    <span className="truncate">#{complaint.id}</span>
+                  </div>
+                </td>
+
+                  {/* Actions */}
+                <td className={`w-[90px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                      title="View Details"
+                      onClick={() => handleViewComplaint(complaint.id)}
+                    >
+                      <Eye className="h-3.5 w-3.5 text-blue-500" />
+                    </Button>
+                    
+                    {can('manage_complaints') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
+                        title="Assign Staff"
+                        onClick={() => {
+                          setSelectedComplaint(complaint);
+                          setShowAssignDialog(true);
+                        }}
                       >
-                        <TableCell className="w-[50px]">
-                            {can('delete_requests') && (
+                        <UserPlus className="h-3.5 w-3.5 text-green-600" />
+                      </Button>
+                    )}
+                    
+                    {can('manage_complaints') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                        title="Update Status"
+                        onClick={() => handleOpenStatusDialog(complaint)}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-purple-500" />
+                      </Button>
+                    )}
+                  </div>
+                </td>
 
-                          <div className="flex justify-center">
-                            <Checkbox 
-                              checked={selectedComplaints.has(complaint.id)}
-                              onCheckedChange={() => handleSelectComplaint(complaint.id)}
-                              aria-label={`Select complaint ${complaint.id}`}
-                            />
-                          </div>
-                            )}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm font-medium text-blue-600">
-                          <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                            #{complaint.id}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1.5">
-                            <div className="font-medium flex items-center gap-1.5">
-                              <div className="bg-blue-100 p-1 rounded-full">
-                                <User className="h-3 w-3 text-blue-600" />
-                              </div>
-                              <span className="truncate max-w-[150px]">
-                                {complaint.tenant_name || "Unknown"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-500 ml-6">
-                              <Building className="h-3 w-3" />
-                              {complaint.property_name || "No property"}
-                            </div>
-                            {complaint.room_info && complaint.room_info !== 'Not assigned' && (
-                              <div className="text-xs text-gray-400 ml-6">
-                                🏠 {complaint.room_info}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                       <TableCell>
-  <div className="space-y-2">
-    <div className="font-medium text-sm line-clamp-1 text-gray-800">
-      {complaint.title}
-    </div>
-    <div className="flex flex-wrap gap-1.5 items-center">
-      {/* Show Category */}
-      {complaint.complaint_details?.category_name ? (
-        <Badge 
-          variant="outline" 
-          className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_details.category_name)}`}
-        >
-          {complaint.complaint_details.category_name}
-        </Badge>
-      ) : complaint.complaint_category ? (
-        <Badge 
-          variant="outline" 
-          className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_category)}`}
-        >
-          {complaint.complaint_category}
-        </Badge>
-      ) : (
-        <Badge variant="outline" className="text-xs border-0 shadow-sm bg-gray-100">
-          General
-        </Badge>
-      )}
+                {/* Tenant */}
+                <td className={`md:sticky md:left-[130px] z-[30] w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="flex items-center gap-1">
+                    <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                      <User className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <span className="text-xs font-medium truncate">
+                      {complaint.tenant_name || "Unknown"}
+                    </span>
+                  </div>
+                </td>
+
+              
+
+                {/* Property & Room */}
+                <td className={`w-[150px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1 text-xs text-gray-700">
+                      <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                      <span className="truncate">{complaint.property_name || "Not specified"}</span>
+                    </div>
+                    {complaint.room_info && complaint.room_info !== 'Not assigned' && (
+                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                        <span>🏠</span>
+                        <span className="truncate">{complaint.room_info}</span>
+                      </div>
+                    )}
+                  </div>
+                </td>
+
+                {/* Complaint Details */}
+                <td className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-xs font-medium text-gray-800 line-clamp-1">
+                        {complaint.title}
+                      </span>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] border-0 shadow-sm px-1.5 py-0 flex-shrink-0 ${getCategoryColor(
+                          complaint.complaint_details?.category_name || complaint.complaint_category
+                        )}`}
+                      >
+                        {complaint.complaint_details?.category_name || complaint.complaint_category || 'General'}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-gray-500 line-clamp-1">
+                      {complaint.complaint_details?.complaint_reason || 
+                       complaint.complaint_reason || 
+                       "No reason specified"}
+                    </div>
+                  </div>
+                </td>
+
+                {/* Priority */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  {getPriorityBadge(complaint.priority)}
+                </td>
+
+                {/* Status */}
+                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full inline-block whitespace-nowrap
+                    ${complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
+                    ${complaint.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : ''}
+                    ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700' : ''}
+                    ${complaint.status === 'closed' ? 'bg-gray-100 text-gray-700' : ''}
+                  `}>
+                    {complaint.status === 'in_progress' ? 'In Progress' : 
+                     complaint.status?.charAt(0).toUpperCase() + complaint.status?.slice(1) || 'Pending'}
+                  </span>
+                </td>
+
+                {/* Date & Time */}
+                <td className={`w-[130px] ${rowBgClass} py-2 px-2`}>
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-medium whitespace-nowrap">
+                      {new Date(complaint.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </div>
+                    <div className="text-[11px] text-gray-500 whitespace-nowrap">
+                      {new Date(complaint.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  </div>
+                </td>
+
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       
-      {/* Show Reason */}
-      <span className="text-xs text-gray-500 line-clamp-1">
-        {complaint.complaint_details?.complaint_reason || 
-         complaint.complaint_reason || 
-         "No reason specified"}
-      </span>
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          {filteredComplaints.length}/{complaints.length} complaints
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={itemsPerPage.toString()}
+            onValueChange={(val) => {
+              setItemsPerPage(val === "all" ? "all" : parseInt(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {currentPage}/
+          {Math.ceil(
+            filteredComplaints.length /
+              (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
+          ) || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={
+            currentPage >=
+            Math.ceil(
+              filteredComplaints.length /
+                (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
+            )
+          }
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
     </div>
   </div>
-</TableCell>
-                        <TableCell>
-                          <div className="transform transition-transform hover:scale-105">
-                            {getPriorityBadge(complaint.priority)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-full shadow-sm border">
-                            {getStatusIcon(complaint.status)}
-                            {getStatusBadge(complaint.status)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium">
-                              {new Date(complaint.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(complaint.created_at).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="hover:bg-blue-100 hover:text-blue-600 transition-all duration-200"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 border-blue-100 shadow-lg">
-                              <DropdownMenuLabel className="text-blue-600">Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => handleViewComplaint(complaint.id)}
-                                className="cursor-pointer hover:bg-blue-50"
-                              >
-                                <Eye className="h-4 w-4 mr-2 text-blue-500" />
-                                View Details
-                              </DropdownMenuItem>
-                              {can('manage_complaints') && (
-
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedComplaint(complaint);
-                                  setShowAssignDialog(true);
-                                }}
-                                className="cursor-pointer hover:bg-blue-50"
-                              >
-                                <UserPlus className="h-4 w-4 mr-2 text-green-500" />
-                                Assign Staff
-                              </DropdownMenuItem>
-                              )}
-                              {can('manage_complaints') && (
-
-                              <DropdownMenuItem 
-                                onClick={() => handleOpenStatusDialog(complaint)}
-                                className="cursor-pointer hover:bg-blue-50"
-                              >
-                                <FileText className="h-4 w-4 mr-2 text-purple-500" />
-                                Update Status
-                              </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+</div>
           )}
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 // components/admin/properties/PropertyListClient.tsx
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "@/src/compat/next-navigation";
 import { toast } from "sonner";
 import {
@@ -182,7 +182,17 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   const [importing, setImporting] = useState(false);
   const [propertiesMasters, setPropertiesMasters] = useState<Record<string, MasterValue[]>>({});
   const [mastersLoaded, setMastersLoaded] = useState(false);
-
+const [rooms, setRooms] = useState<any[]>([]);
+// Compute stats from rooms data (most accurate)
+const roomsStats = useMemo(() => {
+  if (!rooms || rooms.length === 0) return null;
+  const totalRooms = rooms.length;
+  const totalBeds = rooms.reduce((sum, r) => sum + (r.total_bed || 0), 0);
+  const occupiedBeds = rooms.reduce((sum, r) => sum + (r.occupied_beds || 0), 0);
+  const availableBeds = totalBeds - occupiedBeds;
+  const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+  return { totalRooms, totalBeds, availableBeds, occupancyRate };
+}, [rooms]);
   // Stats state
   const [stats, setStats] = useState({
     totalProperties: 0,
@@ -192,6 +202,23 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     availableBeds: 0,
     occupancyRate: 0,
   });
+
+
+  // Helper to get property availability from rooms (same logic as filter sidebar)
+const getPropertyAvailabilityFromRooms = useCallback((propertyId: string): string | null => {
+  if (!rooms || rooms.length === 0) return null;
+  const propertyRooms = rooms.filter(r => String(r.property_id) === propertyId);
+  let totalBeds = 0;
+  let occupiedBeds = 0;
+  for (const room of propertyRooms) {
+    totalBeds += room.total_bed || 0;
+    occupiedBeds += room.occupied_beds || 0;
+  }
+  if (totalBeds === 0) return null;
+  if (occupiedBeds === 0) return 'available';
+  if (occupiedBeds >= totalBeds) return 'full';
+  return 'partial';
+}, [rooms]);
 
   const loadTimestamp = useRef(Date.now());
 
@@ -341,12 +368,23 @@ if (p.total_beds > 0) {
       } else {
         toast.error(res?.message || "Failed to load properties");
       }
+
+       const { listRooms } = await import("@/lib/roomsApi");
+    const roomsRes = await listRooms();
+    let roomsData = roomsRes?.data || roomsRes;
+    if (Array.isArray(roomsData)) {
+      setRooms(roomsData);
+    }
     } catch (err) {
       console.error("loadProperties error:", err);
       toast.error("Failed to load properties");
     } finally {
       setLoading(false);
     }
+  
+  
+  
+  
   }, []);
 
   // Initialize data - load masters and properties
@@ -387,15 +425,22 @@ if (p.total_beds > 0) {
       propFilters.status === "true" ? p.is_active : !p.is_active
     );
   }
-  if (propFilters.availability !== "all") {
-    filtered = filtered.filter(p => {
-      const occ = p.occupied_beds || 0, tot = p.total_beds || 0;
-if (propFilters.availability === "available") return occ === 0;
-      if (propFilters.availability === "full") return tot > 0 && occ >= tot;
-      if (propFilters.availability === "partial") return occ > 0 && occ < tot;
-      return true;
-    });
-  }
+ if (propFilters.availability !== "all") {
+  filtered = filtered.filter(p => {
+    // Use rooms data if available, fallback to property's own occupied_beds
+    let availability = getPropertyAvailabilityFromRooms(p.id);
+    if (availability === null) {
+      // fallback: use property's own occupied_beds
+      const occ = p.occupied_beds || 0;
+      const tot = p.total_beds || 0;
+      if (occ === 0) availability = 'available';
+      else if (occ >= tot && tot > 0) availability = 'full';
+      else if (occ > 0 && occ < tot) availability = 'partial';
+      else availability = null;
+    }
+    return availability === propFilters.availability;
+  });
+}
   if (propFilters.location !== "all") {
     filtered = filtered.filter(p => p.area === propFilters.location);
   }
@@ -410,7 +455,7 @@ if (propFilters.availability === "available") return occ === 0;
   }
 
   setFilteredProperties(filtered);
-}, [properties, searchQuery, propFilters]);
+}, [properties, searchQuery, propFilters,rooms]);
 
   // Update showBulkActions
   useEffect(() => {
@@ -894,10 +939,16 @@ if (propFilters.availability === "available") return occ === 0;
   );
 
   // Stats Cards Component
-  const StatsCards = () => (
+// Stats Cards Component
+const StatsCards = () => {
+  // Use rooms data if available, otherwise fall back to property-based stats
+  const displayStats = roomsStats || stats;
+
+  return (
     <div className="sticky top-20 z-10 py-0 md:py-2 px-0 mb-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          {/* Total Properties (still from properties array) */}
           <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
             <div className="p-1 bg-blue-100 rounded-md">
               <Building2 className="h-3.5 w-3.5 text-blue-600" />
@@ -908,6 +959,7 @@ if (propFilters.availability === "available") return occ === 0;
             </div>
           </div>
 
+          {/* Active Properties (from properties) */}
           <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
             <div className="p-1 bg-green-100 rounded-md">
               <Hotel className="h-3.5 w-3.5 text-green-600" />
@@ -918,39 +970,43 @@ if (propFilters.availability === "available") return occ === 0;
             </div>
           </div>
 
+          {/* Total Rooms - from rooms */}
           <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
             <div className="p-1 bg-purple-100 rounded-md">
               <DoorOpen className="h-3.5 w-3.5 text-purple-600" />
             </div>
             <div className="leading-tight">
               <p className="text-[9px] text-gray-500 font-medium">Total Rooms</p>
-              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalRooms}</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{displayStats.totalRooms}</p>
             </div>
           </div>
 
+          {/* Total Beds - from rooms */}
           <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
             <div className="p-1 bg-orange-100 rounded-md">
               <Bed className="h-3.5 w-3.5 text-orange-600" />
             </div>
             <div className="leading-tight">
               <p className="text-[9px] text-gray-500 font-medium">Total Beds</p>
-              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalBeds}</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{displayStats.totalBeds}</p>
             </div>
           </div>
 
+          {/* Available Beds - from rooms */}
           <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
             <div className="p-1 bg-teal-100 rounded-md">
               <Users className="h-3.5 w-3.5 text-teal-600" />
             </div>
             <div className="leading-tight">
               <p className="text-[9px] text-gray-500 font-medium">Available Beds</p>
-              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.availableBeds}</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{displayStats.availableBeds}</p>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
+};
 
   // PropertyCard component
   const PropertyCard = useCallback(({
@@ -1552,6 +1608,7 @@ onFilterClick={() => {
   propertiesLength={properties.length}
   uniqueTags={uniqueTags}
   properties={properties}
+  rooms={rooms} 
 />
 
       {/* Modals */}

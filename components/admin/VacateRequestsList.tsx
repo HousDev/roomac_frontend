@@ -190,7 +190,7 @@ export default function VacateRequestsList() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [activeTab, setActiveTab] = useState('all');
@@ -897,347 +897,386 @@ const calculatePenalties = (request: VacateRequest) => {
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              {/* Scrollable Table */}
-<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedRequests.size > 0
-    ? 'max-h-[180px] md:max-h-[350px]'
-    : 'max-h-[245px] md:max-h-[400px]'
-}`}>                <Table className="w-full">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      {/* Checkbox Column */}
-<TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-   {can('delete_requests') && (
+           <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedRequests.size > 0
+      ? 'max-h-[180px] md:max-h-[350px]'
+      : 'max-h-[245px] md:max-h-[400px]'
+  }`}>
+    <table className="w-full min-w-[1200px] table-fixed border-collapse">
 
-  <div className="py-2 flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
-      onCheckedChange={handleSelectAll}
-      aria-label="Select all"
-    />
-  </div>
-   )}
-</TableHead>
-                      {/* ID Column */}
-                      <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_request_id')}>
-                            <span className="font-semibold text-gray-700 text-xs">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="ID..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.id}
-                            onChange={(e) => handleSearchChange('id', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Tenant Column */}
-                      <TableHead className="w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
-                            <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Property Column */}
-                      <TableHead className="w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('property_name')}>
-                            <span className="font-semibold text-gray-700 text-xs">Property</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.property}
-                            onChange={(e) => handleSearchChange('property', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Room/Bed Column */}
-                      <TableHead className="w-[120px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Room/Bed</span>
-                          <Input 
-                            placeholder="Search..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.room_bed}
-                            onChange={(e) => handleSearchChange('room_bed', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Expected Date Column */}
-                      <TableHead className="w-[130px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('expected_vacate_date')}>
-                            <span className="font-semibold text-gray-700 text-xs">Exp. Date</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.expected_date}
-                            onChange={(e) => handleSearchChange('expected_date', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Status Column */}
-                      <TableHead className="w-[110px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_status')}>
-                            <span className="font-semibold text-gray-700 text-xs">Status</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.status} 
-                            onValueChange={(value) => handleSearchChange('status', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="under_review">Review</SelectItem>
-                              <SelectItem value="approved">Approved</SelectItem>
-                              <SelectItem value="rejected">Rejected</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Priority Column */}
-                      <TableHead className="w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                            <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Select 
-                            value={searchFilters.priority} 
-                            onValueChange={(value) => handleSearchChange('priority', value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs border-gray-200">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      {/* Created Date Column */}
-                      <TableHead className="w-[110px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_request_date')}>
-                            <span className="font-semibold text-gray-700 text-xs">Created</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.created}
-                            onChange={(e) => handleSearchChange('created', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Actions Column */}
-                      <TableHead className="w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700 text-xs">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {currentItems.map((request, index) => {
-                      const penalties = calculatePenalties(request);
-                      
-                      return (
-                        <TableRow 
-                          key={request.vacate_request_id} 
-                          className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                          }`}
-                        >
-                          {/* Checkbox Cell */}
-<TableCell className="w-[50px]">
-    {can('delete_requests') && (
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b-2 border-blue-200">
 
-  <div className="flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.has(request.vacate_request_id)}
-      onCheckedChange={() => handleSelectRequest(request.vacate_request_id)}
-      aria-label={`Select request ${request.vacate_request_id}`}
-    />
-  </div>
-    )}
-</TableCell>
-                          <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
-                            <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                              #{request.vacate_request_id}
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="truncate">
-                            <div className="space-y-1">
-                              <div className="font-medium flex items-center gap-1">
-                                <User className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                <span className="text-xs truncate">
-                                  {request.tenant_name}
-                                </span>
-                              </div>
-                              <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
-                                <Mail className="h-2 w-2" />
-                                {request.tenant_email}
-                              </div>
-                              <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
-                                <Phone className="h-2 w-2" />
-                                {request.tenant_phone}
-                              </div>
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="truncate">
-                            <div className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.property_name}
-                              </span>
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="truncate">
-                            <div className="flex items-center gap-1">
-                              <Bed className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                R{request.room_number} • B{request.bed_number}
-                              </span>
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="truncate">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                                <span className="text-xs truncate">
-                                  {request.expected_vacate_date 
-                                    ? format(new Date(request.expected_vacate_date), 'dd MMM')
-                                    : 'N/A'}
-                                </span>
-                              </div>
-                              {penalties && penalties.total_penalty > 0 && (
-                                <div className="flex items-center gap-1 text-[10px] text-red-600">
-                                  <span>₹{penalties.total_penalty.toFixed(0)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell>
-                            {getStatusBadge(request.vacate_status)}
-                          </TableCell>
-                          
-                          <TableCell>
-                            {getPriorityBadge(request.priority)}
-                          </TableCell>
-                          
-                          <TableCell>
-                            <div className="text-xs whitespace-nowrap">
-                              {format(new Date(request.vacate_request_date), 'dd MMM')}
-                            </div>
-                            <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                              {format(new Date(request.vacate_request_date), 'hh:mm a')}
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openPreview(request)}
-                                className="h-7 w-7 p-0"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {can('manage_vacate_requests') && (
-
-                              <Button
-                                size="sm"
-                                onClick={() => openStatusUpdate(request)}
-                                className="h-7 px-2 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                              >
-                                {request.vacate_status === 'pending' ? 'Review' : 'Update'}
-                              </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox 
+                  checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
               </div>
+            )}
+          </th>
 
-              {/* Pagination */}
-              {currentItems.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t bg-white rounded-xl">
-                  <div className="text-xs text-gray-500">
-                    Showing {startIndex + 1} to {Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length} entries
+          {/* ID - 80px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_request_id')}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search ID..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.id}
+                onChange={(e) => handleSearchChange('id', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Actions - 90px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Tenant - 180px */}
+          <th className="w-[180px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
+                <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search tenant..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Property - 150px */}
+          <th className="w-[150px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('property_name')}>
+                <span className="font-semibold text-gray-700 text-xs">Property</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.property}
+                onChange={(e) => handleSearchChange('property', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Room/Bed - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Room/Bed</span>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.room_bed}
+                onChange={(e) => handleSearchChange('room_bed', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Exp. Date - 130px */}
+          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('expected_vacate_date')}>
+                <span className="font-semibold text-gray-700 text-xs">Exp. Date</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.expected_date}
+                onChange={(e) => handleSearchChange('expected_date', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_status')}>
+                <span className="font-semibold text-gray-700 text-xs">Status</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.status} 
+                onValueChange={(value) => handleSearchChange('status', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Priority - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
+                <span className="font-semibold text-gray-700 text-xs">Priority</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Select 
+                value={searchFilters.priority} 
+                onValueChange={(value) => handleSearchChange('priority', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Created - 120px */}
+          <th className="w-[120px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('vacate_request_date')}>
+                <span className="font-semibold text-gray-700 text-xs">Created</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.created}
+                onChange={(e) => handleSearchChange('created', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {currentItems.map((request, index) => {
+          const penalties = calculatePenalties(request);
+          return (
+            <tr
+              key={request.vacate_request_id}
+              className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
+                index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+              }`}
+            >
+              {/* Checkbox - sticky white */}
+              <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+                {can('delete_requests') && (
+                  <div className="flex justify-center">
+                    <Checkbox 
+                      checked={selectedRequests.has(request.vacate_request_id)}
+                      onCheckedChange={() => handleSelectRequest(request.vacate_request_id)}
+                      aria-label={`Select request ${request.vacate_request_id}`}
+                    />
                   </div>
-                  <div className="flex items-center gap-2">
+                )}
+              </td>
+
+              {/* ID - sticky white */}
+              <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                  <span className="truncate">#{request.vacate_request_id}</span>
+                </div>
+              </td>
+
+              {/* Actions - sticky white */}
+              <td className="md:sticky md:left-[120px] z-[30] w-[90px] bg-white border-r border-gray-100 py-2 px-1">
+                <div className="flex items-center gap-0.5 flex-nowrap">
+                  {/* View */}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => openPreview(request)}
+                    className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                    title="View Details"
+                  >
+                    <Eye className="h-3 w-3 text-blue-500" />
+                  </Button>
+
+                  {/* Review / Update Status */}
+                  {can('manage_vacate_requests') && (
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="h-8 text-xs"
+                      variant="ghost"
+                      onClick={() => openStatusUpdate(request)}
+                      className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                      title={request.vacate_status === 'pending' ? 'Review' : 'Update Status'}
                     >
-                      <ChevronLeft className="h-3 w-3 mr-1" />
-                      Previous
+                      <Settings className="h-3 w-3 text-purple-500" />
                     </Button>
-                    <span className="text-xs text-gray-600">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="h-8 text-xs"
-                    >
-                      Next
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
+                  )}
+                </div>
+              </td>
+
+              {/* Tenant */}
+              <td className={`w-[180px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                    <User className="h-3 w-3 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">
+                      {request.tenant_name}
+                    </div>
+                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                      <Mail className="h-2 w-2 flex-shrink-0" />
+                      {request.tenant_email}
+                    </div>
+                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                      <Phone className="h-2 w-2 flex-shrink-0" />
+                      {request.tenant_phone}
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </td>
+
+              {/* Property */}
+              <td className={`w-[150px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs truncate">{request.property_name}</span>
+                </div>
+              </td>
+
+              {/* Room/Bed */}
+              <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  <Bed className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs truncate">
+                    R{request.room_number} • B{request.bed_number}
+                  </span>
+                </div>
+              </td>
+
+              {/* Exp. Date */}
+              <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs whitespace-nowrap">
+                    {request.expected_vacate_date
+                      ? format(new Date(request.expected_vacate_date), 'dd MMM yyyy')
+                      : 'N/A'}
+                  </span>
+                </div>
+                {penalties && penalties.total_penalty > 0 && (
+                  <div className="text-[10px] text-red-600 mt-0.5">
+                    ₹{penalties.total_penalty.toFixed(0)}
+                  </div>
+                )}
+              </td>
+
+              {/* Status */}
+              <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                {getStatusBadge(request.vacate_status)}
+              </td>
+
+              {/* Priority */}
+              <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                {getPriorityBadge(request.priority)}
+              </td>
+
+              {/* Created */}
+              <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
+                <div className="text-xs font-medium whitespace-nowrap">
+                  {format(new Date(request.vacate_request_date), 'dd MMM yyyy')}
+                </div>
+                <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                  {format(new Date(request.vacate_request_date), 'hh:mm a')}
+                </div>
+              </td>
+
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination - complaint table jaisa */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+
+      {/* Left */}
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          Showing {startIndex + 1}–{Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={String(itemsPerPage)}
+            onValueChange={(val) => {
+              setItemsPerPage(Number(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {currentPage}/{totalPages || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>
