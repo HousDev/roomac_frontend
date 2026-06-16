@@ -3,11 +3,13 @@ import { ApiResult, request } from "@/lib/api";
 
 const STORAGE_KEY = 'pending_payment_intent';
 
+// ✅ UPDATE THE TYPE FOR savePaymentIntent
 export const savePaymentIntent = (intent: { 
   type: 'demand' | 'open_payment'; 
   demandId?: number; 
   openPaymentForm?: boolean; 
   action?: string; 
+  paymentType?: string;  // ✅ ADD THIS
   returnUrl?: string;
 }): boolean => {
   try {
@@ -25,11 +27,13 @@ export const savePaymentIntent = (intent: {
   }
 };
 
+// ✅ UPDATE THE RETURN TYPE
 export const getAndClearPaymentIntent = (): {
   type: 'demand' | 'open_payment';
   demandId?: number;
   openPaymentForm?: boolean;
   action?: string;
+  paymentType?: string;  // ✅ ADD THIS
   returnUrl?: string;
   timestamp?: number;
   expiresAt?: number;
@@ -675,3 +679,17 @@ export const getDetailedPaymentStats = async (params?: {
   const response = await request(url);
   return response;
 };
+
+export async function getCoupleSplitPaymentFormData(tenantId: number): Promise<any> {
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/tenant/${tenantId}/couple-split-payment-form`,
+      { method: "GET", headers: { "Content-Type": "application/json" }, credentials: "include" }
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching couple split payment form data:", error);
+    return { success: false, data: null };
+  }
+}

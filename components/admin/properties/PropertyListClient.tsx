@@ -290,7 +290,6 @@ const getPropertyAvailabilityFromRooms = useCallback((propertyId: string): strin
         _t: cacheBuster
       });
 
-
       if (res && res.success) {
         const propertiesData = Array.isArray(res.data)
           ? await Promise.all(res.data.map(async (p: any) => {

@@ -488,10 +488,10 @@ const loadTenant = async () => {
         }
       }
 
-      // Set effective tenant ID for payments BEFORE any async operations
-      const resolvedPaymentTenantId = foundAssignmentTenant || effectiveTenantIdForAssignment;
-      setEffectiveTenantIdForPayments(resolvedPaymentTenantId);
-      console.log("🟢 Setting effectiveTenantIdForPayments to:", resolvedPaymentTenantId);
+      // Payments always belong to the tenant's own ID, not the partner's.
+// Assignment lookup may resolve to the partner's ID for display purposes,
+// but payment records (including for vacated tenants) are stored per tenant.
+setEffectiveTenantIdForPayments(tenantData.id);
       console.log("🟢 foundAssignmentTenant:", foundAssignmentTenant);
       console.log("🟢 tenantData.is_couple_booking:", tenantData.is_couple_booking);
       console.log("🟢 tenantData.partner_tenant_id:", tenantData.partner_tenant_id);

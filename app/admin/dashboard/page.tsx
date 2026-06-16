@@ -33,6 +33,7 @@ import { listTenants } from '@/lib/tenantApi';
 import { getPayments, getDetailedPaymentStats } from '@/lib/paymentRecordApi';
 import { getEnquiries } from '@/lib/enquiryApi';
 import { getExpenses } from '@/lib/expenseApi';
+import { useAuth } from '@/context/authContext';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -565,7 +566,7 @@ const FinancialTrendModal = ({
 
 export default function AdminDashboard() {
   const router = useRouter();
-  
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -790,175 +791,282 @@ export default function AdminDashboard() {
   }, []);
 
   // Load all data
-  const loadAllData = useCallback(async () => {
-    setLoading(true);
+const loadAllData = useCallback(async () => {
+  setLoading(true);
+  try {
+    // ✅ Get user from auth context - assuming you have useAuth
+    // You need to add: const { user } = useAuth(); at the top of the component
+    
+    // For now, get user from localStorage or context
+    // If you don't have useAuth, you can get user from localStorage
+    let currentUser = null;
     try {
-      // Fetch properties
-      const propertiesRes = await listProperties({ pageSize: 1000 });
-      let propertiesData: any[] = [];
-      if (propertiesRes.success) {
-        propertiesData = propertiesRes.data?.data || propertiesRes.data || [];
+      // Try to get user from localStorage
+      const userEmail = localStorage.getItem('auth_email');
+      const userRole = localStorage.getItem('auth_role');
+      if (userEmail) {
+        // Fetch user details from API
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/get-user-details/${userEmail}`);
+        const result = await response.json();
+        if (result.success) {
+          currentUser = result.user;
+        }
       }
-      setProperties(propertiesData);
-      
-      // Fetch rooms - FIX: Properly set active rooms
-      const roomsRes = await listRooms();
-      let roomsData: any[] = [];
-      if (roomsRes && Array.isArray(roomsRes)) {
-        roomsData = roomsRes;
-      } else if (roomsRes?.data && Array.isArray(roomsRes.data)) {
-        roomsData = roomsRes.data;
+    } catch (e) {
+      console.error('Error fetching user:', e);
+    }
+
+    // ✅ Get assigned property IDs for manager
+    let assignedPropertyIds: number[] = [];
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'Admin';
+    
+    if (currentUser?.staff_id && !isAdmin) {
+      try {
+        // Get all properties and filter by staff_id
+        const propertiesRes = await listProperties({ pageSize: 1000 });
+        if (propertiesRes.success) {
+          const allProps = propertiesRes.data?.data || propertiesRes.data || [];
+          assignedPropertyIds = allProps
+            .filter((p: any) => p.staff_id === currentUser.staff_id)
+            .map((p: any) => p.id);
+        }
+      } catch (e) {
+        console.error('Error fetching assigned properties:', e);
       }
-      
-      roomsData = roomsData.map(room => ({
-        ...room,
-        total_bed: room.total_bed || room.capacity || 0,
-        occupied_beds: room.occupied_beds || room.current_tenants || 0,
-        is_active: (room.occupied_beds && room.occupied_beds > 0) || 
-                   (room.current_tenants && room.current_tenants > 0) ||
-                   room.status === 'occupied' ||
-                   room.status === 'active'
-      }));
-      
-      setRooms(roomsData);
-      
-      // Fetch tenants
+    }
+
+    console.log('🔍 Dashboard - Assigned property IDs:', assignedPropertyIds);
+    console.log('🔍 Dashboard - User:', { 
+      staff_id: currentUser?.staff_id, 
+      role: currentUser?.role, 
+      isAdmin 
+    });
+
+    // ---------- FETCH PROPERTIES ----------
+    const propertiesRes = await listProperties({ pageSize: 1000 });
+    let propertiesData: any[] = [];
+    if (propertiesRes.success) {
+      propertiesData = propertiesRes.data?.data || propertiesRes.data || [];
+    }
+    // ✅ Filter properties for manager
+    if (assignedPropertyIds.length > 0) {
+      propertiesData = propertiesData.filter((p: any) => 
+        assignedPropertyIds.includes(p.id)
+      );
+    }
+    setProperties(propertiesData);
+
+    // ---------- FETCH ROOMS ----------
+    const roomsRes = await listRooms();
+    let roomsData: any[] = [];
+    if (roomsRes && Array.isArray(roomsRes)) {
+      roomsData = roomsRes;
+    } else if (roomsRes?.data && Array.isArray(roomsRes.data)) {
+      roomsData = roomsRes.data;
+    }
+    
+    // ✅ Filter rooms by assigned properties
+    if (assignedPropertyIds.length > 0) {
+      roomsData = roomsData.filter((r: any) => 
+        assignedPropertyIds.includes(r.property_id)
+      );
+    }
+    
+    // Process room data
+    roomsData = roomsData.map(room => ({
+      ...room,
+      total_bed: room.total_bed || room.capacity || 0,
+      occupied_beds: room.occupied_beds || room.current_tenants || 0,
+      is_active: (room.occupied_beds && room.occupied_beds > 0) || 
+                 (room.current_tenants && room.current_tenants > 0) ||
+                 room.status === 'occupied' ||
+                 room.status === 'active'
+    }));
+    setRooms(roomsData);
+
+    // ---------- FETCH TENANTS ----------
+    let tenantsData: any[] = [];
+    const tenantFilters: any = { pageSize: 1000 };
+    
+    // If manager has assigned properties, filter tenants
+    if (assignedPropertyIds.length > 0) {
+      // First get all tenants
       const tenantsRes = await listTenants({ pageSize: 1000 });
-      let tenantsData: any[] = [];
       if (tenantsRes.success) {
         tenantsData = tenantsRes.data || [];
       }
       
-      // Enrich tenants with bed assignment data
+      // Enrich tenants with assignments to filter by property
+      const enriched = await enrichTenantsWithAssignments(tenantsData);
+      // Filter by assigned property IDs
+      const filteredTenants = enriched.filter((t: any) => 
+        assignedPropertyIds.includes(t.property_id)
+      );
+      setEnrichedTenants(filteredTenants);
+      setTenants(filteredTenants);
+    } else {
+      // Admin - get all tenants
+      const tenantsRes = await listTenants(tenantFilters);
+      if (tenantsRes.success) {
+        tenantsData = tenantsRes.data || [];
+      }
       const enriched = await enrichTenantsWithAssignments(tenantsData);
       setEnrichedTenants(enriched);
       setTenants(tenantsData);
-      
-      // Fetch payments
-      const paymentsRes = await getPayments({});
-      let paymentsData: any[] = [];
-      if (paymentsRes.success) {
-        paymentsData = paymentsRes.data || [];
-      }
-      setPayments(paymentsData);
-      
-      // Fetch expenses
-      const expensesRes = await getExpenses({});
-      let expensesData: any[] = [];
-      if (expensesRes && Array.isArray(expensesRes)) {
-        expensesData = expensesRes;
-      } else if (expensesRes?.data && Array.isArray(expensesRes.data)) {
-        expensesData = expensesRes.data;
-      }
-      setExpenses(expensesData);
-      
-      // Fetch enquiries
-      const enquiriesRes = await getEnquiries({});
-      let enquiriesData: any[] = [];
-      if (enquiriesRes.success) {
-        enquiriesData = enquiriesRes.results || [];
-      }
-      setEnquiries(enquiriesData);
-      
-      // Calculate stats from rooms
-      const totalBeds = roomsData.reduce((sum, r) => sum + (Number(r.total_bed) || 0), 0);
-      const occupiedBeds = roomsData.reduce((sum, r) => sum + (Number(r.occupied_beds) || 0), 0);
-      const availableBeds = totalBeds - occupiedBeds;
-      
-      const totalRooms = roomsData.length;
-      const activeRooms = roomsData.filter(r => r.is_active === true).length;
-      
-      const totalProperties = propertiesData.length;
-      const activeProperties = propertiesData.filter(p => p.is_active === true || p.is_active === 1).length;
-      
-      const totalTenants = tenantsData.length;
-      const activeTenants = tenantsData.filter(t => t.is_active === true || t.is_active === 1).length;
-      
-      const approvedPayments = paymentsData.filter(p => p.status === 'approved' || p.status === 'paid');
-      const totalCollected = approvedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const totalRentCollected = approvedPayments
-        .filter(p => p.payment_type === 'rent')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      const totalDepositCollected = approvedPayments
-        .filter(p => p.payment_type === 'security_deposit')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      
-      const pendingAmount = paymentsData
-        .filter(p => p.status === 'pending')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      
-      const totalExpensesSumCalc = expensesData
-        .filter(e => e.status === 'Paid' || e.status === 'Partial')
-        .reduce((sum, e) => sum + Number(e.total_paid || e.total_amount || 0), 0);
-      
-      const currentDate = new Date();
-      const currentMonthIndex = currentDate.getMonth();
-      const currentYearNum = currentDate.getFullYear();
-      
-      const monthlyRevenue = paymentsData
-        .filter(p => {
-          const paymentDate = new Date(p.payment_date);
-          return (p.status === 'approved' || p.status === 'paid') &&
-                 paymentDate.getMonth() === currentMonthIndex &&
-                 paymentDate.getFullYear() === currentYearNum;
-        })
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      
-      const monthlyExpenses = expensesData
-        .filter(e => {
-          const expenseDate = new Date(e.expense_date);
-          return (e.status === 'Paid' || e.status === 'Partial') &&
-                 expenseDate.getMonth() === currentMonthIndex &&
-                 expenseDate.getFullYear() === currentYearNum;
-        })
-        .reduce((sum, e) => sum + Number(e.total_paid || e.total_amount || 0), 0);
-      
-      setStats({
-        totalProperties,
-        activeProperties,
-        totalRooms,
-        activeRooms,
-        totalBeds,
-        occupiedBeds,
-        availableBeds,
-        totalTenants,
-        activeTenants,
-        totalCollected,
-        totalRentCollected,
-        totalDepositCollected,
-        pendingAmount,
-        totalExpenses: totalExpensesSumCalc,
-        monthlyRevenue,
-        monthlyExpenses,
-        netProfit: monthlyRevenue - monthlyExpenses,
-        totalTransactions: paymentsData.length
-      });
-      
-      // Load detailed payment stats
-      await loadDetailedPaymentStats();
-      
-      // Recent data
-      const sortedPayments = [...paymentsData].sort((a, b) => 
-        new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-      );
-      setRecentPayments(sortedPayments.slice(0, 5));
-      
-      const sortedTenants = [...enriched].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setRecentTenants(sortedTenants.slice(0, 5));
-      
-      const sortedEnquiries = [...enquiriesData].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setRecentEnquiries(sortedEnquiries.slice(0, 5));
-      
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [enrichTenantsWithAssignments, loadDetailedPaymentStats]);
+
+    // ---------- FETCH PAYMENTS ----------
+    const paymentsRes = await getPayments({});
+    let paymentsData: any[] = [];
+    if (paymentsRes.success) {
+      paymentsData = paymentsRes.data || [];
+    }
+    
+    // ✅ Filter payments by assigned properties
+    if (assignedPropertyIds.length > 0 && tenantsData.length > 0) {
+      // Get tenant IDs for assigned properties
+      const tenantIdsForProperty = tenantsData
+        .filter((t: any) => assignedPropertyIds.includes(t.property_id))
+        .map((t: any) => t.id);
+      
+      paymentsData = paymentsData.filter((p: any) => 
+        tenantIdsForProperty.includes(p.tenant_id)
+      );
+    }
+    setPayments(paymentsData);
+
+    // ---------- FETCH EXPENSES ----------
+    const expensesRes = await getExpenses({});
+    let expensesData: any[] = [];
+    if (expensesRes && Array.isArray(expensesRes)) {
+      expensesData = expensesRes;
+    } else if (expensesRes?.data && Array.isArray(expensesRes.data)) {
+      expensesData = expensesRes.data;
+    }
+    
+    // ✅ Filter expenses by assigned properties
+    if (assignedPropertyIds.length > 0) {
+      expensesData = expensesData.filter((e: any) => 
+        assignedPropertyIds.includes(e.property_id)
+      );
+    }
+    setExpenses(expensesData);
+
+    // ---------- FETCH ENQUIRIES ----------
+    const enquiriesRes = await getEnquiries({});
+    let enquiriesData: any[] = [];
+    if (enquiriesRes.success) {
+      enquiriesData = enquiriesRes.results || [];
+    }
+    
+    // ✅ Filter enquiries by assigned properties
+    if (assignedPropertyIds.length > 0) {
+      enquiriesData = enquiriesData.filter((e: any) => 
+        assignedPropertyIds.includes(e.property_id)
+      );
+    }
+    setEnquiries(enquiriesData);
+
+    // ---------- CALCULATE STATS ----------
+    // Calculate stats from filtered rooms
+    const totalBeds = roomsData.reduce((sum, r) => sum + (Number(r.total_bed) || 0), 0);
+    const occupiedBeds = roomsData.reduce((sum, r) => sum + (Number(r.occupied_beds) || 0), 0);
+    const availableBeds = totalBeds - occupiedBeds;
+    
+    const totalRooms = roomsData.length;
+    const activeRooms = roomsData.filter(r => r.is_active === true).length;
+    
+    const totalProperties = propertiesData.length;
+    const activeProperties = propertiesData.filter(p => p.is_active === true || p.is_active === 1).length;
+    
+    const totalTenants = tenantsData.length;
+    const activeTenants = tenantsData.filter(t => t.is_active === true || t.is_active === 1).length;
+    
+    const approvedPayments = paymentsData.filter(p => p.status === 'approved' || p.status === 'paid');
+    const totalCollected = approvedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalRentCollected = approvedPayments
+      .filter(p => p.payment_type === 'rent')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalDepositCollected = approvedPayments
+      .filter(p => p.payment_type === 'security_deposit')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    
+    const pendingAmount = paymentsData
+      .filter(p => p.status === 'pending')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    
+    const totalExpensesSumCalc = expensesData
+      .filter(e => e.status === 'Paid' || e.status === 'Partial')
+      .reduce((sum, e) => sum + Number(e.total_paid || e.total_amount || 0), 0);
+    
+    const currentDate = new Date();
+    const currentMonthIndex = currentDate.getMonth();
+    const currentYearNum = currentDate.getFullYear();
+    
+    const monthlyRevenue = paymentsData
+      .filter(p => {
+        const paymentDate = new Date(p.payment_date);
+        return (p.status === 'approved' || p.status === 'paid') &&
+               paymentDate.getMonth() === currentMonthIndex &&
+               paymentDate.getFullYear() === currentYearNum;
+      })
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    
+    const monthlyExpenses = expensesData
+      .filter(e => {
+        const expenseDate = new Date(e.expense_date);
+        return (e.status === 'Paid' || e.status === 'Partial') &&
+               expenseDate.getMonth() === currentMonthIndex &&
+               expenseDate.getFullYear() === currentYearNum;
+      })
+      .reduce((sum, e) => sum + Number(e.total_paid || e.total_amount || 0), 0);
+    
+    setStats({
+      totalProperties,
+      activeProperties,
+      totalRooms,
+      activeRooms,
+      totalBeds,
+      occupiedBeds,
+      availableBeds,
+      totalTenants,
+      activeTenants,
+      totalCollected,
+      totalRentCollected,
+      totalDepositCollected,
+      pendingAmount,
+      totalExpenses: totalExpensesSumCalc,
+      monthlyRevenue,
+      monthlyExpenses,
+      netProfit: monthlyRevenue - monthlyExpenses,
+      totalTransactions: paymentsData.length
+    });
+
+    // ---------- LOAD DETAILED PAYMENT STATS ----------
+    await loadDetailedPaymentStats();
+    
+    // ---------- RECENT DATA ----------
+    const sortedPayments = [...paymentsData].sort((a, b) => 
+      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+    );
+    setRecentPayments(sortedPayments.slice(0, 5));
+    
+    const sortedTenants = [...tenantsData].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setRecentTenants(sortedTenants.slice(0, 5));
+    
+    const sortedEnquiries = [...enquiriesData].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setRecentEnquiries(sortedEnquiries.slice(0, 5));
+    
+  } catch (error) {
+    console.error('Error loading dashboard data:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [enrichTenantsWithAssignments, loadDetailedPaymentStats]);
 
   useEffect(() => {
     loadAllData();

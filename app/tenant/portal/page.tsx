@@ -839,178 +839,230 @@ useEffect(() => {
   );
 
   // Fetch data
-  const fetchAllData = useCallback(async () => {
-    setLoading(true);
-    setLoadingTimeout(false);
-    try {
-      const token = getTenantToken();
-      const tenantId = getTenantId();
-      if (!token || !tenantId) {
-        router.push("/login");
-        return;
+// Fetch data
+const fetchAllData = useCallback(async () => {
+  setLoading(true);
+  setLoadingTimeout(false);
+  try {
+    const token = getTenantToken();
+    const tenantId = getTenantId();
+    if (!token || !tenantId) {
+      router.push("/login");
+      return;
+    }
+
+    const [profileRes, requestsRes, categoriesRes, leaveTypesRes] =
+      await Promise.allSettled([
+        tenantDetailsApi.loadProfile(),
+        getMyTenantRequests(),
+        getComplaintCategories(),
+        // getLeaveTypesFromMasters(),
+      ]);
+
+    if (profileRes.status === "fulfilled" && profileRes.value?.success) {
+      const d = profileRes.value.data;
+      setTenant(d);
+
+      // After setting tenant data, check if bed is assigned
+      if (d.room_number && d.bed_number) {
+        setHasBedAssignment(true);
+      } else {
+        setHasBedAssignment(false);
       }
 
-      const [profileRes, requestsRes, categoriesRes, leaveTypesRes] =
-        await Promise.allSettled([
-          tenantDetailsApi.loadProfile(),
-          getMyTenantRequests(),
-          getComplaintCategories(),
-          // getLeaveTypesFromMasters(),
-        ]);
+      // Fetch tenant payments after getting tenant data
+      await fetchTenantPayments();
 
-      if (profileRes.status === "fulfilled" && profileRes.value?.success) {
-        const d = profileRes.value.data;
-        setTenant(d);
-
-        // After setting tenant data, check if bed is assigned
-        if (d.room_number && d.bed_number) {
-          setHasBedAssignment(true);
-        } else {
-          setHasBedAssignment(false);
-        }
-
-        // Fetch tenant payments after getting tenant data
-        await fetchTenantPayments();
-
-        // If the tenant has a property_id, fetch the property details to get manager info
-        if (d.property_id) {
-          try {
-            const propertyRes = await getProperty(d.property_id);
-            if (propertyRes.success && propertyRes.data) {
-              setTenant((prev) => ({
-                ...prev!,
-                property_manager_name: propertyRes.data.property_manager_name,
-                property_manager_phone: propertyRes.data.property_manager_phone,
-                property_manager_email: propertyRes.data.property_manager_email,
-                // ← ADD these two lines:
-                amenities:
-                  prev?.amenities || propertyRes.data.amenities || null,
-                services: prev?.services || propertyRes.data.services || null,
-              }));
-              // Fetch staff details for property manager using updated data
-              fetchPropertyManagerStaff({
-                ...d,
-                property_manager_name: propertyRes.data.property_manager_name,
-                property_manager_phone: propertyRes.data.property_manager_phone,
-              });
-            } else {
-              fetchPropertyManagerStaff(d);
-            }
-          } catch (error) {
-            console.error("Error fetching property details:", error);
+      // If the tenant has a property_id, fetch the property details to get manager info
+      if (d.property_id) {
+        try {
+          const propertyRes = await getProperty(d.property_id);
+          if (propertyRes.success && propertyRes.data) {
+            setTenant((prev) => ({
+              ...prev!,
+              property_manager_name: propertyRes.data.property_manager_name,
+              property_manager_phone: propertyRes.data.property_manager_phone,
+              property_manager_email: propertyRes.data.property_manager_email,
+              amenities:
+                prev?.amenities || propertyRes.data.amenities || null,
+              services: prev?.services || propertyRes.data.services || null,
+            }));
+            // Fetch staff details for property manager using updated data
+            fetchPropertyManagerStaff({
+              ...d,
+              property_manager_name: propertyRes.data.property_manager_name,
+              property_manager_phone: propertyRes.data.property_manager_phone,
+            });
+          } else {
             fetchPropertyManagerStaff(d);
           }
-        } else {
+        } catch (error) {
+          console.error("Error fetching property details:", error);
           fetchPropertyManagerStaff(d);
         }
+      } else {
+        fetchPropertyManagerStaff(d);
+      }
 
-        const hasAccommodation = d?.room_number && d?.bed_number;
+      const hasAccommodation = d?.room_number && d?.bed_number;
 
-        let rentAmount = 0;
+      let rentAmount = 0;
 
-        if (hasAccommodation) {
-          if (d?.tenant_rent) {
-            rentAmount = Number(d.tenant_rent);
-          } else if (d?.rent_per_bed) {
-            rentAmount = Number(d.rent_per_bed);
-          } else if (d?.monthly_rent) {
-            rentAmount = Number(d.monthly_rent);
+      if (hasAccommodation) {
+        if (d?.tenant_rent) {
+          rentAmount = Number(d.tenant_rent);
+        } else if (d?.rent_per_bed) {
+          rentAmount = Number(d.rent_per_bed);
+        } else if (d?.monthly_rent) {
+          rentAmount = Number(d.monthly_rent);
+        }
+      }
+
+      const totalPaid =
+        d.payments
+          ?.filter((p: any) => p.status === "approved" || p.status === "paid")
+          .reduce((s: number, p: any) => s + p.amount, 0) ?? 0;
+
+      // ✅ FIX: Calculate total pending rent
+      let totalPendingRent = 0;
+      let pendingMonthsCount = 0;
+
+      // First try to get paymentFormData for accurate pending calculation
+      try {
+        const paymentFormResponse = await paymentApi.getTenantPaymentFormData(d.id);
+        if (paymentFormResponse.success && paymentFormResponse.data) {
+          setPaymentFormData(paymentFormResponse.data);
+          totalPendingRent = paymentFormResponse.data.total_pending || 0;
+          pendingMonthsCount = paymentFormResponse.data.unpaid_months?.length || 0;
+        }
+      } catch (paymentError) {
+        console.error("Error fetching payment form data:", paymentError);
+      }
+
+      // If paymentFormData didn't give us a value, calculate based on months since joining
+      if (totalPendingRent === 0 && hasAccommodation) {
+        if (d.check_in_date) {
+          const checkIn = new Date(d.check_in_date);
+          const today = new Date();
+          let monthsSinceJoining = (today.getFullYear() - checkIn.getFullYear()) * 12 +
+                                  (today.getMonth() - checkIn.getMonth());
+          if (monthsSinceJoining < 1) monthsSinceJoining = 1;
+          
+          const expectedRent = rentAmount * monthsSinceJoining;
+          totalPendingRent = Math.max(0, expectedRent - totalPaid);
+          pendingMonthsCount = Math.ceil(totalPendingRent / rentAmount);
+        } else {
+          totalPendingRent = rentAmount;
+          pendingMonthsCount = 1;
+        }
+      }
+
+      let daysUntilRentDue = 7;
+      let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
+
+      if (hasAccommodation && d.check_in_date) {
+        const dueDay = new Date(d.check_in_date).getDate();
+        const today = new Date();
+        let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
+        if (today.getDate() > dueDay)
+          nextDue = new Date(
+            today.getFullYear(),
+            today.getMonth() + 1,
+            dueDay,
+          );
+        daysUntilRentDue = Math.ceil(
+          (nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24),
+        );
+        nextDueDate = nextDue.toISOString();
+      }
+
+      const occupancyDays = d.check_in_date
+        ? Math.ceil(
+            (Date.now() - new Date(d.check_in_date).getTime()) /
+              (1000 * 3600 * 24),
+          )
+        : 0;
+
+      setStats((prev) => ({
+        ...prev,
+        totalPaid,
+        totalPending: totalPendingRent,      // ✅ Total pending rent across all months
+        pendingCount: pendingMonthsCount,    // ✅ Number of months with pending payments
+        daysUntilRentDue,
+        monthlyRent: rentAmount,
+        occupancyDays,
+        nextDueDate,
+      }));
+    }
+
+    if (requestsRes.status === "fulfilled" && requestsRes.value) {
+      const data: TenantRequest[] = requestsRes.value;
+      const c = data.filter(
+        (r) =>
+          r.request_type === "complaint" || r.request_type === "maintenance",
+      );
+      setStats((prev) => ({
+        ...prev,
+        openComplaints: c.filter(
+          (x) => x.status === "pending" || x.status === "in_progress",
+        ).length,
+        urgentComplaints: c.filter(
+          (x) => x.priority === "urgent" && x.status !== "resolved",
+        ).length,
+        inProgressComplaints: c.filter((x) => x.status === "in_progress")
+          .length,
+      }));
+    }
+
+    if (categoriesRes.status === "fulfilled" && categoriesRes.value)
+      setComplaintCategories(categoriesRes.value);
+    if (leaveTypesRes.status === "fulfilled" && leaveTypesRes.value)
+      setLeaveTypes(leaveTypesRes.value);
+
+    // Fetch notifications separately
+    fetchNotifications(false);
+
+    setPayments(MOCK_PAYMENTS);
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error);
+    setPayments(MOCK_PAYMENTS);
+  } finally {
+    setLoading(false);
+  }
+}, [
+  navigate,
+  fetchNotifications,
+  fetchPropertyManagerStaff,
+  fetchTenantPayments,
+]);
+
+
+  // Add this useEffect to fetch paymentFormData when tenant is loaded
+useEffect(() => {
+  const fetchPaymentFormDataForStats = async () => {
+    if (tenant?.id && hasBedAssignment) {
+      try {
+        const response = await paymentApi.getTenantPaymentFormData(tenant.id);
+        if (response.success && response.data) {
+          setPaymentFormData(response.data);
+          
+          // Update stats with total pending
+          if (response.data.total_pending > 0) {
+            setStats(prev => ({
+              ...prev,
+              totalPending: response.data.total_pending,
+              pendingCount: response.data.unpaid_months?.length || 1
+            }));
           }
         }
-
-        const totalPaid =
-          d.payments
-            ?.filter((p: any) => p.status === "completed")
-            .reduce((s: number, p: any) => s + p.amount, 0) ?? 0;
-
-        const totalPending = hasAccommodation
-          ? (d.payments
-              ?.filter((p: any) => p.status === "pending")
-              .reduce((s: number, p: any) => s + p.amount, 0) ?? rentAmount)
-          : 0;
-
-        const pendingCount = hasAccommodation
-          ? (d.payments?.filter((p: any) => p.status === "pending").length ?? 1)
-          : 0;
-
-        let daysUntilRentDue = 7;
-        let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
-
-        if (hasAccommodation && d.check_in_date) {
-          const dueDay = new Date(d.check_in_date).getDate();
-          const today = new Date();
-          let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-          if (today.getDate() > dueDay)
-            nextDue = new Date(
-              today.getFullYear(),
-              today.getMonth() + 1,
-              dueDay,
-            );
-          daysUntilRentDue = Math.ceil(
-            (nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24),
-          );
-          nextDueDate = nextDue.toISOString();
-        }
-
-        const occupancyDays = d.check_in_date
-          ? Math.ceil(
-              (Date.now() - new Date(d.check_in_date).getTime()) /
-                (1000 * 3600 * 24),
-            )
-          : 0;
-
-        setStats((prev) => ({
-          ...prev,
-          totalPaid,
-          totalPending: totalPending || (hasAccommodation ? rentAmount : 0),
-          pendingCount: pendingCount || (hasAccommodation ? 1 : 0),
-          daysUntilRentDue,
-          monthlyRent: rentAmount,
-          occupancyDays,
-          nextDueDate,
-        }));
+      } catch (error) {
+        console.error("Error fetching payment form data for stats:", error);
       }
-
-      if (requestsRes.status === "fulfilled" && requestsRes.value) {
-        const data: TenantRequest[] = requestsRes.value;
-        const c = data.filter(
-          (r) =>
-            r.request_type === "complaint" || r.request_type === "maintenance",
-        );
-        setStats((prev) => ({
-          ...prev,
-          openComplaints: c.filter(
-            (x) => x.status === "pending" || x.status === "in_progress",
-          ).length,
-          urgentComplaints: c.filter(
-            (x) => x.priority === "urgent" && x.status !== "resolved",
-          ).length,
-          inProgressComplaints: c.filter((x) => x.status === "in_progress")
-            .length,
-        }));
-      }
-
-      if (categoriesRes.status === "fulfilled" && categoriesRes.value)
-        setComplaintCategories(categoriesRes.value);
-      if (leaveTypesRes.status === "fulfilled" && leaveTypesRes.value)
-        setLeaveTypes(leaveTypesRes.value);
-
-      // Fetch notifications separately
-      fetchNotifications(false);
-
-      setPayments(MOCK_PAYMENTS);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setPayments(MOCK_PAYMENTS);
-    } finally {
-      setLoading(false);
     }
-  }, [
-    navigate,
-    fetchNotifications,
-    fetchPropertyManagerStaff,
-    fetchTenantPayments,
-  ]);
+  };
+  
+  fetchPaymentFormDataForStats();
+}, [tenant?.id, hasBedAssignment]);
 
   useEffect(() => {
     fetchAllData();
@@ -1527,7 +1579,7 @@ const PaymentConfirmationModal = ({
                 </p>
                 {tenant?.room_number && tenant?.bed_number ? (
                   <p className="text-xs lg:text-base font-bold text-blue-700">
-                    ₹{stats.monthlyRent.toLocaleString("en-IN")}
+                    ₹{stats.totalPending.toLocaleString("en-IN")}
                   </p>
                 ) : (
                   <Badge

@@ -31,19 +31,23 @@ export default function () {
     const demandId = searchParams.get("demand_id");
     const action = searchParams.get("action");
     const openPaymentForm = searchParams.get("openPaymentForm");
+    const paymentType = searchParams.get("payment_type");
     
     if (demandId && action === "pay") {
-       console.log("Saving payment intent - demandId:", demandId, "action:", action);
       savePaymentIntent({
         type: "demand",
         demandId: parseInt(demandId),
         action: action,
+        // ✅ Convert null to undefined
+        paymentType: paymentType === null ? undefined : paymentType,
         returnUrl: location.pathname,
       });
     } else if (openPaymentForm === "true") {
       savePaymentIntent({
         type: "open_payment",
         openPaymentForm: true,
+        // ✅ Convert null to undefined
+        paymentType: paymentType === null ? undefined : paymentType,
         returnUrl: location.pathname,
       });
     }

@@ -411,225 +411,6 @@ export default function TenantPaymentsPage() {
     }
   };
 
-//  // Fetch demand details
-// const fetchDemandDetails = async (demandId: number) => {
-//   try {
-//     console.log("Fetching demand details for ID:", demandId);
-    
-//     // Use the correct API endpoint
-//     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/demands/${demandId}`, {
-//       headers: {
-//         'Content-Type': 'application/json',
-//       },
-//       credentials: 'include',
-//     });
-    
-//     const result = await response.json();
-//     console.log("API Response:", result);
-
-//     if (result.success && result.data) {
-//       const demand = result.data;
-//       console.log("Demand fetched:", demand);
-      
-//       setPreSelectedPaymentType(demand.payment_type);
-//       setPreSelectedAmount(demand.amount);
-//       setShouldAutoOpenPayment(true);
-      
-//       setNewPayment((prev) => ({
-//         ...prev,
-//         amount: demand.amount.toString(),
-//         payment_type: demand.payment_type,
-//         remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
-//       }));
-      
-//       // Open the dialog after a short delay to ensure state is updated
-//       setTimeout(() => {
-//         setShowPaymentDialog(true);
-//         toast.success("Payment request loaded. Please complete your payment.");
-//       }, 100);
-//     } else {
-//       console.error("API returned error:", result);
-//       toast.error(result.message || "Unable to load payment request details");
-//     }
-//   } catch (error) {
-//     console.error("Error fetching demand details:", error);
-//     toast.error("Unable to load payment request details. Please contact support.");
-//   }
-// };
-
-useEffect(() => {
-  const checkForPaymentIntent = async () => {
-    // Don't process if already processed or still loading
-    if (paymentIntentProcessed || loading) return;
-    
-    // Wait for hasBedAssignment to be set
-    if (hasBedAssignment === undefined) return;
-    
-    setTimeout(async () => {
-      // Check URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      let demandId = urlParams.get("demand_id");
-      let action = urlParams.get("action");
-      const openPaymentFormParam = urlParams.get("openPaymentForm");
-      
-      console.log("Checking payment intent. hasBedAssignment:", hasBedAssignment, "demandId:", demandId, "openPaymentForm:", openPaymentFormParam);
-      
-      // Check localStorage for pending intent from ProtectedRoute (for demand payments)
-      if (!demandId) {
-        const pendingIntent = getAndClearPaymentIntent();
-        if (pendingIntent) {
-          console.log("Found pending intent in localStorage:", pendingIntent);
-          if (pendingIntent.type === "demand" && pendingIntent.demandId) {
-            demandId = pendingIntent.demandId.toString();
-            action = "pay";
-          } else if (pendingIntent.type === "open_payment") {
-            // Handle open payment form intent
-            if (hasBedAssignment) {
-              setPaymentIntentProcessed(true);
-              // Pre-fill with total pending amount
-              if (paymentFormData?.total_pending > 0) {
-                setNewPayment(prev => ({ 
-                  ...prev, 
-                  amount: paymentFormData.total_pending.toString(),
-                  payment_type: "rent"
-                }));
-              }
-              setShowPaymentDialog(true);
-              toast.info("Please complete your payment");
-              window.history.replaceState({}, '', window.location.pathname);
-            } else {
-              toast.error("Cannot make payment: No bed assigned yet");
-            }
-            return;
-          }
-        }
-      }
-      
-      // Process demand payment (from demand email)
-      if (demandId && action === "pay") {
-        setPaymentIntentProcessed(true);
-        console.log("Processing demand payment for ID:", demandId);
-        
-        try {
-          // Fetch demand details from API
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/demands/${demandId}`, {
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-          });
-          
-          const result = await response.json();
-          console.log("Demand API response:", result);
-          
-          if (result.success && result.data) {
-            const demand = result.data;
-            console.log("Demand fetched:", demand);
-            
-            // Pre-fill the amount field with the demand amount
-            setNewPayment(prev => ({
-              ...prev,
-              amount: demand.amount.toString(),
-              payment_type: demand.payment_type,
-              remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
-            }));
-            
-            // Open the payment dialog
-            setShowPaymentDialog(true);
-            toast.success(`Payment request of ₹${demand.amount.toLocaleString()} loaded. Please complete your payment.`);
-          } else {
-            toast.error(result.message || "Unable to load payment request details");
-          }
-        } catch (error) {
-          console.error("Error fetching demand details:", error);
-          toast.error("Unable to load payment request details. Please contact support.");
-        } finally {
-          // Clean URL after processing
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-        return;
-      }
-      
-      // Process open payment form from URL param (for cron reminders)
-      if (openPaymentFormParam === 'true' && hasBedAssignment) {
-        setPaymentIntentProcessed(true);
-        // Pre-fill with total pending amount
-        if (paymentFormData?.total_pending > 0) {
-          setNewPayment(prev => ({ 
-            ...prev, 
-            amount: paymentFormData.total_pending.toString(),
-            payment_type: "rent"
-          }));
-          console.log("Pre-filled amount with total pending:", paymentFormData.total_pending);
-        }
-        setShowPaymentDialog(true);
-        toast.info("Please complete your payment");
-        window.history.replaceState({}, '', window.location.pathname);
-      } else if (openPaymentFormParam === 'true' && !hasBedAssignment) {
-        toast.error("Cannot make payment: No bed assigned yet");
-      }
-    }, 800);
-  };
-  
-  checkForPaymentIntent();
-}, [loading, hasBedAssignment, paymentIntentProcessed, paymentFormData]); // ✅ Add paymentFormData to dependencies
-// Auto-open payment form when coming from portal page
-// Auto-open payment form when coming from portal page
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const openPaymentFormParam = urlParams.get('openPaymentForm');
-  
-  if (openPaymentFormParam === 'true' && !paymentIntentProcessed && !loading && hasBedAssignment) {
-    setPaymentIntentProcessed(true);
-    setTimeout(() => {
-      // ✅ ADD THIS: Pre-fill total pending amount
-      if (paymentFormData?.total_pending > 0) {
-        setNewPayment(prev => ({ 
-          ...prev, 
-          amount: paymentFormData.total_pending.toString(),
-          payment_type: "rent"
-        }));
-        console.log("Pre-filled amount with total pending:", paymentFormData.total_pending);
-      }
-      
-      setShowPaymentDialog(true);
-      window.history.replaceState({}, '', window.location.pathname);
-    }, 200);
-  }
-}, [loading, hasBedAssignment, paymentIntentProcessed, paymentFormData]); // ✅ Add paymentFormData to dependencies
-
-//   // Auto-open payment form when coming from portal page
-// useEffect(() => {
-//   const urlParams = new URLSearchParams(window.location.search);
-//   const openPaymentForm = urlParams.get('openPaymentForm');
-  
-//   if (openPaymentForm === 'true') {
-//     // Small delay to ensure component is fully loaded
-//     const timer = setTimeout(() => {
-//       if (hasBedAssignment) {
-//         setShowPaymentDialog(true);
-//         // Remove the query param from URL without reloading
-//         const newUrl = window.location.pathname;
-//         window.history.replaceState({}, '', newUrl);
-//       } else {
-//         toast.error(
-//           "You cannot make a payment as no bed has been assigned to you yet. Please contact the property manager."
-//         );
-//       }
-//     }, 500);
-//     return () => clearTimeout(timer);
-//   }
-// }, [hasBedAssignment]);
-
-//   // Fetch demand details from URL
-//   useEffect(() => {
-//     const urlParams = new URLSearchParams(window.location.search);
-//     const demandId = urlParams.get("demand_id");
-//     const action = urlParams.get("action");
-
-//     if (demandId && action === "pay") {
-//       fetchDemandDetails(parseInt(demandId));
-//     }
-//   }, []);
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -988,6 +769,7 @@ useEffect(() => {
     if (!tenant?.id) return;
     try {
       const response = await paymentApi.getSecurityDepositInfo(tenant.id);
+      console.log("🔍 Security deposit response:", response);
       if (response.success) {
         setSecurityDepositInfo(response.data);
         updateDepositStatsFromInfo(response.data);
@@ -1031,22 +813,253 @@ useEffect(() => {
       setNewPayment((prev) => ({
         ...prev,
         amount: paymentFormData.total_pending.toString(),
+        
       }));
+      console.log("🔍 Pre-filled rent amount:", paymentFormData.total_pending);
     } else if (!preSelectedAmount) {
       setNewPayment((prev) => ({ ...prev, amount: "" }));
     }
     } else if (type === "security_deposit") {
       setPaymentFormData(null);
       await fetchSecurityDepositInfo();
+       console.log("🔍 Security deposit info fetched:", securityDepositInfo);
       // ✅ Auto-fill with security deposit pending amount
     if (securityDepositInfo?.pending_amount > 0) {
       setNewPayment((prev) => ({
         ...prev,
         amount: securityDepositInfo.pending_amount.toString(),
       }));
+      console.log("🔍 Pre-filled security deposit amount:", securityDepositInfo.pending_amount);
     }
     }
   };
+
+useEffect(() => {
+  const checkForPaymentIntent = async () => {
+    // Don't process if already processed or still loading
+    if (paymentIntentProcessed) return;
+    
+    // Check URL parameters FIRST - before waiting for data
+    const urlParams = new URLSearchParams(window.location.search);
+    let demandId = urlParams.get("demand_id");
+    let action = urlParams.get("action");
+    const openPaymentFormParam = urlParams.get("openPaymentForm");
+    const paymentTypeFromUrl = urlParams.get("payment_type");
+    
+     // ✅ ADD THIS DEBUG LOG
+    console.log("🔍 [PAYMENTS PAGE] URL Parameters:", {
+      fullUrl: window.location.href,
+      demandId,
+      action,
+      openPaymentFormParam,
+      paymentTypeFromUrl,
+      hasBedAssignment,
+      loading,
+      paymentIntentProcessed
+    });
+    
+    // Process demand payment (from demand email) - HIGHEST PRIORITY
+    if (demandId && action === "pay") {
+      console.log("🔍 Processing demand payment for ID:", demandId);
+      setPaymentIntentProcessed(true);
+      console.log("Processing demand payment for ID:", demandId);
+      
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/demands/${demandId}`, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const demand = result.data;
+          console.log("Demand fetched:", demand);
+          
+          // Wait for bed assignment check if needed
+          const waitForBed = () => {
+            return new Promise((resolve) => {
+              if (hasBedAssignment !== undefined) {
+                resolve(true);
+              } else {
+                const interval = setInterval(() => {
+                  if (hasBedAssignment !== undefined) {
+                    clearInterval(interval);
+                    resolve(true);
+                  }
+                }, 100);
+              }
+            });
+          };
+          
+          await waitForBed();
+          
+          if (!hasBedAssignment) {
+            toast.error("Cannot make payment: No bed assigned yet");
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+          }
+          
+          const isSecurityDeposit = demand.payment_type === "security_deposit";
+          
+          if (isSecurityDeposit) {
+            // Fetch security deposit info first
+            await fetchSecurityDepositInfo();
+            await handlePaymentTypeChange("security_deposit");
+            
+            // Wait a bit for the deposit info to load
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            if (securityDepositInfo?.pending_amount > 0) {
+              setNewPayment(prev => ({ 
+                ...prev, 
+                amount: securityDepositInfo.pending_amount.toString(),
+                payment_type: "security_deposit",
+                remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
+              }));
+            } else {
+              setNewPayment(prev => ({ 
+                ...prev, 
+                amount: demand.amount.toString(),
+                payment_type: "security_deposit",
+                remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
+              }));
+            }
+          } else {
+            await handlePaymentTypeChange("rent");
+            
+            // Wait for payment form data
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            setNewPayment(prev => ({ 
+              ...prev, 
+              amount: demand.amount.toString(),
+              payment_type: "rent",
+              remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
+            }));
+          }
+          
+          setShowPaymentDialog(true);
+          toast.success(`Payment request of ₹${demand.amount.toLocaleString()} loaded. Please complete your payment.`);
+        } else {
+          toast.error(result.message || "Unable to load payment request details");
+        }
+      } catch (error) {
+        console.error("Error fetching demand details:", error);
+        toast.error("Unable to load payment request details. Please contact support.");
+      } finally {
+        // Clean URL after processing
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      return;
+    }
+    
+    // Process open payment form from URL param
+    if (openPaymentFormParam === 'true') {
+       console.log("🔍 Open payment form triggered. Payment type from URL:", paymentTypeFromUrl);
+      setPaymentIntentProcessed(true);
+      
+      // Wait for bed assignment check
+      const waitForBed = () => {
+        return new Promise((resolve) => {
+          if (hasBedAssignment !== undefined) {
+            resolve(true);
+          } else {
+            const interval = setInterval(() => {
+              if (hasBedAssignment !== undefined) {
+                clearInterval(interval);
+                resolve(true);
+              }
+            }, 100);
+          }
+        });
+      };
+      
+      await waitForBed();
+      
+      if (!hasBedAssignment) {
+        toast.error("Cannot make payment: No bed assigned yet");
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+      
+      if (paymentTypeFromUrl === 'security_deposit') {
+         console.log("🔍 Switching to security deposit tab");
+        // Wait for security deposit info to load
+        await fetchSecurityDepositInfo();
+        await handlePaymentTypeChange("security_deposit");
+        
+        // Small delay to ensure state updates
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (securityDepositInfo?.pending_amount > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            amount: securityDepositInfo.pending_amount.toString(),
+            payment_type: "security_deposit"
+          }));
+        }
+      } else {
+        console.log("🔍 Switching to rent tab (default)");
+
+        // Default to rent
+        await fetchPaymentFormData();
+        await handlePaymentTypeChange("rent");
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (paymentFormData?.total_pending > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            amount: paymentFormData.total_pending.toString(),
+            payment_type: "rent"
+          }));
+        } else if (rentStats.totalPending > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            amount: rentStats.totalPending.toString(),
+            payment_type: "rent"
+          }));
+        }
+      }
+      
+      setShowPaymentDialog(true);
+      toast.info(`Please complete your ${paymentTypeFromUrl === 'security_deposit' ? 'security deposit' : 'rent'} payment`);
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+    
+    // Check localStorage for pending intent from ProtectedRoute
+    const pendingIntent = getAndClearPaymentIntent();
+    if (pendingIntent && !paymentIntentProcessed) {
+      console.log("Found pending intent in localStorage:", pendingIntent);
+      
+      if (pendingIntent.type === "demand" && pendingIntent.demandId) {
+        demandId = pendingIntent.demandId.toString();
+        action = "pay";
+        // Recursively call with demand params
+        const newUrl = `${window.location.pathname}?demand_id=${demandId}&action=pay`;
+        window.history.replaceState({}, '', newUrl);
+        // Reload the effect
+        checkForPaymentIntent();
+        return;
+      } else if (pendingIntent.type === "open_payment") {
+        const newUrl = `${window.location.pathname}?openPaymentForm=true${pendingIntent.paymentType ? `&payment_type=${pendingIntent.paymentType}` : ''}`;
+        window.history.replaceState({}, '', newUrl);
+        checkForPaymentIntent();
+        return;
+      }
+    }
+  };
+  
+  // Small delay to ensure component is mounted
+  const timer = setTimeout(() => {
+    checkForPaymentIntent();
+  }, 500);
+  
+  return () => clearTimeout(timer);
+}, [loading, hasBedAssignment, paymentIntentProcessed, paymentFormData, securityDepositInfo, rentStats, fetchSecurityDepositInfo, fetchPaymentFormData, handlePaymentTypeChange]);
 
 const handleRazorpayPayment = useCallback(
   async (amount: number, paymentData: any) => {
