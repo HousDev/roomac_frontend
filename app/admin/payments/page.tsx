@@ -805,6 +805,7 @@ const handleBulkSend = async () => {
   const fetchProperties = async () => {
     setLoadingProperties(true);
     try {
+      
       const response = await fetch("/api/properties");
       const data = await response.json();
       if (data.success) {

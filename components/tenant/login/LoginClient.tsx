@@ -233,9 +233,13 @@ export default function LoginClient({
       console.log("Found pending payment intent:", pendingIntent);
       if (pendingIntent.type === "demand" && pendingIntent.demandId) {
         setPendingRedirect(`/tenant/payments?demand_id=${pendingIntent.demandId}&action=pay`);
-      } else if (pendingIntent.type === "open_payment") {
-        setPendingRedirect(`/tenant/payments?openPaymentForm=true`);
       }
+      else if (pendingIntent.type === "open_payment") {
+  const paymentTypeParam = pendingIntent.paymentType
+    ? `&payment_type=${pendingIntent.paymentType}`
+    : "";
+  setPendingRedirect(`/tenant/payments?openPaymentForm=true${paymentTypeParam}`);
+}
     }
   }, []);
 
