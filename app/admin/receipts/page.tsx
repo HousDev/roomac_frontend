@@ -410,11 +410,11 @@ const { can } = useAuth();
   }`}>
     <table className="w-full min-w-[1500px] table-fixed border-collapse">
 
-      <thead className="sticky top-0 z-50">
+      <thead className="sticky top-0 z-10">
         <tr className="bg-white border-b-2 border-blue-200">
 
           {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-0 z-[10] w-[40px] bg-white border-r border-gray-200 text-left">
             {can('delete_requests') && (
               <div className="py-2 flex justify-center">
                 <Checkbox 
@@ -427,7 +427,7 @@ const { can } = useAuth();
           </th>
 
           {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[40px] z-[10] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
                 <span className="font-semibold text-gray-700 text-xs">ID</span>
@@ -443,14 +443,14 @@ const { can } = useAuth();
           </th>
 
           {/* Actions - 110px sticky */}
-          <th className="md:sticky md:left-[120px] z-[60] w-[110px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[120px] z-[10] w-[110px] bg-white border-r border-gray-200 text-left">
             <div className="py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Actions</span>
             </div>
           </th>
 
           {/* Tenant - 160px sticky */}
-          <th className="md:sticky md:left-[230px] z-[60] w-[160px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[230px] z-[10] w-[160px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Tenant</span>
               <Input 
@@ -607,7 +607,7 @@ const { can } = useAuth();
               }`}
             >
               {/* Checkbox - sticky pure white */}
-              <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+              <td className="md:sticky md:left-0 z-[10] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
                 {can('delete_requests') && (
                   <div className="flex justify-center">
                     <Checkbox 
@@ -620,7 +620,7 @@ const { can } = useAuth();
               </td>
 
               {/* ID - sticky pure white */}
-              <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+              <td className="md:sticky md:left-[40px] z-[10] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
                   <span className="truncate">#{request.id}</span>
@@ -628,7 +628,7 @@ const { can } = useAuth();
               </td>
 
               {/* Actions - sticky pure white */}
-              <td className="md:sticky md:left-[120px] z-[30] w-[110px] bg-white border-r border-gray-100 py-2 px-1">
+              <td className="md:sticky md:left-[120px] z-[10] w-[110px] bg-white border-r border-gray-100 py-2 px-1">
                 <div className="flex items-center gap-0 flex-nowrap">
                   <Button
                     size="sm"
@@ -693,7 +693,7 @@ const { can } = useAuth();
               </td>
 
               {/* Tenant - sticky pure white */}
-              <td className="md:sticky md:left-[230px] z-[30] w-[160px] bg-white border-r border-gray-100 py-2 px-2">
+              <td className="md:sticky md:left-[230px] z-[10] w-[160px] bg-white border-r border-gray-100 py-2 px-2">
                 <div className="flex items-center gap-1">
                   <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
                     <User className="h-3 w-3 text-blue-600" />

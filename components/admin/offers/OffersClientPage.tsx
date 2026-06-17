@@ -299,9 +299,9 @@ const { can } = useAuth();
 
     try {
       const apiParams: PaginationParams = {
-        page,
-        limit: parseInt(itemsPerPage),
-      };
+    page,
+    limit: itemsPerPage === "All" ? 999999 : parseInt(itemsPerPage, 10),
+  };
 
       if (useFilters) {
         if (searchQuery) apiParams.search = searchQuery;
@@ -936,7 +936,15 @@ const { can } = useAuth();
               pagination={pagination}
               onPageChange={handlePageChange} onCreateNew={function (): void {
                 throw new Error("Function not implemented.");
-              } }            />
+              } }            
+              onItemsPerPageChange={(limit) => {
+    if (limit === "All") {
+      setItemsPerPage("All");
+    } else {
+      setItemsPerPage(String(limit));
+    }
+    loadOffers(1);
+  }}/>
           </CardContent>
         </Card>
 

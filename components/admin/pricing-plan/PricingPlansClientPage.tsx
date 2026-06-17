@@ -96,7 +96,7 @@ export default function PricingPlansClientPage() {
   const [planFilterProp, setPlanFilterProp] = useState("all");
   const [planTypeFilter, setPlanTypeFilter] = useState<"all" | "regular" | "short_stay">("all");
   const { can } = useAuth(); // ← ADD THIS
-
+const [itemsPerPage, setItemsPerPage] = useState<number | "All">(10);
   useEffect(() => {
     loadProperties();
   }, []);
@@ -119,12 +119,12 @@ export default function PricingPlansClientPage() {
     setLoading(true);
     try {
       const res = await pricingPlanApi.getPaginated({
-        page,
-        limit: 10,
-        search: planSearch || undefined,
-        property_id: planFilterProp !== "all" ? planFilterProp : undefined,
-        type: planTypeFilter,
-      });
+      page,
+      limit: itemsPerPage === "All" ? 999999 : itemsPerPage,
+      search: planSearch || undefined,
+      property_id: planFilterProp !== "all" ? planFilterProp : undefined,
+      type: planTypeFilter,
+    });
       if (res.success) {
         setPlans(res.data);
         setPagination(res.pagination);
@@ -134,7 +134,7 @@ export default function PricingPlansClientPage() {
     } finally {
       setLoading(false);
     }
-  }, [planSearch, planFilterProp, planTypeFilter]);
+  }, [planSearch, planFilterProp, planTypeFilter, itemsPerPage]);
 
   useEffect(() => {
     loadPlans(1);
@@ -747,6 +747,15 @@ const ViewPlanDialogContent = selectedPlan && (
               onPageChange={loadPlans}
               onCreateNew={() => setIsAddPlanOpen(true)}
               onView={handleViewPlan}
+             onItemsPerPageChange={(limit) => {
+    if (limit === "All") {
+      setItemsPerPage("All");
+    } else {
+      setItemsPerPage(limit);
+    }
+    loadPlans(1);
+  }}
+  currentItemsPerPage={itemsPerPage} 
             />
           </CardContent>
         </Card>

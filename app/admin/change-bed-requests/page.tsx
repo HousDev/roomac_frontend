@@ -93,7 +93,7 @@ const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 const [bulkActionLoading, setBulkActionLoading] = useState(false);
   // Filters and pagination
   const [filters, setFilters] = useState({
-    status: '',
+    status: 'all',
     search: '',
     page: 1,
     limit: 10,
@@ -117,6 +117,7 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [searchFilters, setSearchFilters] = useState({
     id: '',
     tenant: '',
+     email: '', 
     current_room: '',
     requested_room: '',
     shifting_date: '',
@@ -189,47 +190,72 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
     if (searchFilters.id) {
       filtered = filtered.filter(r => r.tenant_request_id.toString().includes(searchFilters.id));
     }
-    if (searchFilters.tenant) {
-      const query = searchFilters.tenant.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.tenant_name.toLowerCase().includes(query) ||
-        r.tenant_phone.includes(query) ||
-        r.tenant_email?.toLowerCase().includes(query)
-      );
-    }
-    if (searchFilters.current_room) {
-      const query = searchFilters.current_room.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.current_property_name.toLowerCase().includes(query) ||
-        `room ${r.current_room_number}`.includes(query) ||
-        `bed ${r.current_bed_number}`.includes(query)
-      );
-    }
-    if (searchFilters.requested_room) {
-      const query = searchFilters.requested_room.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.requested_property_name.toLowerCase().includes(query) ||
-        `room ${r.requested_room_number}`.includes(query)
-      );
-    }
-    if (searchFilters.shifting_date) {
-      filtered = filtered.filter(r => 
-        r.shifting_date && new Date(r.shifting_date).toISOString().split('T')[0] === searchFilters.shifting_date
-      );
-    }
-    if (searchFilters.status !== 'all') {
-      filtered = filtered.filter(r => r.request_status === searchFilters.status);
-    }
-    if (searchFilters.priority !== 'all') {
-      filtered = filtered.filter(r => r.priority === searchFilters.priority);
-    }
-    if (searchFilters.created) {
-      filtered = filtered.filter(r => 
-        new Date(r.created_at).toISOString().split('T')[0] === searchFilters.created
-      );
-    }
+   
 
-    setFilteredRequests(filtered);
+if (searchFilters.tenant) {
+  const query = searchFilters.tenant.toLowerCase();
+  filtered = filtered.filter(r => 
+    (r.tenant_name?.toLowerCase() ?? '').includes(query) ||
+    (r.tenant_phone?.toLowerCase() ?? '').includes(query) ||
+    (r.tenant_email?.toLowerCase() ?? '').includes(query)
+  );
+}
+
+// ✅ NEW: email search alag
+if (searchFilters.email) {
+  const query = searchFilters.email.toLowerCase();
+  filtered = filtered.filter(r =>
+    (r.tenant_email?.toLowerCase() ?? '').includes(query)
+  );
+}
+
+if (searchFilters.current_room) {
+  const query = searchFilters.current_room.toLowerCase();
+  filtered = filtered.filter(r => 
+    (r.current_property_name?.toLowerCase() ?? '').includes(query) ||
+    `room ${r.current_room_number ?? ''}`.toLowerCase().includes(query) ||
+    `bed ${r.current_bed_number ?? ''}`.toLowerCase().includes(query)
+  );
+}
+
+if (searchFilters.requested_room) {
+  const query = searchFilters.requested_room.toLowerCase();
+  filtered = filtered.filter(r => 
+    (r.requested_property_name?.toLowerCase() ?? '').includes(query) ||
+    `room ${r.requested_room_number ?? ''}`.toLowerCase().includes(query)
+  );
+}
+
+if (searchFilters.shifting_date) {
+  filtered = filtered.filter(r => {
+    if (!r.shifting_date) return false;
+    // IST timezone ke saath compare karo
+    const dbDate = new Date(r.shifting_date);
+    const yyyy = dbDate.getFullYear();
+    const mm = String(dbDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(dbDate.getDate()).padStart(2, '0');
+    const localDate = `${yyyy}-${mm}-${dd}`;
+    return localDate === searchFilters.shifting_date;
+  });
+}
+
+if (searchFilters.status !== 'all') {
+  filtered = filtered.filter(r => r.request_status === searchFilters.status);
+}
+
+if (searchFilters.priority !== 'all') {
+  filtered = filtered.filter(r => r.priority === searchFilters.priority);
+}
+
+if (searchFilters.created) {
+  filtered = filtered.filter(r => {
+    if (!r.created_at) return false;
+    const dbDate = r.created_at.toString().split('T')[0];
+    return dbDate === searchFilters.created;
+  });
+}
+
+setFilteredRequests(filtered);
   }, [requests, searchFilters]);
 
   // Sorting
@@ -614,31 +640,19 @@ const handleBulkDelete = async () => {
   </div>
 </div>
       {/* Main Table Card */}
-      <Card className="shadow-sm border-0 overflow-hidden mb-2">
+      <Card className="shadow-sm border-0 overflow-hidden mb-0">
        
         <CardContent className="p-0">
-          {filteredRequests.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
-              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
-              <p className="text-gray-500 mb-4">
-                {filters.search ? "No requests match your search." : "No change bed requests yet."}
-              </p>
-              <Button onClick={refreshData} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          ) : (
-          <div className="relative">
+        
+         <div className="relative">
   <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
     selectedRequests.size > 0
-      ? 'max-h-[200px] md:max-h-[380px]'
-      : 'max-h-[290px] md:max-h-[380px]'
+      ? 'max-h-[200px] md:max-h-[400px]'
+      : 'max-h-[260px] md:max-h-[400px]'
   }`}>
-    <table className="w-full min-w-[1200px] table-fixed border-collapse">
+    <table className="w-full min-w-[1300px] table-fixed border-collapse">
 
-      <thead className="sticky top-0 z-50">
+      <thead className="sticky top-0 z-10">
         <tr className="bg-white border-b-2 border-blue-200">
 
           {/* Checkbox - 40px sticky */}
@@ -670,22 +684,22 @@ const handleBulkDelete = async () => {
             </div>
           </th>
 
-          {/* Actions - 90px sticky */}
-          <th className="md:sticky md:left-[120px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
+          {/* Actions - 80px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Actions</span>
             </div>
           </th>
 
-          {/* Tenant - 170px */}
-          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+          {/* Tenant Name - 130px sticky */}
+          <th className="md:sticky md:left-[200px] z-[60] w-[130px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
-                <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+                <span className="font-semibold text-gray-700 text-xs">Name</span>
                 <ArrowUpDown className="h-3 w-3 text-gray-500" />
               </div>
               <Input 
-                placeholder="Search tenant..." 
+                placeholder="Search name..." 
                 className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
                 value={searchFilters.tenant}
                 onChange={(e) => handleSearchChange('tenant', e.target.value)}
@@ -693,8 +707,29 @@ const handleBulkDelete = async () => {
             </div>
           </th>
 
-          {/* Current Room - 170px */}
+          {/* Phone - 120px sticky */}
+          <th className="md:sticky md:left-[330px] z-[60] w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Phone</span>
+              <div className="h-6 mt-1.5" />
+            </div>
+          </th>
+
+          {/* Email - 170px */}
           <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Email</span>
+              <Input 
+                placeholder="Search email..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.email || ''}
+                onChange={(e) => handleSearchChange('email', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Current Room - 190px */}
+          <th className="w-[190px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Current Room</span>
               <Input 
@@ -706,8 +741,8 @@ const handleBulkDelete = async () => {
             </div>
           </th>
 
-          {/* Requested Room - 170px */}
-          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
+          {/* Requested Room - 190px */}
+          <th className="w-[190px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Requested Room</span>
               <Input 
@@ -719,21 +754,21 @@ const handleBulkDelete = async () => {
             </div>
           </th>
 
-          {/* Shifting Date - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('shifting_date')}>
-                <span className="font-semibold text-gray-700 text-xs">Shifting</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                type="date"
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.shifting_date}
-                onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
-              />
-            </div>
-          </th>
+          {/* Shifting - 120px */}
+         <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+  <div className="space-y-1.5 py-2 px-2">
+    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('shifting_date')}>
+      <span className="font-semibold text-gray-700 text-xs">Shifting</span>
+      <ArrowUpDown className="h-3 w-3 text-gray-500" />
+    </div>
+    <input 
+      type="date"
+      style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
+      value={searchFilters.shifting_date}
+      onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
+    />
+  </div>
+</th>
 
           {/* Status - 120px */}
           <th className="w-[120px] bg-white border-r border-gray-200 text-left">
@@ -786,26 +821,33 @@ const handleBulkDelete = async () => {
           </th>
 
           {/* Created - 120px */}
-          <th className="w-[120px] bg-white text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                <span className="font-semibold text-gray-700 text-xs">Created</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                type="date"
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.created}
-                onChange={(e) => handleSearchChange('created', e.target.value)}
-              />
-            </div>
-          </th>
+         <th className="w-[120px] bg-white text-left">
+  <div className="space-y-1.5 py-2 px-2">
+    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+      <span className="font-semibold text-gray-700 text-xs">Created</span>
+      <ArrowUpDown className="h-3 w-3 text-gray-500" />
+    </div>
+    <input 
+      type="date"
+      style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
+      value={searchFilters.created}
+      onChange={(e) => handleSearchChange('created', e.target.value)}
+    />
+  </div>
+</th>
 
         </tr>
       </thead>
 
       <tbody>
-        {currentItems.map((request, index) => (
+        {filteredRequests.length === 0 ? (
+          <tr>
+            <td colSpan={12} className="text-center py-8 text-gray-400 text-xs">
+              No results match your filters.
+            </td>
+          </tr>
+        ) : (
+          currentItems.map((request, index) => (
           <tr
             key={request.id}
             className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
@@ -834,9 +876,8 @@ const handleBulkDelete = async () => {
             </td>
 
             {/* Actions - sticky white */}
-            <td className="md:sticky md:left-[120px] z-[30] w-[90px] bg-white border-r border-gray-100 py-2 px-1">
+            <td className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
               <div className="flex items-center gap-0.5 flex-nowrap">
-                {/* View */}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -846,8 +887,6 @@ const handleBulkDelete = async () => {
                 >
                   <Eye className="h-3 w-3 text-blue-500" />
                 </Button>
-
-                {/* Update Status */}
                 {can('manage_change_bed') && (
                   <Button
                     size="sm"
@@ -862,59 +901,69 @@ const handleBulkDelete = async () => {
               </div>
             </td>
 
-            {/* Tenant */}
-            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+            {/* Name - sticky white */}
+            <td className="md:sticky md:left-[200px] z-[30] w-[130px] bg-white border-r border-gray-100 py-2 px-2">
               <div className="flex items-center gap-1">
                 <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
                   <User className="h-3 w-3 text-blue-600" />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium truncate">
-                    {request.tenant_name}
-                  </div>
-                  <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
-                    <Phone className="h-2 w-2 flex-shrink-0" />
-                    {request.tenant_phone}
-                  </div>
-                  {request.tenant_email && (
-                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
-                      <Mail className="h-2 w-2 flex-shrink-0" />
-                      {request.tenant_email}
-                    </div>
-                  )}
-                </div>
+                <span className="text-xs font-medium truncate">{request.tenant_name}</span>
+              </div>
+            </td>
+
+            {/* Phone - sticky white */}
+            <td className="md:sticky md:left-[330px] z-[30] w-[120px] bg-white border-r border-gray-100 py-2 px-2">
+              <div className="text-[11px] text-gray-600 flex items-center gap-0.5 truncate">
+                <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                {request.tenant_phone || '—'}
+              </div>
+            </td>
+
+            {/* Email */}
+            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="text-[11px] text-gray-600 flex items-center gap-0.5 truncate">
+                <Mail className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                {request.tenant_email || '—'}
               </div>
             </td>
 
             {/* Current Room */}
-            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+            <td className={`w-[190px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              {/* Line 1: property name */}
               <div className="flex items-center gap-1">
                 <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                <span className="text-xs truncate">{request.current_property_name}</span>
+                <span className="text-xs font-medium truncate">{request.current_property_name}</span>
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
-                R{request.current_room_number} • B{request.current_bed_number}
-              </div>
-              <div className="text-[10px] text-gray-500">
-                ₹{request.current_rent}
+              {/* Line 2: room • bed • rent */}
+              <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                <span>R{request.current_room_number}</span>
+                <span>•</span>
+                <span>B{request.current_bed_number}</span>
+                <span>•</span>
+                <span className="text-green-600">₹{request.current_rent}</span>
               </div>
             </td>
 
             {/* Requested Room */}
-            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+            <td className={`w-[190px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              {/* Line 1: property name */}
               <div className="flex items-center gap-1">
                 <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                <span className="text-xs truncate">{request.requested_property_name}</span>
+                <span className="text-xs font-medium truncate">{request.requested_property_name}</span>
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
-                R{request.requested_room_number}
-                {request.assigned_bed_number && ` • B${request.assigned_bed_number}`}
-              </div>
-              <div className="text-[10px] text-gray-500">
-                ₹{request.requested_rent}
-              </div>
-              <div className="text-[10px] text-gray-500">
-                {request.requested_occupied_beds}/{request.requested_total_beds} occ
+              {/* Line 2: room • bed • rent • occupancy */}
+              <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                <span>R{request.requested_room_number}</span>
+                {request.assigned_bed_number && (
+                  <>
+                    <span>•</span>
+                    <span>B{request.assigned_bed_number}</span>
+                  </>
+                )}
+                <span>•</span>
+                <span className="text-green-600">₹{request.requested_rent}</span>
+                <span>•</span>
+                <span>{request.requested_occupied_beds}/{request.requested_total_beds} occ</span>
               </div>
             </td>
 
@@ -958,7 +1007,8 @@ const handleBulkDelete = async () => {
             </td>
 
           </tr>
-        ))}
+        ))
+      )}
       </tbody>
     </table>
   </div>
@@ -966,8 +1016,6 @@ const handleBulkDelete = async () => {
   {/* Pagination */}
   <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-
-      {/* Left */}
       <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
         <span className="text-gray-500 whitespace-nowrap">
           Showing {startIndex + 1}–{Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length}
@@ -992,8 +1040,6 @@ const handleBulkDelete = async () => {
           </Select>
         </div>
       </div>
-
-      {/* Right */}
       <div className="flex items-center justify-between sm:justify-end gap-1">
         <Button
           variant="outline"
@@ -1020,7 +1066,7 @@ const handleBulkDelete = async () => {
     </div>
   </div>
 </div>
-          )}
+          
         </CardContent>
       </Card>
 

@@ -346,11 +346,25 @@ const { can } = useAuth();
     const matchesTenant = (request.tenant_name || '').toLowerCase().includes(searchFilters.tenant.toLowerCase());
     const matchesProperty = (request.property_name || '').toLowerCase().includes(searchFilters.property.toLowerCase());
     const matchesRoomBed = `Room ${request.room_number} Bed ${request.bed_number}`.toLowerCase().includes(searchFilters.room_bed.toLowerCase());
-    const matchesExpectedDate = !searchFilters.expected_date || 
-      (request.expected_vacate_date && new Date(request.expected_vacate_date).toISOString().split('T')[0] === searchFilters.expected_date);
+   
     const matchesStatus = searchFilters.status === 'all' || request.vacate_status === searchFilters.status;
     const matchesPriority = searchFilters.priority === 'all' || request.priority === searchFilters.priority;
-    const matchesCreated = !searchFilters.created || 
+    // Helper function to get local YYYY-MM-DD from a date string or Date object
+const getLocalDateString = (dateValue: string | Date | null | undefined): string => {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const matchesExpectedDate = !searchFilters.expected_date || 
+  (request.expected_vacate_date && getLocalDateString(request.expected_vacate_date) === searchFilters.expected_date);
+
+const matchesCreated = !searchFilters.created || 
+  getLocalDateString(request.vacate_request_date) === searchFilters.created;
       new Date(request.vacate_request_date).toISOString().split('T')[0] === searchFilters.created;
     
     return matchesId && matchesTenant && matchesProperty && matchesRoomBed && 

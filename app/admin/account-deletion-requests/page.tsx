@@ -1,6 +1,3 @@
-
-
-
 // app/admin/account-deletion-requests/page.tsx
 "use client";
 
@@ -118,8 +115,9 @@ const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
 const { can } = useAuth();
+const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
-  // Column search filters
   const [searchFilters, setSearchFilters] = useState({
     id: '',
     tenant: '',
@@ -481,7 +479,7 @@ const handleBulkDelete = async () => {
 
   if (loading && requests.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
+      <div className="flex flex-col items-center justify-center  gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
         <p className="text-gray-600">Loading deletion requests...</p>
       </div>
@@ -603,7 +601,7 @@ const handleBulkDelete = async () => {
      
 
       {/* Main Table Card */}
-      <Card className="shadow-sm border-0 overflow-hidden mb-6 sticky top-48 z-10">
+      <Card className="shadow-sm border-0 overflow-hidden mb-0 sticky top-48 z-10">
        
         <CardContent className="p-0">
           {filteredRequests.length === 0 ? (
@@ -629,266 +627,335 @@ const handleBulkDelete = async () => {
               )}
             </div>
           ) : (
-            <div className="relative">
-              {/* Scrollable Table */}
-              <div className="overflow-y-auto max-h-[490px] md:max-h-[510px] rounded-b-lg">
-                <Table className="w-full">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      {/* Checkbox Column */}
-<TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-   {can('delete_requests') && (
+          <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedRequests.size > 0
+      ? 'max-h-[260px] md:max-h-[360px]'
+      : 'max-h-[340px] md:max-h-[435px]'
+  }`}>
+    <table className="w-full min-w-[850px] table-fixed border-collapse">
 
-  <div className="py-2 flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.size === sortedRequests.length && sortedRequests.length > 0}
-      onCheckedChange={handleSelectAll}
-      aria-label="Select all"
-    />
-  </div>
-   )}
-</TableHead>
-                      {/* Tenant Column */}
-                      <TableHead className="w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('full_name')}>
-                            <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Contact Column */}
-                      <TableHead className="w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Contact</span>
-                          <Input 
-                            placeholder="Search contact..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.contact}
-                            onChange={(e) => handleSearchChange('contact', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Room/Property Column */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('property_name')}>
-                            <span className="font-semibold text-gray-700 text-xs">Room/Property</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search room..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.room}
-                            onChange={(e) => handleSearchChange('room', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Reason Column */}
-                      <TableHead className="w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <span className="font-semibold text-gray-700 text-xs">Reason</span>
-                          <Input 
-                            placeholder="Search reason..." 
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.reason}
-                            onChange={(e) => handleSearchChange('reason', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Requested Date Column */}
-                      <TableHead className="w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('requested_at')}>
-                            <span className="font-semibold text-gray-700 text-xs">Requested</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.requested}
-                            onChange={(e) => handleSearchChange('requested', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Tenant Since Column */}
-                      <TableHead className="w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-1 py-1">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_since')}>
-                            <span className="font-semibold text-gray-700 text-xs">Tenant Since</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Date..." 
-                            type="date"
-                            className="h-7 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant_since}
-                            onChange={(e) => handleSearchChange('tenant_since', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      {/* Actions Column */}
-                      <TableHead className="w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700 text-xs">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {sortedRequests.map((request, index) => (
-                      <TableRow 
-                        key={request.request_id} 
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
-                      >
-                        {/* Checkbox Cell */}
-<TableCell className="w-[50px]">
-    {can('delete_requests') && (
+      <thead className="sticky top-0 z-50">
+        <tr className="bg-white border-b-2 border-blue-200">
 
-  <div className="flex justify-center">
-    <Checkbox 
-      checked={selectedRequests.has(request.request_id)}
-      onCheckedChange={() => handleSelectRequest(request.request_id)}
-      aria-label={`Select request ${request.request_id}`}
-    />
-  </div>
-    )}
-</TableCell>
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="font-medium flex items-center gap-1">
-                              <User className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.full_name}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
-                              <Mail className="h-2 w-2" />
-                              {request.email}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs">
-                              {request.country_code} {request.phone}
-                            </span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Home className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="text-xs truncate">
-                                {request.room_display}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {request.property_name}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="text-xs line-clamp-2 max-w-[180px]">
-                            {request.reason}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="text-xs whitespace-nowrap">
-                            {formatShortDate(request.requested_at)}
-                          </div>
-                          <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {formatTime(request.requested_at)}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="truncate">
-                          <div className="text-xs whitespace-nowrap">
-                            {formatShortDate(request.tenant_since)}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setViewDialogOpen(true);
-                              }}
-                              className="h-7 w-7 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
-                                >
-                                  <MoreVertical className="h-3.5 w-3.5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuLabel className="text-xs text-blue-600">Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                {can('manage_account_deletion') && (
-
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setApproveDialogOpen(true);
-                                  }}
-                                  className="cursor-pointer text-xs text-green-600"
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5 mr-2" />
-                                  Approve
-                                </DropdownMenuItem>
-                                )}
-                                {can('manage_account_deletion') && (
-
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    setRejectDialogOpen(true);
-                                  }}
-                                  className="cursor-pointer text-xs text-red-600"
-                                >
-                                  <XCircle className="h-3.5 w-3.5 mr-2" />
-                                  Reject
-                                </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox 
+                  checked={selectedRequests.size === sortedRequests.length && sortedRequests.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
               </div>
+            )}
+          </th>
+
+          {/* Actions - 100px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[100px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
             </div>
+          </th>
+
+          {/* Tenant - 150px sticky */}
+          <th className="md:sticky md:left-[115px] z-[60] w-[180px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('full_name')}>
+                <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Contact - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Contact</span>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.contact}
+                onChange={(e) => handleSearchChange('contact', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Room/Property - 160px */}
+          <th className="w-[190px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('property_name')}>
+                <span className="font-semibold text-gray-700 text-xs">Room/Property</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.room}
+                onChange={(e) => handleSearchChange('room', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Reason - flex remaining */}
+          <th className="bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Reason</span>
+              <Input 
+                placeholder="Search..." 
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.reason}
+                onChange={(e) => handleSearchChange('reason', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Requested - 120px */}
+          <th className="w-[150px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('requested_at')}>
+                <span className="font-semibold text-gray-700 text-xs">Requested</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.requested}
+                onChange={(e) => handleSearchChange('requested', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Tenant Since - 120px */}
+          <th className="w-[150px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_since')}>
+                <span className="font-semibold text-gray-700 text-xs">Since</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input 
+                type="date"
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant_since}
+                onChange={(e) => handleSearchChange('tenant_since', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {sortedRequests
+          .slice(
+            (currentPage - 1) * (itemsPerPage === 'all' ? sortedRequests.length : Number(itemsPerPage)),
+            currentPage * (itemsPerPage === 'all' ? sortedRequests.length : Number(itemsPerPage))
+          )
+          .map((request, index) => (
+            <tr
+              key={request.request_id}
+              className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
+                index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+              }`}
+            >
+              {/* Checkbox - sticky white */}
+              <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+                {can('delete_requests') && (
+                  <div className="flex justify-center">
+                    <Checkbox 
+                      checked={selectedRequests.has(request.request_id)}
+                      onCheckedChange={() => handleSelectRequest(request.request_id)}
+                      aria-label={`Select request ${request.request_id}`}
+                    />
+                  </div>
+                )}
+              </td>
+
+              {/* Actions - sticky white */}
+              <td className="md:sticky md:left-[40px] z-[30] w-[100px] bg-white border-r border-gray-100 py-2 px-1">
+                <div className="flex items-center gap-0.5 flex-nowrap">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedRequest(request);
+                      setViewDialogOpen(true);
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                    title="View Details"
+                  >
+                    <Eye className="h-3 w-3 text-blue-500" />
+                  </Button>
+
+                  {can('manage_account_deletion') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setApproveDialogOpen(true);
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
+                      title="Approve"
+                    >
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    </Button>
+                  )}
+
+                  {can('manage_account_deletion') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setRejectDialogOpen(true);
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-red-100 flex-shrink-0"
+                      title="Reject"
+                    >
+                      <XCircle className="h-3 w-3 text-red-500" />
+                    </Button>
+                  )}
+                </div>
+              </td>
+
+              {/* Tenant - sticky white */}
+              <td className="md:sticky md:left-[115px] z-[30] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
+                <div className="flex items-center gap-1">
+                  <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                    <User className="h-3 w-3 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{request.full_name}</div>
+                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                      <Mail className="h-2 w-2 flex-shrink-0" />
+                      {request.email}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              {/* Contact */}
+              <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-0.5">
+                  <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                  <span className="text-[11px] text-gray-600 truncate">
+                    {request.country_code} {request.phone}
+                  </span>
+                </div>
+              </td>
+
+              {/* Room/Property */}
+              <td className={`w-[190px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  <Home className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs font-medium truncate">{request.room_display}</span>
+                </div>
+                <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                  {request.property_name}
+                </div>
+              </td>
+
+              {/* Reason */}
+              <td className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="text-[11px] text-gray-700 line-clamp-2">
+                  {request.reason}
+                </div>
+              </td>
+
+              {/* Requested */}
+              <td className={`w-[150px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                <div className="text-xs font-medium whitespace-nowrap">
+                  {formatShortDate(request.requested_at)}
+                </div>
+                <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                  {formatTime(request.requested_at)}
+                </div>
+              </td>
+
+              {/* Tenant Since */}
+              <td className={`w-[150px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
+                <div className="text-xs font-medium whitespace-nowrap">
+                  {formatShortDate(request.tenant_since)}
+                </div>
+              </td>
+
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          {sortedRequests.length} requests
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={String(itemsPerPage)}
+            onValueChange={(val) => {
+              setItemsPerPage(val === 'all' ? 'all' : parseInt(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {currentPage}/
+          {Math.ceil(
+            sortedRequests.length /
+              (itemsPerPage === 'all' ? sortedRequests.length : Number(itemsPerPage))
+          ) || 1}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={
+            currentPage >=
+            Math.ceil(
+              sortedRequests.length /
+                (itemsPerPage === 'all' ? sortedRequests.length : Number(itemsPerPage))
+            )
+          }
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>

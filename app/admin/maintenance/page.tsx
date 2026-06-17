@@ -327,20 +327,25 @@ const handleBulkDelete = async () => {
   });
 
   // Filter requests with all column filters
-  const filteredRequests = sortedRequests.filter(request => {
-    const matchesId = request.id.toString().includes(searchFilters.id);
-    const matchesTenant = (request.tenant_name || '').toLowerCase().includes(searchFilters.tenant.toLowerCase());
-    const matchesTitle = (request.title || '').toLowerCase().includes(searchFilters.title.toLowerCase());
-    const matchesProperty = (request.property_name || '').toLowerCase().includes(searchFilters.property.toLowerCase());
-    const matchesPriority = searchFilters.priority === 'all' || request.priority === searchFilters.priority;
-    const matchesStatus = searchFilters.status === 'all' || request.status === searchFilters.status;
-    const matchesAssignedTo = (request.staff_name || '').toLowerCase().includes(searchFilters.assignedTo.toLowerCase());
-    const matchesDate = !searchFilters.date || 
-                        new Date(request.created_at).toISOString().split('T')[0] === searchFilters.date;
-    
-    return matchesId && matchesTenant && matchesTitle && matchesProperty && 
-           matchesPriority && matchesStatus && matchesAssignedTo && matchesDate;
-  });
+const filteredRequests = sortedRequests.filter(request => {
+  const matchesId = request.id.toString().includes(searchFilters.id);
+  const matchesTenant = (request.tenant_name || '').toLowerCase().includes(searchFilters.tenant.toLowerCase());
+  const matchesTitle = 
+    (request.title || '').toLowerCase().includes(searchFilters.title.toLowerCase()) ||
+    (request.maintenance_data?.issue_category || '').toLowerCase().includes(searchFilters.title.toLowerCase()) ||
+    (request.maintenance_data?.location || '').toLowerCase().includes(searchFilters.title.toLowerCase());
+  const matchesProperty = 
+    (request.property_name || '').toLowerCase().includes(searchFilters.property.toLowerCase()) ||
+    (request.room_number && request.room_number.toString().toLowerCase().includes(searchFilters.property.toLowerCase()));
+  const matchesPriority = searchFilters.priority === 'all' || request.priority === searchFilters.priority;
+  const matchesStatus = searchFilters.status === 'all' || request.status === searchFilters.status;
+  const matchesAssignedTo = (request.staff_name || '').toLowerCase().includes(searchFilters.assignedTo.toLowerCase());
+  const matchesDate = !searchFilters.date || 
+                      new Date(request.created_at).toISOString().split('T')[0] === searchFilters.date;
+  
+  return matchesId && matchesTenant && matchesTitle && matchesProperty && 
+         matchesPriority && matchesStatus && matchesAssignedTo && matchesDate;
+});
 
   // Handle view details action
   const handleViewDetails = (request: MaintenanceRequest) => {
@@ -675,7 +680,7 @@ const handleBulkDelete = async () => {
               </div>
               <Input 
                 type="date"
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                className="h-6 text-[10px] border-gray-200 focus:border-blue-400 px-1.5"
                 value={searchFilters.date}
                 onChange={(e) => handleSearchChange('date', e.target.value)}
               />

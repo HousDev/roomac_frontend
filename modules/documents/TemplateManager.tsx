@@ -5,6 +5,8 @@ import {
   FileText, Upload, Image as ImageIcon, Loader2, Search,
   LayoutTemplate, Layers, User, ChevronDown, ChevronUp, Sparkles,
   Check, AlertCircle, Clock, Printer,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +38,7 @@ import {
   type DocumentTemplate,
   type VersionSnapshot,
 } from "@/lib/documentTemplateApi";
+import { Button } from "react-day-picker";
 
 // ─── Style tokens ───────────────────────────────────────────────────────────
 const F = "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
@@ -629,6 +632,13 @@ const visualIframeRef = useRef<HTMLIFrameElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
 
+
+  // ── Pagination state ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
   // ── Logo ───────────────────────────────────────────────────────────────────
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -701,23 +711,28 @@ const visualIframeRef = useRef<HTMLIFrameElement>(null);
   // DATA LOADERS
   // ══════════════════════════════════════════════════════════════════════════
 
-  const loadTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listTemplates({
-        category: catFilter !== "all" ? catFilter : undefined,
-        is_active: statusFilter !== "all" ? statusFilter : undefined,
-      });
-      setTemplates(res.data || []);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load templates");
-    } finally {
-      setLoading(false);
-    }
-  }, [catFilter, statusFilter]);
+ const loadTemplates = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === "All" ? 999999 : pageSize;
+    const res = await listTemplates({
+      category: catFilter !== "all" ? catFilter : undefined,
+      is_active: statusFilter !== "all" ? statusFilter : undefined,
+      page,
+      limit,
+    });
+    setTemplates(res.data || []);
+    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
+    setTotalPages(res.pagination?.totalPages ?? 1);
+    setCurrentPage(page);
+  } catch (err: any) {
+    toast.error(err.message || "Failed to load templates");
+  } finally {
+    setLoading(false);
+  }
+}, [catFilter, statusFilter, pageSize]);
 
-  useEffect(() => { loadTemplates(); }, [loadTemplates]);
-
+useEffect(() => { loadTemplates(1); }, [loadTemplates]);
   // ══════════════════════════════════════════════════════════════════════════
   // DERIVED / FILTERED DATA
   // ══════════════════════════════════════════════════════════════════════════
@@ -1606,7 +1621,7 @@ const handleExport = () => {
             )}
           </div>
 
-          <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 270px)" }}>
+          <div className="overflow-auto overflow-y-auto max-h-[360px] md:max-h-[430px]">
             <div className="min-w-[950px]">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-gray-50">
@@ -1741,6 +1756,81 @@ const handleExport = () => {
               </Table>
             </div>
           </div>
+
+
+          {/* ── Pagination Bar ── */}
+{!loading && templates.length > 0 && (
+  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+    <div className="flex items-center gap-3 text-gray-500">
+      <span className="text-[11px]">
+        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} templates
+      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400 text-[10px]">Rows:</span>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(val) => {
+            const newSize = val === "All" ? "All" : Number(val);
+            setPageSize(newSize);
+            setCurrentPage(1);
+            loadTemplates(1);
+          }}
+        >
+          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+            <SelectValue>{pageSize}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadTemplates(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronLeft className="h-3 w-3" />
+        </Button>
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          const page = i + 1;
+          return (
+            <Button
+              key={page}
+              size="sm"
+              variant={currentPage === page ? "default" : "outline"}
+              onClick={() => loadTemplates(page)}
+              className={`h-6 w-6 p-0 text-[10px] ${
+                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+              }`}
+            >
+              {page}
+            </Button>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadTemplates(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+      </div>
+    )}
+  </div>
+)}
         </Card>
 
         {/* ── FILTER SIDEBAR ─────────────────────────────────────────── */}

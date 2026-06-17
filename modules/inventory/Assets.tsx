@@ -4,6 +4,8 @@ import {
   Package, Plus, Trash2, Search, Loader2, X, Download,
   Building, IndianRupee, StickyNote, RefreshCw, Filter,
   BarChart, AlertTriangle, TrendingDown, Boxes, ChevronDown, ChevronUp,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -94,6 +96,13 @@ export function Assets() {
   const [editingItem,  setEditingItem]  = useState<InventoryItem | null>(null);
   const [submitting,   setSubmitting]   = useState(false);
   const [sidebarOpen,  setSidebarOpen]  = useState(false);
+
+  // ── Pagination state ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
   const [purchasedItems, setPurchasedItems] = useState<{label: string, value: string}[]>([]);
 const [itemSearchTerm, setItemSearchTerm] = useState('');
 const [categorySearchTerm, setCategorySearchTerm] = useState('');
@@ -159,25 +168,30 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [formData, setFormData] = useState(emptyForm);
 
   // ── Loaders (UNCHANGED) ───────────────────────────────────────────────────
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [itemsRes, statsRes] = await Promise.all([
-        getInventory({
-          stock_status: stockFilter !== 'all' ? stockFilter as any : undefined,
-          category_id:  categoryFilter !== 'all' ? categoryFilter : undefined,
-          property_id:  propertyFilter !== 'all' ? propertyFilter : undefined,
-        }),
-        getInventoryStats(),
-      ]);
-      setItems(itemsRes.data || []);
-      setStats(statsRes.data || stats);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to load inventory');
-    } finally {
-      setLoading(false);
-    }
-  }, [stockFilter, categoryFilter, propertyFilter]);
+ const loadAll = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === "All" ? 999999 : pageSize;
+    const res = await getInventory({
+      stock_status: stockFilter !== 'all' ? stockFilter as any : undefined,
+      category_id:  categoryFilter !== 'all' ? categoryFilter : undefined,
+      property_id:  propertyFilter !== 'all' ? propertyFilter : undefined,
+      page,
+      limit,
+    });
+    setItems(res.data || []);
+    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
+    setTotalPages(res.pagination?.totalPages ?? 1);
+    setCurrentPage(page);
+    // Also update stats if not paginated stats endpoint, but we keep separate
+    // stats are loaded separately, so we can keep them as-is or update with totals
+    // If stats not paginated, keep them unchanged.
+  } catch (err: any) {
+    toast.error(err.message || 'Failed to load inventory');
+  } finally {
+    setLoading(false);
+  }
+}, [stockFilter, categoryFilter, propertyFilter, pageSize]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -209,7 +223,7 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   }, []);
 
 useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, []);
-  useEffect(() => { loadAll(); }, [loadAll]);
+useEffect(() => { loadAll(1); }, [loadAll]);
   // ── Filtered items (UNCHANGED) ────────────────────────────────────────────
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -568,8 +582,8 @@ const handleExport = () => {
   style={{
     maxHeight: typeof window !== 'undefined' 
       ? window.innerWidth < 768 
-        ? 'calc(100vh - 300px)'  // mobile
-        : 'calc(100vh - 270px)'  // desktop
+        ? 'calc(100vh - 250px)'  
+        : 'calc(100vh - 300px)'  
       : 'calc(100vh - 320px)'
   }}
 >  <div className="min-w-[900px]">
@@ -680,6 +694,81 @@ const handleExport = () => {
                 </Table>
               </div>
             </div>
+        
+        
+        {/* ── Pagination Bar ── */}
+{!loading && items.length > 0 && (
+  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+    <div className="flex items-center gap-3 text-gray-500">
+      <span className="text-[11px]">
+        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} items
+      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400 text-[10px]">Rows:</span>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(val) => {
+            const newSize = val === "All" ? "All" : Number(val);
+            setPageSize(newSize);
+            setCurrentPage(1);
+            loadAll(1);
+          }}
+        >
+          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+            <SelectValue>{pageSize}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadAll(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronLeft className="h-3 w-3" />
+        </Button>
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          const page = i + 1;
+          return (
+            <Button
+              key={page}
+              size="sm"
+              variant={currentPage === page ? "default" : "outline"}
+              onClick={() => loadAll(page)}
+              className={`h-6 w-6 p-0 text-[10px] ${
+                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+              }`}
+            >
+              {page}
+            </Button>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadAll(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+      </div>
+    )}
+  </div>
+)}
           </Card>
         </main>
 

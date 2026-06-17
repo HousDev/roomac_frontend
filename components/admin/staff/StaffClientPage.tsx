@@ -459,6 +459,51 @@ const handleDelete = useCallback(
   [loadStaff],
 );
 
+const handleBulkDelete = useCallback(
+  async (ids: number[]) => {
+    if (!ids.length) return;
+
+    const result = await MySwal.fire({
+      title: `Delete ${ids.length} Staff Member${ids.length > 1 ? 's' : ''}?`,
+      text: `Are you sure you want to delete ${ids.length} selected staff member${ids.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#C62828",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: `Delete ${ids.length}`,
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Delete each selected staff member
+        await Promise.all(ids.map(id => deleteStaff(id)));
+        
+        MySwal.fire({
+          title: "Deleted!",
+          text: `${ids.length} staff member${ids.length > 1 ? 's have' : ' has'} been deleted successfully.`,
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        toast.success(`${ids.length} staff deleted successfully`);
+        await loadStaff();
+      } catch (err: any) {
+        MySwal.fire({
+          title: "Error!",
+          text: err.message || "Failed to delete staff members",
+          icon: "error",
+          confirmButtonColor: "#C62828",
+        });
+        toast.error(err.message || "Failed to delete staff");
+      }
+    }
+  },
+  [loadStaff]
+);
+
   const handleToggleActive = useCallback(
     async (id: number, isActive: boolean) => {
       try {
@@ -803,7 +848,7 @@ const handleRemoveDocument = useCallback(
           onDelete={handleDelete}
           onToggleActive={handleToggleActive}
           onViewDetails={handleViewDetails}
-        />
+onBulkDelete={handleBulkDelete}        />
       </CardContent>
 
       <StaffDetailsPopup

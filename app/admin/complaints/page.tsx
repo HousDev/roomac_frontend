@@ -33,7 +33,8 @@ import {
   UserPlus,
   FileText,
   X,
-  ArrowRight
+  ArrowRight,
+  Settings
 } from "lucide-react";
 import {
   getAdminComplaints,
@@ -741,7 +742,7 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                         title="Update Status"
                         onClick={() => handleOpenStatusDialog(complaint)}
                       >
-                        <RefreshCw className="h-3.5 w-3.5 text-purple-500" />
+                        <Settings className="h-3.5 w-3.5 text-purple-500" />
                       </Button>
                     )}
                   </div>

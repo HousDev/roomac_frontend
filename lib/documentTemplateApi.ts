@@ -40,6 +40,8 @@ export interface TemplateFilters {
   category?:  string;
   is_active?: string | boolean;
   search?:    string;
+  page?:      number;   // ← ADD
+  limit?:     number;
 }
 
 export interface CreateTemplatePayload {
@@ -120,9 +122,12 @@ export async function listTemplates(
   filters: TemplateFilters = {}
 ): Promise<ApiResult<DocumentTemplate[]>> {
   const params = new URLSearchParams();
+
   if (filters.category  !== undefined && filters.category  !== "all") params.set("category",  filters.category);
   if (filters.is_active !== undefined && filters.is_active !== "all") params.set("is_active", String(filters.is_active));
   if (filters.search)                                                  params.set("search",    filters.search);
+  if (filters.page      !== undefined)                                 params.set("page",      String(filters.page));
+  if (filters.limit     !== undefined)                                 params.set("limit",     String(filters.limit));
 
   const qs = params.toString();
   return req<DocumentTemplate[]>(`${BASE_PATH}${qs ? `?${qs}` : ""}`);
