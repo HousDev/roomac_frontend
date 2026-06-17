@@ -297,6 +297,9 @@ const [pendingRentTenantIds, setPendingRentTenantIds] = useState<number[]>([]);
   const [columnFilters, setColumnFilters] = useState({
     payment_date: "",
     tenant_name: "",
+    property_name: "",
+    room_bed: "",
+    contact: "",
     amount: "",
     min_amount: "",
     max_amount: "",
@@ -305,8 +308,10 @@ const [pendingRentTenantIds, setPendingRentTenantIds] = useState<number[]>([]);
     month: "",
     status: "all",
     remark: "",
+    payment_count: "",
+    total_paid_amount: "",
+    total_rejected_amount: "",
   });
-
   const [filterPropertyId, setFilterPropertyId] = useState("all");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
@@ -327,9 +332,12 @@ const [pendingRentTenantIds, setPendingRentTenantIds] = useState<number[]>([]);
     tenant: "",
     from_date: "",
     to_date: "",
-    payment_type: "",  // ✅ Add this
-  amount: "",        // ✅ Add this for amount search
-  room: "",          // ✅ Add this for room search
+    payment_type: "",  
+  amount: "",         
+  room: "",  
+  contact: "",      
+  property: "",     
+  ignore_date: false,          
   });
 
   const [stats, setStats] = useState({
@@ -382,23 +390,35 @@ const [detailedStats, setDetailedStats] = useState({
   total_transactions: 0,
 });
 
-  const [paymentPagination, setPaymentPagination] = useState({
-    currentPage: 1,
-    itemsPerPage: 10,
-    totalItems: 0,
-  });
+const [paymentPagination, setPaymentPagination] = useState<{
+  currentPage: number;
+  itemsPerPage: number | "All";
+  totalItems: number;
+}>({
+  currentPage: 1,
+  itemsPerPage: 10,   // 👈 set a default value
+  totalItems: 0,
+});
 
-  const [receiptPagination, setReceiptPagination] = useState({
-    currentPage: 1,
-    itemsPerPage: 10,
-    totalItems: 0,
-  });
+const [receiptPagination, setReceiptPagination] = useState<{
+  currentPage: number;
+  itemsPerPage: number | "All";
+  totalItems: number;
+}>({
+  currentPage: 1,
+  itemsPerPage: 10,
+  totalItems: 0,
+});
 
-  const [demandPagination, setDemandPagination] = useState({
-    currentPage: 1,
-    itemsPerPage: 10,
-    totalItems: 0,
-  });
+const [demandPagination, setDemandPagination] = useState<{
+  currentPage: number;
+  itemsPerPage: number | "All";
+  totalItems: number;
+}>({
+  currentPage: 1,
+  itemsPerPage: 10,
+  totalItems: 0,
+});
   useEffect(() => {
     loadData();
   }, []);
@@ -1933,12 +1953,12 @@ useEffect(() => {
 const groupPaymentsByTenant = (
   payments: any[],
   page: number,
-  itemsPerPage: number,
+  itemsPerPage: number | "All",
   paymentTypeFilterValue: string = "",  // Add this
   exactPendingFilterValue: string = "",  
   ignoreDateFiltersValue: boolean = false,  // Add this parameter
-  roomFilterValue: string = "",  // ✅ ADD THIS
-  showPendingRentOnlyValue: boolean = false,  // ✅ ADD THIS
+  roomFilterValue: string = "",  
+  showPendingRentOnlyValue: boolean = false,  
 ) => {
   const grouped: { [key: string]: any } = {};
 
@@ -2031,21 +2051,42 @@ const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
 
   // ── ALL FILTERS RUN HERE on full dataset ──
 
-  // 1. Tenant name / room / property search
+ // 1. Tenant name search
   const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
   if (searchTerm) {
     groupedArray = groupedArray.filter((group: any) => {
       const salutation = getTenantSalutation(group.tenant_id) || "";
       const fullName = `${salutation} ${group.tenant_name || ""}`.toLowerCase();
-      const roomNumber = (group.room_number || "").toString().toLowerCase();
+      return fullName.includes(searchTerm);
+    });
+  }
+
+  // 1b. Property filter from column header
+  const propertySearchTerm = columnFilters?.property_name?.toLowerCase() || "";
+  if (propertySearchTerm) {
+    groupedArray = groupedArray.filter((group: any) => {
       const propertyName = (group.property_name || "").toLowerCase();
+      return propertyName.includes(propertySearchTerm);
+    });
+  }
+
+  // 1c. Room/Bed filter from column header
+  const roomBedSearchTerm = columnFilters?.room_bed?.toLowerCase() || "";
+  if (roomBedSearchTerm) {
+    groupedArray = groupedArray.filter((group: any) => {
+      const roomNumber = (group.room_number || "").toString().toLowerCase();
       const bedNumber = (group.bed_number || "").toString().toLowerCase();
-      return (
-        fullName.includes(searchTerm) ||
-        roomNumber.includes(searchTerm) ||
-        propertyName.includes(searchTerm) ||
-        bedNumber.includes(searchTerm)
-      );
+      return roomNumber.includes(roomBedSearchTerm) || bedNumber.includes(roomBedSearchTerm);
+    });
+  }
+
+  // 1d. Contact filter from column header
+  const contactSearchTerm = columnFilters?.contact?.toLowerCase() || "";
+  if (contactSearchTerm) {
+    groupedArray = groupedArray.filter((group: any) => {
+      const phone = (group.tenant_phone || "").toLowerCase();
+      const email = (group.tenant_email || "").toLowerCase();
+      return phone.includes(contactSearchTerm) || email.includes(contactSearchTerm);
     });
   }
 // 2. Room number filter - USE THE PARAMETER
@@ -2118,7 +2159,7 @@ if (exactPendingFilterValue && accuratePendingRentMap.size > 0) {
     });
   }
 
-  // 8. Last payment date column filter
+ // 8. Last payment date column filter
   if (columnFilters?.payment_date) {
     const searchTerm2 = columnFilters.payment_date.toLowerCase().trim();
     if (searchTerm2) {
@@ -2186,14 +2227,16 @@ if (showPendingRentOnlyValue && pendingRentTenantIds.length > 0) {
 }
 
   const totalItems = groupedArray.length;
-  const startIndex = (page - 1) * itemsPerPage;
-  const paginatedItems = groupedArray.slice(startIndex, startIndex + itemsPerPage);
+const isAll = itemsPerPage === "All";
+const startIndex = isAll ? 0 : (page - 1) * (itemsPerPage as number);
+const paginatedItems = isAll ? groupedArray : groupedArray.slice(startIndex, startIndex + (itemsPerPage as number));
+const totalPages = isAll ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
-  return {
-    items: paginatedItems,
-    totalItems,
-    totalPages: Math.ceil(totalItems / itemsPerPage),
-  };
+return {
+  items: paginatedItems,
+  totalItems,
+  totalPages,
+};
 };
 
   // Add this function to fetch settings
@@ -2367,22 +2410,23 @@ paymentPagination.itemsPerPage,
   paymentTypeFilter,  // Pass the value
 exactPendingFilter,  // Pass the value
    ignoreDateFilters,
-   roomFilterGlobal,  // ✅ ADD THIS
-  showPendingRentOnly,  // ✅ ADD THIS
+   roomFilterGlobal,  
+  showPendingRentOnly,  
   );
 
   // Add this function for demands pagination
   const paginatedDemandsData = () => {
-    const startIndex =
-      (demandPagination.currentPage - 1) * demandPagination.itemsPerPage;
-    const endIndex = startIndex + demandPagination.itemsPerPage;
-    const paginated = filteredDemands.slice(startIndex, endIndex);
-    return {
-      items: paginated,
-      totalPages: Math.ceil(
-        filteredDemands.length / demandPagination.itemsPerPage,
-      ),
-    };
+    const itemsPerPage = demandPagination.itemsPerPage;
+const isAll = itemsPerPage === "All";
+const startIndex = isAll ? 0 : (demandPagination.currentPage - 1) * (itemsPerPage as number);
+const endIndex = isAll ? filteredDemands.length : startIndex + (itemsPerPage as number);
+const paginated = filteredDemands.slice(startIndex, endIndex);
+const totalPages = isAll ? 1 : Math.ceil(filteredDemands.length / (itemsPerPage as number));
+
+return {
+  items: paginated,
+  totalPages,
+};
   };
   // ===== END OF ADDITION =====
 
@@ -2675,12 +2719,7 @@ exactPendingFilter,  // Pass the value
     );
   };
 
-  {
-    /* Security Deposit Info - Show when payment type is security_deposit */
-  }
-  {
-    /* In the Add Payment Dialog - Security Deposit section */
-  }
+
   {
     newPayment.payment_type === "security_deposit" && securityDepositInfo && (
       <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
@@ -2823,6 +2862,8 @@ exactPendingFilter,  // Pass the value
   // Filtered demands - with null checks to prevent crashes
   // Filtered demands - with null checks to prevent crashes
   const filteredDemands = demands.filter((demand) => {
+      const phone = getTenantPhone(demand.tenant_id);  
+
     const tenantName = getTenantName(demand.tenant_id).toLowerCase();
 
     const matchesStatus =
@@ -2841,18 +2882,20 @@ exactPendingFilter,  // Pass the value
     demand.payment_type === demandFilters.payment_type;
 
     // Date filter (created_at)
-    const matchesDate =
-      !demandFilters.date ||
-      format(new Date(demand.created_at), "dd/MM/yy").includes(
-        demandFilters.date,
-      );
+  const matchesDate =
+  demandFilters.ignore_date ||
+  !demandFilters.date ||
+  format(new Date(demand.created_at), "dd/MM/yy").includes(demandFilters.date);
 
     // Due date range filters
     const matchesFromDate = (() => {
-      if (!demandFilters.from_date) return true;
-      const formatted = format(new Date(demand.due_date), "dd/MM/yy");
-      return formatted.includes(demandFilters.from_date.trim());
-    })();
+  if (!demandFilters.from_date) return true;
+  const dueDate = new Date(demand.due_date);
+  dueDate.setHours(0, 0, 0, 0);
+  const fromDate = new Date(demandFilters.from_date);
+  fromDate.setHours(0, 0, 0, 0);
+  return dueDate >= fromDate;
+})();
 
     const matchesToDate = (() => {
       if (!demandFilters.to_date) return true;
@@ -2880,7 +2923,14 @@ exactPendingFilter,  // Pass the value
           .includes(demandFilters.room.toLowerCase())) ||
       (demand.bed_number &&
         demand.bed_number.toString().includes(demandFilters.room));
-        
+       const matchesContact =
+  !demandFilters.contact ||
+  (getTenantPhone(demand.tenant_id) && getTenantPhone(demand.tenant_id).includes(demandFilters.contact));
+
+const matchesProperty =
+  !demandFilters.property ||
+  (demand.property_name &&
+    demand.property_name.toLowerCase().includes(demandFilters.property.toLowerCase()));
 
     return (
       matchesStatus &&
@@ -2890,7 +2940,10 @@ exactPendingFilter,  // Pass the value
       matchesFromDate &&
       matchesToDate &&
       matchesAmount &&
-      matchesRoom
+      matchesRoom &&
+       matchesContact && 
+       matchesProperty
+
     );
   });
 
@@ -3340,629 +3393,636 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
             />
           </TabsContent>
 
-{selectedDemandIds.length > 0 && (
-  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-2">
-    <span className="text-xs font-semibold text-red-700">{selectedDemandIds.length} selected</span>
-    <Button
-      size="sm"
-      className="h-7 text-[10px] bg-red-600 hover:bg-red-700 text-white px-2.5 ml-2"
-      onClick={async () => {
-        const result = await MySwal.fire({
-          title: 'Delete Demands?',
-          html: `You are about to delete <b>${selectedDemandIds.length}</b> demand${selectedDemandIds.length !== 1 ? 's' : ''}. This action cannot be undone!`,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          cancelButtonColor: '#6b7280',
-          confirmButtonText: `Yes, delete ${selectedDemandIds.length} demand${selectedDemandIds.length !== 1 ? 's' : ''}!`,
-          cancelButtonText: 'Cancel',
-        });
-        
-        if (!result.isConfirmed) return;
-        
-        try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/demands/bulk-delete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: selectedDemandIds })
-          });
-          const data = await response.json();
-          if (data.success) {
-            await MySwal.fire({
-              title: 'Deleted!',
-              text: data.message,
-              icon: 'success',
-              timer: 2000,
-              showConfirmButton: false
-            });
-            setSelectedDemandIds([]);
-            loadDemands();
-          } else {
-            toast.error(data.message || "Failed to delete demands");
-          }
-        } catch (error) {
-          toast.error("Failed to delete demands");
-        }
-      }}
-    >
-      <Trash2 className="h-3 w-3 mr-1" />Delete Selected
-    </Button>
-    <Button variant="ghost" size="sm" className="h-7 text-[10px] text-slate-500 ml-auto"
-      onClick={() => setSelectedDemandIds([])}>
-      <X className="h-3 w-3 mr-1" />Clear
-    </Button>
-  </div>
-)}
 
           {/* Demands Tab Content */}
+         {/* Demands Tab Content */}
           <TabsContent value="demands" className="mt-0">
-            <Card className="border-0 shadow-sm overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]">
-              <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                  <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-                    <div className="min-w-[780px] flex flex-col flex-1 min-h-0">
-                      <div className="flex-shrink-0">
-                        <Table>
-                          {/* COMPACT HEADER WITH SEARCH BARS */}
-                         <colgroup>
-                         <col style={{ width: "40px" }} />
-  <col style={{ width: "110px" }} />  {/* Demand Date */}
-  <col style={{ width: "180px" }} />  {/* Tenant */}
-  <col style={{ width: "130px" }} />  {/* Type */}
-  <col style={{ width: "170px" }} />  {/* Amount */}
-  <col style={{ width: "100px" }} />  {/* Due Date */}
-  <col style={{ width: "160px" }} />  {/* Room/Bed */}
-  <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
-</colgroup>
 
-<TableHeader className="bg-gray-200 border-b border-gray-300">
-  <TableRow className="hover:bg-transparent">
-
-    {/* Checkbox Column - add BEFORE Demand Date column */}
-<TableHead className="w-[40px] py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1 items-center">
-    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
-    <input
-      type="checkbox"
-      checked={selectedDemandIds.length === paginatedDemandsData().items.length && paginatedDemandsData().items.length > 0}
-      onChange={(e) => {
-        if (e.target.checked) {
-          setSelectedDemandIds(paginatedDemandsData().items.map((d: any) => d.id));
-        } else {
-          setSelectedDemandIds([]);
-        }
-      }}
-      className="w-3 h-3 accent-orange-500"
-    />
-  </div>
-</TableHead>
-
-    {/* Demand Date Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Demand Date
-        </span>
-        <Input
-          placeholder="dd/mm/yy"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={demandFilters.date || ""}
-          onChange={(e) =>
-            setDemandFilters({
-              ...demandFilters,
-              date: e.target.value,
-            })
-          }
-        />
-      </div>
-    </TableHead>
-
-    {/* Tenant Column */}
-    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Tenant
-        </span>
-        <Input
-          placeholder="Search tenant..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={demandFilters.tenant || ""}
-          onChange={(e) =>
-            setDemandFilters({
-              ...demandFilters,
-              tenant: e.target.value,
-            })
-          }
-        />
-      </div>
-    </TableHead>
-
-    {/* Payment Type Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-left">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Type
-        </span>
-        <Select
-          value={demandFilters.payment_type || "all"}
-          onValueChange={(value) =>
-            setDemandFilters({
-              ...demandFilters,
-              payment_type: value,
-            })
-          }
-        >
-          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="rent">Rent</SelectItem>
-            <SelectItem value="security_deposit">Security Deposit</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </TableHead>
-
-    {/* Amount Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-left">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Amount
-        </span>
-        <Input
-          placeholder="Search..."
-          type="number"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-          value={demandFilters.amount || ""}
-          onChange={(e) =>
-            setDemandFilters({
-              ...demandFilters,
-              amount: e.target.value,
-            })
-          }
-        />
-      </div>
-    </TableHead>
-
-    {/* Due Date Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Due Date
-        </span>
-        <Input
-          type="text"
-          placeholder="dd/mm/yy"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={demandFilters.from_date || ""}
-          onChange={(e) =>
-            setDemandFilters({
-              ...demandFilters,
-              from_date: e.target.value,
-            })
-          }
-        />
-      </div>
-    </TableHead>
-
-    {/* Room/Bed Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Room/Bed
-        </span>
-        <Input
-          placeholder="Search..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={demandFilters.room || ""}
-          onChange={(e) =>
-            setDemandFilters({
-              ...demandFilters,
-              room: e.target.value,
-            })
-          }
-        />
-      </div>
-    </TableHead>
-
-    {/* Actions Column (with Progress Bar inside) */}
-    <TableHead className="w-[180px] py-2 px-2 bg-gray-200 text-center">
-      <div className="flex flex-col gap-1 items-center">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-          Status / Actions
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowDemandFilterSidebar(true)}
-          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-        >
-          <Filter className="w-2.5 h-2.5 mr-0.5" />
-          Filter
-        </Button>
-      </div>
-    </TableHead>
-  </TableRow>
-</TableHeader>
-                        </Table>
-                      </div>
-                      <div className="overflow-y-auto flex-1 min-h-0">
-                        <Table>
-                          <col style={{ width: "40px" }} />
-                          <col style={{ width: "110px" }} />  {/* Demand Date */}
-  <col style={{ width: "180px" }} />  {/* Tenant */}
-  <col style={{ width: "120px" }} />  {/* Type */}
-  <col style={{ width: "170px" }} />  {/* Amount */}
-  <col style={{ width: "100px" }} />  {/* Due Date */}
-  <col style={{ width: "160px" }} />  {/* Room/Bed */}
-  <col style={{ width: "180px" }} />  {/* Actions (with Progress Bar) */}
-<TableBody>
-  {loading ? (
-    <TableRow>
-      <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
-        <div className="flex justify-center items-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
-          Loading demands...
-        </div>
-      </TableCell>
-    </TableRow>
-  ) : filteredDemands.length === 0 ? (
-    <TableRow>
-      <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
-        <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-        No demands found
-      </TableCell>
-    </TableRow>
-  ) : (
-    paginatedDemandsData().items.map((demand) => {
-      const salutation = getTenantSalutation(demand.tenant_id);
-      const countryCode = getTenantCountryCode(demand.tenant_id);
-      const phone = getTenantPhone(demand.tenant_id);
-      const tenantName = getTenantName(demand.tenant_id);
-
-      return (
-        <TableRow key={demand.id} className="hover:bg-slate-50">
-          <TableCell className="py-2 px-4">
-  <input
-    type="checkbox"
-    checked={selectedDemandIds.includes(demand.id)}
-    onChange={(e) => {
-      e.stopPropagation();
-      setSelectedDemandIds(prev =>
-        prev.includes(demand.id) ? prev.filter(id => id !== demand.id) : [...prev, demand.id]
-      );
-    }}
-    className="w-3 h-3 accent-orange-500"
-  />
-</TableCell>
-          {/* Demand Date */}
-          <TableCell className="py-2 text-xs whitespace-nowrap">
-            {format(new Date(demand.created_at), "dd/MM/yy")}
-          </TableCell>
-
-          {/* Tenant Column */}
-          <TableCell className="py-2">
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-xs font-medium">
-                  {salutation ? `${salutation} ` : ''}
-                  {tenantName}
-                </p>
-                {demand.is_vacated === true && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-semibold border border-red-200">
-                    <DoorOpen className="w-2.5 h-2.5" />
-                    Vacated
-                  </span>
-                )}
-              </div>
-              {phone && (
-                <p className="text-[10px] text-slate-500">
-                  {countryCode || '+91'} {phone}
-                </p>
-              )}
-            </div>
-          </TableCell>
-
-          {/* Payment Type Cell */}
-          <TableCell className="py-2 text-center">
-            <Badge className={`text-[10px] px-2 py-0.5 ${
-              demand.payment_type === 'security_deposit' 
-                ? 'bg-purple-100 text-purple-700 border-purple-200' 
-                : 'bg-blue-100 text-blue-700 border-blue-200'
-            }`}>
-              {demand.payment_type === 'security_deposit' ? 'Security Deposit' : 'Rent'}
-            </Badge>
-          </TableCell>
-
-          {/* Amount */}
-          <TableCell className="py-2 text-xs font-medium text-center mr-31">
-            ₹{Number(demand.amount).toLocaleString("en-IN")}
-          </TableCell>
-
-          {/* Due Date */}
-          <TableCell className="py-2 text-xs whitespace-nowrap text-center">
-            <span className={new Date(demand.due_date) < new Date() && demand.status === "pending" ? "text-red-600 font-medium" : ""}>
-              {format(new Date(demand.due_date), "dd/MM/yy")}
-            </span>
-          </TableCell>
-
-          {/* Room/Bed Column */}
-          <TableCell className="py-2 text-xs text-center">
-            {demand.is_vacated === true ? (
-              <div className="flex flex-col gap-0.5">
-                {demand.room_number && demand.room_number !== 'N/A' && demand.room_number !== '—' && (
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-800">
-                      Room {demand.room_number}
-                      {demand.bed_number ? ` · Bed #${demand.bed_number}` : ''}
-                    </span>
-                    {demand.property_name && demand.property_name !== 'N/A' && (
-                      <span className="text-[10px] text-gray-400">{demand.property_name}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {demand.room_number && demand.room_number !== 'N/A' ? (
-                  <>
-                    <span className="font-medium text-gray-800">
-                      Room {demand.room_number}
-                      {demand.bed_number ? ` · Bed #${demand.bed_number}` : ''}
-                    </span>
-                    {demand.property_name && demand.property_name !== 'N/A' && (
-                      <span className="text-[10px] text-gray-500">{demand.property_name}</span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-400">No assignment</span>
-                )}
+            {/* ── Bulk Delete Bar ── */}
+            {selectedDemandIds.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-2">
+                <span className="text-xs font-semibold text-red-700">{selectedDemandIds.length} selected</span>
+                <Button
+                  size="sm"
+                  className="h-7 text-[10px] bg-red-600 hover:bg-red-700 text-white px-2.5 ml-2"
+                  onClick={async () => {
+                    const result = await MySwal.fire({
+                      title: 'Delete Demands?',
+                      html: `You are about to delete <b>${selectedDemandIds.length}</b> demand${selectedDemandIds.length !== 1 ? 's' : ''}. This action cannot be undone!`,
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonColor: '#dc2626',
+                      cancelButtonColor: '#6b7280',
+                      confirmButtonText: `Yes, delete ${selectedDemandIds.length} demand${selectedDemandIds.length !== 1 ? 's' : ''}!`,
+                      cancelButtonText: 'Cancel',
+                    });
+                    if (!result.isConfirmed) return;
+                    try {
+                      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/demands/bulk-delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: selectedDemandIds })
+                      });
+                      const data = await response.json();
+                      if (data.success) {
+                        await MySwal.fire({ title: 'Deleted!', text: data.message, icon: 'success', timer: 2000, showConfirmButton: false });
+                        setSelectedDemandIds([]);
+                        loadDemands();
+                      } else {
+                        toast.error(data.message || "Failed to delete demands");
+                      }
+                    } catch (error) {
+                      toast.error("Failed to delete demands");
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />Delete Selected
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] text-slate-500 ml-auto"
+                  onClick={() => setSelectedDemandIds([])}>
+                  <X className="h-3 w-3 mr-1" />Clear
+                </Button>
               </div>
             )}
-          </TableCell>
 
-          {/* Actions Column with Status Progress Bar */}
-          {/* Actions Column - status badge + resend only, NO progress bar */}
-<TableCell className="py-2">
-  <div className="flex items-center justify-center gap-2">
-    <Badge className={`text-[10px] px-2 py-0.5 ${
-      demand.status === 'paid'    ? 'bg-green-100 text-green-800' :
-      demand.status === 'partial' ? 'bg-blue-100 text-blue-800' :
-      demand.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                                    'bg-yellow-100 text-yellow-800'
-    }`}>
-      {demand.status === 'partial'
-        ? `Partial · ₹${(demand.paid_amount || 0).toLocaleString()}/${(demand.amount || 0).toLocaleString()}`
-        : demand.status}
-    </Badge>
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full"
-      onClick={() => handleResendClick(demand)}
-      title="Resend Payment Reminder"
+            {/* ── Main Card ── */}
+            <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="overflow-auto flex-1 min-h-0 flex flex-col">
+                  <div className="min-w-[1000px] flex flex-col flex-1 min-h-0">
+
+                    {/* ── Sticky Header ── */}
+                    <table className="table-fixed w-full border-collapse sticky top-0 z-10 bg-gray-200">
+                      <colgroup>
+                        <col style={{ width: "36px" }} />   {/* Checkbox */}
+                        <col style={{ width: "90px" }} />   {/* Demand Date */}
+                        <col style={{ width: "155px" }} />  {/* Tenant */}
+                        <col style={{ width: "105px" }} />  {/* Contact */}
+                        <col style={{ width: "120px" }} />  {/* Property */}
+                        <col style={{ width: "90px" }} />   {/* Room/Bed */}
+                        <col style={{ width: "85px" }} />   {/* Type */}
+                        <col style={{ width: "85px" }} />   {/* Amount */}
+                        <col style={{ width: "85px" }} />   {/* Due Date */}
+                        <col style={{ width: "140px" }} />  {/* Status / Actions */}
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          {/* Checkbox */}
+                          <th className="py-1.5 px-1 bg-gray-200 border-r  border-b  text-center">
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedDemandIds.length === paginatedDemandsData().items.length &&
+                                  paginatedDemandsData().items.length > 0
+                                }
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedDemandIds(paginatedDemandsData().items.map((d: any) => d.id));
+                                  } else {
+                                    setSelectedDemandIds([]);
+                                  }
+                                }}
+                                className="w-3 h-3 accent-orange-500"
+                              />
+                            </div>
+                          </th>
+
+                          {/* Demand Date */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Demand Date</span>
+                              <Input
+                                placeholder="dd/mm/yy"
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.date || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Tenant */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                              <Input
+                                placeholder="Search..."
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.tenant || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Contact */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+                              <Input
+                                placeholder="Search..."
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.contact || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Property */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+                              <Input
+                                placeholder="Search..."
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.property || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Room/Bed */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                              <Input
+                                placeholder="Search..."
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.room || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Type */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
+                              <select
+                                value={demandFilters.payment_type || "all"}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
+                                className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
+                              >
+                                <option value="all">All</option>
+                                <option value="rent">Rent</option>
+                                <option value="security_deposit">Security Deposit</option>
+                              </select>
+                            </div>
+                          </th>
+
+                          {/* Amount */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+                              <Input
+                                placeholder="₹"
+                                type="number"
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.amount || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Due Date */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Due Date</span>
+                              <Input
+                                type="text"
+                                placeholder="dd/mm/yy"
+                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                                value={demandFilters.from_date || ""}
+                                onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+                              />
+                            </div>
+                          </th>
+
+                          {/* Status / Actions */}
+                          <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-center">
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowDemandFilterSidebar(true)}
+                                className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                              >
+                                <Filter className="w-2.5 h-2.5 mr-0.5" />Filter
+                              </Button>
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                    </table>
+
+                    {/* ── Scrollable Body ── */}
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                      <table className="table-fixed w-full border-collapse">
+                        <colgroup>
+                          <col style={{ width: "36px" }} />
+                          <col style={{ width: "90px" }} />
+                          <col style={{ width: "155px" }} />
+                          <col style={{ width: "105px" }} />
+                          <col style={{ width: "120px" }} />
+                          <col style={{ width: "90px" }} />
+                          <col style={{ width: "85px" }} />
+                          <col style={{ width: "85px" }} />
+                          <col style={{ width: "85px" }} />
+                          <col style={{ width: "140px" }} />
+                        </colgroup>
+                        <tbody>
+                          {loading ? (
+                            <tr>
+                              <td colSpan={10} className="text-center py-8 text-xs text-slate-500">
+                                <div className="flex justify-center items-center">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
+                                  Loading demands...
+                                </div>
+                              </td>
+                            </tr>
+                          ) : filteredDemands.length === 0 ? (
+                            <tr>
+                              <td colSpan={10} className="text-center py-8 text-xs text-slate-500">
+                                <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                                No demands found
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedDemandsData().items.map((demand: any, index: number) => {
+                              const salutation = getTenantSalutation(demand.tenant_id);
+                              const countryCode = getTenantCountryCode(demand.tenant_id);
+                              const phone = getTenantPhone(demand.tenant_id);
+                              const tenantName = getTenantName(demand.tenant_id);
+                              const isOverdue = new Date(demand.due_date) < new Date() && demand.status === "pending";
+
+                              return (
+                                <tr
+                                  key={demand.id}
+                                  className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${
+                                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                                  }`}
+                                >
+                                  {/* Checkbox */}
+                                  <td className="py-1.5 px-1 text-center border-r border-slate-100">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedDemandIds.includes(demand.id)}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedDemandIds(prev =>
+                                          prev.includes(demand.id)
+                                            ? prev.filter(id => id !== demand.id)
+                                            : [...prev, demand.id]
+                                        );
+                                      }}
+                                      className="w-3 h-3 accent-orange-500"
+                                    />
+                                  </td>
+
+                                  {/* Demand Date */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <span className="text-[10px] text-slate-700 whitespace-nowrap">
+                                      {format(new Date(demand.created_at), "dd/MM/yy")}
+                                    </span>
+                                  </td>
+
+                                  {/* Tenant */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <div className="flex items-center gap-1">
+                                      {(() => {
+  const t = tenants.find((x: any) => x.id === demand.tenant_id);
+  return t?.photo_url ? (
+    <img src={t.photo_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
+  ) : (
+    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-white font-bold text-[8px] flex-shrink-0">
+      {(salutation ? `${salutation} ${tenantName}` : tenantName)?.split(" ").filter(Boolean).slice(0, 2).map((n: string) => n[0]?.toUpperCase()).join("")}
+    </div>
+  );
+})()}
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden">
+                                          <p className="text-[11px] font-medium text-slate-800 truncate">
+                                            {salutation ? `${salutation} ` : ""}
+                                            {tenantName}
+                                          </p>
+                                          {demand.is_vacated === true && (
+                                            <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded-full bg-red-100 text-red-700 text-[9px] font-semibold border border-red-200 flex-shrink-0">
+                                              <DoorOpen className="w-2 h-2" />Vacated
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Contact */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <span className="text-[10px] text-slate-500 whitespace-nowrap truncate block">
+                                      {countryCode || "+91"} {phone || "—"}
+                                    </span>
+                                  </td>
+
+                                  {/* Property */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <span className="text-[10px] text-slate-600 truncate block" title={demand.property_name}>
+                                      {demand.property_name && demand.property_name !== "N/A"
+                                        ? demand.property_name
+                                        : <span className="text-slate-400">—</span>}
+                                    </span>
+                                  </td>
+
+                                  {/* Room/Bed */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <div className="flex items-center gap-0.5 flex-wrap">
+                                      {demand.room_number && demand.room_number !== "N/A" && demand.room_number !== "—" ? (
+                                        <>
+                                          <span className="text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full whitespace-nowrap">
+                                            R{demand.room_number}
+                                          </span>
+                                          {demand.bed_number && (
+                                            <span className="text-[10px] text-green-600 bg-green-50 px-1 py-0.5 rounded-full whitespace-nowrap">
+                                              B{demand.bed_number}
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400">—</span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Type */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <Badge className={`text-[9px] px-1.5 py-0 leading-tight ${
+                                      demand.payment_type === "security_deposit"
+                                        ? "bg-purple-100 text-purple-700 border-purple-200"
+                                        : "bg-blue-100 text-blue-700 border-blue-200"
+                                    }`}>
+                                      {demand.payment_type === "security_deposit" ? "Security Deposit" : "Rent"}
+                                    </Badge>
+                                  </td>
+
+                                  {/* Amount */}
+                                  <td className="py-1.5 px-2 border-r border-slate-100">
+                                    <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap">
+                                      ₹{Number(demand.amount).toLocaleString("en-IN")}
+                                    </span>
+                                    {demand.status === "partial" && (
+                                      <p className="text-[9px] text-blue-500 whitespace-nowrap">
+                                        Paid: ₹{(demand.paid_amount || 0).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </td>
+
+                                  {/* Due Date */}
+                                 <td className="py-1.5 px-2 border-r border-slate-100">
+  <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden">
+    <span
+      className={`text-[10px] ${
+        isOverdue ? "text-red-600 font-semibold" : "text-slate-700"
+      }`}
     >
-      <RefreshCw className="h-3 w-3" />
-    </Button>
-  </div>
-</TableCell>
-        </TableRow>
-      );
-    })
-  )}
-</TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                    {/* end min-w wrapper */}
-                  </div>
-                  {/* end overflow-x wrapper */}
+      {format(new Date(demand.due_date), "dd/MM/yy")}
+    </span>
 
-                  {/* ADD PAGINATION CONTROLS HERE - RIGHT BEFORE CLOSING CardContent */}
-                  {!loading && filteredDemands.length > 0 && (
-                    <div className="flex-shrink-0 border-t border-gray-200">
-                      <PaginationControls
-                        currentPage={demandPagination.currentPage}
-                        totalPages={Math.ceil(
-                          filteredDemands.length /
-                            demandPagination.itemsPerPage,
-                        )}
-                        onPageChange={(page: number) =>
-                          setDemandPagination((prev) => ({
-                            ...prev,
-                            currentPage: page,
-                          }))
-                        }
-                        itemsPerPage={demandPagination.itemsPerPage}
-                        onItemsPerPageChange={(size: number) =>
-                          setDemandPagination((prev) => ({
-                            ...prev,
-                            itemsPerPage: size,
-                            currentPage: 1,
-                          }))
-                        }
-                        totalItems={filteredDemands.length}
-                        currentItemsCount={paginatedDemandsData().items.length}
-                      />
+    {isOverdue && (
+      <span className="text-[8px] text-red-500 flex-shrink-0">
+        (Overdue)
+      </span>
+    )}
+  </div>
+</td>
+
+                                  {/* Status + Resend */}
+                                  <td className="py-1.5 px-1 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Badge className={`text-[9px] px-1.5 py-0 leading-tight ${
+                                        demand.status === "paid"    ? "bg-green-100 text-green-800" :
+                                        demand.status === "partial" ? "bg-blue-100 text-blue-800" :
+                                        demand.status === "overdue" ? "bg-red-100 text-red-800" :
+                                        demand.status === "cancelled" ? "bg-gray-100 text-gray-700" :
+                                                                      "bg-yellow-100 text-yellow-800"
+                                      }`}>
+                                        {demand.status === "partial"
+                                          ? `Partial`
+                                          : demand.status}
+                                      </Badge>
+                                      <button
+                                        className="h-5 w-5 rounded flex items-center justify-center text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                        onClick={() => handleResendClick(demand)}
+                                        title="Resend Reminder"
+                                      >
+                                        <RefreshCw className="h-2.5 w-2.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+
+                  </div>
                 </div>
-              </CardContent>
+              </div>
+
+              {/* Pagination */}
+              {!loading && filteredDemands.length > 0 && (
+                <PaginationControls
+                  currentPage={demandPagination.currentPage}
+totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDemands.length / (demandPagination.itemsPerPage as number))}
+                  onPageChange={(page: number) => setDemandPagination((prev) => ({ ...prev, currentPage: page }))}
+                  itemsPerPage={demandPagination.itemsPerPage}
+                  onItemsPerPageChange={(size: number) => setDemandPagination((prev) => ({ ...prev, itemsPerPage: size, currentPage: 1 }))}
+                  totalItems={filteredDemands.length}
+                  currentItemsCount={paginatedDemandsData().items.length}
+                />
+              )}
             </Card>
-            {/* Demands Filter Sidebar */}
-            <Sheet
-              open={showDemandFilterSidebar}
-              onOpenChange={setShowDemandFilterSidebar}
-            >
-              <SheetContent
-                side="right"
-                className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
-              >
+
+            {/* ── Filter Sidebar ── */}
+            <Sheet open={showDemandFilterSidebar} onOpenChange={setShowDemandFilterSidebar}>
+              <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[420px]">
                 <div className="h-full flex flex-col">
-                  <div className="bg-gradient-to-r from-orange-600 to-red-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+
+                  {/* Header — blue like receipts */}
+                  <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-2">
                       <Filter className="w-4 h-4 text-white" />
-                      <span className="text-sm font-semibold text-white">
-                        Filter Demands
-                      </span>
+                      <span className="text-sm font-semibold text-white">Filter Demands</span>
                     </div>
-                    <button
-                      onClick={() => setShowDemandFilterSidebar(false)}
-                      className="text-white/70 hover:text-white"
-                    >
+                    <button onClick={() => setShowDemandFilterSidebar(false)} className="text-white/70 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Date
-                      </Label>
-                      <Input
-                        placeholder="dd/mm/yy"
-                        value={demandFilters.date || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            date: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
+
+                  {/* Body — two-column grid like receipts */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+
+                      {/* Demand Date */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Demand Date</Label>
+                        <Input
+                          placeholder="dd/mm/yy"
+                          value={demandFilters.date || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Tenant */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
+                        <Input
+                          placeholder="Search tenant..."
+                          value={demandFilters.tenant || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Contact */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Contact</Label>
+                        <Input
+                          placeholder="Search phone..."
+                          value={demandFilters.contact || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Property */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Property</Label>
+                        <Input
+                          placeholder="Search property..."
+                          value={demandFilters.property || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Room/Bed */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
+                        <Input
+                          placeholder="Search room..."
+                          value={demandFilters.room || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Amount */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Amount</Label>
+                        <Input
+                          type="number"
+                          placeholder="Search amount..."
+                          value={demandFilters.amount || ""}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                    
+
+                      {/* Status */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Status</Label>
+                        <select
+                          value={demandFilters.status || "all"}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, status: e.target.value })}
+                          className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="all">All Status</option>
+                          {["pending", "paid", "partial", "overdue", "cancelled"].map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Payment Type */}
+                      <div className="space-y-1 col-span-2 sm:col-span-1">
+                        <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+                        <select
+                          value={demandFilters.payment_type || "all"}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
+                          className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="all">All Types</option>
+                          <option value="rent">Rent</option>
+                          <option value="security_deposit">Security Deposit</option>
+                        </select>
+                      </div>
+                      {/* Due Date Range */}
+<div className="space-y-1 col-span-2 sm:col-span-1">
+  <Label className="text-xs font-semibold text-blue-700">Due Date From</Label>
+  <Input
+    type="date"
+    value={demandFilters.from_date || ""}
+    onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+    className="h-8 text-xs"
+  />
+</div>
+<div className="space-y-1 col-span-2 sm:col-span-1">
+  <Label className="text-xs font-semibold text-blue-700">Due Date To</Label>
+  <Input
+    type="date"
+    value={demandFilters.to_date || ""}
+    onChange={(e) => setDemandFilters({ ...demandFilters, to_date: e.target.value })}
+    className="h-8 text-xs"
+  />
+</div>
+
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Tenant
-                      </Label>
-                      <Input
-                        placeholder="Search tenant..."
-                        value={demandFilters.tenant || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            tenant: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Amount
-                      </Label>
-                      <Input
-                        type="number"
-                        placeholder="Search amount..."
-                        value={demandFilters.amount || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            amount: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Due Date From
-                      </Label>
-                      <Input
-                        type="date"
-                        value={demandFilters.from_date || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            from_date: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Due Date To
-                      </Label>
-                      <Input
-                        type="date"
-                        value={demandFilters.to_date || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            to_date: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Status
-                      </Label>
-                      <select
-                        value={demandFilters.status || "all"}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            status: e.target.value,
-                          })
-                        }
-                        className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700"
-                      >
-                        <option value="all">All Status</option>
-                        {[
-                          "pending",
-                          "paid",
-                          "partial",
-                          "overdue",
-                          "cancelled",
-                        ].map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-orange-700">
-                        Room/Bed
-                      </Label>
-                      <Input
-                        placeholder="Search room..."
-                        value={demandFilters.room || ""}
-                        onChange={(e) =>
-                          setDemandFilters({
-                            ...demandFilters,
-                            room: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
+                    
+
+                    {/* Ignore Date Filter — full width, like receipts */}
+                    <div className="mt-4 space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={demandFilters.ignore_date || false}
+                          onChange={(e) => setDemandFilters({ ...demandFilters, ignore_date: e.target.checked })}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
+                      </label>
+                      <p className="text-[10px] text-gray-500 ml-5">Show all demands regardless of demand date</p>
                     </div>
                   </div>
+
+                  {/* Footer */}
                   <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
                       className="flex-1 text-xs h-8"
-                      onClick={() =>
-                        setDemandFilters({
-                          status: "",
-                          tenant: "",
-                          from_date: "",
-                          to_date: "",
-                          date: "",
-                          amount: "",
-                          room: "",
-                        })
-                      }
+                      onClick={() => setDemandFilters({
+                        status: "",
+                        tenant: "",
+                        from_date: "",
+                        to_date: "",
+                        date: "",
+                        amount: "",
+                        room: "",
+                        payment_type: "",
+                        contact: "",
+                        property: "",
+                        ignore_date: false,
+                      })}
                     >
                       <RefreshCw className="w-3 h-3 mr-1" /> Reset
                     </Button>
                     <Button
                       size="sm"
-                      className="flex-1 text-xs h-8 bg-orange-600 hover:bg-orange-700"
+                      className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
                       onClick={() => setShowDemandFilterSidebar(false)}
                     >
                       Apply
@@ -3971,6 +4031,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                 </div>
               </SheetContent>
             </Sheet>
+
           </TabsContent>
 
           {/* Receipts Tab Content */}
@@ -4416,8 +4477,8 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                   currentPage: 1,
                 }))
               }
-              selectedReceiptIds={selectedReceiptIds}  // ✅ ADD THIS
-    setSelectedReceiptIds={setSelectedReceiptIds}  // ✅ ADD THIS
+              selectedReceiptIds={selectedReceiptIds}  
+    setSelectedReceiptIds={setSelectedReceiptIds}  
             />
           </TabsContent>
         </Tabs>
@@ -7118,25 +7179,32 @@ const PaginationControls = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <span>Show</span>
-        <Select
-          value={itemsPerPage.toString()}
-          onValueChange={(value) => onItemsPerPageChange(Number(value))}
-        >
-          <SelectTrigger className="h-7 w-[70px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[10, 25, 50, 100].map((size) => (
-              <SelectItem
-                key={size}
-                value={size.toString()}
-                className="text-xs"
-              >
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+<select
+  value={String(itemsPerPage)}
+  onChange={(e) => {
+    const val = e.target.value;
+    if (val === "All") {
+      onItemsPerPageChange("All");
+    } else {
+      onItemsPerPageChange(Number(val));
+    }
+  }}
+  style={{
+    padding: "4px 8px",
+    border: "1px solid #E2E8F0",
+    borderRadius: 6,
+    fontSize: 11,
+    background: "#fff",
+    outline: "none",
+    cursor: "pointer",
+  }}
+>
+  <option value={10}>10</option>
+  <option value={25}>25</option>
+  <option value={50}>50</option>
+  <option value={100}>100</option>
+  <option value="All">All</option>   {/* ✅ ADD THIS */}
+</select>
         <span>entries</span>
         <span className="ml-2">
           Showing {currentItemsCount} of {totalItems} entries
@@ -7242,7 +7310,6 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
     },
   };
 
-  // Normalize status to lowercase for matching
   const normalizedStatus = status?.toLowerCase() || "pending";
   const config = variants[normalizedStatus] || variants.pending;
   const Icon = config.icon;
@@ -7250,9 +7317,9 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
   return (
     <Badge
       variant="outline"
-      className={`${config.className} flex items-center gap-1 text-xs px-2 py-1`}
+      className={`${config.className} flex items-center gap-0.5 text-[9px] px-1.5 py-0.5`}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-2.5 w-2.5" />
       {config.label}
     </Badge>
   );
@@ -7341,1218 +7408,766 @@ const filteredGroups = pagination.items.map((group: any) => ({
   }));
 
   return (
-    <Card className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px] ">
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        {/* Single overflow-x for both header + body */}
-        <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-          <div className="min-w-[10px] flex flex-col flex-1 min-h-0">
-            <div className="flex-shrink-0">
-              <Table className="table-fixed w-full">
+    <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="overflow-auto flex-1 min-h-0 flex flex-col">
+<div className="min-w-[1040px] flex flex-col flex-1 min-h-0">
+
+        {/* ✅ Sticky Header */}
+        <table className="table-fixed w-full border-collapse sticky top-0 z-10 bg-gray-200">
+          <colgroup>
+<col style={{ width: "32px" }} />
+<col style={{ width: "70px" }} />
+<col style={{ width: "175px" }} />
+<col style={{ width: "115px" }} />
+<col style={{ width: "90px" }} />
+<col style={{ width: "105px" }} />
+<col style={{ width: "47px" }} />
+<col style={{ width: "90px" }} />
+<col style={{ width: "80px" }} />
+<col style={{ width: "80px" }} />
+<col style={{ width: "95px" }} />
+<col style={{ width: "61px" }} />
+          </colgroup>
+          <thead>
+            <tr> 
+              {/* Expand */}
+              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300" />
+
+              {/* Actions */}
+              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFilterSidebar?.(true)}
+                    className="h-5 px-1 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                  >
+                    <Filter className="w-2.5 h-2.5 mr-0.5" />Filter
+                  </Button>
+                </div>
+              </th>
+
+              {/* Name */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("tenant_name")}>
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Name</span>
+                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                  </div>
+                  <Input
+                    placeholder="Search..."
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.tenant_name || ""}
+                    onChange={(e) => { setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value }); onPageChange?.(1); }}
+                  />
+                </div>
+              </th>
+
+              {/* Property */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+                  <Input
+                    placeholder="Search..."
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.property_name || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, property_name: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Room/Bed */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                  <Input
+                    placeholder="Search..."
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.room_bed || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, room_bed: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Contact */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+                  <Input
+                    placeholder="Search..."
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.contact || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, contact: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* CNT */}
+              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
+                <div className="flex flex-col gap-1 items-center">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
+                  <Input
+                    placeholder="#"
+                    type="number"
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
+                    value={columnFilters?.payment_count || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Total */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+                <div className="flex flex-col gap-1 items-end">
+                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("total_amount")}>
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total</span>
+                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                  </div>
+                  <Input
+                    placeholder="₹"
+                    type="number"
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.amount || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Paid */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+                <div className="flex flex-col gap-1 items-end">
+                  <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">Paid</span>
+                  <Input
+                    placeholder="₹"
+                    type="number"
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.total_paid_amount || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, total_paid_amount: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Rejected */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+                <div className="flex flex-col gap-1 items-end">
+                  <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">Rejected</span>
+                  <Input
+                    placeholder="₹"
+                    type="number"
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.total_rejected_amount || ""}
+                    onChange={(e) => setColumnFilters?.({ ...columnFilters, total_rejected_amount: e.target.value })}
+                  />
+                </div>
+              </th>
+
+              {/* Status */}
+              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("status")}>
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                  </div>
+                  <Select
+                    value={columnFilters?.status || "all"}
+                    onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
+                  >
+                    <SelectTrigger className="h-5 text-[10px] bg-white border-gray-300 px-1.5 font-normal w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                      <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+                      <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                      <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </th>
+
+              {/* Last Pay */}
+              <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-left">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
+                  <Input
+                    placeholder="dd/mm/yy"
+                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                    value={columnFilters?.payment_date || ""}
+                    onChange={(e) => { setColumnFilters?.({ ...columnFilters, payment_date: e.target.value }); onPageChange?.(1); }}
+                  />
+                </div>
+              </th>
+            </tr>
+          </thead>
+        </table>
+
+        {/* ✅ Scrollable Body */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <table className="table-fixed w-full border-collapse">
             <colgroup>
-  <col style={{ width: "36px" }} />
-  <col style={{ width: "280px" }} />
-  <col style={{ width: "55px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "105px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "95px" }} />
-</colgroup>
-                <TableHeader className="bg-gray-200 border-b border-gray-300">
-                  <TableRow className="hover:bg-transparent">
-                    {/* Expand Column */}
-                    <TableHead className="py-2 px-1 bg-gray-200"></TableHead>
+              <col style={{ width: "32px" }} />
+<col style={{ width: "70px" }} />
+<col style={{ width: "175px" }} />
+<col style={{ width: "117px" }} />
+<col style={{ width: "90px" }} />
+<col style={{ width: "105px" }} />
+<col style={{ width: "47px" }} />
+<col style={{ width: "90px" }} />
+<col style={{ width: "80px" }} />
+<col style={{ width: "80px" }} />
+<col style={{ width: "95px" }} />
+<col style={{ width: "49px" }} />
+            </colgroup>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={12} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mb-3" />
+                      <p className="text-sm text-slate-500">Loading payment data...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredGroups.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                        <CreditCard className="h-8 w-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-sm font-medium text-slate-700 mb-1">No payments found</h3>
+                      <p className="text-xs text-slate-500">Try adjusting your filters or add a new payment</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredGroups.map((group: any) => {
+                  const isExpanded = expandedRows.includes(group.tenant_id);
+                  return (
+                    <Fragment key={group.tenant_id}>
 
-                    {/* Tenant Column - Updated with salutation filter */}
-                    <TableHead className="py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <div
-                          className="flex items-center gap-1 cursor-pointer"
-                          onClick={() => handleSort?.("tenant_name")}
-                        >
-                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                            Tenant
-                          </span>
-                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                        </div>
-                        <Input
-                          placeholder="Search name / room / property..."
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={columnFilters?.tenant_name || ""}
-                          onChange={(e) => {
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              tenant_name: e.target.value,
-                            });
-                            onPageChange?.(1); // ✅ Reset to page 1 on search
-                          }}
-                        />
-                      </div>
-                    </TableHead>
+                      {/* ✅ Parent Row - click anywhere to expand */}
+                      <tr
+                        className={`cursor-pointer transition-all duration-200 border-b border-slate-200 group ${
+                          isExpanded ? "bg-blue-50/60" : "hover:bg-slate-50/80"
+                        }`}
+                        onClick={() => onToggleExpand(group.tenant_id)}
+                      >
 
-                    {/* CNT Column */}
-                    <TableHead className="py-2 px-2 bg-gray-200 text-center">
-                      <div className="flex flex-col gap-1 items-center">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          CNT
-                        </span>
-                        <Input
-                          placeholder="#"
-                          type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
-                          value={columnFilters?.payment_count || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              payment_count: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    {/* Amount Column */}
-                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
-                      <div className="flex flex-col gap-1 items-end">
-                        <div
-                          className="flex items-center gap-1 cursor-pointer"
-                          onClick={() => handleSort?.("total_amount")}
-                        >
-                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide text-left">
-                            Total Amount
-                          </span>
-                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                        </div>
-                        <Input
-                          placeholder="Search amount..."
-                          type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                          value={columnFilters?.amount || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              amount: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-                    {/* ✅ NEW: Paid Amount Column (Approved) */}
-                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
-  <div className="flex flex-col gap-1 items-end">
-    <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
-      Paid (₹)
-                        </span>
-                      </div>
-                      <Input
-                        placeholder="Search amount..."
-                        type="number"
-                        className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                        value={columnFilters?.total_paid_amount || ""}
-                        onChange={(e) =>
-                          setColumnFilters?.({
-                            ...columnFilters,
-                            total_paid_amount: e.target.value,
-                          })
-                        }
-                      />
-                    </TableHead>
-
-                    {/* ✅ NEW: Rejected Amount Column */}
-                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
-  <div className="flex flex-col gap-1 items-end">
-    <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
-      Rejected (₹)
-                        </span>
-                        <Input
-                          placeholder="Search amount..."
-                          type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                          value={columnFilters?.total_rejected_amount || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              total_rejected_amount: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    {/* Status Column */}
-                   <TableHead className="py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1">
-    <div className="flex items-center gap-1 cursor-pointer"
-      onClick={() => handleSort?.("status")}
-                        >
-                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                            Status
-                          </span>
-                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                        </div>
-                        <Select
-                          value={columnFilters?.status || "all"}
-                          onValueChange={(value) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              status: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-                            <SelectValue placeholder="All" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all" className="text-xs">
-                              All
-                            </SelectItem>
-                            <SelectItem value="approved" className="text-xs">
-                              Approved
-                            </SelectItem>
-                            <SelectItem value="pending" className="text-xs">
-                              Pending
-                            </SelectItem>
-                            <SelectItem value="rejected" className="text-xs">
-                              Rejected
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableHead>
-
-                    {/* Last Pay Column */}
-                    <TableHead className="py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1">
-    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-      Last Pay
-                        </span>
-                        <Input
-                          placeholder="dd/mm/yy"
-                          type="text"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={columnFilters?.payment_date || ""}
-                          onChange={(e) => {
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              payment_date: e.target.value,
-                            });
-                            onPageChange?.(1); // reset to page 1
-                          }}
-                        />
-                      </div>
-                    </TableHead>
-
-                    {/* Actions Column */}
-                    {/* Actions Column */}
-                    <TableHead className="py-2 px-2 bg-gray-200 text-center">
-                      <div className="flex flex-col gap-1 items-center">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Actions
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowFilterSidebar?.(true)}
-                          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                        >
-                          <Filter className="w-2.5 h-2.5 mr-0.5" />
-                          Filter
-                        </Button>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-              </Table>
-            </div>
-            <div className="overflow-y-auto flex-1 min-h-0">
-              <Table className="table-fixed w-full">
-         <colgroup>
-  <col style={{ width: "36px" }} />
-  <col style={{ width: "280px" }} />
-  <col style={{ width: "55px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "105px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "115px" }} />
-  <col style={{ width: "95px" }} />
-</colgroup>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
-                        <div className="flex flex-col items-center justify-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mb-3" />
-                          <p className="text-sm text-slate-500">
-                            Loading payment data...
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredGroups.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
-                        <div className="flex flex-col items-center justify-center">
-                          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                            <CreditCard className="h-8 w-8 text-slate-400" />
+                        {/* Expand */}
+                        <td className="py-2 px-1 border-r border-slate-100">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200 mx-auto ${
+                            isExpanded ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 group-hover:bg-blue-100"
+                          }`}>
+                            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                           </div>
-                          <h3 className="text-sm font-medium text-slate-700 mb-1">
-                            No payments found
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Try adjusting your filters or add a new payment
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredGroups.map((group: any) => {
-                      const isExpanded = expandedRows.includes(group.tenant_id);
+                        </td>
 
-                      return (
-                        <Fragment key={group.tenant_id}>
-                          {/* Parent Row - Tenant Card with Salutation and Country Code */}
-                          <TableRow
-                            className={`
-    group cursor-pointer transition-all duration-200 border-b border-slate-200
-    ${isExpanded ? "bg-blue-50/50 shadow-inner" : "hover:bg-slate-50/80"}
-  `}
-                            onClick={() => onToggleExpand(group.tenant_id)}
-                          >
-                            <TableCell className="py-3 border-r border-slate-200">
-                              <div
-                                className={`
-        w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200
-        ${isExpanded ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 group-hover:bg-blue-100"}
-      `}
-                              >
-                                <ChevronDown
-                                  className={`h-4 w-4 transition-transform duration-200 ${
-                                    isExpanded ? "rotate-180" : ""
-                                  }`}
-                                />
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="py-3 border-r border-slate-200">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
-                                  {group.tenant_name?.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  {/* Show salutation + full name */}
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium text-slate-800">
-                                      {group.salutation
-                                        ? `${group.salutation} `
-                                        : ""}
-                                      {(group.tenant_name || "")
-                                        .toLowerCase()
-                                        .replace(/\b\w/g, (char: any) =>
-                                          char.toUpperCase(),
-                                        )}
-                                    </p>
-
-                                    {/* ✅ ADD VACATED / ACTIVE TAG */}
-                                    {group.is_vacated ? (
-                                      <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-1.5 py-0">
-                                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />
-                                        Vacated
-                                      </Badge>
-                                    ) : (
-                                      <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-1.5 py-0">
-                                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
-                                        Active
-                                      </Badge>
-                                    )}
-                                  </div>
-
-                                  {/* Show country code + phone number */}
-                                  <p className="text-xs text-slate-500">
-                                    {group.country_code || "+91"}{" "}
-                                    {group.tenant_phone}
-                                  </p>
-                                  {/* ✅ ADD ROOM AND BED NUMBER HERE */}
-                                  {(group.room_number || group.bed_number) && (
-                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 mt-0.5">
-                                      {group.room_number && (
-                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
-                                          <DoorOpen className="h-2.5 w-2.5" />
-                                          Room {group.room_number}
-                                        </span>
-                                      )}
-                                      {group.bed_number && (
-                                        <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
-                                          <Bed className="h-2.5 w-2.5" />
-                                          Bed #{group.bed_number}
-                                        </span>
-                                      )}
-                                      {group.property_name && (
-                                        <span className="text-[10px] text-slate-500 truncate max-w-[100px] sm:max-w-[120px] flex-shrink-0">
-                                          • {group.property_name}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="py-3 text-center border-r border-slate-200">
-                              <Badge
-                                variant="outline"
-                                className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                              >
-                                {group.payment_count}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="py-3 text-right border-r border-slate-200">
-                              <span className="text-sm font-bold text-green-600">
-                                ₹{group.total_amount.toLocaleString()}
-                              </span>
-                            </TableCell>
-
-                            {/* ✅ NEW: Paid Amount Column (Approved) */}
-                            <TableCell className="py-3 text-right border-r border-slate-200">
-                              <span className="text-sm font-bold text-green-600">
-                                ₹
-                                {group.total_paid_amount?.toLocaleString() || 0}
-                              </span>
-                              {/* {group.approved_count > 0 && (
-      <span className="text-[9px] text-green-500 block">({group.approved_count})</span>
-    )} */}
-                            </TableCell>
-
-                            {/* ✅ NEW: Rejected Amount Column */}
-                            <TableCell className="py-3 text-right border-r border-slate-200">
-                              <span className="text-sm font-bold text-red-600">
-                                ₹
-                                {group.total_rejected_amount?.toLocaleString() ||
-                                  0}
-                              </span>
-                              {/* {group.rejected_count > 0 && (
-      <span className="text-[9px] text-red-500 block">({group.rejected_count})</span>
-    )} */}
-                            </TableCell>
-
-                            <TableCell className="py-3 border-r border-slate-200">
-                              <div className="flex items-center justify-center gap-1">
-                                {group.approved_count > 0 && (
-                                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0.5">
-                                    {group.approved_count} A
-                                  </Badge>
-                                )}
-                                {group.pending_count > 0 && (
-                                  <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs px-1.5 py-0.5">
-                                    {group.pending_count} P
-                                  </Badge>
-                                )}
-                                {group.rejected_count > 0 && (
-                                  <Badge className="bg-red-100 text-red-700 border-red-200 text-xs px-1.5 py-0.5">
-                                    {group.rejected_count} R
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="py-3 text-center border-r border-slate-200">
-                              <span className="text-xs text-slate-600 whitespace-nowrap">
-                                {group.last_payment_date
-                                  ? format(
-                                      new Date(group.last_payment_date),
-                                      "dd/MM/yyyy",
-                                    )
-                                  : "No payments"}
-                              </span>
-                            </TableCell>
-
-                            <TableCell
-                              className="py-3 text-center border-r border-slate-200"
-                              onClick={(e) => e.stopPropagation()}
+                        {/* Actions */}
+                        <td className="py-2 px-1 border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-0.5 justify-center">
+                            <button
+                              className="h-6 w-6 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                              title="Ledger Report"
+                              onClick={() => onLedgerReport?.(group.tenant_id, {
+                                room_number: group.room_number,
+                                bed_number: group.bed_number,
+                                property_name: group.property_name,
+                                monthly_rent: group.monthly_rent,
+                                check_in_date: group.check_in_date,
+                              })}
                             >
-                              <div className="flex items-center justify-center gap-1">
-                                {/* Print/Ledger Button */}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-full"
-                                  onClick={() => {
-                                    onLedgerReport?.(group.tenant_id, {
-                                      room_number: group.room_number,
-                                      bed_number: group.bed_number,
-                                      property_name: group.property_name,
-                                      monthly_rent: group.monthly_rent,
-                                      check_in_date: group.check_in_date,
-                                    });
-                                  }}
-                                  title="View Ledger Report"
-                                >
-                                  <FileText className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                  onClick={() =>
-                                    onToggleExpand(group.tenant_id)
-                                  }
-                                  title="View Details"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                {/* Add Payment Button - Hidden if tenant has deposit refund */}
+                              <FileText className="h-3 w-3" />
+                            </button>
+                            <button
+                                className="h-6 w-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center"
+                                title="View Details"
+                                onClick={(e) => { e.stopPropagation(); onToggleExpand(group.tenant_id); }}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                            <button
+                              className="h-6 w-6 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-50 flex items-center justify-center"
+                              title="Add Payment"
+                              onClick={async () => {
+                                const tenant = tenants.find((t) => t.id === group.tenant_id);
+                                const propertyId = tenant?.current_assignment?.property_id || group.property_id;
+                                const roomId = tenant?.current_assignment?.room_id || group.room_id;
+                                if (tenant && propertyId && roomId) {
+                                  await prefillAndOpenPaymentForm(group.tenant_id, propertyId, roomId);
+                                } else {
+                                  toast.error("Tenant missing property or room information");
+                                  setIsAddPaymentOpen(true);
+                                }
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
 
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                  onClick={async () => {
-                                    const tenant = tenants.find(
-                                      (t) => t.id === group.tenant_id,
-                                    );
-                                    const propertyId =
-                                      tenant?.current_assignment?.property_id ||
-                                      group.property_id;
-                                    const roomId =
-                                      tenant?.current_assignment?.room_id ||
-                                      group.room_id;
-                                    if (tenant && propertyId && roomId) {
-                                      await prefillAndOpenPaymentForm(
-                                        group.tenant_id,
-                                        propertyId,
-                                        roomId,
-                                      );
-                                    } else {
-                                      toast.error(
-                                        "Tenant missing property or room information",
-                                      );
-                                      setIsAddPaymentOpen(true);
-                                    }
-                                  }}
-                                  title="Add Payment"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
+                        {/* Name */}
+                        <td className="py-2 px-2 border-r border-slate-100">
+                          <div className="flex items-center gap-1.5">
+                       {(() => {
+  const t = tenants.find((x: any) => x.id === group.tenant_id);
+  return t?.photo_url ? (
+    <img src={t.photo_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
+  ) : (
+    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-semibold text-[10px] shadow-sm flex-shrink-0">
+      {group.tenant_name?.split(" ").filter(Boolean).slice(0, 2).map((name: string) => name.charAt(0).toUpperCase()).join("")}
+    </div>
+  );
+})()}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <p className="text-[11px] font-medium text-slate-800 truncate">
+                                  {group.salutation ? `${group.salutation} ` : ""}
+                                  {(group.tenant_name || "").toLowerCase().replace(/\b\w/g, (c: any) => c.toUpperCase())}
+                                </p>
+                                {group.is_vacated ? (
+                                  <Badge className="bg-red-100 text-red-700 border-red-200 text-[9px] px-1 py-0 flex-shrink-0 leading-tight">
+                                    Vacated
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] hover:bg-green-500 px-1 py-0 flex-shrink-0 leading-tight">
+                                    Active
+                                  </Badge>
+                                )}
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            </div>
+                          </div>
+                        </td>
 
-                          {/* Expanded Child Row - Payment Details */}
-                          {isExpanded && (
-                            <TableRow className="bg-blue-50/30">
-                              <TableCell colSpan={9} className="p-0 border-t-0">
-                                <div className="animate-in slide-in-from-top-1 duration-200">
-                                  <div className="p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-                                        <CreditCard className="h-3.5 w-3.5 text-blue-600" />
-                                        Payment History •{" "}
-                                        {group.payments.length} transactions
-                                      </h4>
-                                    </div>
+                        {/* Property */}
+                        <td className="py-2 px-2 border-r border-slate-100">
+                          <span className="text-[11px] text-slate-600 truncate block" title={group.property_name}>
+                            {group.property_name || <span className="text-slate-400">—</span>}
+                          </span>
+                        </td>
 
-                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-                                      <div className="overflow-x-auto overflow-y-auto max-h-[250px] sm:max-h-[300px] ">
-                                        <table className="w-full text-sm border-collapse ">
-                                          <thead className="sticky top-0 z-10">
-                                            <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300 ">
-                                                Transaction Date
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Amount
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Transaction ID
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Mode
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300 whitespace-nowrap">
-                                                Mode Type
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Payment Type
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Period
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Remark
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Proof
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Status
-                                              </th>
-                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
-                                                Source
-                                              </th>
-                                              <th className="text-center py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
-                                                Actions
-                                              </th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {group.payments.map(
-                                              (payment: any, index: number) => {
-                                                // Parse payment_mode_type JSON to get detailed payment info
-                                                let modeTypeDisplay = "";
-                                                let modeTypeTooltip = "";
+                        {/* Room / Bed */}
+                       <td className="py-2 px-2 border-r border-slate-100">
+  <div className="flex items-center gap-1 whitespace-nowrap">
+    {group.room_number && (
+      <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+        <DoorOpen className="h-2 w-2" />
+        R{group.room_number}
+      </span>
+    )}
 
-                                                if (payment.payment_mode_type) {
-                                                  try {
-                                                    const modeTypeData =
-                                                      typeof payment.payment_mode_type ===
-                                                      "string"
-                                                        ? JSON.parse(
-                                                            payment.payment_mode_type,
-                                                          )
-                                                        : payment.payment_mode_type;
+    {group.bed_number && (
+      <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+        <Bed className="h-2 w-2" />
+        B{group.bed_number}
+      </span>
+    )}
+  </div>
+</td>
 
-                                                    if (
-                                                      payment.payment_mode ===
-                                                        "card" &&
-                                                      modeTypeData
-                                                    ) {
-                                                      modeTypeDisplay = `${modeTypeData.network || "Card"} •••• ${modeTypeData.last4 || "****"}`;
-                                                      modeTypeTooltip = `${modeTypeData.type || "Card"} - ${modeTypeData.bank || "Unknown Bank"}`;
-                                                    } else if (
-                                                      payment.payment_mode ===
-                                                        "upi" &&
-                                                      modeTypeData?.vpa
-                                                    ) {
-                                                      modeTypeDisplay =
-                                                        modeTypeData.vpa;
-                                                      modeTypeTooltip =
-                                                        modeTypeData.vpa;
-                                                    } else if (
-                                                      (payment.payment_mode ===
-                                                        "netbanking" ||
-                                                        payment.payment_mode ===
-                                                          "bank_transfer") &&
-                                                      modeTypeData?.bank
-                                                    ) {
-                                                      modeTypeDisplay =
-                                                        modeTypeData.bank;
-                                                      modeTypeTooltip =
-                                                        modeTypeData.bank;
-                                                    } else if (
-                                                      payment.payment_mode ===
-                                                        "wallet" &&
-                                                      modeTypeData?.wallet
-                                                    ) {
-                                                      modeTypeDisplay =
-                                                        modeTypeData.wallet;
-                                                      modeTypeTooltip =
-                                                        modeTypeData.wallet;
-                                                    } else {
-                                                      modeTypeDisplay = "-";
-                                                    }
-                                                  } catch (e) {
-                                                    modeTypeDisplay = "-";
-                                                  }
-                                                } else {
-                                                  modeTypeDisplay = "-";
-                                                }
+                        {/* Contact */}
+                        <td className="py-2 px-2 border-r border-slate-100">
+                          <span className="text-[11px] text-slate-500 whitespace-nowrap truncate block">
+                            {group.country_code || "+91"} {group.tenant_phone}
+                          </span>
+                        </td>
 
-                                                const isEven = index % 2 === 0;
+                        {/* CNT */}
+                        <td className="py-2 px-1 text-center border-r border-slate-100">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
+                            {group.payment_count}
+                          </Badge>
+                        </td>
 
-                                                return (
-                                                  <tr
-                                                    key={payment.id}
-                                                    className={`${isEven ? "bg-white" : "bg-slate-50/30"} border-b border-slate-100 hover:bg-blue-50/30 transition-colors duration-200 group`}
-                                                  >
-                                                    {/* Transaction Date */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      <div className="flex items-center gap-2">
-                                                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                                                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                                                        </div>
-                                                        <span className="text-[12px] font-medium text-slate-700 whitespace-nowrap">
-                                                          {format(
-                                                            new Date(
-                                                              payment.payment_date,
-                                                            ),
-                                                            "dd MMM yyyy",
-                                                          )}
-                                                        </span>
-                                                      </div>
-                                                    </td>
+                        {/* Total */}
+                        <td className="py-2 px-2 text-right border-r border-slate-100">
+                          <span className="text-[11px] font-bold text-slate-700 whitespace-nowrap">
+                            ₹{group.total_amount.toLocaleString()}
+                          </span>
+                        </td>
 
-                                                    {/* Amount */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      <div className="flex items-center gap-1">
-                                                        <span className="text-[13px] font-bold text-slate-900">
-                                                          ₹
-                                                          {Number(
-                                                            payment.amount,
-                                                          ).toLocaleString()}
-                                                        </span>
-                                                      </div>
-                                                    </td>
+                        {/* Paid */}
+                        <td className="py-2 px-2 text-right border-r border-slate-100">
+                          <span className="text-[11px] font-bold text-green-600 whitespace-nowrap">
+                            ₹{group.total_paid_amount?.toLocaleString() || 0}
+                          </span>
+                        </td>
 
-                                                    {/* Transaction ID */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      {payment.transaction_id ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                          <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                                            {payment.transaction_id.substring(
-                                                              0,
-                                                              8,
-                                                            )}
-                                                            ...
-                                                          </span>
-                                                          <button
-                                                            onClick={() => {
-                                                              navigator.clipboard.writeText(
-                                                                payment.transaction_id,
-                                                              );
-                                                              toast.success(
-                                                                "Transaction ID copied",
-                                                              );
-                                                            }}
-                                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                                          >
-                                                            <Copy className="w-3 h-3 text-slate-400 hover:text-slate-600" />
-                                                          </button>
-                                                        </div>
-                                                      ) : (
-                                                        <span className="text-[11px] text-slate-400">
-                                                          —
-                                                        </span>
-                                                      )}
-                                                    </td>
+                        {/* Rejected */}
+                        <td className="py-2 px-2 text-right border-r border-slate-100">
+                          <span className="text-[11px] font-bold text-red-600 whitespace-nowrap">
+                            ₹{group.total_rejected_amount?.toLocaleString() || 0}
+                          </span>
+                        </td>
 
-                                                    {/* Payment Mode - Mode and Bank Name in SAME ROW (horizontal) */}
-                                                    <td className="py-1 px-1 border-r border-slate-200">
-                                                      <div className="flex items-center gap-1 flex-wrap whitespace-nowrap">
-                                                        {payment.payment_mode ===
-                                                          "card" && (
-                                                          <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-                                                        )}
-                                                        {payment.payment_mode ===
-                                                          "upi" && (
-                                                          <Smartphone className="w-3.5 h-3.5 text-green-500" />
-                                                        )}
-                                                        {payment.payment_mode ===
-                                                          "cash" && (
-                                                          <IndianRupee className="w-3.5 h-3.5 text-emerald-500" />
-                                                        )}
-                                                        {payment.payment_mode ===
-                                                          "bank_transfer"}
-                                                        <span className="text-[10px] font-medium text-slate-900 capitalize">
-                                                          {payment.payment_mode ===
-                                                          "bank_transfer"
-                                                            ? "Bank Transfer"
-                                                            : payment.payment_mode}
-                                                        </span>
-                                                      </div>
-                                                    </td>
+                        {/* Status */}
+                        <td className="py-2 px-2 border-r border-slate-100">
+                          <div className="flex flex-wrap items-center gap-0.5">
+                            {group.approved_count > 0 && (
+                              <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] px-1 py-0 leading-tight">
+                                {group.approved_count}A
+                              </Badge>
+                            )}
+                            {group.pending_count > 0 && (
+                              <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-[9px] px-1 py-0 leading-tight">
+                                {group.pending_count}P
+                              </Badge>
+                            )}
+                            {group.rejected_count > 0 && (
+                              <Badge className="bg-red-100 text-red-700 border-red-200 text-[9px] px-1 py-0 leading-tight">
+                                {group.rejected_count}R
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
 
-                                                    {/* Payment Mode Type */}
-                                                    <td className="py-1 px-1 border-r border-slate-200">
-                                                      {modeTypeDisplay !==
-                                                        "-" ||
-                                                      payment.bank_name ? (
-                                                        <div className="flex flex-col gap-0.5">
-                                                          {/* Mode Type */}
-                                                          {modeTypeDisplay !==
-                                                            "-" && (
-                                                            <span
-                                                              className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap"
-                                                              title={
-                                                                modeTypeTooltip ||
-                                                                modeTypeDisplay
-                                                              }
-                                                            >
-                                                              {modeTypeDisplay.length >
-                                                              20
-                                                                ? modeTypeDisplay.substring(
-                                                                    0,
-                                                                    20,
-                                                                  ) + "..."
-                                                                : modeTypeDisplay}
-                                                            </span>
-                                                          )}
+                        {/* Last Pay */}
+                        <td className="py-2 px-0 ">
+                          <span className="text-[11px] text-slate-600 whitespace-nowrap">
+                            {group.last_payment_date
+                              ? format(new Date(group.last_payment_date), "dd/MM/yy")
+                              : <span className="text-slate-400">—</span>
+                            }
+                          </span>
+                        </td>
 
-                                                          {/* Bank Name */}
-                                                          {payment.bank_name && (
-                                                            <span className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">
-                                                              {
-                                                                payment.bank_name
-                                                              }
-                                                            </span>
-                                                          )}
-                                                        </div>
-                                                      ) : (
-                                                        <span className="text-[11px] text-slate-400">
-                                                          —
-                                                        </span>
-                                                      )}
-                                                    </td>
+                      </tr>
 
-                                                    {/* Payment Type */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      <span
-                                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                                                          payment.payment_type ===
-                                                          "rent"
-                                                            ? "bg-blue-100 text-blue-700"
-                                                            : payment.payment_type ===
-                                                                "security_deposit"
-                                                              ? "bg-purple-100 text-purple-700"
-                                                              : payment.payment_type ===
-                                                                  "deposit_refund"
-                                                                ? "bg-green-100 text-green-700"
-                                                                : payment.payment_type ===
-                                                                    "penalty_payment"
-                                                                  ? "bg-gray-100 text-gray-700"
-                                                                  : "bg-slate-100 text-slate-700"
-                                                        }`}
-                                                      >
-                                                        {payment.payment_type ===
-                                                        "rent"
-                                                          ? "Rent"
-                                                          : payment.payment_type ===
-                                                              "security_deposit"
-                                                            ? "Security Deposit"
-                                                            : payment.payment_type ||
-                                                              "Other"}
-                                                      </span>
-                                                    </td>
-
-                                                    {/* Month/Year */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      <span className="text-[12px] text-slate-600 whitespace-nowrap">
-                                                        {payment.month}{" "}
-                                                        {payment.year}
-                                                      </span>
-                                                    </td>
-
-                                                    {/* Remark */}
-                                                    <td className="py-1 px-3 border-r border-slate-200 max-w-[150px]">
-                                                      {payment.remark ? (
-                                                        <div className="group relative">
-                                                          <p
-                                                            className="text-[11px] text-slate-500 truncate cursor-help"
-                                                            title={
-                                                              payment.remark
-                                                            }
-                                                          >
-                                                            {payment.remark}
-                                                          </p>
-                                                        </div>
-                                                      ) : (
-                                                        <span className="text-[11px] text-slate-400">
-                                                          —
-                                                        </span>
-                                                      )}
-                                                    </td>
-
-                                                    {/* Proof Column with Thumbnail */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      {payment.payment_proof ? (
-                                                        <button
-                                                          className="flex items-center gap-1.5 group/proof"
-                                                          onClick={() => {
-                                                            window.open(
-                                                              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
-                                                              "_blank",
-                                                            );
-                                                          }}
-                                                        >
-                                                          {payment.payment_proof.match(
-                                                            /\.(jpg|jpeg|png|gif|webp)$/i,
-                                                          ) ? (
-                                                            <div className="relative">
-                                                              <img
-                                                                src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
-                                                                alt="Proof"
-                                                                className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-105"
-                                                              />
-                                                              <div className="absolute inset-0 bg-black/0 hover:bg-black/10 rounded-lg transition-colors" />
-                                                            </div>
-                                                          ) : (
-                                                            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-200 hover:bg-blue-100 transition-colors">
-                                                              <FileText className="h-4 w-4 text-blue-600" />
-                                                            </div>
-                                                          )}
-                                                        </button>
-                                                      ) : (
-                                                        <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200">
-                                                          <span className="text-[10px] text-slate-400">
-                                                            —
-                                                          </span>
-                                                        </div>
-                                                      )}
-                                                    </td>
-
-                                                    {/* Status */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      <PaymentStatusBadge
-                                                        status={
-                                                          payment.status ||
-                                                          "pending"
-                                                        }
-                                                      />
-                                                    </td>
-
-                                                    {/* Source */}
-                                                    <td className="py-1 px-3 border-r border-slate-200">
-                                                      {payment.payment_type ===
-                                                      "deposit_refund" ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
-                                                          <ReceiptIndianRupee className="h-2.5 w-2.5" />
-                                                          Deposit Refund
-                                                        </span>
-                                                      ) : payment.booking_id ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
-                                                          <Globe className="h-2.5 w-2.5" />
-                                                          Online Booking
-                                                        </span>
-                                                      ) : payment.source ===
-                                                        "tenant" ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium whitespace-nowrap">
-                                                          <Globe className="h-2.5 w-2.5" />
-                                                          Online Payment
-                                                        </span>
-                                                      ) : payment.payment_mode ===
-                                                        "online" ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium whitespace-nowrap">
-                                                          <User className="h-2.5 w-2.5" />
-                                                          Manual Entry
-                                                        </span>
-                                                      ) : (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium whitespace-nowrap">
-                                                          <User className="h-2.5 w-2.5" />
-                                                          Manual Entry
-                                                        </span>
-                                                      )}
-                                                    </td>
-
-                                                    {/* Actions */}
-                                                    <td className="py-1 px-3">
-                                                      <div className="flex items-center gap-1 justify-end">
-                                                        {/* Approve Button */}
-                                                        {(payment.status ===
-                                                          "pending" ||
-                                                          payment.status ===
-                                                            "paid" ||
-                                                          payment.status ===
-                                                            "partial" ||
-                                                          payment.status ===
-                                                            "refund") &&
-                                                          canApprove && (
-                                                            <button
-                                                              className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
-                                                              onClick={() =>
-                                                                onApprove(
-                                                                  payment,
-                                                                )
-                                                              }
-                                                              title="Approve"
-                                                            >
-                                                              <CheckCircle2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                          )}
-
-                                                        {/* Reject Button */}
-                                                        {(payment.status ===
-                                                          "pending" ||
-                                                          payment.status ===
-                                                            "paid" ||
-                                                          payment.status ===
-                                                            "partial" ||
-                                                          payment.status ===
-                                                            "refund") &&
-                                                          canReject && (
-                                                            <button
-                                                              className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
-                                                              onClick={() =>
-                                                                onReject(
-                                                                  payment,
-                                                                )
-                                                              }
-                                                              title="Reject"
-                                                            >
-                                                              <XCircle className="h-3.5 w-3.5" />
-                                                            </button>
-                                                          )}
-
-                                                        {/* Edit Button */}
-                                                        {payment.source !==
-                                                          "tenant" &&
-                                                          (payment.status ===
-                                                            "pending" ||
-                                                            payment.status ===
-                                                              "paid" ||
-                                                            payment.status ===
-                                                              "refund") &&
-                                                          canEdit && (
-                                                            <button
-                                                              className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"
-                                                              onClick={() =>
-                                                                onEdit(payment)
-                                                              }
-                                                              title="Edit"
-                                                            >
-                                                              <Pencil className="h-3.5 w-3.5" />
-                                                            </button>
-                                                          )}
-
-                                                        {/* Delete Button */}
-                                                        {canDelete && (
-                                                          <button
-                                                            className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
-                                                            onClick={() =>
-                                                              onDelete(payment)
-                                                            }
-                                                            title="Delete"
-                                                          >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                          </button>
-                                                        )}
-                                                      </div>
-                                                    </td>
-                                                  </tr>
-                                                );
-                                              },
-                                            )}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </div>
-                                  </div>
+                      {/* ✅ Expanded Child Row - 100% UNCHANGED */}
+                      {/* ✅ Compact Expanded Child Row */}
+{isExpanded && (
+  <tr className="bg-blue-50/30">
+    <td colSpan={12} className="p-0 border-t-0">
+      <div className="animate-in slide-in-from-top-1 duration-200">
+        <div className="p-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="text-[10px] font-semibold text-slate-700 flex items-center gap-1.5">
+              <CreditCard className="h-3 w-3 text-blue-600" />
+              Payment History • {group.payments.length} transactions
+            </h4>
+          </div>
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto overflow-y-auto max-h-[200px]">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Date</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Amount</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Txn ID</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Mode</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Mode Type</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Type</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Period</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Remark</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Proof</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Status</th>
+                    <th className="text-left py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider border-r border-slate-200">Source</th>
+                    <th className="text-center py-2 px-1.5 font-medium text-slate-600 text-[9px] uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.payments.map((payment: any, index: number) => {
+                    let modeTypeDisplay = "";
+                    let modeTypeTooltip = "";
+                    if (payment.payment_mode_type) {
+                      try {
+                        const modeTypeData = typeof payment.payment_mode_type === "string"
+                          ? JSON.parse(payment.payment_mode_type)
+                          : payment.payment_mode_type;
+                        if (payment.payment_mode === "card" && modeTypeData) {
+                          modeTypeDisplay = `${modeTypeData.network || "Card"} •••• ${modeTypeData.last4 || "****"}`;
+                          modeTypeTooltip = `${modeTypeData.type || "Card"} - ${modeTypeData.bank || "Unknown Bank"}`;
+                        } else if (payment.payment_mode === "upi" && modeTypeData?.vpa) {
+                          modeTypeDisplay = modeTypeData.vpa;
+                          modeTypeTooltip = modeTypeData.vpa;
+                        } else if ((payment.payment_mode === "netbanking" || payment.payment_mode === "bank_transfer") && modeTypeData?.bank) {
+                          modeTypeDisplay = modeTypeData.bank;
+                          modeTypeTooltip = modeTypeData.bank;
+                        } else if (payment.payment_mode === "wallet" && modeTypeData?.wallet) {
+                          modeTypeDisplay = modeTypeData.wallet;
+                          modeTypeTooltip = modeTypeData.wallet;
+                        } else { modeTypeDisplay = "-"; }
+                      } catch (e) { modeTypeDisplay = "-"; }
+                    } else { modeTypeDisplay = "-"; }
+                    
+                    const isEven = index % 2 === 0;
+                    return (
+                      <tr key={payment.id} className={`${isEven ? "bg-white" : "bg-slate-50/30"} border-b border-slate-100 hover:bg-blue-50/30 transition-colors duration-150 group`}>
+                        {/* Transaction Date */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-2.5 h-2.5 text-blue-500" />
+                            <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">
+                              {format(new Date(payment.payment_date), "dd MMM yy")}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        {/* Amount */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          <span className="text-[11px] font-bold text-slate-800">₹{Number(payment.amount).toLocaleString()}</span>
+                        </td>
+                        
+                        {/* Transaction ID */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          {payment.transaction_id ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1 py-0.5 rounded">
+                                {payment.transaction_id.substring(0, 8)}...
+                              </span>
+                              <button onClick={() => { navigator.clipboard.writeText(payment.transaction_id); toast.success("Copied"); }} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Copy className="w-2.5 h-2.5 text-slate-400" />
+                              </button>
+                            </div>
+                          ) : <span className="text-[10px] text-slate-400">—</span>}
+                        </td>
+                        
+                        {/* Mode */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            {payment.payment_mode === "card" && <CreditCard className="w-2.5 h-2.5 text-blue-500" />}
+                            {payment.payment_mode === "upi" && <Smartphone className="w-2.5 h-2.5 text-green-500" />}
+                            {payment.payment_mode === "cash" && <IndianRupee className="w-2.5 h-2.5 text-emerald-500" />}
+                            <span className="text-[10px] font-medium text-slate-700 capitalize">
+                              {payment.payment_mode === "bank_transfer" ? "Bank Trf" : payment.payment_mode}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        {/* Mode Type */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          {modeTypeDisplay !== "-" || payment.bank_name ? (
+                            <div className="flex flex-col gap-0.5">
+                              {modeTypeDisplay !== "-" && (
+                                <span className="text-[8px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded whitespace-nowrap" title={modeTypeTooltip || modeTypeDisplay}>
+                                  {modeTypeDisplay.length > 15 ? modeTypeDisplay.substring(0, 12) + "..." : modeTypeDisplay}
+                                </span>
+                              )}
+                            </div>
+                          ) : <span className="text-[10px] text-slate-400">—</span>}
+                        </td>
+                        
+                        {/* Payment Type */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
+                            payment.payment_type === "rent" ? "bg-blue-100 text-blue-700"
+                            : payment.payment_type === "security_deposit" ? "bg-purple-100 text-purple-700"
+                            : payment.payment_type === "deposit_refund" ? "bg-green-100 text-green-700"
+                            : "bg-slate-100 text-slate-700"
+                          }`}>
+                            {payment.payment_type === "rent" ? "Rent"
+                              : payment.payment_type === "security_deposit" ? "Security Deposit"
+                              : payment.payment_type === "deposit_refund" ? "Refund"
+                              : payment.payment_type || "Other"}
+                          </span>
+                        </td>
+                        
+                        {/* Period */}
+                       {/* Period */}
+<td className="py-0.5 px-1.5 border-r border-slate-100">
+  <span className="text-[10px] text-slate-600 whitespace-nowrap">
+    {payment.month} {payment.year ? String(payment.year).slice(-2) : ''}
+  </span>
+</td>
+                        
+                        {/* Remark */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100 max-w-[120px]">
+                          {payment.remark
+                            ? <p className="text-[10px] text-slate-500 truncate cursor-help" title={payment.remark}>{payment.remark}</p>
+                            : <span className="text-[9px] text-slate-400">—</span>}
+                        </td>
+                        
+                        {/* Proof */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          {payment.payment_proof ? (
+                            <button onClick={() => window.open(`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`, "_blank")}>
+                              {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                <img src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`} alt="Proof" className="h-6 w-6 rounded object-cover border border-slate-200" />
+                              ) : (
+                                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center border border-blue-200">
+                                  <FileText className="h-3 w-3 text-blue-600" />
                                 </div>
-                              </TableCell>
-                            </TableRow>
+                              )}
+                            </button>
+                          ) : (
+                            <div className="h-6 w-6 rounded bg-slate-50 flex items-center justify-center border border-slate-200">
+                              <span className="text-[8px] text-slate-400">—</span>
+                            </div>
                           )}
-                        </Fragment>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                        </td>
+                        
+                        {/* Status */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          <PaymentStatusBadge status={payment.status || "pending"} />
+                        </td>
+                        
+                        {/* Source */}
+                        <td className="py-0.5 px-1.5 border-r border-slate-100">
+                          {payment.payment_type === "deposit_refund" ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium"><ReceiptIndianRupee className="h-2 w-2" />Refund</span>
+                          ) : payment.booking_id ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium"><Globe className="h-2 w-2" />Online</span>
+                          ) : payment.source === "tenant" ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium"><Globe className="h-2 w-2" />Online</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium"><User className="h-2 w-2" />Manual</span>
+                          )}
+                        </td>
+                        
+                        {/* Actions */}
+                        <td className="py-0.5 px-1.5">
+                          <div className="flex items-center gap-0.5 justify-end">
+                            {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial" || payment.status === "refund") && canApprove && (
+                              <button className="h-5 w-5 rounded text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center" onClick={() => onApprove(payment)} title="Approve">
+                                <CheckCircle2 className="h-3 w-3" />
+                              </button>
+                            )}
+                            {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial" || payment.status === "refund") && canReject && (
+                              <button className="h-5 w-5 rounded text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center" onClick={() => onReject(payment)} title="Reject">
+                                <XCircle className="h-3 w-3" />
+                              </button>
+                            )}
+                            {payment.source !== "tenant" && (payment.status === "pending" || payment.status === "paid" || payment.status === "refund") && canEdit && (
+                              <button className="h-5 w-5 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center" onClick={() => onEdit(payment)} title="Edit">
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button className="h-5 w-5 rounded text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center" onClick={() => onDelete(payment)} title="Delete">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       </div>
-      {/* Payments Filter Sidebar */}
-      <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-        <SheetContent
-          side="right"
-          className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
-        >
-          <div className="h-full flex flex-col">
-            <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-white" />
-                <span className="text-sm font-semibold text-white">
-                  Filter Payments
-                </span>
-              </div>
-              <button
-                onClick={() => setShowFilterSidebar?.(false)}
-                className="text-white/70 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Property */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Property</Label>
-    <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-      <SelectTrigger className="h-8 text-xs">
-        <SelectValue placeholder="All Properties" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All Properties</SelectItem>
-        {properties.map((prop: any) => (
-          <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-  
-  {/* Room Number */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
-    <Input
-      placeholder="Search room or bed..."
-      value={roomFilter}
-      onChange={(e) => setRoomFilter(e.target.value)}
-      className="h-8 text-xs"
-    />
+    </td>
+  </tr>
+)}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
-  {/* Payment Type */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
-    <select
-      value={paymentTypeFilter}
-      onChange={(e) => setPaymentTypeFilter(e.target.value)}
-      className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700"
-    >
-      <option value="all">All Types</option>
-      <option value="rent">Rent</option>
-      <option value="security_deposit">Security Deposit</option>
-      <option value="deposit_refund">Deposit Refund</option>
-    </select>
-  </div>
-  {/* Pending Rent Only Filter */}
-<div className="space-y-1">
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      checked={showPendingRentOnly}
-      onChange={(e) => setShowPendingRentOnly(e.target.checked)}
-      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
-    />
-    <span className="text-xs font-semibold text-blue-700">Show Tenants with Pending Rent Only</span>
-  </label>
-  <p className="text-[10px] text-gray-500 ml-5">Filter tenants who have any pending rent amount</p>
-</div>
-
-{/* Exact Pending Amount Filter */}
-<div className="space-y-1">
-  <Label className="text-xs font-semibold text-blue-700">Pending Amount (₹)</Label>
-  <Input
-    type="number"
-    placeholder="Enter exact amount e.g. 5000"
-    value={exactPendingFilter}
-    onChange={(e) => setExactPendingFilter(e.target.value)}
-    className="h-8 text-xs"
-  />
-</div>
-
-  {/* Status */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Status</Label>
-    <select
-      value={columnFilters?.status || "all"}
-      onChange={(e) => setColumnFilters?.({ ...columnFilters, status: e.target.value })}
-      className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700"
-    >
-      <option value="all">All Status</option>
-      <option value="paid">Paid</option>
-      <option value="approved">Approved</option>
-      <option value="pending">Pending</option>
-      <option value="rejected">Rejected</option>
-    </select>
-  </div>
-
-  
-
-  {/* Date Range */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Start Date</Label>
-    <Input
-      type="date"
-      value={filterStartDate}
-      onChange={(e) => setFilterStartDate(e.target.value)}
-      className="h-8 text-xs"
-    />
-   
-  </div>
-
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">End Date</Label>
-    <Input
-      type="date"
-      value={filterEndDate}
-      onChange={(e) => setFilterEndDate(e.target.value)}
-      className="h-8 text-xs"
-    />
-  </div>
-
-  {/* Payment Count */}
-  <div className="space-y-1">
-    <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
-    <Input
-      type="number"
-      placeholder="Exact count..."
-      value={columnFilters?.payment_count || ""}
-      onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
-      className="h-8 text-xs"
-    />
-  </div>
-
-  {/* Ignore Date Filters */}
-  <div className="space-y-1">
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={ignoreDateFilters}
-        onChange={(e) => setIgnoreDateFilters(e.target.checked)}
-        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
-      />
-      <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
-    </label>
-    <p className="text-[10px] text-gray-500 ml-5">Show all data regardless of payment date</p>
-  </div>
-</div>
-{/* Payments Filter Sidebar - inside PaymentsTable component */}
-<div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-  <Button
-    variant="outline"
-    size="sm"
-    className="flex-1 text-xs h-8"
-    onClick={() => {
-      // Reset column filters
-      setColumnFilters?.({
-        payment_date: "",
-        tenant_name: "",
-        amount: "",
-        min_amount: "",
-        max_amount: "",
-        payment_mode: "all",
-        transaction_id: "",
-        month: "",
-        status: "all",
-        remark: "",
-        payment_count: "",
-      });
-      setFilterPropertyId("all");
-      setFilterStartDate("");
-      setFilterEndDate("");
-      setRoomFilter("");
-      setIgnoreDateFilters(false);
-      setPaymentTypeFilter("all");
-      setExactPendingFilter(""); 
-      setShowPendingRentOnly(false);  // ✅ ADD THIS LINE HERE
-      // Use the provided onPageChange prop
-      onPageChange?.(1);
-    }}
-  >
-    <RefreshCw className="w-3 h-3 mr-1" /> Reset
-  </Button>
-  <Button
-    size="sm"
-    className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-    onClick={() => setShowFilterSidebar?.(false)}
-  >
-    Apply
-  </Button>
-</div>
+  {/* Filter Sidebar + Pagination — UNCHANGED */}
+  <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+    <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
+      <div className="h-full flex flex-col">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-white" />
+            <span className="text-sm font-semibold text-white">Filter Payments</span>
           </div>
-        </SheetContent>
-      </Sheet>
+          <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Property</Label>
+            <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Properties" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                {properties.map((prop: any) => (
+                  <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
+            <Input placeholder="Search room or bed..." value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+            <select value={paymentTypeFilter} onChange={(e) => setPaymentTypeFilter(e.target.value)} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+              <option value="all">All Types</option>
+              <option value="rent">Rent</option>
+              <option value="security_deposit">Security Deposit</option>
+              <option value="deposit_refund">Deposit Refund</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={showPendingRentOnly} onChange={(e) => setShowPendingRentOnly(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
+              <span className="text-xs font-semibold text-blue-700">Show Tenants with Pending Rent Only</span>
+            </label>
+            <p className="text-[10px] text-gray-500 ml-5">Filter tenants who have any pending rent amount</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Pending Amount (₹)</Label>
+            <Input type="number" placeholder="Enter exact amount e.g. 5000" value={exactPendingFilter} onChange={(e) => setExactPendingFilter(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Status</Label>
+            <select value={columnFilters?.status || "all"} onChange={(e) => setColumnFilters?.({ ...columnFilters, status: e.target.value })} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+              <option value="all">All Status</option>
+              <option value="paid">Paid</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Start Date</Label>
+            <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">End Date</Label>
+            <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
+            <Input type="number" placeholder="Exact count..." value={columnFilters?.payment_count || ""} onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })} className="h-8 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={ignoreDateFilters} onChange={(e) => setIgnoreDateFilters(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
+              <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
+            </label>
+            <p className="text-[10px] text-gray-500 ml-5">Show all data regardless of payment date</p>
+          </div>
+        </div>
+        <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+          <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => {
+            setColumnFilters?.({ payment_date: "", tenant_name: "", property_name: "", room_bed: "", contact: "", amount: "", min_amount: "", max_amount: "", payment_mode: "all", transaction_id: "", month: "", status: "all", remark: "", payment_count: "", total_paid_amount: "", total_rejected_amount: "" });            setFilterPropertyId("all"); setFilterStartDate(""); setFilterEndDate("");
+            setRoomFilter(""); setIgnoreDateFilters(false); setPaymentTypeFilter("all");
+            setExactPendingFilter(""); setShowPendingRentOnly(false); onPageChange?.(1);
+          }}>
+            <RefreshCw className="w-3 h-3 mr-1" /> Reset
+          </Button>
+          <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={() => setShowFilterSidebar?.(false)}>Apply</Button>
+        </div>
+      </div>
+    </SheetContent>
+  </Sheet>
 
-      <PaginationControls
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={onPageChange}
-        itemsPerPage={pagination.itemsPerPage}
-        onItemsPerPageChange={onItemsPerPageChange}
-        totalItems={pagination.totalItems}
-        currentItemsCount={pagination.items.length}
-      />
-    </Card>
+  <PaginationControls
+    currentPage={pagination.currentPage}
+    totalPages={pagination.totalPages}
+    onPageChange={onPageChange}
+    itemsPerPage={pagination.itemsPerPage}
+    onItemsPerPageChange={onItemsPerPageChange}
+    totalItems={pagination.totalItems}
+    currentItemsCount={pagination.items.length}
+  />
+</Card>
   );
 };
 
@@ -8573,7 +8188,7 @@ const ReceiptsTable = ({
   onPageChange,
   onItemsPerPageChange,
    selectedReceiptIds,  // ✅ ADD THIS
-  setSelectedReceiptIds,  // ✅ ADD THIS
+  setSelectedReceiptIds,  
 }: any) => {
   // Add state for receipts column filters
   const [receiptFilters, setReceiptFilters] = useState({
@@ -8582,6 +8197,9 @@ const ReceiptsTable = ({
     amount: "",
     method: "",
     room: "",
+     receipt_number: "",  
+  payment_type: "all", 
+  contact: "", 
   });
 
   // Enhance receipts with salutation and country code
@@ -8648,445 +8266,553 @@ const ReceiptsTable = ({
       (receipt.bed_number &&
         receipt.bed_number.toString().includes(receiptFilters.room));
 
+         const matchesReceiptNumber =
+    !receiptFilters.receipt_number ||
+    String(receipt.id).padStart(6, '0').includes(receiptFilters.receipt_number) ||
+    `RCP-${String(receipt.id).padStart(6, '0')}`.toLowerCase().includes(receiptFilters.receipt_number.toLowerCase());
+
+  const matchesPaymentType =
+    !receiptFilters.payment_type ||
+    receiptFilters.payment_type === "all" ||
+    receipt.payment_type === receiptFilters.payment_type;
+
+  const matchesContact =
+    !receiptFilters.contact ||
+    (receipt.phone || "").includes(receiptFilters.contact);
+
     return (
       matchesDate &&
       matchesTenant &&
       matchesAmount &&
       matchesMethod &&
-      matchesRoom
+     matchesRoom &&
+    matchesReceiptNumber &&  
+    matchesPaymentType &&    
+    matchesContact       
     );
   });
 
   // Calculate paginated receipts
-  const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
-  const endIndex = startIndex + pagination.itemsPerPage;
-  const paginatedReceiptsList = filteredReceipts.slice(startIndex, endIndex);
+const itemsPerPage = pagination.itemsPerPage;
+const isAll = itemsPerPage === "All";
+const startIndex = isAll ? 0 : (pagination.currentPage - 1) * (itemsPerPage as number);
+const endIndex = isAll ? filteredReceipts.length : startIndex + (itemsPerPage as number);
+const paginatedReceiptsList = filteredReceipts.slice(startIndex, endIndex);
+const totalPages = isAll ? 1 : Math.ceil(filteredReceipts.length / (itemsPerPage as number));
 
-  return (
-    <Card className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]">
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-          <div className="min-w-[700px] flex flex-col flex-1 min-h-0">
-            <div className="flex-shrink-0">
-              <Table>
-                <TableHeader className="bg-gray-200 border-b border-gray-300">
-                  <TableRow className="hover:bg-transparent">
-                    {/* Checkbox Column */}
-<TableHead className="w-[40px] py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1 items-center">
-    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
-    <input
-      type="checkbox"
-      checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
-      onChange={(e) => {
-        if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
-        else setSelectedReceiptIds([]);
-      }}
-      className="w-3 h-3 accent-blue-500"
-    />
+ return (
+  <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="overflow-auto flex-1 min-h-0 flex flex-col">
+        <div className="min-w-[900px] flex flex-col flex-1 min-h-0">
+
+          {/* Sticky Header */}
+          <table className="table-fixed w-full border-collapse sticky top-0 z-10 bg-gray-200">
+            <colgroup>
+              <col style={{ width: "36px" }} />   {/* Checkbox */}
+              <col style={{ width: "90px" }} />   {/* Receipt # */}
+              <col style={{ width: "80px" }} />   {/* Date */}
+              <col style={{ width: "160px" }} />  {/* Tenant */}
+              <col style={{ width: "110px" }} />  {/* Contact */}
+              <col style={{ width: "90px" }} />   {/* Type */}
+              <col style={{ width: "90px" }} />   {/* Amount */}
+              <col style={{ width: "100px" }} />  {/* Method/Bank */}
+              <col style={{ width: "80px" }} />   {/* Room/Bed */}
+              <col style={{ width: "64px" }} />   {/* Actions */}
+            </colgroup>
+            <thead>
+              <tr>
+                {/* Checkbox */}
+                <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
+                        else setSelectedReceiptIds([]);
+                      }}
+                      className="w-3 h-3 accent-blue-500"
+                    />
+                  </div>
+                </th>
+
+                {/* Receipt # */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Receipt #</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.receipt_number || ""}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, receipt_number: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Date */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+                    <Input
+                      placeholder="dd/mm/yy"
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.date}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Tenant */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.tenant}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Contact */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.contact || ""}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, contact: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Type */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
+                    <select
+                      value={receiptFilters.payment_type || "all"}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, payment_type: e.target.value })}
+                      className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
+                    >
+                      <option value="all">All</option>
+                      <option value="rent">Rent</option>
+                      <option value="security_deposit">Security Deposit</option>
+                    </select>
+                  </div>
+                </th>
+
+                {/* Amount */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+                    <Input
+                      placeholder="₹"
+                      type="number"
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.amount}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Method/Bank */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.method}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Room/Bed */}
+                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+                      value={receiptFilters.room}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
+                    />
+                  </div>
+                </th>
+
+                {/* Actions */}
+                <th className="py-1.5 px-1 bg-gray-200 border-b border-gray-300 text-center">
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Action</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFilterSidebar?.(true)}
+                      className="h-5 px-1 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                    >
+                      <Filter className="w-2.5 h-2.5" />
+                    </Button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+          </table>
+
+          {/* Scrollable Body */}
+          <div className="overflow-y-auto flex-1 min-h-0">
+            <table className="table-fixed w-full border-collapse">
+              <colgroup>
+                <col style={{ width: "36px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "80px" }} />
+                <col style={{ width: "160px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "100px" }} />
+                <col style={{ width: "80px" }} />
+                <col style={{ width: "64px" }} />
+              </colgroup>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={10} className="text-center py-8 text-xs text-slate-500">
+                      <div className="flex justify-center items-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                        Loading receipts...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredReceipts.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="text-center py-8 text-xs text-slate-500">
+                      <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                      No receipts found
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedReceiptsList.map((receipt: any, index: number) => (
+                    <tr
+                      key={receipt.id}
+                      className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${
+                        receipt.id === highlightedReceipt ? "bg-green-50 animate-pulse" : index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-1.5 px-1 text-center border-r border-slate-100">
+                        <input
+                          type="checkbox"
+                          checked={selectedReceiptIds.includes(receipt.id)}
+                          onChange={() => setSelectedReceiptIds((prev: number[]) =>
+                            prev.includes(receipt.id) ? prev.filter((id: number) => id !== receipt.id) : [...prev, receipt.id]
+                          )}
+                          className="w-3 h-3 accent-blue-500"
+                        />
+                      </td>
+
+                      {/* Receipt # */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <span className="text-[10px] font-mono text-slate-600 whitespace-nowrap">
+                          #RCP-{String(receipt.id).padStart(5, '0')}
+                        </span>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <span className="text-[11px] text-slate-700 whitespace-nowrap">
+                          {format(new Date(receipt.payment_date), "dd/MM/yy")}
+                        </span>
+                      </td>
+
+                      {/* Tenant — name + period on one line */}
+                     <td className="py-1.5 px-2 border-r border-slate-100">
+  <div className="flex items-center gap-1">
+  {(() => {
+  const t = tenants.find((x: any) => 
+    x.id === receipt.tenant_id || x.full_name === receipt.tenant_name
+  );
+  return t?.photo_url ? (
+    <img src={t.photo_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
+  ) : (
+    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center text-white font-bold text-[8px] flex-shrink-0">
+      {(receipt.salutation ? `${receipt.salutation} ${receipt.tenant_name}` : receipt.tenant_name)?.split(" ").filter(Boolean).slice(0, 2).map((n: string) => n[0].toUpperCase()).join("")}
+    </div>
+  );
+})()}
+
+    <div className="min-w-0 flex items-center gap-1 whitespace-nowrap overflow-hidden">
+      <p className="text-[11px] font-medium text-slate-800 truncate">
+        {receipt.salutation ? `${receipt.salutation} ` : ""}
+        {receipt.tenant_name}
+      </p>
+
+      {(receipt.month || receipt.year) && (
+        <p className="text-[9px] text-slate-400 flex-shrink-0">
+          ({receipt.month} {receipt.year})
+        </p>
+      )}
+    </div>
   </div>
-</TableHead>
+</td>
 
-{/* Receipt # Column */}
-<TableHead className="w-[80px] py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1">
-    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Receipt Number</span>
-    <Input
-      placeholder="Search..."
-      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-      value={receiptFilters.receipt_number}
-      onChange={(e) =>
-        setReceiptFilters({
-          ...receiptFilters,
-          receipt_number: e.target.value,
-        })
-      }
-    />
+                      {/* Contact */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <span className="text-[11px] text-slate-500 whitespace-nowrap truncate block">
+                          {receipt.country_code || "+91"} {receipt.phone || "—"}
+                        </span>
+                      </td>
+
+                      {/* Type */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <Badge className={`text-[9px] px-1.5 py-0 leading-tight ${
+                          receipt.payment_type === "security_deposit"
+                            ? "bg-purple-100 text-purple-700 border-purple-200"
+                            : "bg-blue-100 text-blue-700 border-blue-200"
+                        }`}>
+                          {receipt.payment_type === "security_deposit" ? "Security Deposit" : "Rent"}
+                        </Badge>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap">
+                          ₹{receipt.amount.toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Method / Bank */}
+                     <td className="py-1.5 px-2 border-r border-slate-100">
+  <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden">
+    <span className="text-[11px] text-slate-600 capitalize truncate">
+      {receipt.payment_mode}
+    </span>
+
+    {receipt.bank_name && (
+      <span className="text-[9px] text-slate-400 flex-shrink-0">
+        ({receipt.bank_name})
+      </span>
+    )}
   </div>
-</TableHead>
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Date
-                        </span>
-                        <Input
-                          placeholder="dd/mm/yy"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={receiptFilters.date}
-                          onChange={(e) =>
-                            setReceiptFilters({
-                              ...receiptFilters,
-                              date: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
+</td>
 
-                    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Tenant
-                        </span>
-                        <Input
-                          placeholder="Search tenant..."
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={receiptFilters.tenant}
-                          onChange={(e) =>
-                            setReceiptFilters({
-                              ...receiptFilters,
-                              tenant: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    <TableHead className="w-[110px] py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1">
-    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide rounded">Type</span>
-    <select
-      value={receiptFilters.payment_type || "all"}
-      onChange={(e) => setReceiptFilters({...receiptFilters, payment_type: e.target.value})}
-      className="h-6 text-[10px] bg-white border-gray-300 px-1 rounded w-full"
-    >
-      <option value="all">All</option>
-      <option value="rent">Rent</option>
-      <option value="security_deposit">Security Deposit</option>
-    </select>
-  </div>
-</TableHead>
-
-                    <TableHead className="w-[150px] py-2 px-2 bg-gray-200 text-left">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Amount
-                        </span>
-                        <Input
-                          placeholder="Search..."
-                          type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                          value={receiptFilters.amount}
-                          onChange={(e) =>
-                            setReceiptFilters({
-                              ...receiptFilters,
-                              amount: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    <TableHead className="w-[150px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Method/Bank
-                        </span>
-                        <Input
-                          placeholder="Search..."
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={receiptFilters.method}
-                          onChange={(e) =>
-                            setReceiptFilters({
-                              ...receiptFilters,
-                              method: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Room/Bed
-                        </span>
-                        <Input
-                          placeholder="Search..."
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={receiptFilters.room}
-                          onChange={(e) =>
-                            setReceiptFilters({
-                              ...receiptFilters,
-                              room: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </TableHead>
-
-                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                      <div className="flex flex-col gap-1 items-center">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Actions
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowFilterSidebar?.(true)}
-                          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                        >
-                          <Filter className="w-2.5 h-2.5 mr-0.5" />
-                          Filter
-                        </Button>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-              </Table>
-            </div>
-
-            <div className="overflow-y-auto flex-1 min-h-0">
-              <Table>
-                <colgroup>
-                <col style={{ width: "40px" }} />   {/* Checkbox */}
-  <col style={{ width: "80px" }} />   {/* Receipt # */}
-                  <col style={{ width: "100px" }} /> {/* Date */}
-                  <col style={{ width: "160px" }} /> {/* Tenant */}
-                  <col style={{ width: "110px" }} /> {/* Type */}
-                  <col style={{ width: "150px" }} /> {/* Amount */}
-                  <col style={{ width: "150px" }} /> {/* Method/Bank */}
-                  <col style={{ width: "120px" }} /> {/* Room/Bed */}
-                  <col style={{ width: "80px" }} /> {/* Actions */}
-                </colgroup>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-xs text-slate-500"
-                      >
-                        <div className="flex justify-center items-center">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
-                          Loading receipts...
+                      {/* Room / Bed */}
+                      <td className="py-1.5 px-2 border-r border-slate-100">
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                          {receipt.room_number && (
+                            <span className="text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full whitespace-nowrap">
+                              R{receipt.room_number}
+                            </span>
+                          )}
+                          {receipt.bed_number && (
+                            <span className="text-[10px] text-green-600 bg-green-50 px-1 py-0.5 rounded-full whitespace-nowrap">
+                              B{receipt.bed_number}
+                            </span>
+                          )}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredReceipts.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-xs text-slate-500"
-                      >
-                        <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                        No receipts found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedReceiptsList.map((receipt: any) => {
-                      return (
-                        <TableRow
-                          key={receipt.id}
-                          className={`hover:bg-slate-50 ${
-                            receipt.id === highlightedReceipt
-                              ? "bg-green-50 animate-pulse"
-                              : ""
-                          }`}
-                        >
-                          {/* Checkbox */}
-<TableCell className="py-2 px-5">
-  <input
-    type="checkbox"
-    checked={selectedReceiptIds.includes(receipt.id)}
-    onChange={(e) => {
-      setSelectedReceiptIds(prev =>
-        prev.includes(receipt.id) ? prev.filter(id => id !== receipt.id) : [...prev, receipt.id]
-      );
-    }}
-    className="w-3 h-3 accent-blue-500"
-  />
-</TableCell>
+                      </td>
 
-<TableCell className="py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
-  #RCP-{String(receipt.id).padStart(6, '0')}
-</TableCell>
-                          <TableCell className="py-2 text-xs whitespace-nowrap">
-                            {format(new Date(receipt.payment_date), "dd/MM/yy")}
-                          </TableCell>
-                          <TableCell className="py-2 text-center">
-                            <div className="flex flex-col items-center justify-center">
-                              <p className="text-xs font-medium whitespace-nowrap">
-                                {receipt.salutation
-                                  ? `${receipt.salutation} `
-                                  : ""}
-                                {receipt.tenant_name}
-                              </p>
-
-                              {receipt.phone && (
-                                <p className="text-[10px] text-slate-500 whitespace-nowrap">
-                                  {receipt.country_code || "+91"}{" "}
-                                  {receipt.phone}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2 text-center">
-  <Badge className={`text-[9px] px-1.5 py-0.5 ${
-    receipt.payment_type === 'security_deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-  }`}>
-    {receipt.payment_type === 'security_deposit' ? 'Security Deposit' : 'Rent'}
-  </Badge>
-</TableCell>
-                          <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-center">
-                            ₹{receipt.amount.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="py-2 text-center">
-                            <p className="text-xs capitalize whitespace-nowrap">
-                              {receipt.payment_mode}
-                            </p>
-                            {receipt.bank_name && (
-                              <p className="text-[10px] text-slate-500 whitespace-nowrap">
-                                {receipt.bank_name}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2 text-center">
-                            <p className="text-xs whitespace-nowrap">
-                              {receipt.room_number || "N/A"}
-                            </p>
-                            {receipt.bed_number && (
-                              <p className="text-[10px] text-slate-500">
-                                Bed #{receipt.bed_number}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <div className="flex items-center gap-1 justify-center">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={() => onPreviewReceipt(receipt.id)}
-                                title="Preview Receipt"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={() => onDownloadReceipt(receipt.id)}
-                                title="Download Receipt"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                      {/* Actions */}
+                      <td className="py-1.5 px-1 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <button
+                            className="h-6 w-6 rounded hover:bg-blue-50 flex items-center justify-center"
+                            onClick={() => onPreviewReceipt(receipt.id)}
+                            title="Preview"
+                          >
+                            <Eye className="h-3 w-3 text-blue-500" />
+                          </button>
+                          <button
+                            className="h-6 w-6 rounded hover:bg-green-50 flex items-center justify-center"
+                            onClick={() => onDownloadReceipt(receipt.id)}
+                            title="Download"
+                          >
+                            <Download className="h-3 w-3 text-green-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Receipts Filter Sidebar */}
-      <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-        <SheetContent
-          side="right"
-          className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
-        >
-          <div className="h-full flex flex-col">
-            <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-white" />
-                <span className="text-sm font-semibold text-white">
-                  Filter Receipts
-                </span>
-              </div>
-              <button
-                onClick={() => setShowFilterSidebar?.(false)}
-                className="text-white/70 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {[
-                { key: "date", label: "Date", placeholder: "dd/mm/yy" },
-                {
-                  key: "tenant",
-                  label: "Tenant",
-                  placeholder: "Search tenant...",
-                },
-                {
-                  key: "amount",
-                  label: "Amount",
-                  placeholder: "Search amount...",
-                },
-                {
-                  key: "method",
-                  label: "Method/Bank",
-                  placeholder: "Search method...",
-                },
-                {
-                  key: "room",
-                  label: "Room/Bed",
-                  placeholder: "Search room...",
-                },
-              ].map((f) => (
-                <div key={f.key} className="space-y-1">
-                  <Label className="text-xs font-semibold text-blue-700">
-                    {f.label}
-                  </Label>
-                  <Input
-                    placeholder={f.placeholder}
-                    value={receiptFilters[f.key] || ""}
-                    onChange={(e) =>
-                      setReceiptFilters((prev) => ({
-                        ...prev,
-                        [f.key]: e.target.value,
-                      }))
-                    }
-                    className="h-8 text-xs"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs h-8"
-                onClick={() =>
-                  setReceiptFilters({
-                    date: "",
-                    tenant: "",
-                    amount: "",
-                    method: "",
-                    room: "",
-                  })
-                }
-              >
-                <RefreshCw className="w-3 h-3 mr-1" /> Reset
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-                onClick={() => setShowFilterSidebar?.(false)}
-              >
-                Apply
-              </Button>
-            </div>
+    {/* Filter Sidebar — UNCHANGED */}
+    <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[420px]">
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Advanced Filters</span>
+        </div>
+        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Filter Body – two‑column grid */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {/* Receipt Number */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Receipt #</Label>
+            <Input
+              placeholder="Search receipt #..."
+              value={receiptFilters.receipt_number || ""}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, receipt_number: e.target.value }))}
+              className="h-8 text-xs"
+            />
           </div>
-        </SheetContent>
-      </Sheet>
 
-      {/* Pagination Controls */}
-      <PaginationControls
-        currentPage={pagination.currentPage}
-        totalPages={Math.ceil(
-          filteredReceipts.length / pagination.itemsPerPage,
-        )}
-        onPageChange={onPageChange}
-        itemsPerPage={pagination.itemsPerPage}
-        onItemsPerPageChange={onItemsPerPageChange}
-        totalItems={filteredReceipts.length}
-        currentItemsCount={paginatedReceiptsList.length}
-      />
-    </Card>
-  );
+          {/* Date */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Date</Label>
+            <Input
+              placeholder="dd/mm/yy"
+              value={receiptFilters.date}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, date: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Tenant */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
+            <Input
+              placeholder="Search tenant..."
+              value={receiptFilters.tenant}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, tenant: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Contact */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Contact</Label>
+            <Input
+              placeholder="Search phone..."
+              value={receiptFilters.contact || ""}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, contact: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Amount */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Amount</Label>
+            <Input
+              placeholder="Search amount..."
+              type="number"
+              value={receiptFilters.amount}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, amount: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Method/Bank */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Method / Bank</Label>
+            <Input
+              placeholder="Search method..."
+              value={receiptFilters.method}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, method: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Room/Bed */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
+            <Input
+              placeholder="Search room..."
+              value={receiptFilters.room}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, room: e.target.value }))}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Payment Type */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+            <select
+              value={receiptFilters.payment_type || "all"}
+              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, payment_type: e.target.value }))}
+              className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All Types</option>
+              <option value="rent">Rent</option>
+              <option value="security_deposit">Security Deposit</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Ignore Date Filter – full width */}
+        <div className="mt-4 space-y-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={ignoreReceiptDateFilter}
+              onChange={(e) => setIgnoreReceiptDateFilter(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Footer Buttons */}
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs h-8"
+          onClick={() => {
+            setReceiptFilters({
+              date: "",
+              tenant: "",
+              amount: "",
+              method: "",
+              room: "",
+              receipt_number: "",
+              payment_type: "all",
+              contact: "",
+            });
+            setIgnoreReceiptDateFilter(false);
+          }}
+        >
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button
+          size="sm"
+          className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          onClick={() => setShowFilterSidebar?.(false)}
+        >
+          Apply
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
+
+    <PaginationControls
+      currentPage={pagination.currentPage}
+ totalPages={totalPages}       onPageChange={onPageChange}
+      itemsPerPage={pagination.itemsPerPage}
+      onItemsPerPageChange={onItemsPerPageChange}
+      totalItems={filteredReceipts.length}
+      currentItemsCount={paginatedReceiptsList.length}
+    />
+  </Card>
+);
 };

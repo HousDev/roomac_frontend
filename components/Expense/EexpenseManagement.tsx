@@ -411,7 +411,8 @@ const [bankNames, setBankNames] = useState<Array<{ id: number; name: string }>>(
 const [showCustomBankInput, setShowCustomBankInput] = useState(false);
 const [subCategories, setSubCategories] = useState<any[]>([]);
 const [dynamicSubCategories, setDynamicSubCategories] = useState<any[]>([]);
-
+const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number | "All">(10);
   const [paymentModal, setPaymentModal] = useState<{
     open: boolean;
     expense: any | null;
@@ -641,8 +642,12 @@ const loadExpenses = useCallback(async () => {
   // ✅ Date filters – only apply if ignoreDateFilters is false
   if (!ignoreDateFilters) {
     if (filterMonth && !e.expense_date?.startsWith(filterMonth)) return false;
-    if (filterFromDate && e.expense_date < filterFromDate) return false;
-    if (filterToDate && e.expense_date > filterToDate) return false;
+if (filterFromDate || filterToDate) {
+  const rawDate = e.expense_date || "";
+  const expDate = rawDate.includes("T") ? rawDate.split("T")[0] : rawDate;
+  if (filterFromDate && expDate < filterFromDate) return false;
+  if (filterToDate && expDate > filterToDate) return false;
+}
   }
   if (colSearch.property && !e.property_name?.toLowerCase().includes(colSearch.property.toLowerCase())) return false;
 if (colSearch.category && !e.category_name?.toLowerCase().includes(colSearch.category.toLowerCase())) return false;
@@ -661,6 +666,23 @@ if (colSearch.expenseDate) {
   return true;
 }), [expenses, filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search, ignoreDateFilters, colSearch]);
 
+
+
+const paginatedItems = useMemo(() => {
+  if (itemsPerPage === "All") return filtered;
+  const start = (currentPage - 1) * (itemsPerPage as number);
+  return filtered.slice(start, start + (itemsPerPage as number));
+}, [filtered, currentPage, itemsPerPage]);
+
+const totalPages = useMemo(() => {
+  if (itemsPerPage === "All") return 1;
+  return Math.ceil(filtered.length / (itemsPerPage as number));
+}, [filtered, itemsPerPage]);
+
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search, ignoreDateFilters, colSearch]);
   /* ── Items helpers ─────────────────────────────────────────────────────── */
   const setItems = (items: any[]) => setForm((f) => ({ ...f, items }));
   const addItem = () => {
@@ -1622,7 +1644,7 @@ useEffect(() => {
                   {filtered.length === 0 ? (
                     <tr><td colSpan={11} style={{ padding: 48, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>No expenses found</td></tr>
                   ) : (
-                    filtered.map((exp) => {
+                    paginatedItems.map((exp) => {
                       const cc = getCatColor(exp.category_name);
                       return (
                         <tr key={exp.id} style={{ borderBottom: "1px solid #F1F5F9", transition: "background 0.12s ease" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
@@ -1783,21 +1805,115 @@ useEffect(() => {
           </div>
 
           {/* Table footer */}
-          <div style={{ padding: "12px 14px", background: "#F8FAFF", borderTop: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-            <div style={{ fontSize: 11, color: "#8892A4" }}>Showing <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{filtered.length}</span> of <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{expenses.length}</span></div>
-<div
-  style={{
-    display: "flex",
-    gap: 16,
-    flexWrap: window.innerWidth < 768 ? "nowrap" : "wrap",
-    overflowX: "auto",
-    alignItems: "center",
-  }}
->              <span style={{ fontSize: 12, color: "#1B7A4E", fontWeight: 700 }}>Paid: {fmt(filtered.filter((e) => e.status === "Paid").reduce((s: number, e: any) => s + Number(e.total_paid || 0), 0))}</span>
-              <span style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>Balance: {fmt(filtered.reduce((s: number, e: any) => s + Number(e.balance || 0), 0))}</span>
-              <span style={{ fontSize: 13, color: "#1A2B6D", fontWeight: 800 }}>Total: {fmt(filtered.reduce((s: number, e: any) => s + Number(e.total_amount || e.amount || 0), 0))}</span>
-            </div>
-          </div>
+         <div style={{ padding: "12px 14px", background: "#F8FAFF", borderTop: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+  {/* Left: Items per page selector */}
+  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <span style={{ fontSize: 11, color: "#8892A4" }}>Show</span>
+    <select
+      value={itemsPerPage}
+      onChange={(e) => {
+        const val = e.target.value;
+        setItemsPerPage(val === "All" ? "All" : Number(val));
+        setCurrentPage(1);
+      }}
+      style={{
+        padding: "4px 8px",
+        border: "1px solid #E2E8F0",
+        borderRadius: 6,
+        fontSize: 11,
+        background: "#fff",
+        outline: "none",
+        cursor: "pointer",
+      }}
+    >
+      <option value={10}>10</option>
+      <option value={25}>25</option>
+      <option value={50}>50</option>
+      <option value={100}>100</option>
+      <option value="All">All</option>
+    </select>
+    <span style={{ fontSize: 11, color: "#8892A4" }}>entries</span>
+  </div>
+
+  {/* Center: Page numbers + Prev/Next */}
+  {itemsPerPage !== "All" && totalPages > 1 && (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <button
+        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+        disabled={currentPage === 1}
+        style={{
+          padding: "4px 8px",
+          border: "1px solid #E2E8F0",
+          borderRadius: 6,
+          background: "#fff",
+          fontSize: 11,
+          cursor: currentPage === 1 ? "not-allowed" : "pointer",
+          opacity: currentPage === 1 ? 0.5 : 1,
+        }}
+      >
+        Previous
+      </button>
+      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+        let pageNum = i + 1;
+        if (totalPages > 5) {
+          if (currentPage <= 3) pageNum = i + 1;
+          else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+          else pageNum = currentPage - 2 + i;
+        }
+        return (
+          <button
+            key={pageNum}
+            onClick={() => setCurrentPage(pageNum)}
+            style={{
+              padding: "4px 8px",
+              border: "1px solid #E2E8F0",
+              borderRadius: 6,
+              background: currentPage === pageNum ? "#3B5BDB" : "#fff",
+              color: currentPage === pageNum ? "#fff" : "#374151",
+              fontWeight: currentPage === pageNum ? 700 : 400,
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            {pageNum}
+          </button>
+        );
+      })}
+      <button
+        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+        disabled={currentPage === totalPages}
+        style={{
+          padding: "4px 8px",
+          border: "1px solid #E2E8F0",
+          borderRadius: 6,
+          background: "#fff",
+          fontSize: 11,
+          cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+          opacity: currentPage === totalPages ? 0.5 : 1,
+        }}
+      >
+        Next
+      </button>
+    </div>
+  )}
+
+  {/* Right: Summary + Totals */}
+  <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+    <span style={{ fontSize: 11, color: "#8892A4" }}>
+      Showing <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{paginatedItems.length}</span> of{" "}
+      <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{filtered.length}</span>
+    </span>
+    <span style={{ fontSize: 12, color: "#1B7A4E", fontWeight: 700 }}>
+      Paid: {fmt(paginatedItems.filter((e) => e.status === "Paid").reduce((s: number, e: any) => s + Number(e.total_paid || 0), 0))}
+    </span>
+    <span style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>
+      Balance: {fmt(paginatedItems.reduce((s: number, e: any) => s + Number(e.balance || 0), 0))}
+    </span>
+    <span style={{ fontSize: 13, color: "#1A2B6D", fontWeight: 800 }}>
+      Total: {fmt(paginatedItems.reduce((s: number, e: any) => s + Number(e.total_amount || e.amount || 0), 0))}
+    </span>
+  </div>
+</div>
         </div>
       </div>
 

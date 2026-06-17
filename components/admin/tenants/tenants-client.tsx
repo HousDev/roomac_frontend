@@ -113,6 +113,14 @@ import * as XLSX from "xlsx";
 import { useAuth } from "@/context/authContext";
 import { VacatedTenantPaymentModal } from "./VacatedTenantPaymentModal";
 
+
+// Helper to capitalize first letter of each word in a name
+const capitalizeWords = (str: string | undefined | null): string => {
+  if (!str) return '';
+  return str.split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+};
 interface TenantsClientProps {
   initialData: Tenant[];
   initialLoading: boolean;
@@ -322,63 +330,82 @@ const [columnSearch, setColumnSearch] = useState({
   }, []);
 
   // Enhanced import file handler
-  const handleImportFile = async (formData: FormData) => {
-    setImporting(true);
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-      const response = await fetch(`${apiUrl}/api/tenants/import`, {
-        method: "POST",
-        body: formData,
-      });
+ const handleImportFile = async (formData: FormData) => {
+  setImporting(true);
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const response = await fetch(`${apiUrl}/api/tenants/import`, {
+      method: "POST",
+      body: formData,
+    });
 
-      const result = await response.json();
+    const result = await response.json();
 
-      if (result.success) {
-        const { summary } = result.data || {};
+    if (result.success) {
+      const { summary } = result.data || {};
 
-        // ── Primary success toast ──────────────────────────────────────────
-        if (summary?.imported > 0) {
-          toast.success(
-            `Successfully imported ${summary.imported} tenant${summary.imported !== 1 ? "s" : ""}`,
-          );
-        } else {
-          toast.info("No new tenants were imported.");
-        }
-
-        // ── Couple rows skipped ────────────────────────────────────────────
-        if (summary?.skipped_couples > 0) {
-          toast.warning(
-            `${summary.skipped_couples} couple/partner row${
-              summary.skipped_couples !== 1 ? "s" : ""
-            } skipped — create couple tenants manually via Add Tenant.`,
-            { duration: 6000 },
-          );
-        }
-
-        // ── Rows with errors ───────────────────────────────────────────────
-        if (summary?.errors > 0) {
-          toast.error(
-            `${summary.errors} row${summary.errors !== 1 ? "s" : ""} had errors`,
-            { duration: 5000 },
-          );
-          // Log individual errors to console for debugging
-          if (result.data?.errors?.length) {
-            console.warn("Import row errors:", result.data.errors);
-          }
-        }
-
-        setShowImportModal(false);
-        await loadTenants();
+      // ── Primary success toast ──────────────────────────────────────────
+      if (summary?.imported > 0) {
+        toast.success(
+          `Successfully imported ${summary.imported} tenant${summary.imported !== 1 ? "s" : ""}`,
+        );
       } else {
-        throw new Error(result.message || "Import failed");
+        // toast.error("Import failed.");
       }
-    } catch (error: any) {
-      console.error("Import error:", error);
-      toast.error(error.message || "Failed to import tenants");
-    } finally {
-      setImporting(false);
+
+      // ── Couple rows skipped ────────────────────────────────────────────
+      if (summary?.skipped_couples > 0) {
+        toast.warning(
+          `${summary.skipped_couples} couple/partner row${
+            summary.skipped_couples !== 1 ? "s" : ""
+          } skipped — create couple tenants manually via Add Tenant.`,
+          { duration: 6000 },
+        );
+      }
+
+      // ── Rows with errors ───────────────────────────────────────────────
+      const importErrors = result.data?.errors || [];
+      const duplicateErrors = importErrors.filter((e: any) =>
+        e.error && e.error.includes("Duplicate entry")
+      );
+      const otherErrors = importErrors.filter((e: any) =>
+        e.error && !e.error.includes("Duplicate entry")
+      );
+
+      if (duplicateErrors.length > 0) {
+        toast.warning(
+          `${duplicateErrors.length} duplicate row${duplicateErrors.length !== 1 ? "s" : ""} skipped — already exist.`,
+          { duration: 5000 }
+        );
+      }
+
+      if (otherErrors.length > 0) {
+        const detail = otherErrors
+          .slice(0, 3)
+          .map((e: any) => `Row ${e.row}: ${e.error}`)
+          .join(" | ");
+        toast.error(
+          detail || `${otherErrors.length} row${otherErrors.length !== 1 ? "s" : ""} had errors`,
+          { duration: 7000 },
+        );
+      }
+
+      if (importErrors.length > 0) {
+        console.warn("Import row errors:", importErrors);
+      }
+
+      setShowImportModal(false);
+      await loadTenants();
+    } else {
+      throw new Error(result.message || "Import failed");
     }
-  };
+  } catch (error: any) {
+    console.error("Import error:", error);
+    toast.error(error.message || "Failed to import tenants");
+  } finally {
+    setImporting(false);
+  }
+};
 
   // Handle column search change with debounce
   useEffect(() => {
@@ -3221,8 +3248,7 @@ const securityDeposit = vacateRecord?.security_deposit_amount
       <span className="text-gray-400 mr-0.5">
         {tenant.salutation || ""}
       </span>
-      {tenant.full_name}
-    </div>
+{capitalizeWords(tenant.full_name)}    </div>
 
     {isCouple && (
       <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-100 text-pink-700 border-pink-200 border shrink-0">

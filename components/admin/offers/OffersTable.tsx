@@ -64,6 +64,7 @@ interface OffersTableProps {
   };
   onPageChange: (page: number) => void;
   onCreateNew: () => void;
+  onItemsPerPageChange?: (limit: number | "All") => void;
 }
 
 interface ColumnFilters {
@@ -86,6 +87,7 @@ const OffersTable = ({
   onPreview,
   onShare,
   pagination,
+  onItemsPerPageChange,
   onPageChange,
   onCreateNew,
 }: OffersTableProps) => {
@@ -197,103 +199,67 @@ const { can } = useAuth();
      
 
       {/* Table Container */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+<div className="border border-gray-200 rounded-xl bg-white shadow-sm">
         {/* Scrollable Table */}
-        <div className="overflow-x-auto">
-          <div className="inline-block min-w-full align-middle">
-            <div className="max-h-[340px] md:max-h-[340px] overflow-y-auto">
-              <Table className="min-w-full">
-                <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
-                  {/* Header Row */}
-                  <TableRow className="bg-gray-50 border-b border-gray-200">
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px]">Code</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[150px]">Offer Details</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[150px]">Property / Room</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px]">Discount</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[70px]">Min Stay</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[130px]">Validity</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px]">Status</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[120px]">Actions</TableHead>
-                  </TableRow>
-                  
-                  {/* Filter Row - Exactly like the image with "Filter" in each column */}
-                  <TableRow className="bg-gray-50/50 border-b border-gray-200">
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.code}
-                        onChange={(e) => handleFilterChange("code", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.title}
-                        onChange={(e) => handleFilterChange("title", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.property}
-                        onChange={(e) => handleFilterChange("property", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.discount}
-                        onChange={(e) => handleFilterChange("discount", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.minStay}
-                        onChange={(e) => handleFilterChange("minStay", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Input
-                        placeholder="Filter"
-                        value={filters.validity}
-                        onChange={(e) => handleFilterChange("validity", e.target.value)}
-                        className="h-7 text-xs border-gray-200"
-                      />
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
-                        <SelectTrigger className="h-7 text-xs border-gray-200">
-                          <SelectValue placeholder="Filter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableHead>
-                    <TableHead className="py-1.5 px-2">
-                      {hasActiveFilters && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearFilters}
-                          className="h-7 w-full text-xs border border-gray-200"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Clear
-                        </Button>
-                      )}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                
+<div className="overflow-auto max-h-[410px] md:max-h-[450px] overflow-y-auto relative">      <Table className="min-w-full table-auto border-collapse ">
+<TableHeader style={{ position: 'sticky', top: 0, zIndex: 10 }} className="bg-white shadow-sm">
+          <TableRow className="bg-gray-50 border-b border-gray-200">
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px] text-left">Code</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[150px] text-left">Offer Details</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[150px] text-left">Property / Room</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px] text-left">Discount</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[70px] text-left">Min Stay</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[130px] text-left">Validity</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[80px] text-left">Status</TableHead>
+            <TableHead className="text-xs font-semibold text-gray-700 py-2 px-2 whitespace-nowrap w-[120px] text-left">Actions</TableHead>
+          </TableRow>
+          <TableRow className="bg-gray-50/50 border-b border-gray-200">
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.code} onChange={(e) => handleFilterChange("code", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.title} onChange={(e) => handleFilterChange("title", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.property} onChange={(e) => handleFilterChange("property", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.discount} onChange={(e) => handleFilterChange("discount", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.minStay} onChange={(e) => handleFilterChange("minStay", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Input placeholder="Filter" value={filters.validity} onChange={(e) => handleFilterChange("validity", e.target.value)} className="h-7 text-xs border-gray-200" />
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
+                <SelectTrigger className="h-7 text-xs border-gray-200">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </TableHead>
+            <TableHead className="py-1.5 px-2">
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-7 w-full text-xs border border-gray-200"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+
                 <TableBody>
                   {filteredOffers.length === 0 ? (
                     <TableRow>
@@ -450,32 +416,50 @@ const { can } = useAuth();
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </div>
+           
+        
         </div>
 
-        {/* Footer with Pagination */}
-      <div className="border-t border-gray-200 bg-white 
-                px-3 py-1.5 sm:px-4 sm:py-2">
+      {/* Footer with Pagination */}
+<div className="border-t border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2">
+  <div className="flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-2">
 
-  <div className="flex flex-col sm:flex-row 
-                  items-center justify-between 
-                  gap-1 sm:gap-2">
-
-    {/* 🔹 Top Info Row */}
-    <div className="flex items-center justify-center sm:justify-start
-                    gap-3 text-[11px] sm:text-xs text-gray-600 w-full sm:w-auto">
-
-      <span>Items: {pagination.limit}</span>
+    {/* Left side: Records info + Rows per page dropdown */}
+    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[11px] sm:text-xs text-gray-600">
+      <span>
+        Showing {Math.min((pagination.currentPage - 1) * pagination.limit + 1, pagination.totalItems)} –
+        {Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)} of {pagination.totalItems}
+      </span>
 
       <span className="text-gray-300">|</span>
 
-      <span>
-        Page {pagination.currentPage} of {pagination.totalPages}
-      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500">Rows:</span>
+     <Select
+  value={pagination.limit === 999999 ? "All" : String(pagination.limit)}
+  onValueChange={(value) => {
+    if (value === "All") {
+      onItemsPerPageChange?.("All");
+    } else {
+      onItemsPerPageChange?.(Number(value));
+    }
+  }}
+>
+          <SelectTrigger className="h-7 w-16 text-xs border-gray-300">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="25">25</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+            <SelectItem value="All">All</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
 
-    {/* 🔹 Pagination */}
+    {/* Right side: Page navigation */}
     {pagination.totalPages > 1 && (
       <div className="w-full sm:w-auto flex justify-center sm:justify-end">
         <Pagination
@@ -486,7 +470,6 @@ const { can } = useAuth();
         />
       </div>
     )}
-
   </div>
 </div>
 

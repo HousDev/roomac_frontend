@@ -26,6 +26,7 @@ import {
   Eye, AlertCircle, Loader2, RefreshCw, User, Phone, Mail,
   Calendar, MessageSquare, FileText, ArrowUpDown, MoreVertical,
   CheckCircle, XCircle, Clock, X, Send, Headphones, Tag,
+  Settings,
 } from "lucide-react";
 import {
   getAllSupportTickets,
@@ -128,6 +129,7 @@ export default function AdminSupportTicketsPage() {
     id: "", name: "", subject: "", priority: "all", status: "all", category: "all", date: "",
   });
 
+  const [ticketPage, setTicketPage] = useState(1);
   // ── Load ──────────────────────────────────────────────────────
   useEffect(() => { load(); }, []);
 
@@ -298,7 +300,7 @@ export default function AdminSupportTicketsPage() {
       <Card className="shadow-sm border-0">
         <CardContent className="p-0">
           {tickets.length === 0 ? (
-            <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
+            <div className="text-center py-16 bg-gray-50 m-1 rounded-lg">
               <div className="bg-white p-8 rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center shadow-sm">
                 <MessageSquare className="h-10 w-10 text-gray-300" />
               </div>
@@ -306,253 +308,275 @@ export default function AdminSupportTicketsPage() {
               <p className="text-gray-500 text-sm">No tickets have been submitted yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-                selectedIds.size > 0 ? "max-h-[320px] md:max-h-[390px]" : "max-h-[390px] md:max-h-[480px]"
-              }`}>
-                <Table>
-                  <TableHeader className="sticky top-0 z-10">
-                    <TableRow className="hover:bg-transparent">
+           <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedIds.size > 0 ? 'max-h-[300px] md:max-h-[360px]' : 'max-h-[360px] md:max-h-[450px]'
+  }`}>
+    <table className="w-full min-w-[1100px] table-fixed border-collapse">
 
-                      {/* Checkbox */}
-                      <TableHead className="w-[46px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="py-2 flex justify-center">
-                          <Checkbox
-                            checked={selectedIds.size === filtered.length && filtered.length > 0}
-                            onCheckedChange={handleSelectAll}
-                          />
-                        </div>
-                      </TableHead>
+      <thead className="sticky top-0 z-10">
+        <tr className="bg-white border-b-2 border-violet-200">
 
-                      {/* ID */}
-                      <TableHead className="min-w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("id")}>
-                            <span className="font-semibold text-gray-700 text-xs">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-400" />
-                          </div>
-                          <Input placeholder="Search…" className="h-7 text-xs border-gray-200"
-                            value={filters.id} onChange={(e) => setFilters({ ...filters, id: e.target.value })} />
-                        </div>
-                      </TableHead>
-
-                      {/* Name / Contact */}
-                      <TableHead className="min-w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700 text-xs">Name / Contact</span>
-                          <Input placeholder="Search name…" className="h-7 text-xs border-gray-200"
-                            value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} />
-                        </div>
-                      </TableHead>
-
-                      {/* Subject */}
-                      <TableHead className="min-w-[220px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700 text-xs">Subject</span>
-                          <Input placeholder="Search subject…" className="h-7 text-xs border-gray-200"
-                            value={filters.subject} onChange={(e) => setFilters({ ...filters, subject: e.target.value })} />
-                        </div>
-                      </TableHead>
-
-                      {/* Category */}
-                      <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700 text-xs">Category</span>
-                          <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
-                            <SelectTrigger className="h-7 text-xs border-gray-200"><SelectValue placeholder="All" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Categories</SelectItem>
-                              {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-
-                      {/* Priority */}
-                      <TableHead className="min-w-[120px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("priority")}>
-                            <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-400" />
-                          </div>
-                          <Select value={filters.priority} onValueChange={(v) => setFilters({ ...filters, priority: v })}>
-                            <SelectTrigger className="h-7 text-xs border-gray-200"><SelectValue placeholder="All" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-
-                      {/* Status */}
-                      <TableHead className="min-w-[130px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("status")}>
-                            <span className="font-semibold text-gray-700 text-xs">Status</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-400" />
-                          </div>
-                          <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
-                            <SelectTrigger className="h-7 text-xs border-gray-200"><SelectValue placeholder="All" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="open">Open</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="resolved">Resolved</SelectItem>
-                              <SelectItem value="closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-
-                      {/* Date */}
-                      <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("created_at")}>
-                            <span className="font-semibold text-gray-700 text-xs">Date</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-400" />
-                          </div>
-                          <Input type="date" className="h-7 text-xs border-gray-200"
-                            value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })} />
-                        </div>
-                      </TableHead>
-
-                      {/* Actions */}
-                      <TableHead className="min-w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-violet-200">
-                        <span className="font-semibold text-gray-700 text-xs">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-12 text-gray-400 text-sm">
-                          No tickets match your filters.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filtered.map((ticket, idx) => (
-                        <TableRow
-                          key={ticket.id}
-                          className={`transition-all duration-150 hover:bg-violet-50/40 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"}`}
-                        >
-                          {/* Checkbox */}
-                          <TableCell className="w-[46px]">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={selectedIds.has(ticket.id)}
-                                onCheckedChange={() => {
-                                  const next = new Set(selectedIds);
-                                  next.has(ticket.id) ? next.delete(ticket.id) : next.add(ticket.id);
-                                  setSelectedIds(next);
-                                }}
-                              />
-                            </div>
-                          </TableCell>
-
-                          {/* ID */}
-                          <TableCell className="font-mono text-xs font-semibold text-violet-600">
-                            <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                              #{ticket.id}
-                            </div>
-                          </TableCell>
-
-                          {/* Name / Contact */}
-                          <TableCell>
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5 font-medium text-xs text-gray-900">
-                                <div className="bg-violet-100 p-0.5 rounded-full">
-                                  <User className="h-2.5 w-2.5 text-violet-600" />
-                                </div>
-                                <span className="truncate max-w-[130px]">{ticket.name}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-4">
-                                <Mail className="h-2.5 w-2.5" />
-                                <span className="truncate max-w-[130px]">{ticket.email}</span>
-                              </div>
-                              {ticket.phone && (
-                                <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-4">
-                                  <Phone className="h-2.5 w-2.5" />
-                                  {ticket.phone}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-
-                          {/* Subject */}
-                          <TableCell>
-                            <p className="text-xs font-medium text-gray-800 line-clamp-2 max-w-[200px]">
-                              {ticket.subject}
-                            </p>
-                          </TableCell>
-
-                          {/* Category */}
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${CATEGORY_MAP[ticket.category]?.color || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                              {CATEGORY_MAP[ticket.category]?.label || ticket.category}
-                            </span>
-                          </TableCell>
-
-                          {/* Priority */}
-                          <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
-
-                          {/* Status */}
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              {getStatusIcon(ticket.status)}
-                              {getStatusBadge(ticket.status)}
-                            </div>
-                          </TableCell>
-
-                          {/* Date */}
-                          <TableCell>
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-medium text-gray-700">
-                                {new Date(ticket.created_at).toLocaleDateString("en-IN", {
-                                  month: "short", day: "numeric", year: "numeric",
-                                })}
-                              </p>
-                              <p className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                                <Clock className="h-2.5 w-2.5" />
-                                {new Date(ticket.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                            </div>
-                          </TableCell>
-
-                          {/* Actions */}
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="hover:bg-violet-100 hover:text-violet-600">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48 border-violet-100 shadow-lg">
-                                <DropdownMenuLabel className="text-violet-600 text-xs">Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleView(ticket.id)} className="cursor-pointer hover:bg-violet-50 text-xs">
-                                  <Eye className="h-3.5 w-3.5 mr-2 text-blue-500" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openStatusDialog(ticket)} className="cursor-pointer hover:bg-violet-50 text-xs">
-                                  <FileText className="h-3.5 w-3.5 mr-2 text-purple-500" />
-                                  Update Status
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 flex justify-center">
+              <Checkbox
+                checked={selectedIds.size === filtered.length && filtered.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
             </div>
+          </th>
+
+          {/* ID - 80px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("id")}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-400" />
+              </div>
+              <Input placeholder="Search…" className="h-6 text-[11px] border-gray-200 focus:border-violet-400 px-1.5"
+                value={filters.id} onChange={(e) => setFilters({ ...filters, id: e.target.value })} />
+            </div>
+          </th>
+
+          {/* Actions - 70px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[70px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Name - 160px sticky */}
+          <th className="md:sticky md:left-[190px] z-[60] w-[160px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Name / Contact</span>
+              <Input placeholder="Search name…" className="h-6 text-[11px] border-gray-200 focus:border-violet-400 px-1.5"
+                value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} />
+            </div>
+          </th>
+
+           <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Contact</span>
+              <div className="h-6 mt-1.5" />
+            </div>
+          </th>
+
+          {/* Subject - 200px */}
+          <th className="w-[200px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Subject</span>
+              <Input placeholder="Search subject…" className="h-6 text-[11px] border-gray-200 focus:border-violet-400 px-1.5"
+                value={filters.subject} onChange={(e) => setFilters({ ...filters, subject: e.target.value })} />
+            </div>
+          </th>
+
+          {/* Category - 130px */}
+          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Category</span>
+              <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Priority - 110px */}
+          <th className="w-[110px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("priority")}>
+                <span className="font-semibold text-gray-700 text-xs">Priority</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-400" />
+              </div>
+              <Select value={filters.priority} onValueChange={(v) => setFilters({ ...filters, priority: v })}>
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("status")}>
+                <span className="font-semibold text-gray-700 text-xs">Status</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-400" />
+              </div>
+              <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+ 
+          {/* Date - 120px */}
+          <th className="w-[120px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort("created_at")}>
+                <span className="font-semibold text-gray-700 text-xs">Date</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-400" />
+              </div>
+              <input type="date"
+                style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
+                value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })} />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {filtered.length === 0 ? (
+          <tr>
+            <td colSpan={10} className="text-center py-12 text-gray-400 text-sm">No tickets match your filters.
+            </td>
+          </tr>
+        ) : (
+          filtered.map((ticket, idx) => (
+            <tr
+              key={ticket.id}
+              className={`transition-all duration-150 hover:bg-violet-50/40 border-b border-gray-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"}`}
+            >
+              {/* Checkbox */}
+              <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+                <div className="flex justify-center">
+                  <Checkbox
+                    checked={selectedIds.has(ticket.id)}
+                    onCheckedChange={() => {
+                      const next = new Set(selectedIds);
+                      next.has(ticket.id) ? next.delete(ticket.id) : next.add(ticket.id);
+                      setSelectedIds(next);
+                    }}
+                  />
+                </div>
+              </td>
+
+              {/* ID */}
+              <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-semibold text-violet-600 border-r border-gray-100 py-2 px-2">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                  <span className="truncate">#{ticket.id}</span>
+                </div>
+              </td>
+
+              {/* Actions */}
+              <td className="md:sticky md:left-[120px] z-[30] w-[70px] bg-white border-r border-gray-100 py-2 px-1">
+                <div className="flex items-center gap-0.5 flex-nowrap">
+                  <Button variant="ghost" size="sm" onClick={() => handleView(ticket.id)}
+                    className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0" title="View Details">
+                    <Eye className="h-3 w-3 text-blue-500" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => openStatusDialog(ticket)}
+                    className="h-6 w-6 p-0 hover:bg-violet-100 flex-shrink-0" title="Update Status">
+                    <Settings className="h-3 w-3 text-violet-500" />
+                  </Button>
+                </div>
+              </td>
+
+              {/* Name */}
+              <td className="md:sticky md:left-[190px] z-[30] w-[160px] bg-white border-r border-gray-100 py-2 px-2">
+                <div className="flex items-center gap-1">
+                  <div className="bg-violet-100 p-0.5 rounded-full flex-shrink-0">
+                    <User className="h-3 w-3 text-violet-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{ticket.name}</div>
+                    <div className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
+                      <Mail className="h-2 w-2 flex-shrink-0" />{ticket.email}
+                    </div>
+                    
+                  </div>
+                </div>
+              </td>
+              <td className={`w-[120px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} border-r border-gray-100 py-2 px-2`}>
+                {ticket.phone ? (
+                  <div className="flex items-center gap-0.5">
+                    <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                    <span className="text-[11px] text-gray-600 truncate">{ticket.phone}</span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-gray-400">—</span>
+                )}
+              </td>
+
+              {/* Subject */}
+              <td className={`w-[200px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} border-r border-gray-100 py-2 px-2`}>
+                <p className="text-xs font-medium text-gray-800 line-clamp-2">{ticket.subject}</p>
+              </td>
+
+              {/* Category */}
+              <td className={`w-[130px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} border-r border-gray-100 py-2 px-2`}>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${CATEGORY_MAP[ticket.category]?.color || "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                  {CATEGORY_MAP[ticket.category]?.label || ticket.category}
+                </span>
+              </td>
+
+              {/* Priority */}
+              <td className={`w-[110px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} border-r border-gray-100 py-2 px-2`}>
+                {getPriorityBadge(ticket.priority)}
+              </td>
+
+              {/* Status */}
+              <td className={`w-[120px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} border-r border-gray-100 py-2 px-2`}>
+                <div className="flex items-center gap-1">
+                  {getStatusIcon(ticket.status)}
+                  {getStatusBadge(ticket.status)}
+                </div>
+              </td>
+
+               
+
+
+              {/* Date */}
+              <td className={`w-[120px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} py-2 px-2`}>
+                <div className="text-xs font-medium whitespace-nowrap">
+                  {new Date(ticket.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
+                </div>
+                <div className="text-[10px] text-gray-400 flex items-center gap-0.5 whitespace-nowrap">
+                  <Clock className="h-2.5 w-2.5" />
+                  {new Date(ticket.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </td>
+
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <span className="text-xs text-gray-500">{filtered.length} tickets</span>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={() => setTicketPage(p => Math.max(p - 1, 1))}
+          disabled={ticketPage === 1} className="h-7 px-2 text-[11px]">Prev</Button>
+        <span className="text-[11px] text-gray-600 px-1">
+          {ticketPage}/{Math.ceil(filtered.length / 10) || 1}
+        </span>
+        <Button variant="outline" size="sm" onClick={() => setTicketPage(p => p + 1)}
+          disabled={ticketPage >= Math.ceil(filtered.length / 10)} className="h-7 px-2 text-[11px]">Next</Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>

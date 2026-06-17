@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { 
   Eye, 
   AlertCircle, 
@@ -69,6 +69,8 @@ export default function NoticePeriodRequestsPage() {
   const [sortField, setSortField] = useState<keyof NoticePeriodRequest>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const { can } = useAuth();
+  const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
   // Search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -331,7 +333,12 @@ export default function NoticePeriodRequestsPage() {
       bgColor: "bg-blue-600",
     }
   ];
-
+const currentPageItems = itemsPerPage === 9999
+  ? filteredRequests
+  : filteredRequests.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -382,7 +389,7 @@ export default function NoticePeriodRequestsPage() {
 
       {/* Bulk Actions Bar */}
       {can('delete_requests') && selectedRequests.size > 0 && (
-        <div className="sticky top-20 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+        <div className="sticky top-20 z-10 mb-2 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
               {selectedRequests.size} {selectedRequests.size === 1 ? 'request' : 'requests'} selected
@@ -415,8 +422,8 @@ export default function NoticePeriodRequestsPage() {
       <Card className="shadow-sm border-0">
         <CardContent className="p-0">
           {requests.length === 0 ? (
-            <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
-              <div className="bg-white p-8 rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center shadow-sm">
+            <div className="text-center py-16 bg-gray-50 m-0 rounded-lg">
+              <div className="bg-white p-8 rounded-full w-24 h-24 mx-auto mb-0 flex items-center justify-center shadow-sm">
                 <Bell className="h-12 w-12 text-gray-400" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No notice period requests found</h3>
@@ -430,263 +437,302 @@ export default function NoticePeriodRequestsPage() {
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-                selectedRequests.size > 0
-                  ? 'max-h-[170px] md:max-h-[350px]'
-                  : 'max-h-[310px] md:max-h-[410px]'
-              }`}>
-                <Table className="relative">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        {can('delete_requests') && (
-                          <div className="py-2 flex justify-center">
-                            <Checkbox 
-                              checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
-                              onCheckedChange={handleSelectAll}
-                              aria-label="Select all"
-                            />
-                          </div>
-                        )}
-                      </TableHead>
+          <div className="relative">
+  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+    selectedRequests.size > 0
+      ? 'max-h-[210px] md:max-h-[350px]'
+      : 'max-h-[280px] md:max-h-[370px]'
+  }`}>
+    <table className="w-full min-w-[900px] table-fixed border-collapse">
 
-                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                            <span className="font-semibold text-gray-700">ID</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search ID..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.id}
-                            onChange={(e) => handleSearchChange('id', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700">Tenant</span>
-                          <Input 
-                            placeholder="Search tenant..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.tenant}
-                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[250px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('title')}>
-                            <span className="font-semibold text-gray-700">Title</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search title..." 
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.title}
-                            onChange={(e) => handleSearchChange('title', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <span className="font-semibold text-gray-700">Status</span>
-                          <Select 
-                            value={searchFilters.status} 
-                            onValueChange={(value) => handleSearchChange('status', value)}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-gray-200">
-                              <SelectValue placeholder="All Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="unseen">Unseen</SelectItem>
-                              <SelectItem value="seen">Seen</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('notice_period_date')}>
-                            <span className="font-semibold text-gray-700">Notice Date</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <div className="space-y-2 py-2">
-                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                            <span className="font-semibold text-gray-700">Sent On</span>
-                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                          </div>
-                          <Input 
-                            placeholder="Search date..." 
-                            type="date"
-                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                            value={searchFilters.date}
-                            onChange={(e) => handleSearchChange('date', e.target.value)}
-                          />
-                        </div>
-                      </TableHead>
-                      
-                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                        <span className="font-semibold text-gray-700">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  
-                  <TableBody>
-                    {filteredRequests.map((request, index) => (
-                      <TableRow 
-                        key={request.id} 
-                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
-                      >
-                        <TableCell className="w-[50px]">
-                          {can('delete_requests') && (
-                            <div className="flex justify-center">
-                              <Checkbox 
-                                checked={selectedRequests.has(request.id)}
-                                onCheckedChange={() => handleSelectRequest(request.id)}
-                                aria-label={`Select request ${request.id}`}
-                              />
-                            </div>
-                          )}
-                        </TableCell>
+      <thead className="sticky top-0 z-10">
+        <tr className="bg-white border-b-2 border-blue-200">
 
-                        <TableCell className="font-mono text-sm font-medium text-blue-600">
-                          <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                            #{request.id}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="space-y-1.5">
-                            <div className="font-medium flex items-center gap-1.5">
-                              <div className="bg-blue-100 p-1 rounded-full">
-                                <User className="h-3 w-3 text-blue-600" />
-                              </div>
-                              <span className="truncate max-w-[150px]">
-                                {request.tenant_name || "Unknown"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-500 ml-6">
-                              <Mail className="h-3 w-3" />
-                              {request.tenant_email || "No email"}
-                            </div>
-                            {request.property_name && (
-                              <div className="text-xs text-gray-400 ml-6">
-                                <Building className="h-3 w-3 inline mr-1" />
-                                {request.property_name}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="space-y-2">
-                            <div className="font-medium text-sm line-clamp-1 text-gray-800">
-                              {request.title}
-                            </div>
-                            {request.description && (
-                              <div className="text-xs text-gray-500 line-clamp-2 max-w-[250px]">
-                                {request.description}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="transform transition-transform hover:scale-105">
-                            {getSeenBadge(request.is_seen)}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium">
-                              {new Date(request.notice_period_date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(request.notice_period_date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium">
-                              {new Date(request.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(request.created_at).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="hover:bg-blue-100 hover:text-blue-600 transition-all duration-200"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 border-blue-100 shadow-lg">
-                              <DropdownMenuLabel className="text-blue-600">Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => handleViewRequest(request)}
-                                className="cursor-pointer hover:bg-blue-50"
-                              >
-                                <Eye className="h-4 w-4 mr-2 text-blue-500" />
-                                View Details
-                              </DropdownMenuItem>
-                              {can('delete_requests') && (
-                                <DropdownMenuItem 
-                                  onClick={() => handleDelete(request.id)}
-                                  className="cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                                  Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          {/* Checkbox - 40px sticky */}
+          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+            {can('delete_requests') && (
+              <div className="py-2 flex justify-center">
+                <Checkbox
+                  checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
               </div>
+            )}
+          </th>
+
+          {/* ID - 80px sticky */}
+          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
+                <span className="font-semibold text-gray-700 text-xs">ID</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input
+                placeholder="Search..."
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.id}
+                onChange={(e) => handleSearchChange('id', e.target.value)}
+              />
             </div>
+          </th>
+
+          {/* Actions - 80px sticky */}
+          <th className="md:sticky md:left-[120px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+            <div className="py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+            </div>
+          </th>
+
+          {/* Tenant - 180px sticky */}
+          <th className="md:sticky md:left-[200px] z-[60] w-[180px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+              <Input
+                placeholder="Search..."
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.tenant}
+                onChange={(e) => handleSearchChange('tenant', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Title - 200px */}
+          <th className="w-[200px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('title')}>
+                <span className="font-semibold text-gray-700 text-xs">Title</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <Input
+                placeholder="Search..."
+                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                value={searchFilters.title}
+                onChange={(e) => handleSearchChange('title', e.target.value)}
+              />
+            </div>
+          </th>
+
+          {/* Status - 120px */}
+          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <span className="font-semibold text-gray-700 text-xs">Status</span>
+              <Select
+                value={searchFilters.status}
+                onValueChange={(value) => handleSearchChange('status', value)}
+              >
+                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                  <SelectValue placeholder="All..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="unseen">Unseen</SelectItem>
+                  <SelectItem value="seen">Seen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </th>
+
+          {/* Notice Date - 130px */}
+          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('notice_period_date')}>
+                <span className="font-semibold text-gray-700 text-xs">Notice Date</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <div className="h-6 mt-1.5" />
+            </div>
+          </th>
+
+          {/* Sent On - 130px */}
+          <th className="w-[130px] bg-white text-left">
+            <div className="space-y-1.5 py-2 px-2">
+              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                <span className="font-semibold text-gray-700 text-xs">Sent On</span>
+                <ArrowUpDown className="h-3 w-3 text-gray-500" />
+              </div>
+              <input
+                type="date"
+                style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
+                value={searchFilters.date}
+                onChange={(e) => handleSearchChange('date', e.target.value)}
+              />
+            </div>
+          </th>
+
+        </tr>
+      </thead>
+
+      <tbody>
+        {currentPageItems.map((request, index) => (
+          <tr
+            key={request.id}
+            className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
+              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+            }`}
+          >
+            {/* Checkbox */}
+            <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+              {can('delete_requests') && (
+                <div className="flex justify-center">
+                  <Checkbox
+                    checked={selectedRequests.has(request.id)}
+                    onCheckedChange={() => handleSelectRequest(request.id)}
+                    aria-label={`Select request ${request.id}`}
+                  />
+                </div>
+              )}
+            </td>
+
+            {/* ID */}
+            <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                <span className="truncate">#{request.id}</span>
+              </div>
+            </td>
+
+            {/* Actions */}
+            <td className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
+              <div className="flex items-center gap-0.5 flex-nowrap">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleViewRequest(request)}
+                  className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                  title="View Details"
+                >
+                  <Eye className="h-3 w-3 text-blue-500" />
+                </Button>
+                {can('delete_requests') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(request.id)}
+                    className="h-6 w-6 p-0 hover:bg-red-100 flex-shrink-0"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3 text-red-500" />
+                  </Button>
+                )}
+              </div>
+            </td>
+
+            {/* Tenant */}
+            <td className="md:sticky md:left-[200px] z-[30] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
+              <div className="flex items-center gap-1">
+                <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                  <User className="h-3 w-3 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium truncate">{request.tenant_name || 'Unknown'}</div>
+                  <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                    <Mail className="h-2 w-2 flex-shrink-0" />
+                    {request.tenant_email || 'No email'}
+                  </div>
+                  {request.property_name && (
+                    <div className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
+                      <Building className="h-2 w-2 flex-shrink-0" />
+                      {request.property_name}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </td>
+
+            {/* Title */}
+            <td className={`w-[200px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="text-xs font-medium truncate text-gray-800">{request.title}</div>
+              {request.description && (
+                <div className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{request.description}</div>
+              )}
+            </td>
+
+            {/* Status */}
+            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="transform transition-transform hover:scale-105">
+                {getSeenBadge(request.is_seen)}
+              </div>
+            </td>
+
+            {/* Notice Date */}
+            <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+              <div className="text-xs font-medium whitespace-nowrap">
+                {new Date(request.notice_period_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </div>
+            </td>
+
+            {/* Sent On */}
+            <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
+              <div className="text-xs font-medium whitespace-nowrap">
+                {new Date(request.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </div>
+              <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                {new Date(request.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </td>
+
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Pagination */}
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap">
+          {filteredRequests.length} requests
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="hidden sm:inline text-gray-600">Rows:</span>
+          <Select
+            value={String(itemsPerPage)}
+            onValueChange={(val) => {
+              setItemsPerPage(Number(val));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-7 w-[58px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+  <SelectItem value="10">10</SelectItem>
+  <SelectItem value="25">25</SelectItem>
+  <SelectItem value="50">50</SelectItem>
+  <SelectItem value="100">100</SelectItem>
+  <SelectItem value="9999">All</SelectItem>
+</SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px]"
+        >
+          Prev
+        </Button>
+       <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          {itemsPerPage === 9999 ? '1/1' : `${currentPage}/${Math.ceil(filteredRequests.length / itemsPerPage) || 1}`}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={itemsPerPage === 9999 || currentPage >= Math.ceil(filteredRequests.length / itemsPerPage)}
+          className="h-7 px-2 text-[11px]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </CardContent>
       </Card>

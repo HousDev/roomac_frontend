@@ -66,23 +66,57 @@ export interface BulkDeleteResponse {
   affectedRows: number;
 }
 
+export interface PaginatedInventoryResponse {
+  success: boolean;
+  count: number;
+  data: InventoryItem[];
+  pagination: {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+  };
+}
 // ─── API Functions ────────────────────────────────────────────────────────────
 
 // Get all inventory items with optional filters
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+
+export interface InventoryItem { /* ... unchanged ... */ }
+
+export interface PaginatedInventoryResponse {
+  success: boolean;
+  count: number;
+  data: InventoryItem[];
+  pagination: {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+  };
+}
+
+// ─── API Functions ────────────────────────────────────────────────────────────
+
+// Get all inventory items with optional filters and pagination
 export const getInventory = async (filters?: {
   property_id?: string;
   category_id?: string;
   stock_status?: "low_stock" | "out_of_stock";
   search?: string;
-}): Promise<InventoryResponse> => {
+  page?: number;      // <-- ADD
+  limit?: number;     // <-- ADD
+}): Promise<PaginatedInventoryResponse> => {
   const queryParams = new URLSearchParams();
   if (filters?.property_id)  queryParams.append("property_id",  filters.property_id);
   if (filters?.category_id)  queryParams.append("category_id",  filters.category_id);
   if (filters?.stock_status) queryParams.append("stock_status", filters.stock_status);
   if (filters?.search)       queryParams.append("search",       filters.search);
+  if (filters?.page !== undefined) queryParams.append("page", String(filters.page));
+  if (filters?.limit !== undefined) queryParams.append("limit", String(filters.limit));
 
   const url = `/api/inventory${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-  return request<InventoryResponse>(url, { method: "GET" });
+  return request<PaginatedInventoryResponse>(url, { method: "GET" });
 };
 
 // Get inventory item by ID

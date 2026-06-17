@@ -16,7 +16,15 @@ import {
 import { PricingPlan, PaginationMeta } from "@/lib/pricingPlanApi";
 import { PropertyApiResponse } from "../offers/OffersClientPage";
 import { useAuth } from "@/context/authContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 interface PricingPlansTableProps {
   plans: PricingPlan[];
   loading: boolean;
@@ -29,6 +37,8 @@ interface PricingPlansTableProps {
   onPageChange: (page: number) => void;
   onCreateNew: () => void;
   onView?: (plan: PricingPlan) => void;
+  onItemsPerPageChange?: (limit: number | "All") => void;
+   currentItemsPerPage?: number | "All"; 
 }
 
 const PricingPlansTable = ({
@@ -43,6 +53,8 @@ const PricingPlansTable = ({
   onPageChange,
   onCreateNew,
   onView,
+  currentItemsPerPage, 
+  onItemsPerPageChange,
 }: PricingPlansTableProps) => {
   const [selectedPlans, setSelectedPlans] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -190,9 +202,9 @@ const { can } = useAuth();
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-xl border border-gray-100">
-          <Table>
-            <TableHeader>
+       <div className="overflow-x-auto rounded-xl border border-gray-100 max-h-[380px] md:max-h-[400px] overflow-y-auto relative">
+  <Table>
+<TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-white [&_th]:shadow-sm">
               <TableRow className="bg-gray-50/80">
                 {/* Checkbox column */}
                 <TableHead className="text-[11px] font-bold text-gray-600 py-2 pl-4 w-8">
@@ -411,52 +423,90 @@ const { can } = useAuth();
           </Table>
         </div>
 
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] text-gray-500">
-              Showing {((pagination.currentPage - 1) * pagination.limit) + 1}–
-              {Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)} of {pagination.totalItems} plans
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPageChange(pagination.currentPage - 1)}
-                disabled={!pagination.hasPrevPage}
-                className="h-6 w-6 p-0"
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
-              {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
-                const page = i + 1;
-                return (
-                  <Button
-                    key={page}
-                    size="sm"
-                    variant={pagination.currentPage === page ? "default" : "outline"}
-                    onClick={() => onPageChange(page)}
-                    className={`h-6 w-6 p-0 text-[10px] ${
-                      pagination.currentPage === page
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : ""
-                    }`}
-                  >
-                    {page}
-                  </Button>
-                );
-              })}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPageChange(pagination.currentPage + 1)}
-                disabled={!pagination.hasNextPage}
-                className="h-6 w-6 p-0"
-              >
-                <ChevronRight className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        )}
+      {plans.length > 0 && (
+  <div className="flex items-center justify-between px-1 flex-wrap gap-2">
+    <div className="flex items-center gap-2 text-gray-500">
+      <span className="text-[11px]">
+        Showing {((pagination.currentPage - 1) * pagination.limit) + 1}–
+        {Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)} of {pagination.totalItems} plans
+      </span>
+      {onItemsPerPageChange && (
+        <div className="flex items-center gap-1">
+          <span className="text-gray-400 text-[10px]">Rows:</span>
+          <Select
+           value={String(currentItemsPerPage ?? pagination.limit)} 
+            onValueChange={(val) => {
+              if (val === "All") {
+                onItemsPerPageChange("All");
+              } else {
+                onItemsPerPageChange(Number(val));
+              }
+            }}
+          >
+            <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+              <SelectValue>
+                  {currentItemsPerPage === "All" ? "All" : (currentItemsPerPage ?? pagination.limit)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem
+                  key={String(size)}
+                  value={String(size)}
+                  className="text-xs"
+                >
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+
+    {/* Page navigation – only show if more than one page */}
+    {pagination.totalPages > 1 && (
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onPageChange(pagination.currentPage - 1)}
+          disabled={!pagination.hasPrevPage}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronLeft className="h-3 w-3" />
+        </Button>
+        {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
+          const page = i + 1;
+          return (
+            <Button
+              key={page}
+              size="sm"
+              variant={pagination.currentPage === page ? "default" : "outline"}
+              onClick={() => onPageChange(page)}
+              className={`h-6 w-6 p-0 text-[10px] ${
+                pagination.currentPage === page
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : ""
+              }`}
+            >
+              {page}
+            </Button>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onPageChange(pagination.currentPage + 1)}
+          disabled={!pagination.hasNextPage}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+      </div>
+    )}
+  </div>
+)}
       </div>
 
       {/* Single Delete Confirmation Dialog */}

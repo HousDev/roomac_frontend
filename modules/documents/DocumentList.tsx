@@ -15,6 +15,8 @@ import {
   Home, Users, CreditCard, FileSignature,
   MailCheck, PhoneCall, QrCode as QrCodeIcon,
   Sparkles, Rocket, Zap, BellRing,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -35,7 +37,13 @@ import {
   type Document as Doc, type DocumentStatus,
 } from "@/lib/documentlistApi";
 import { useAuth } from "@/context/authContext";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 // ── Timeline step definitions ─────────────────────────────────────────────────
 const MAIN_STEPS: Array<{
   key: string;
@@ -1690,7 +1698,12 @@ export function DocumentList() {
   const [col, setCol] = useState({ document_number: "", tenant_name: "", property_name: "" });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll,   setSelectAll]   = useState(false);
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
   const stats = useMemo(() => ({
     total:     docs.length,
     created:   docs.filter(d => d.status === "Created").length,
@@ -1698,21 +1711,30 @@ export function DocumentList() {
     completed: docs.filter(d => d.status === "Completed").length,
   }), [docs]);
 
-  const loadDocs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listDocuments({
-        status:   statusFilter   !== "all" ? statusFilter   as DocumentStatus : undefined,
-        priority: priorityFilter !== "all" ? priorityFilter as any            : undefined,
-        pageSize: 100,
-      });
-      setDocs(res.data || []);
-    } catch (e: any) { toast.error(e.message || "Failed to load documents"); }
-    finally { setLoading(false); }
-  }, [statusFilter, priorityFilter]);
+const loadDocs = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === "All" ? 999999 : pageSize;
+    const res = await listDocuments({
+      status: statusFilter !== "all" ? statusFilter as DocumentStatus : undefined,
+      priority: priorityFilter !== "all" ? priorityFilter as any : undefined,
+      page,
+      limit,
+    });
+    setDocs(res.data || []);
+    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
+    setTotalPages(res.pagination?.totalPages ?? 1);
+    setCurrentPage(page);
+  } catch (e: any) {
+    toast.error(e.message || "Failed to load documents");
+  } finally {
+    setLoading(false);
+  }
+}, [statusFilter, priorityFilter, pageSize]);
 
-  useEffect(() => { loadDocs(); }, [loadDocs]);
-
+useEffect(() => {
+  loadDocs(1);
+}, [loadDocs]);
   const filteredRows = useMemo(() => docs.filter(d => {
     const nOk = !col.document_number || d.document_number?.toLowerCase().includes(col.document_number.toLowerCase());
     const tOk = !col.tenant_name     || d.tenant_name?.toLowerCase().includes(col.tenant_name.toLowerCase());
@@ -1893,7 +1915,7 @@ const handleExport = () => {
     const ws = XLSX.utils.json_to_sheet(exportData);
     
     // Auto-size columns
-    const colWidths = [];
+    const colWidths: XLSX.ColInfo[] | { wch: number; }[] | undefined = [];
     const headers = Object.keys(exportData[0] || {});
     headers.forEach(header => {
       const maxLength = Math.max(
@@ -2006,7 +2028,7 @@ const handleExport = () => {
           </div>
 
           {/* ── MOBILE cards ── */}
-          <div className="block lg:hidden divide-y divide-gray-100">
+          <div className="block lg:hidden divide-y divide-gray-100 overflow-y-auto max-h-[360px] md:max-h-[430px]">
             {loading ? (
               <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>
             ) : filteredRows.length === 0 ? (
@@ -2052,7 +2074,7 @@ const handleExport = () => {
           </div>
 
           {/* ── DESKTOP table ── */}
-          <div className="hidden lg:block overflow-auto" style={{ maxHeight:"calc(100vh - 290px)" }}>
+          <div className="hidden lg:block overflow-auto overflow-y-auto max-h-[200px] md:max-h-[430px]" >
             <div style={{ minWidth:"1060px" }}>
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-gray-50">
@@ -2194,7 +2216,83 @@ const handleExport = () => {
               </Table>
             </div>
           </div>
+       
+       {!loading && docs.length > 0 && (
+  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+    <div className="flex items-center gap-3 text-gray-500">
+      <span className="text-[11px]">
+        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} documents
+      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400 text-[10px]">Rows:</span>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(val) => {
+            const newSize = val === "All" ? "All" : Number(val);
+            setPageSize(newSize);
+            setCurrentPage(1);
+            loadDocs(1);
+          }}
+        >
+          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+            <SelectValue>{pageSize}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadDocs(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronLeft className="h-3 w-3" />
+        </Button>
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          const page = i + 1;
+          return (
+            <Button
+              key={page}
+              size="sm"
+              variant={currentPage === page ? "default" : "outline"}
+              onClick={() => loadDocs(page)}
+              className={`h-6 w-6 p-0 text-[10px] ${
+                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+              }`}
+            >
+              {page}
+            </Button>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => loadDocs(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+      </div>
+    )}
+  </div>
+)}
+       
         </Card>
+        {/* Pagination Bar */}
+
 
         {/* FILTER SIDEBAR */}
         {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />}
