@@ -39,6 +39,12 @@ export interface BedAssignment {
   tenant_rent?: string | number; // Add this
   is_couple?: boolean; // Add this
   security_deposit?: string | number;
+  expected_vacate_date?: string | null;
+  vacate_status?: string | null;
+  pre_assigned_tenant_id?: number | null;
+  pre_assigned_rent?: number | null;
+  pre_assigned_security_deposit?: number | null;
+  pre_assigned_is_couple?: boolean;
 }
 
 export type RoomResponse = {
@@ -127,6 +133,128 @@ export interface ApiResult<T = any> {
   message: string;
   data?: T;
 }
+
+export interface BedAvailability {
+  bed_assignment_id: number;
+  bed_number: number;
+  tenant_rent: number;
+  security_deposit: number;
+  bed_type: string;
+  is_available: boolean;
+  current_tenant: string | null;
+  vacate_date: string | null;
+  vacate_status: string | null;
+  availability_status: 'available_now' | 'available_by_checkin' | 'available_after_checkin' | 'not_available';
+  is_immediately_available: boolean;
+}
+
+export interface RoomAvailability {
+  room_id: number;
+  room_number: string;
+  total_bed: number;
+  rent_per_bed: number;
+  sharing_type: string;
+  room_gender_preference: string[];
+  allow_couples: boolean;
+  floor: number;
+  has_ac: boolean;
+  has_attached_bathroom: boolean;
+  has_balcony: boolean;
+  amenities: string[];
+  property_id: number;
+  property_name: string;
+  beds: BedAvailability[];
+}
+
+export interface AvailabilityResponse {
+  success: boolean;
+  data: RoomAvailability[];
+  summary: {
+    total_beds: number;
+    available_now: number;
+    available_by_checkin: number;
+    total_available: number;
+    check_in_date: string;
+  };
+  has_enough_beds: boolean;
+}
+
+/**
+ * Get room availability for a date range
+ */
+export const getAvailabilityForDateRange = async (params: {
+  property_id: number;
+  check_in_date?: string;
+  number_of_beds?: number;
+  gender?: string;
+  room_type?: string;
+}): Promise<AvailabilityResponse> => {
+  const queryParams = new URLSearchParams();
+  
+  if (params.property_id) queryParams.append('property_id', String(params.property_id));
+  if (params.check_in_date) queryParams.append('check_in_date', params.check_in_date);
+  if (params.number_of_beds) queryParams.append('number_of_beds', String(params.number_of_beds));
+  if (params.gender) queryParams.append('gender', params.gender);
+  if (params.room_type) queryParams.append('room_type', params.room_type);
+  
+  const response = await request<AvailabilityResponse>(
+    `/api/rooms/availability?${queryParams.toString()}`,
+    { method: 'GET' }
+  );
+  
+  return response;
+};
+
+/**
+ * Get availability summary
+ */
+export const getAvailabilitySummary = async (params: {
+  property_id?: number;
+  start_date?: string;
+  end_date?: string;
+}) => {
+  const queryParams = new URLSearchParams();
+  
+  if (params.property_id) queryParams.append('property_id', String(params.property_id));
+  if (params.start_date) queryParams.append('start_date', params.start_date);
+  if (params.end_date) queryParams.append('end_date', params.end_date);
+  
+  const response = await request(
+    `/api/rooms/availability-summary?${queryParams.toString()}`,
+    { method: 'GET' }
+  );
+  
+  return response;
+};
+
+
+export const preAssignTenant = async (
+  bedAssignmentId: number,
+  data: { tenant_id: number; rent?: number; security_deposit?: number; is_couple?: boolean }
+) => {
+  return request(`/api/rooms/bed-assignments/${bedAssignmentId}/pre-assign`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const cancelPreAssignment = async (bedAssignmentId: number) => {
+  return request(`/api/rooms/bed-assignments/${bedAssignmentId}/pre-assign`, {
+    method: 'DELETE',
+  });
+};
+
+
+export const getBedAssignments = async (params?: { room_id?: number; bed_id?: number; is_available?: boolean }) => {
+  const queryParams = new URLSearchParams();
+  if (params?.room_id) queryParams.append('room_id', String(params.room_id));
+  if (params?.bed_id) queryParams.append('bed_id', String(params.bed_id));
+  if (params?.is_available !== undefined) queryParams.append('is_available', String(params.is_available));
+  
+  const url = `/api/rooms/bed-assignments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const response = await request<ApiResult<any>>(url, { method: 'GET' });
+  return response;
+};
 
 /* ---------- ROOMS ---------- */
 

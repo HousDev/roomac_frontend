@@ -1726,22 +1726,58 @@ const calculateNoticePeriodStatus = () => {
           originalSecurityDeposit,
         );
 
-        if (allTenantsVacated) {
-          // Both tenants vacated - mark bed as available but preserve rent
-          await updateBedAssignment(bedAssignment.id.toString(), {
-            tenant_id: null,
-            tenant_gender: null,
-            is_available: true,
-            tenant_rent: originalBedRent,
-            is_couple: false,
-            security_deposit: null,
-            vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
-          });
-          console.log(
-            "✅ Both tenants vacated - Bed marked as available with rent preserved:",
-            originalBedRent,
-          );
-        } else {
+       if (allTenantsVacated) {
+  // ✅ CHECK if bed was reassigned to a pre-assigned tenant
+  // The server already did the swap, so we need to check the current state
+  let hasPreAssignment = false;
+  let currentTenantId = null;
+  
+  try {
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+    const checkRes = await fetch(
+      `/api/rooms/bed-assignments?bed_id=${bedAssignment.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const checkData = await checkRes.json();
+    
+    if (checkData.success && checkData.data && checkData.data.length > 0) {
+      const bedData = checkData.data[0];
+      currentTenantId = bedData.tenant_id;
+      // If tenant_id is not null, a pre-assigned tenant was swapped in
+      if (currentTenantId) {
+        hasPreAssignment = true;
+        console.log(`✅ Bed ${bedAssignment.id} already has tenant ${currentTenantId} (pre-assigned swap)`);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not check bed state:', err);
+  }
+
+  if (hasPreAssignment) {
+    // ✅ Bed already has a new (pre-assigned) tenant — don't touch it
+    console.log("✅ Skipping updateBedAssignment - pre-assigned tenant already assigned");
+  } else {
+    // ✅ No pre-assignment happened — proceed with normal clear
+    await updateBedAssignment(bedAssignment.id.toString(), {
+      tenant_id: null,
+      tenant_gender: null,
+      is_available: true,
+      tenant_rent: originalBedRent,
+      is_couple: false,
+      security_deposit: null,
+      vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
+    });
+    console.log(
+      "✅ Both tenants vacated - Bed marked as available with rent preserved:",
+      originalBedRent,
+    );
+  }
+} else {
           // Only one tenant vacated - update bed to remaining tenant
           const remainingTenant = tenantsToVacate.find((t) => !t.selected);
           if (remainingTenant) {
@@ -2464,41 +2500,57 @@ const calculateNoticePeriodStatus = () => {
                   </CardContent>
                 </Card>
 
-                {/* Admin Override for Lock-in */}
-                <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="adminOverrideLockin"
-                    checked={isAdminOverrideLockin}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsAdminOverrideLockin(checked);
-                      if (checked) {
-                        toast.info(
-                          "Admin override enabled - Lock-in penalty will be waived",
-                        );
-                      } else {
-                        toast.info(
-                          "Admin override disabled - Standard lock-in rules apply",
-                        );
-                      }
-                      calculateAllPenalties();
-                    }}
-                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor="adminOverrideLockin"
-                      className="font-medium text-purple-800"
-                    >
-                      Admin Override - Waive Lock-in Penalty
-                    </Label>
-                    <p className="text-xs text-purple-600 mt-0.5">
-                      Check this to bypass lock-in penalty regardless of
-                      completion status.
-                    </p>
-                  </div>
-                </div>
+                {/* Admin Override for Lock-in - Only show if penalty is applicable */}
+{lockinStatus && lockinStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+    <input
+      type="checkbox"
+      id="adminOverrideLockin"
+      checked={isAdminOverrideLockin}
+      onChange={(e) => {
+        const checked = e.target.checked;
+        setIsAdminOverrideLockin(checked);
+        if (checked) {
+          toast.info(
+            "Admin override enabled - Lock-in penalty will be waived",
+          );
+        } else {
+          toast.info(
+            "Admin override disabled - Standard lock-in rules apply",
+          );
+        }
+        calculateAllPenalties();
+      }}
+      className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+    />
+    <div className="flex-1">
+      <Label
+        htmlFor="adminOverrideLockin"
+        className="font-medium text-purple-800"
+      >
+        Admin Override - Waive Lock-in Penalty
+      </Label>
+      <p className="text-xs text-purple-600 mt-0.5">
+        Check this to bypass lock-in penalty regardless of completion status.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* If lock-in is completed, show a green success message instead */}
+{lockinStatus && lockinStatus.isCompleted && !lockinStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-green-800">
+        ✓ Lock-in Period Completed
+      </Label>
+      <p className="text-xs text-green-700 mt-0.5">
+        No lock-in penalty applicable. Admin override is not needed.
+      </p>
+    </div>
+  </div>
+)}
 
                 {/* Tenant Agreement Status for Lock-in */}
                 {existingVacateRequest && !isAdminOverrideLockin && (
@@ -2737,41 +2789,77 @@ const calculateNoticePeriodStatus = () => {
                   </CardContent>
                 </Card>
 
-                {/* Admin Override for Notice */}
-                <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="adminOverrideNotice"
-                    checked={isAdminOverrideNotice}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsAdminOverrideNotice(checked);
-                      if (checked) {
-                        toast.info(
-                          "Admin override enabled - Notice period penalty will be waived",
-                        );
-                      } else {
-                        toast.info(
-                          "Admin override disabled - Standard notice period rules apply",
-                        );
-                      }
-                      calculateAllPenalties();
-                    }}
-                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor="adminOverrideNotice"
-                      className="font-medium text-purple-800"
-                    >
-                      Admin Override - Waive Notice Period Penalty
-                    </Label>
-                    <p className="text-xs text-purple-600 mt-0.5">
-                      Check this to bypass notice period penalty regardless of
-                      completion status.
-                    </p>
-                  </div>
-                </div>
+                {/* Admin Override for Notice - Only show if penalty is applicable */}
+{noticePeriodStatus && noticePeriodStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+    <input
+      type="checkbox"
+      id="adminOverrideNotice"
+      checked={isAdminOverrideNotice}
+      onChange={(e) => {
+        const checked = e.target.checked;
+        setIsAdminOverrideNotice(checked);
+        if (checked) {
+          toast.info(
+            "Admin override enabled - Notice period penalty will be waived",
+          );
+        } else {
+          toast.info(
+            "Admin override disabled - Standard notice period rules apply",
+          );
+        }
+        calculateAllPenalties();
+      }}
+      className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+    />
+    <div className="flex-1">
+      <Label
+        htmlFor="adminOverrideNotice"
+        className="font-medium text-purple-800"
+      >
+        Admin Override - Waive Notice Period Penalty
+      </Label>
+      <p className="text-xs text-purple-600 mt-0.5">
+        Check this to bypass notice period penalty regardless of completion status.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* If notice is completed, show a green success message instead */}
+{noticePeriodStatus && noticePeriodStatus.isCompleted && !noticePeriodStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-green-800">
+        ✓ Notice Period Completed
+      </Label>
+      <p className="text-xs text-green-700 mt-0.5">
+        No notice period penalty applicable. Admin override is not needed.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* Also show if lock-in is NOT completed - notice penalty applies */}
+{noticePeriodStatus && !noticePeriodStatus.isLockinCompleted && (
+  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+    <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-red-800">
+        ⚠️ Early Vacate - Lock-in Not Completed
+      </Label>
+      <p className="text-xs text-red-700 mt-0.5">
+        Since lock-in period is not completed, notice period penalty applies in full.
+        {noticePeriodStatus && noticePeriodStatus.penaltyApplicable && (
+          <span className="block mt-1 font-semibold">
+            Penalty: {formatCurrency(noticePeriodStatus?.penalty?.calculatedAmount || 0)}
+          </span>
+        )}
+      </p>
+    </div>
+  </div>
+)}
 
                 {/* Tenant Agreement Status for Notice */}
                 {existingVacateRequest && !isAdminOverrideNotice && (

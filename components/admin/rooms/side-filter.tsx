@@ -1,706 +1,4 @@
-
-// "use client";
-
-// import { useState, useEffect } from 'react';
-// import { Button } from '@/components/ui/button';
-// import { Input } from '@/components/ui/input';
-// import { Label } from '@/components/ui/label';
-// import { Slider } from '@/components/ui/slider';
-// import { Badge } from '@/components/ui/badge';
-// import { ScrollArea } from '@/components/ui/scroll-area';
-// import {
-//   Sheet,
-//   SheetContent,
-//   SheetHeader,
-//   SheetTitle,
-//   SheetTrigger,
-// } from '@/components/ui/sheet';
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from "@/components/ui/select";
-// import {
-//   Filter,
-//   X,
-//   Bath,
-//   Sun,
-//   Wind,
-//   Heart,
-//   IndianRupee,
-//   Users,
-//   Building2,
-//   RefreshCw,
-//   ChevronDown,
-//   Home,
-//   Hotel,
-//   DoorOpen,
-//   Users2,
-//   Wifi,
-//   Coffee,
-//   Car,
-//   Shield,
-//   Zap
-// } from 'lucide-react';
-// import { consumeMasters } from "@/lib/masterApi";
-
-// interface SideFilterProps {
-//   open: boolean;
-//   onOpenChange: (open: boolean) => void;
-//   onFilterChange: (filters: FilterState) => void;
-//   hideTrigger?: boolean;
-// }
-
-// interface FilterState {
-//   search: string;
-//   property_ids: string[];
-//   room_types: string[];
-//   gender_preferences: string[];
-//   amenities: string[];
-//   has_attached_bathroom: boolean | undefined;
-//   has_balcony: boolean | undefined;
-//   has_ac: boolean | undefined;
-//   allow_couples: boolean | undefined;
-//   min_rent: number;
-//   max_rent: number;
-//   min_capacity: number;
-//   max_capacity: number;
-//   is_active: boolean;
-// availability_status: 'any' | 'available' | 'partial' | 'full';}
-
-// interface FilterData {
-// roomTypes: Array<{ value: string; label: string; count: number; totalBeds: number }>;  masterRoomTypes: Array<{ id: number; name: string }>;  // 👈 add this
-
-//   genderPreferences: Array<{ value: string; label: string; count: number }>;
-//   properties: Array<{ id: string; name: string; address: string; roomCount: number }>;
-//   amenities: Array<{ value: string; label: string; count: number; icon?: any }>;
-// }
-
-// const DEFAULT_FILTERS: FilterState = {
-//   search: '',
-//   property_ids: [],
-//   room_types: [],
-//   gender_preferences: [],
-//   amenities: [],
-//   has_attached_bathroom: undefined,
-//   has_balcony: undefined,
-//   has_ac: undefined,
-//   allow_couples: undefined,
-//   min_rent: 0,
-//   max_rent: 100000,
-//   min_capacity: 1,
-//   max_capacity: 10,
-//   is_active: true,
-// availability_status: 'any',
-// };
-
-// // Color scheme
-// const colors = {
-//   primary: '#004ab0',
-//   secondary: '#f9bd07',
-//   primaryLight: '#e6f0ff',
-//   secondaryLight: '#fff4e0'
-// };
-
-// export default function SideFilter({ open, onOpenChange, onFilterChange, hideTrigger = false }: SideFilterProps) {
-//   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  
-//   // Local state for sliders
-//   const [localRentRange, setLocalRentRange] = useState([DEFAULT_FILTERS.min_rent, DEFAULT_FILTERS.max_rent]);
-//   const [localCapacityRange, setLocalCapacityRange] = useState([DEFAULT_FILTERS.min_capacity, DEFAULT_FILTERS.max_capacity]);
-  
-//   const [filterData, setFilterData] = useState<FilterData>({
-//     roomTypes: [],
-//     genderPreferences: [],
-//     properties: [],
-//     amenities: [],
-//     masterRoomTypes: []  // 👈 initialize this
-//   });
-//   const [loading, setLoading] = useState(false);
-//   const [masterRoomTypes, setMasterRoomTypes] = useState<Array<{ id: number; name: string }>>([]);
-
-//   // Fetch filter data
-//   useEffect(() => {
-//     fetchFilterData();
-//   }, []);
-
-//   // Sync local slider state with filters when they change externally
-//   useEffect(() => {
-//     setLocalRentRange([filters.min_rent, filters.max_rent]);
-//   }, [filters.min_rent, filters.max_rent]);
-
-//   useEffect(() => {
-//     setLocalCapacityRange([filters.min_capacity, filters.max_capacity]);
-//   }, [filters.min_capacity, filters.max_capacity]);
-
-//   useEffect(() => {
-//   consumeMasters({ tab: 'Rooms' })
-//     .then(res => {
-//       if (res?.success && res.data) {
-//         const roomTypes = res.data
-//           .filter((item: any) => item.type_name === 'Room Type')
-//           .map((item: any) => ({ id: item.value_id, name: item.value_name }));
-//         setMasterRoomTypes(roomTypes);
-//       }
-//     })
-//     .catch(e => console.error('Failed to fetch room type masters:', e));
-// }, []);
-
-//   const fetchFilterData = async () => {
-//     try {
-//       setLoading(true);
-//       const response = await fetch('/api/rooms/filters/data');
-//       const result = await response.json();
-      
-//       if (result.success) {
-//         // Add icons to amenities for better visual appeal
-//         const amenitiesWithIcons = result.data.amenities.map((amenity: any, index: number) => {
-//           const icons = [Wifi, Coffee, Car, Shield, Zap, Users, Home, Hotel, DoorOpen];
-//           return {
-//             ...amenity,
-//             icon: icons[index % icons.length]
-//           };
-//         });
-        
-//         setFilterData({
-//           ...result.data,
-//           amenities: amenitiesWithIcons
-//         });
-//       }
-//     } catch (error) {
-//       console.error('Error fetching filter data:', error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const handleFilterChange = (key: keyof FilterState, value: any) => {
-//     // Ensure numeric values are properly formatted
-//     let processedValue = value;
-    
-//     if (key === 'min_rent' || key === 'max_rent' || key === 'min_capacity' || key === 'max_capacity') {
-//       processedValue = Number(value);
-//     }
-    
-//     const newFilters = { ...filters, [key]: processedValue };
-//     setFilters(newFilters);
-//     onFilterChange(newFilters);
-//   };
-
-//   const handleSelectChange = (key: 'property_ids' | 'room_types' | 'gender_preferences' | 'amenities', value: string) => {
-//     // For single select, we'll just set the array with the selected value
-//     // If value is empty or 'all', set empty array
-//     if (!value || value === 'all') {
-//       handleFilterChange(key, []);
-//     } else {
-//       handleFilterChange(key, [value]);
-//     }
-//   };
-
-//   const handleBooleanToggle = (key: 'has_attached_bathroom' | 'has_balcony' | 'has_ac' | 'allow_couples') => {
-//     const currentValue = filters[key];
-//     const newValue = currentValue === undefined ? true : currentValue === true ? false : undefined;
-//     handleFilterChange(key, newValue);
-//   };
-
-//   // Handle rent slider change - updates local state only
-//   const handleRentSliderChange = (values: number[]) => {
-//     setLocalRentRange(values);
-//   };
-
-//   // Handle rent slider commit - updates actual filters
-//   const handleRentSliderCommit = () => {
-//     const [min, max] = localRentRange;
-//     if (min <= max) {
-//       // Only update if values actually changed
-//       if (filters.min_rent !== min || filters.max_rent !== max) {
-//         handleFilterChange('min_rent', min);
-//         handleFilterChange('max_rent', max);
-//       }
-//     }
-//   };
-
-//   // Handle capacity slider change - updates local state only
-//   const handleCapacitySliderChange = (values: number[]) => {
-//     setLocalCapacityRange(values);
-//   };
-
-//   // Handle capacity slider commit - updates actual filters
-//   const handleCapacitySliderCommit = () => {
-//     const [min, max] = localCapacityRange;
-//     if (min <= max) {
-//       // Only update if values actually changed
-//       if (filters.min_capacity !== min || filters.max_capacity !== max) {
-//         handleFilterChange('min_capacity', min);
-//         handleFilterChange('max_capacity', max);
-//       }
-//     }
-//   };
-
-//   const resetFilters = () => {
-//     setFilters(DEFAULT_FILTERS);
-//     setLocalRentRange([DEFAULT_FILTERS.min_rent, DEFAULT_FILTERS.max_rent]);
-//     setLocalCapacityRange([DEFAULT_FILTERS.min_capacity, DEFAULT_FILTERS.max_capacity]);
-//     onFilterChange(DEFAULT_FILTERS);
-//   };
-
-//   const getActiveFilterCount = () => {
-//     let count = 0;
-    
-//     if (filters.search) count++;
-//     if (filters.property_ids.length > 0) count++;
-//     if (filters.room_types.length > 0) count++;
-//     if (filters.gender_preferences.length > 0) count++;
-//     if (filters.amenities.length > 0) count++;
-//     if (filters.has_attached_bathroom !== undefined) count++;
-//     if (filters.has_balcony !== undefined) count++;
-//     if (filters.has_ac !== undefined) count++;
-//     if (filters.allow_couples !== undefined) count++;
-//     if (filters.min_rent > 0) count++;
-//     if (filters.max_rent < 100000) count++;
-//     if (filters.min_capacity > 1) count++;
-//     if (filters.max_capacity < 10) count++;
-// if (filters.availability_status !== 'any') count++;    
-//     return count;
-//   };
-
-//   const activeFilterCount = getActiveFilterCount();
-
-//   // Helper to get display label for selected values
-//   const getSelectedDisplay = (key: 'property_ids' | 'room_types' | 'gender_preferences' | 'amenities') => {
-//     const selected = filters[key];
-//     if (selected.length === 0) return 'All';
-    
-//     if (key === 'property_ids') {
-//       const property = filterData.properties.find(p => p.id.toString() === selected[0]);
-//       return property?.name || 'Selected';
-//     }
-//     if (key === 'room_types') {
-//       const type = filterData.roomTypes.find(t => t.value === selected[0]);
-//       return type?.label || 'Selected';
-//     }
-//     if (key === 'gender_preferences') {
-//       const gender = filterData.genderPreferences.find(g => g.value === selected[0]);
-//       return gender?.label || 'Selected';
-//     }
-//     if (key === 'amenities') {
-//       const amenity = filterData.amenities.find(a => a.value === selected[0]);
-//       return amenity?.label || 'Selected';
-//     }
-//     return 'Selected';
-//   };
-
-//   return (
-//     <Sheet open={open} onOpenChange={onOpenChange}>
-//       {/* Only show the trigger button if hideTrigger is false */}
-//       {!hideTrigger && (
-//         <SheetTrigger asChild>
-//           <Button 
-//             variant="outline" 
-//             size="icon" 
-//             className="h-9 w-9 relative"
-//             style={{ 
-//               borderColor: colors.primary,
-//               color: colors.primary 
-//             }}
-//           >
-//             <Filter className="h-4 w-4" />
-//             {activeFilterCount > 0 && (
-//               <Badge 
-//                 className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
-//                 style={{ backgroundColor: colors.secondary, color: '#000' }}
-//               >
-//                 {activeFilterCount}
-//               </Badge>
-//             )}
-//           </Button>
-//         </SheetTrigger>
-//       )}
-      
-//       {/*
-//         RESPONSIVE WIDTH LOGIC:
-//         - Mobile (default): w-[50vw]  → half the screen width
-//         - Tablet (sm):      w-[50vw]  → still half screen
-//         - Desktop (lg+):    w-full sm:max-w-md  → shadcn default full-width capped at md
-
-//         We override SheetContent's default inline style with a className approach.
-//         The key classes:
-//           w-[50vw]        – half screen on mobile & tablet
-//           min-w-[280px]   – never shrink below 280px on very small phones
-//           sm:w-[380px]    – fixed comfortable width on small-tablet
-//           lg:w-full       – revert to full width on large screens
-//           lg:max-w-md     – cap at md on large screens (original desktop behavior)
-//       */}
-//       <SheetContent
-//         side="right"
-//         className="
-//           p-0
-//           w-[50vw]
-//           min-w-[280px]
-//           sm:w-[380px]
-//           lg:w-full
-//           lg:max-w-md
-//         "
-//       >
-//         <div className="h-full flex flex-col">
-//           <SheetHeader 
-//             className="p-6 border-b"
-//             style={{ 
-//               background: `linear-gradient(135deg, ${colors.primary} 0%, #003d8c 100%)`,
-//               color: 'white'
-//             }}
-//           >
-//             <div className="flex items-center justify-between">
-//               <SheetTitle className="flex items-center gap-2 text-white">
-//                 <Filter className="h-5 w-5" style={{ color: colors.secondary }} />
-//                 <span>Filter Rooms</span>
-//                 {activeFilterCount > 0 && (
-//                   <Badge 
-//                     className="ml-2"
-//                     style={{ backgroundColor: colors.secondary, color: '#000' }}
-//                   >
-//                     {activeFilterCount} active
-//                   </Badge>
-//                 )}
-//               </SheetTitle>
-//               <Button
-//                 variant="ghost"
-//                 size="icon"
-//                 onClick={() => onOpenChange(false)}
-//                 className="text-white hover:bg-white/20"
-//               >
-//                 <X className="h-4 w-4" />
-//               </Button>
-//             </div>
-//           </SheetHeader>
-
-//           <ScrollArea className="flex-1 p-6">
-//             <div className="space-y-6">
-//               {/* Properties Dropdown */}
-//               <div className="space-y-2">
-//                 <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-//                   <Building2 className="h-4 w-4" />
-//                   Select Property
-//                 </Label>
-//                 <Select
-//                   value={filters.property_ids[0] || 'all'}
-//                   onValueChange={(value) => handleSelectChange('property_ids', value)}
-//                 >
-//                   <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-offset-0" 
-//                     style={{ focusRing: colors.primary }}>
-//                     <SelectValue placeholder="All Properties" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     <SelectItem value="all">All Properties</SelectItem>
-//                     {filterData.properties.map(property => (
-//                       <SelectItem key={property.id} value={property.id.toString()}>
-//                         <div className="flex items-center justify-between w-full">
-//                           <span>{property.name}</span>
-//                           <Badge variant="outline" className="ml-2 text-xs">
-//                             {property.roomCount}
-//                           </Badge>
-//                         </div>
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-
-//               {/* Room Types Dropdown */}
-// {/* Room Types Dropdown */}
-// {/* Room Types Dropdown */}
-// <div className="space-y-2">
-//   <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-//     <DoorOpen className="h-4 w-4" />
-//     Room Type
-//   </Label>
-//   <Select
-//     value={filters.room_types[0] || 'all'}
-//     onValueChange={(value) => handleSelectChange('room_types', value)}
-//   >
-//     <SelectTrigger className="w-full border-gray-300">
-//       <SelectValue placeholder="All Room Types" />
-//     </SelectTrigger>
-//     <SelectContent>
-//       <SelectItem value="all">All Room Types</SelectItem>
-//       {masterRoomTypes.length > 0
-//         ? masterRoomTypes.map(type => {
-//             // match with filterData to get counts
-//             const meta = filterData.roomTypes.find(
-//               r => r.value.toLowerCase() === type.name.toLowerCase()
-//             );
-//             return (
-//               <SelectItem key={type.id} value={type.name}>
-//                 <div className="flex items-center justify-between w-full gap-3">
-//                   <span>{type.name}</span>
-//                   {meta && (
-//                     <div className="flex items-center gap-1 ml-auto">
-//                       <Badge variant="outline" className="text-[10px] px-1.5">
-//                         {meta.count} rooms
-//                       </Badge>
-//                       <Badge
-//                         className="text-[10px] px-1.5"
-//                         style={{ backgroundColor: colors.primaryLight, color: colors.primary, border: 'none' }}
-//                       >
-//                         {meta.totalBeds} beds
-//                       </Badge>
-//                     </div>
-//                   )}
-//                 </div>
-//               </SelectItem>
-//             );
-//           })
-//         : filterData.roomTypes.map(type => (
-//             <SelectItem key={type.value} value={type.value}>
-//               <div className="flex items-center justify-between w-full gap-3">
-//                 <span>{type.label}</span>
-//                 <div className="flex items-center gap-1 ml-auto">
-//                   <Badge variant="outline" className="text-[10px] px-1.5">
-//                     {type.count} rooms
-//                   </Badge>
-//                   <Badge
-//                     className="text-[10px] px-1.5"
-//                     style={{ backgroundColor: colors.primaryLight, color: colors.primary, border: 'none' }}
-//                   >
-//                     {type.totalBeds} beds
-//                   </Badge>
-//                 </div>
-//               </div>
-//             </SelectItem>
-//           ))
-//       }
-//     </SelectContent>
-//   </Select>
-// </div>
-
-//               {/* Gender Preferences Dropdown */}
-//               <div className="space-y-2">
-//                 <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-//                   <Users2 className="h-4 w-4" />
-//                   Gender Preference
-//                 </Label>
-//                 <Select
-//                   value={filters.gender_preferences[0] || 'all'}
-//                   onValueChange={(value) => handleSelectChange('gender_preferences', value)}
-//                 >
-//                   <SelectTrigger className="w-full border-gray-300">
-//                     <SelectValue placeholder="Any Gender" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     <SelectItem value="all">Any Gender</SelectItem>
-//                     {filterData.genderPreferences.map(gender => (
-//                       <SelectItem key={gender.value} value={gender.value}>
-//                         <div className="flex items-center justify-between w-full">
-//                           <span>{gender.label}</span>
-//                           <Badge variant="outline" className="ml-2 text-xs">
-//                             {gender.count}
-//                           </Badge>
-//                         </div>
-//                       </SelectItem>
-//                     ))}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-
-           
-
-             
-//    {/* Availability Status Filter */}
-// <div className="space-y-2">
-//   <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-//     <DoorOpen className="h-4 w-4" />
-//     Room Availability
-//   </Label>
-//   <Select
-//     value={filters.availability_status || 'any'}
-//     onValueChange={(value) => handleFilterChange('availability_status', value)}
-//   >
-//     <SelectTrigger className="w-full border-gray-300">
-//       <SelectValue placeholder="Any Availability" />
-//     </SelectTrigger>
-//     <SelectContent>
-//       {[
-//         { value: 'any',       label: 'Any Availability',  sub: 'Show all rooms',         dot: '#6b7280' },
-//         { value: 'available', label: 'Fully Available',   sub: 'All beds are empty',     dot: '#16a34a' },
-//         { value: 'partial',   label: 'Partial Occupied',  sub: 'Some beds are empty',    dot: '#f59e0b' },
-//         { value: 'full',      label: 'Fully Occupied',    sub: 'No beds available',      dot: '#ef4444' },
-//       ].map(opt => (
-//         <SelectItem key={opt.value} value={opt.value}>
-//           <div className="flex items-center gap-2">
-//             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: opt.dot }} />
-//             <div className="flex flex-col">
-//               <span className="text-xs font-medium">{opt.label}</span>
-//               <span className="text-[10px] text-gray-400">{opt.sub}</span>
-//             </div>
-//           </div>
-//         </SelectItem>
-//       ))}
-//     </SelectContent>
-//   </Select>
-// </div>
-
-//               {/* Amenities Dropdown */}
-//               <div className="space-y-2">
-//                 <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-//                   <Wifi className="h-4 w-4" />
-//                   Popular Amenity
-//                 </Label>
-//                 <Select
-//                   value={filters.amenities[0] || 'all'}
-//                   onValueChange={(value) => handleSelectChange('amenities', value)}
-//                 >
-//                   <SelectTrigger className="w-full border-gray-300">
-//                     <SelectValue placeholder="Any Amenity" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     <SelectItem value="all">Any Amenity</SelectItem>
-//                     {filterData.amenities.slice(0, 10).map(amenity => {
-//                       const Icon = amenity.icon || Wifi;
-//                       return (
-//                         <SelectItem key={amenity.value} value={amenity.value}>
-//                           <div className="flex items-center gap-2">
-//                             <Icon className="h-3.5 w-3.5" style={{ color: colors.primary }} />
-//                             <span>{amenity.label}</span>
-//                             <Badge variant="outline" className="ml-auto text-xs">
-//                               {amenity.count}
-//                             </Badge>
-//                           </div>
-//                         </SelectItem>
-//                       );
-//                     })}
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-
-//               {/* Boolean Filters */}
-//               <div className="space-y-3">
-//                 <Label className="text-sm font-medium" style={{ color: colors.primary }}>Features</Label>
-//                 <div className="grid grid-cols-2 gap-3">
-//                   <Button
-//                     variant={filters.has_attached_bathroom === true ? "default" : 
-//                             filters.has_attached_bathroom === false ? "destructive" : "outline"}
-//                     size="sm"
-//                     className="justify-start gap-2"
-//                     onClick={() => handleBooleanToggle('has_attached_bathroom')}
-//                     style={
-//                       filters.has_attached_bathroom === true 
-//                         ? { backgroundColor: colors.primary, color: 'white' }
-//                         : filters.has_attached_bathroom === false
-//                         ? { backgroundColor: '#ef4444', color: 'white' }
-//                         : { borderColor: colors.primary, color: colors.primary }
-//                     }
-//                   >
-//                     <Bath className="h-4 w-4" />
-//                     Bathroom
-//                     {filters.has_attached_bathroom !== undefined && (
-//                       <span className="ml-auto text-xs">
-//                         {filters.has_attached_bathroom ? '✓' : '✗'}
-//                       </span>
-//                     )}
-//                   </Button>
-
-//                   <Button
-//                     variant={filters.has_balcony === true ? "default" : 
-//                             filters.has_balcony === false ? "destructive" : "outline"}
-//                     size="sm"
-//                     className="justify-start gap-2"
-//                     onClick={() => handleBooleanToggle('has_balcony')}
-//                     style={
-//                       filters.has_balcony === true 
-//                         ? { backgroundColor: colors.primary, color: 'white' }
-//                         : filters.has_balcony === false
-//                         ? { backgroundColor: '#ef4444', color: 'white' }
-//                         : { borderColor: colors.primary, color: colors.primary }
-//                     }
-//                   >
-//                     <Sun className="h-4 w-4" />
-//                     Balcony
-//                     {filters.has_balcony !== undefined && (
-//                       <span className="ml-auto text-xs">
-//                         {filters.has_balcony ? '✓' : '✗'}
-//                       </span>
-//                     )}
-//                   </Button>
-
-//                   <Button
-//                     variant={filters.has_ac === true ? "default" : 
-//                             filters.has_ac === false ? "destructive" : "outline"}
-//                     size="sm"
-//                     className="justify-start gap-2"
-//                     onClick={() => handleBooleanToggle('has_ac')}
-//                     style={
-//                       filters.has_ac === true 
-//                         ? { backgroundColor: colors.primary, color: 'white' }
-//                         : filters.has_ac === false
-//                         ? { backgroundColor: '#ef4444', color: 'white' }
-//                         : { borderColor: colors.primary, color: colors.primary }
-//                     }
-//                   >
-//                     <Wind className="h-4 w-4" />
-//                     AC
-//                     {filters.has_ac !== undefined && (
-//                       <span className="ml-auto text-xs">
-//                         {filters.has_ac ? '✓' : '✗'}
-//                       </span>
-//                     )}
-//                   </Button>
-
-//                   <Button
-//                     variant={filters.allow_couples === true ? "default" : 
-//                             filters.allow_couples === false ? "destructive" : "outline"}
-//                     size="sm"
-//                     className="justify-start gap-2"
-//                     onClick={() => handleBooleanToggle('allow_couples')}
-//                     style={
-//                       filters.allow_couples === true 
-//                         ? { backgroundColor: colors.primary, color: 'white' }
-//                         : filters.allow_couples === false
-//                         ? { backgroundColor: '#ef4444', color: 'white' }
-//                         : { borderColor: colors.primary, color: colors.primary }
-//                     }
-//                   >
-//                     <Heart className="h-4 w-4" />
-//                     Couples
-//                     {filters.allow_couples !== undefined && (
-//                       <span className="ml-auto text-xs">
-//                         {filters.allow_couples ? '✓' : '✗'}
-//                       </span>
-//                     )}
-//                   </Button>
-//                 </div>
-//               </div>
-//             </div>
-//           </ScrollArea>
-
-//           <div className="p-6 border-t" style={{ backgroundColor: '#f9fafb' }}>
-//             <div className="flex gap-3">
-//               <Button
-//                 variant="outline"
-//                 className="flex-1 gap-2"
-//                 onClick={resetFilters}
-//                 disabled={loading}
-//                 style={{ borderColor: colors.primary, color: colors.primary }}
-//               >
-//                 <RefreshCw className="h-4 w-4" />
-//                 Reset All
-//               </Button>
-//               <Button
-//                 className="flex-1 text-white"
-//                 onClick={() => onOpenChange(false)}
-//                 disabled={loading}
-//                 style={{ backgroundColor: colors.primary }}
-//               >
-//                 Apply Filters
-//               </Button>
-//             </div>
-//           </div>
-//         </div>
-//       </SheetContent>
-//     </Sheet>
-//   );
-// }
+// components/admin/rooms/side-filter.tsx - Updated with Available From filter
 
 "use client";
 
@@ -713,7 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
   Filter, X, Bath, Sun, Wind, Heart, Building2, RefreshCw,
-  DoorOpen, Users2, Wifi, Coffee, Car, Shield, Zap, Bed, Home, Layers, Check
+  DoorOpen, Users2, Wifi, Coffee, Car, Shield, Zap, Bed, Home, Layers, Check, Calendar, Clock,
+  Loader2
 } from 'lucide-react';
 import { consumeMasters } from "@/lib/masterApi";
 
@@ -732,6 +31,7 @@ interface SideFilterProps {
   onFilterChange: (filters: FilterState) => void;
   hideTrigger?: boolean;
   rooms?: SimpleRoom[];
+  onSelectVacatingBed?: (bedAssignmentId: number, roomId: number) => void;
 }
 
 interface FilterState {
@@ -782,13 +82,25 @@ const DEFAULT_FILTERS: FilterState = {
 
 const colors = { primary: '#004ab0', secondary: '#f9bd07' };
 
-export default function SideFilter({ open, onOpenChange, onFilterChange, hideTrigger = false, rooms = [] }: SideFilterProps) {
+export default function SideFilter({ 
+  open, 
+  onOpenChange, 
+  onFilterChange, 
+  hideTrigger = false, 
+  rooms = [], 
+  onSelectVacatingBed 
+}: SideFilterProps) {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filterData, setFilterData] = useState<FilterData>({
     roomTypes: [], genderPreferences: [], properties: [], amenities: [], masterRoomTypes: []
   });
   const [masterRoomTypes, setMasterRoomTypes] = useState<Array<{ id: number; name: string }>>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Available From filter state
+  const [availableFromDate, setAvailableFromDate] = useState<string>("");
+  const [vacatingSoonBeds, setVacatingSoonBeds] = useState<any[]>([]);
+  const [loadingVacating, setLoadingVacating] = useState(false);
 
   // Feature options
   const featureOptions = [
@@ -798,7 +110,6 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
     { id: 'allow_couples', label: 'Couples Allowed', icon: Heart },
   ];
 
-  // ✅ FIX: floors as string[], handle "Floor 2" style values
   const availableFloors = useMemo(() => {
     const floorsSet = new Set<string>();
     rooms.forEach(room => {
@@ -892,6 +203,8 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
   const resetFilters = () => {
     setFilters(DEFAULT_FILTERS);
     onFilterChange(DEFAULT_FILTERS);
+    setAvailableFromDate("");
+    setVacatingSoonBeds([]);
   };
 
   const activeFilterCount = useMemo(() => {
@@ -907,8 +220,85 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
     if (filters.allow_couples !== undefined) count++;
     if (filters.min_rent > 0 || filters.max_rent < 100000) count++;
     if (filters.availability_status !== 'any') count++;
+    if (availableFromDate) count++;
     return count;
-  }, [filters]);
+  }, [filters, availableFromDate]);
+
+const loadVacatingSoonBeds = async (date: string) => {
+  if (!date) {
+    setVacatingSoonBeds([]);
+    return;
+  }
+  setLoadingVacating(true);
+  try {
+    const propertyId = filters.property_ids[0];
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+
+    let url = '/api/admin/vacate-requests?';
+    const params = new URLSearchParams();
+    
+    if (propertyId) {
+      params.append('property_id', propertyId);
+    }
+    params.append('limit', '100');
+    
+    const response = await fetch(
+      `${url}${params.toString()}`,
+      { 
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          "Content-Type": "application/json" 
+        } 
+      }
+    );
+    const result = await response.json();
+
+    if (result.success && Array.isArray(result.data)) {
+      const targetDate = new Date(date);
+      targetDate.setHours(23, 59, 59, 999);
+      
+      const filtered = result.data
+        .filter((req: any) => {
+          if (!req.expected_vacate_date) return false;
+          
+          // ✅ SKIP completed or cancelled requests
+          const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
+          if (isCompleted) return false;
+          
+          // ✅ IMPORTANT: Check if the bed is actually still occupied
+          // If the bed has been pre-assigned and is now occupied, skip it
+          if (req.is_available === true) return false;
+          
+          // ✅ Also check if the tenant has already been vacated
+          // This happens when pre-assignment happened during vacate
+          if (req.tenant_vacated === true) return false;
+          
+          const vacateDate = new Date(req.expected_vacate_date);
+          return vacateDate <= targetDate;
+        })
+        .map((req: any) => ({
+          bed_assignment_id: req.bed_id,
+          room_id: req.room_id,
+          bed_number: req.bed_number,
+          room_number: req.room_number,
+          tenant_name: req.tenant_name,
+          vacate_date: req.expected_vacate_date,
+          vacate_status: req.vacate_status,
+        }));
+      
+      console.log('🔍 Filtered vacating beds:', filtered);
+      setVacatingSoonBeds(filtered);
+    }
+  } catch (err) {
+    console.error("Error loading vacating beds:", err);
+  } finally {
+    setLoadingVacating(false);
+  }
+};
+
+useEffect(() => {
+  loadVacatingSoonBeds(availableFromDate);
+}, [availableFromDate, filters.property_ids]); 
 
   // Active features for badge display
   const activeFeatures = featureOptions.filter(f => filters[f.id as keyof FilterState] === true);
@@ -1044,7 +434,7 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
                   </Select>
                 </div>
 
-                {/* ✅ Floor Filter - fixed string-based */}
+                {/* Floor Filter */}
                 {availableFloors.length > 0 && (
                   <div className="space-y-1">
                     <Label className="text-[11px] font-medium flex items-center gap-1">
@@ -1069,7 +459,6 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
                         ))}
                       </SelectContent>
                     </Select>
-                   
                   </div>
                 )}
 
@@ -1100,9 +489,100 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
                   </Select>
                 </div>
 
-                
-
               </div>
+
+              {/* ============================================ */}
+              {/* AVAILABLE FROM DATE FILTER - NEW SECTION */}
+              {/* ============================================ */}
+              <div className="border-t border-gray-200 pt-4 mt-2">
+                <div className="space-y-3">
+                  <Label className="text-[11px] font-medium flex items-center gap-1 text-amber-700">
+                    <Calendar className="h-3.5 w-3.5" /> Available From (Date)
+                  </Label>
+                  <p className="text-[9px] text-gray-500 -mt-1">
+                    Find beds that will be available on or before the selected date
+                  </p>
+                  
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={availableFromDate}
+                      onChange={(e) => setAvailableFromDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="flex-1 border rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                    {availableFromDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setAvailableFromDate("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Vacating Soon Beds List */}
+                  {availableFromDate && (
+                    <div className="mt-2">
+                      {loadingVacating ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                          <span className="ml-2 text-xs text-gray-500">Loading...</span>
+                        </div>
+                      ) : vacatingSoonBeds.length === 0 ? (
+                        <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <Bed className="h-6 w-6 text-gray-300 mx-auto mb-1" />
+                          <p className="text-xs text-gray-500">
+                            No beds vacating by {new Date(availableFromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                          <p className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-amber-500" />
+                            {vacatingSoonBeds.length} bed(s) becoming available:
+                          </p>
+                          {vacatingSoonBeds.map((bed) => (
+                            <button
+                              key={bed.bed_assignment_id}
+                              onClick={() => {
+                                onSelectVacatingBed?.(bed.bed_assignment_id, bed.room_id);
+                                onOpenChange(false);
+                              }}
+                              className="w-full text-left p-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors group"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1 bg-white rounded border border-amber-200">
+                                    <Bed className="h-3 w-3 text-amber-600" />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs font-medium text-gray-800">
+                                      Room {bed.room_number} • Bed {bed.bed_number}
+                                    </span>
+                                    <p className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                                      {bed.tenant_name}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-amber-100 text-amber-700 text-[9px] border-0 flex-shrink-0">
+                                  {new Date(bed.vacate_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                </Badge>
+                              </div>
+                              <div className="mt-1 text-[9px] text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to manage this bed
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </ScrollArea>
 

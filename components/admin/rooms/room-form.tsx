@@ -321,6 +321,18 @@ const F = ({ label, required, children }: { label: string; required?: boolean; c
   </div>
 );
 
+
+const validateBedTypes = (bedsConfig: BedConfig[]): { valid: boolean; missingBeds: number[] } => {
+  const missingBeds = bedsConfig
+    .filter(bed => !bed.bed_type || bed.bed_type.trim() === '')
+    .map(bed => bed.bed_number);
+  
+  return {
+    valid: missingBeds.length === 0,
+    missingBeds
+  };
+};
+
 export function RoomForm({
   open,
   onOpenChange,
@@ -929,6 +941,14 @@ const goToNextTab = () => {
     if (!formData.rent_per_bed || formData.rent_per_bed <= 0) { toast.error('Please enter a valid total room rent'); return; }
     if (!formData.room_gender_preference.length) { toast.error('Please select at least one gender preference'); return; }
   }
+  // ✅ Validate beds tab before advancing to next tab
+  if (currentTab === 'beds') {
+    const bedValidation = validateBedTypes(formData.beds_config || []);
+    if (!bedValidation.valid) {
+      toast.error(`Please select bed type for beds: ${bedValidation.missingBeds.join(', ')}`);
+      return;
+    }
+  }
 
   setCurrentTab(tabs[i + 1]);
 };
@@ -950,6 +970,14 @@ if (bedLimitReached) {
   setCurrentTab('details');
   return;
 }
+
+// ✅ Validate bed types before submission
+    const bedValidation = validateBedTypes(formData.beds_config || []);
+    if (!bedValidation.valid) {
+      toast.error(`Please select bed type for beds: ${bedValidation.missingBeds.join(', ')}`);
+      setCurrentTab('beds');
+      return;
+    }
 
       const noBedType = (formData.beds_config || []).filter(b => !b.bed_type);
       if (noBedType.length) { toast.error(`Please select bed type for beds: ${noBedType.map(b => b.bed_number).join(', ')}`); setCurrentTab('beds'); return; }

@@ -1,7 +1,7 @@
 // component/rooms/rooms-client.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import {
   Users,
   Building2,
   RefreshCw,
-  SlidersHorizontal,
   Download,
   Upload,
   Check,
@@ -22,6 +21,13 @@ import {
   Trash2,
   BedDouble,
   Filter,
+  Clock,
+  CheckCircle,
+  Loader2,
+  BedIcon,
+  ChevronRight,
+  Calendar,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -30,12 +36,7 @@ import {
   getMediaUrl,
   getFilteredRooms,
 } from "@/lib/roomsApi";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { format } from "date-fns";
 
 // Import optimized components
 import RoomsGrid from "./rooms-grid";
@@ -48,10 +49,14 @@ import { useAuth } from "@/context/authContext";
 
 // Import new components
 import SideFilter from "./side-filter";
-import BulkActions from "./bulk-actions"; // Keep this import
+import BulkActions from "./bulk-actions";
 import RoomImportModal from "./room-import-modal";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import { getAvailabilitySummary } from "@/lib/roomsApi";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouter } from 'next/navigation';
 
 // Types
 interface RoomsClientProps {
@@ -82,6 +87,7 @@ export default function RoomsClient({
   initialRooms,
   initialProperties,
 }: RoomsClientProps) {
+  const router = useRouter();
   // State management with safe defaults
   const [rooms, setRooms] = useState<RoomResponse[]>(
     Array.isArray(initialRooms) ? initialRooms : [],
@@ -104,6 +110,16 @@ export default function RoomsClient({
   const [selectedRoom, setSelectedRoom] = useState<RoomResponse | null>(null);
   const [selectedGalleryRoom, setSelectedGalleryRoom] =
     useState<RoomResponse | null>(null);
+    
+
+  // Availability state - using Sheet (sidebar) instead of popover
+  const [availabilitySidebarOpen, setAvailabilitySidebarOpen] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilitySummary, setAvailabilitySummary] = useState<any>(null);
+  const [upcomingVacates, setUpcomingVacates] = useState<any[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
+    properties.length > 0 ? properties[0]?.id : null
+  );
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,6 +161,242 @@ export default function RoomsClient({
     beds_config: [],
   });
 
+  // =====================
+  // AVAILABILITY FUNCTIONS
+  // =====================
+
+  const loadAvailabilityData = useCallback(async () => {
+    if (!selectedPropertyId) return;
+
+    setAvailabilityLoading(true);
+    try {
+      const summaryResult = await getAvailabilitySummary({
+        property_id: selectedPropertyId,
+      });
+      setAvailabilitySummary(summaryResult);
+
+      const token =
+        localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+      if (!token) {
+        setAvailabilityLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `/api/admin/vacate-requests?property_id=${selectedPropertyId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.data)) {
+        const today = new Date();
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+        const upcoming = result.data
+          .filter((request: any) => {
+            if (!request.expected_vacate_date) return false;
+            const vacateDate = new Date(request.expected_vacate_date);
+            return vacateDate > today && vacateDate <= thirtyDaysFromNow;
+          })
+          .map((request: any) => {
+            const vacateDate = new Date(request.expected_vacate_date);
+            const daysUntilVacate = Math.ceil(
+              (vacateDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            return {
+              bed_number: request.bed_number || "N/A",
+              room_number: request.room_number || "N/A",
+              current_tenant: request.tenant_name || "Unknown",
+              vacate_date: request.expected_vacate_date,
+              days_until_vacate: daysUntilVacate,
+              vacate_status: request.vacate_status || request.status,
+            };
+          })
+          .sort((a: any, b: any) => a.days_until_vacate - b.days_until_vacate);
+
+        setUpcomingVacates(upcoming);
+      }
+    } catch (error) {
+      console.error("Error loading availability:", error);
+      toast.error("Failed to load availability data");
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, [selectedPropertyId]);
+
+  // Load data when sidebar opens
+  useEffect(() => {
+    if (availabilitySidebarOpen) {
+      loadAvailabilityData();
+    }
+  }, [availabilitySidebarOpen, loadAvailabilityData]);
+
+ // =====================
+  // HANDLER FOR VIEW VACATE DETAILS
+  // =====================
+  
+  const handleViewVacateDetails = useCallback((vacateRequest: any) => {
+    // Navigate to vacate requests page with tenant name search filter
+    router.push(`/admin/vacate-requests?search=${encodeURIComponent(vacateRequest.current_tenant)}`);
+  }, [router]);
+
+  // =====================
+  // RENDER AVAILABILITY SIDEBAR CONTENT
+  // =====================
+
+  const renderAvailabilitySidebarContent = useMemo(() => {
+    const totalAvailableNow =
+      Number(availabilitySummary?.totals?.currently_available) || 0;
+    const totalBeds = Number(availabilitySummary?.totals?.total) || 0;
+
+    return (
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <SheetHeader className="p-4 border-b" style={{ background: 'linear-gradient(135deg, #004ab0 0%, #003d8c 100%)', color: 'white' }}>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-2 text-white">
+              <Clock className="h-5 w-5" style={{ color: '#f9bd07' }} />
+              <span>Upcoming Availability</span>
+              {upcomingVacates.length > 0 && (
+                <Badge style={{ backgroundColor: '#f9bd07', color: '#000' }}>
+                  {upcomingVacates.length} vacating
+                </Badge>
+              )}
+            </SheetTitle>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setAvailabilitySidebarOpen(false)} 
+              className="text-white hover:bg-white/20"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="text-xs text-blue-200 mt-1">
+            {properties.find((p) => p.id === selectedPropertyId)?.name || "Select a property"}
+          </div>
+        </SheetHeader>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 gap-2 p-3 border-b">
+          <div className="bg-green-50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-green-700 mb-0.5">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-xl font-bold">{totalAvailableNow}</span>
+            </div>
+            <p className="text-[10px] text-green-600 font-medium">Available Now</p>
+          </div>
+          <div className="bg-amber-50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-amber-700 mb-0.5">
+              <Clock className="h-4 w-4" />
+              <span className="text-xl font-bold">{upcomingVacates.length}</span>
+            </div>
+            <p className="text-[10px] text-amber-600 font-medium">Vacating Soon</p>
+          </div>
+        </div>
+
+        {/* Property selector */}
+        <div className="p-3 border-b">
+          <label className="text-xs font-medium text-gray-700 block mb-1">Select Property</label>
+          <select
+            className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"
+            value={selectedPropertyId || ''}
+            onChange={(e) => {
+              setSelectedPropertyId(Number(e.target.value));
+              loadAvailabilityData();
+            }}
+          >
+            {properties.map((prop) => (
+              <option key={prop.id} value={prop.id}>
+                {prop.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* List of upcoming vacates */}
+        <ScrollArea className="flex-1 p-3">
+          {availabilityLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+              <span className="ml-2 text-sm text-gray-500">Loading...</span>
+            </div>
+          ) : upcomingVacates.length === 0 ? (
+            <div className="text-center py-12">
+              <BedIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500 font-medium">No upcoming vacates</p>
+              <p className="text-xs text-gray-400">No tenants are vacating in the next 30 days</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {upcomingVacates.map((bed, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-lg border border-gray-200 p-3 hover:border-amber-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-50 rounded-lg">
+                        <BedIcon className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-gray-800">
+                          Room {bed.room_number} • Bed {bed.bed_number}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <User className="h-3 w-3" />
+                          <span>{bed.current_tenant}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">
+                        {bed.days_until_vacate}d left
+                      </Badge>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {bed.vacate_date ? format(new Date(bed.vacate_date), "dd MMM yyyy") : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-[10px] text-gray-400">
+                      Status: <span className="capitalize">{bed.vacate_status || 'Pending'}</span>
+                    </span>
+                    {/* ✅ UPDATED: View Details button with navigation */}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[10px] text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                      onClick={() => handleViewVacateDetails(bed)}
+                    >
+                      View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Footer */}
+        {availabilitySummary && (
+          <div className="p-3 border-t bg-gray-50">
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>Total beds: <span className="font-semibold">{totalBeds}</span></span>
+              <span>{upcomingVacates.length} vacating in 30 days</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }, [availabilitySummary, upcomingVacates, availabilityLoading, selectedPropertyId, properties, loadAvailabilityData, handleViewVacateDetails]);
+  
   // Memoized room stats with safe defaults
   // const roomStats = useMemo(() => {
   //   const safeRooms = Array.isArray(rooms) ? rooms : [];
@@ -232,6 +484,7 @@ export default function RoomsClient({
       setImporting(false);
     }
   };
+
 
   const filteredRooms = useMemo(() => {
     const safeRooms = Array.isArray(rooms) ? rooms : [];
@@ -1126,6 +1379,76 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
     enrichInitialRooms();
   }, [rooms.length]); // Run when rooms are first loaded
 
+const handleSelectVacatingBed = useCallback(async (bedAssignmentId: number, roomId: number) => {
+  console.log("🔍 [DEBUG] handleSelectVacatingBed called with:", { bedAssignmentId, roomId });
+  
+  setFilterSidebarOpen(false);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  try {
+    // 🔥 ALWAYS fetch fresh room data directly
+    console.log("🔍 [DEBUG] Fetching room data for ID:", roomId);
+    const { getRoomById } = await import("@/lib/roomsApi");
+    const response: any = await getRoomById(roomId.toString());
+    console.log("🔍 [DEBUG] getRoomById response:", response);
+    
+    let roomData: any = null;
+    
+    // Handle both response formats
+    if (response?.success && response?.data?.id) {
+      roomData = response.data;
+      console.log("🔍 [DEBUG] Extracted roomData from response.data:", roomData);
+    } else if (response?.id) {
+      roomData = response;
+      console.log("🔍 [DEBUG] Using response directly as roomData:", roomData);
+    } else {
+      console.error("❌ [DEBUG] Could not load room data, response:", response);
+      toast.error("Could not load room data");
+      return;
+    }
+    
+    console.log("🔍 [DEBUG] roomData structure:", {
+      id: roomData?.id,
+      property_id: roomData?.property_id,
+      total_bed: roomData?.total_bed,
+      room_number: roomData?.room_number,
+      property_name: roomData?.property_name,
+    });
+    
+    // ✅ Validate we have a valid room with all required properties
+    if (roomData?.id && roomData?.total_bed !== undefined) {
+      // 🔥 Ensure property_id exists - fetch from room data or from rooms list
+      if (!roomData.property_id) {
+        console.warn("⚠️ [DEBUG] roomData missing property_id, checking rooms list...");
+        // Try to find in rooms list
+        const foundInList = rooms.find((r) => r.id === roomId);
+        console.log("🔍 [DEBUG] Found in rooms list:", foundInList);
+        
+        if (foundInList?.property_id) {
+          roomData.property_id = foundInList.property_id;
+          roomData.property_name = foundInList.property_name;
+          roomData.property_address = foundInList.property_address;
+          console.log("🔍 [DEBUG] ✅ Added property_id from rooms list:", roomData.property_id);
+        } else {
+          console.error("❌ [DEBUG] No property_id found in rooms list either");
+          toast.error("Room property data is missing. Please refresh the page.");
+          return;
+        }
+      }
+      
+      console.log("🔍 [DEBUG] ✅ Setting selectedRoom and opening dialog");
+      setSelectedRoom(roomData);
+      setBedDialogOpen(true);
+    } else {
+      console.error("❌ [DEBUG] Invalid room data:", roomData);
+      toast.error("Invalid room data. Please refresh and try again.");
+    }
+  } catch (err) {
+    console.error("❌ [DEBUG] Error loading room:", err);
+    toast.error("Failed to load room data");
+  }
+}, [rooms]);
+
   return (
     <div className=" ">
       {/* Stats Overview */}
@@ -1195,6 +1518,8 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
         </div>
       </div>
 
+      
+
       {/* Main Content Card */}
       <Card className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-180px)] overflow-y-auto relative">
         {/* Desktop Header - Hidden on mobile */}
@@ -1238,6 +1563,8 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
                     <RefreshCw className="h-4 w-4" />
                   </Button>
 
+                  
+
                   {/* Filter (icon only) */}
                   <Button
                     size="icon"
@@ -1247,6 +1574,8 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
                   >
                     <Filter className="h-4 w-4" />
                   </Button>
+
+                  
 
                   {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
                   {selectedRooms.length > 0 &&
@@ -1343,6 +1672,7 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
                 >
                   <Filter className="h-3 w-3" />
                 </Button>
+ 
 
                 {/* Export Icon */}
                 {can("export_rooms") && (
@@ -1534,7 +1864,16 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
         onOpenChange={setFilterSidebarOpen}
         onFilterChange={handleFilterChange}
         hideTrigger={true}
-         rooms={rooms}      />
+         rooms={rooms} 
+         onSelectVacatingBed={handleSelectVacatingBed}     />
+
+         {/* Availability Sidebar */}
+      <Sheet open={availabilitySidebarOpen} onOpenChange={setAvailabilitySidebarOpen}>
+        <SheetContent side="right" className="p-0 w-[90vw] sm:w-[400px] lg:max-w-md">
+          {renderAvailabilitySidebarContent}
+        </SheetContent>
+      </Sheet>
+
 
       {/* Dialogs - Pass the correct props */}
       <RoomForm
@@ -1601,4 +1940,5 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
       />
     </div>
   );
+
 }
