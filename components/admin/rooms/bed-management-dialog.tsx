@@ -1043,7 +1043,7 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
           <Button
             size="sm"
             variant="ghost"
-            className="h-5 text-[9px] text-red-600 hover:bg-red-50 px-1.5"
+            className="h-5 text-[9px] text-red-600 hover:bg-red-500 px-1.5"
             onClick={() => onCancelPreAssign(assignment.id)}
           >
             Cancel
@@ -1114,7 +1114,7 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
     ) : (
       <Button
         variant="outline"
-        className="w-full h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-100"
+        className="w-full h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-500"
         onClick={() => setIsPreAssigning(true)}
       >
         <UserPlus className="h-3 w-3 mr-1" />
@@ -1357,56 +1357,35 @@ const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
 
   // Function to refresh room data
 const refreshRoomData = useCallback(async () => {
-  console.log("🔄 [DEBUG] refreshRoomData called with room:", room);
-  console.log("🔄 [DEBUG] room.id:", room?.id);
-  console.log("🔄 [DEBUG] room.property_id:", room?.property_id);
-  console.log("🔄 [DEBUG] room.total_bed:", room?.total_bed);
   
   try {
     setLoading(true);
-    console.log("🔄 [DEBUG] Fetching room data for ID:", room.id.toString());
     
     const response = await getRoomById(room.id.toString());
-    console.log("🔄 [DEBUG] getRoomById response:", response);
     
     // ✅ Extract actual room data from wrapper
     let roomData: any = null;
     if (response && (response as any).success && (response as any).data) {
       roomData = (response as any).data;
-      console.log("🔄 [DEBUG] Extracted roomData from response.data:", roomData);
     } else if (response && (response as any).id) {
       roomData = response;
-      console.log("🔄 [DEBUG] Using response directly as roomData:", roomData);
     } else {
       roomData = room; // fallback to prop
-      console.log("🔄 [DEBUG] Using prop room as fallback:", roomData);
     }
 
-    // Log the room data structure
-    console.log("🔄 [DEBUG] roomData structure:", {
-      id: roomData?.id,
-      property_id: roomData?.property_id,
-      total_bed: roomData?.total_bed,
-      room_number: roomData?.room_number,
-      property_name: roomData?.property_name,
-      bed_assignments: roomData?.bed_assignments?.length || 0,
-    });
+
 
     let beds: BedAssignment[] = roomData?.bed_assignments || room.bed_assignments || [];
-    console.log("🔄 [DEBUG] Initial beds from roomData:", beds.length);
 
     // ✅ FIX: Safely get property_id from roomData or room
     let propertyId = roomData?.property_id || room?.property_id;
-    console.log("🔄 [DEBUG] propertyId from roomData:", propertyId);
     
     // ✅ If no property_id, try to find it from the room data or fetch again
     if (!propertyId && roomData?.id) {
-      console.warn("⚠️ [DEBUG] No property_id found, trying to fetch full room details...");
       
       // Try to fetch room details again with more data
       try {
         const fullRoom = await getRoomById(roomData.id.toString());
-        console.log("🔄 [DEBUG] Full room fetch response:", fullRoom);
         
         let fullRoomData: any = null;
         if (fullRoom && (fullRoom as any).success && (fullRoom as any).data) {
@@ -1418,7 +1397,6 @@ const refreshRoomData = useCallback(async () => {
         if (fullRoomData?.property_id) {
           roomData.property_id = fullRoomData.property_id;
           propertyId = fullRoomData.property_id;
-          console.log("🔄 [DEBUG] ✅ Found property_id from full fetch:", propertyId);
         } else {
           console.error("❌ [DEBUG] Still no property_id in full fetch:", fullRoomData);
         }
@@ -1429,12 +1407,10 @@ const refreshRoomData = useCallback(async () => {
     
     // ✅ If still no property_id, try to find it from roomData's property_name or other fields
     if (!propertyId) {
-      console.warn("⚠️ [DEBUG] No property_id found. Checking other sources...");
       
       // Try to find property_id from roomData if it has property object
       if (roomData?.property?.id) {
         propertyId = roomData.property.id;
-        console.log("🔄 [DEBUG] Found property_id from roomData.property.id:", propertyId);
       }
       
       // Try to find from rooms list (if available via props)
@@ -1443,22 +1419,18 @@ const refreshRoomData = useCallback(async () => {
         const foundInList = rooms?.find((r: any) => r.id === room.id);
         if (foundInList?.property_id) {
           propertyId = foundInList.property_id;
-          console.log("🔄 [DEBUG] Found property_id from rooms list:", propertyId);
         }
       }
     }
     
     // ✅ Only fetch vacate requests if we have a valid property_id
     if (propertyId) {
-      console.log("🔄 [DEBUG] ✅ Valid property_id found:", propertyId);
-      console.log("🔄 [DEBUG] Fetching vacate requests with property_id:", propertyId);
       
       try {
         const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-        console.log("🔄 [DEBUG] Using token:", token ? "✅ Token exists" : "❌ No token found");
+       
         
         const vacateUrl = `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`;
-        console.log("🔄 [DEBUG] Vacate request URL:", vacateUrl);
         
         const vacateRes = await fetch(vacateUrl, {
           headers: {
@@ -1467,27 +1439,21 @@ const refreshRoomData = useCallback(async () => {
           },
         });
         
-        console.log("🔄 [DEBUG] Vacate response status:", vacateRes.status);
         const vacateData = await vacateRes.json();
-        console.log("🔄 [DEBUG] Vacate response data:", vacateData);
 
         if (vacateData.success && Array.isArray(vacateData.data)) {
-          console.log("🔄 [DEBUG] ✅ Found vacate requests:", vacateData.data.length);
           
           const vacateDateMap: Record<number, string> = {};
           
           vacateData.data.forEach((req: any) => {
             const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
-            console.log(`🔄 [DEBUG] Request ${req.id}: bed_id=${req.bed_id}, vacate_status=${req.vacate_status}, isCompleted=${isCompleted}`);
             
             if (req.bed_id && req.expected_vacate_date && !isCompleted) {
               vacateDateMap[req.bed_id] = req.expected_vacate_date;
-              console.log(`🔄 [DEBUG] ✅ Adding vacate date for bed ${req.bed_id}: ${req.expected_vacate_date}`);
             }
           });
 
           const beforeBeds = beds.map(b => ({ id: b.id, expected_vacate_date: b.expected_vacate_date }));
-          console.log("🔄 [DEBUG] Before merging vacate dates:", beforeBeds);
 
           beds = beds.map((bed) => ({
             ...bed,
@@ -1495,7 +1461,6 @@ const refreshRoomData = useCallback(async () => {
           }));
           
           const afterBeds = beds.map(b => ({ id: b.id, expected_vacate_date: b.expected_vacate_date }));
-          console.log("🔄 [DEBUG] After merging vacate dates:", afterBeds);
           
         } else {
           console.warn("⚠️ [DEBUG] No vacate requests found or invalid response:", vacateData);
@@ -1511,7 +1476,6 @@ const refreshRoomData = useCallback(async () => {
     }
 
     // Fetch pre-assignment data
-    console.log("🔄 [DEBUG] Fetching pre-assignment data...");
     try {
       const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
       const bedsRes = await fetch(
@@ -1523,7 +1487,6 @@ const refreshRoomData = useCallback(async () => {
         },
       );
       const bedsData = await bedsRes.json();
-      console.log("🔄 [DEBUG] Pre-assignment response:", bedsData);
 
       if (bedsData.success && Array.isArray(bedsData.data)) {
         const preAssignMap: Record<number, any> = {};
@@ -1538,7 +1501,6 @@ const refreshRoomData = useCallback(async () => {
         });
 
         const beforePreAssign = beds.map(b => ({ id: b.id, pre_assigned_tenant_id: b.pre_assigned_tenant_id }));
-        console.log("🔄 [DEBUG] Before pre-assign merge:", beforePreAssign);
 
         beds = beds.map((bed) => ({
           ...bed,
@@ -1546,28 +1508,18 @@ const refreshRoomData = useCallback(async () => {
         }));
         
         const afterPreAssign = beds.map(b => ({ id: b.id, pre_assigned_tenant_id: b.pre_assigned_tenant_id }));
-        console.log("🔄 [DEBUG] After pre-assign merge:", afterPreAssign);
       }
     } catch (preErr) {
       console.error("❌ [DEBUG] Could not fetch pre-assignment data:", preErr);
     }
 
-    console.log("🔄 [DEBUG] Final beds data:", beds.map(b => ({
-      id: b.id,
-      bed_number: b.bed_number,
-      is_available: b.is_available,
-      tenant_id: b.tenant_id,
-      expected_vacate_date: b.expected_vacate_date,
-      pre_assigned_tenant_id: b.pre_assigned_tenant_id,
-    })));
+
 
     setBedAssignments(beds);
     if (onRoomUpdate) {
-      console.log("🔄 [DEBUG] Calling onRoomUpdate with updated data");
       onRoomUpdate({ ...roomData, bed_assignments: beds });
     }
     
-    console.log("🔄 [DEBUG] ✅ refreshRoomData completed successfully");
     setLoading(false);
   } catch (error) {
     console.error("❌ [DEBUG] Error refreshing room:", error);

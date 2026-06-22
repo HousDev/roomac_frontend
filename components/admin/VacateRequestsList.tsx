@@ -1704,12 +1704,12 @@ const calculatePenalties = (request: VacateRequest) => {
                   <SelectItem value="approved">Approve</SelectItem>
                   <SelectItem value="rejected">Reject</SelectItem>
                   {/* <SelectItem value="cancelled">Cancel</SelectItem> */}
-                  {/* <SelectItem value="completed">Mark as Completed</SelectItem> */}
+                  <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {statusUpdateData.status === 'completed' && (
+            {/* {statusUpdateData.status === 'completed' && (
               <>
                 <div>
                   <Label htmlFor="actual_vacate_date" className="text-sm">Actual Vacate Date</Label>
@@ -1733,7 +1733,7 @@ const calculatePenalties = (request: VacateRequest) => {
                   />
                 </div>
               </>
-            )}
+            )} */}
 
             <div>
               <Label htmlFor="admin_notes" className="text-sm">Admin Notes</Label>

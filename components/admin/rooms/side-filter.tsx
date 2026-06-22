@@ -261,17 +261,12 @@ const loadVacatingSoonBeds = async (date: string) => {
         .filter((req: any) => {
           if (!req.expected_vacate_date) return false;
           
-          // ✅ SKIP completed or cancelled requests
-          const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
-          if (isCompleted) return false;
+          // ✅ Skip completed, cancelled, or rejected requests
+          const skipStatuses = ['completed', 'cancelled', 'rejected'];
+          if (skipStatuses.includes(req.vacate_status)) return false;
           
-          // ✅ IMPORTANT: Check if the bed is actually still occupied
-          // If the bed has been pre-assigned and is now occupied, skip it
-          if (req.is_available === true) return false;
-          
-          // ✅ Also check if the tenant has already been vacated
-          // This happens when pre-assignment happened during vacate
-          if (req.tenant_vacated === true) return false;
+          // ✅ Skip if bed is already available (pre-assigned tenant swapped in)
+          if (req.is_available === true || req.is_available === 1) return false;
           
           const vacateDate = new Date(req.expected_vacate_date);
           return vacateDate <= targetDate;
@@ -551,7 +546,7 @@ useEffect(() => {
                                 onSelectVacatingBed?.(bed.bed_assignment_id, bed.room_id);
                                 onOpenChange(false);
                               }}
-                              className="w-full text-left p-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors group"
+                              className="w-full text-left p-2 bg-amber-50 border border-amber-200 rounded-lg"
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -571,7 +566,7 @@ useEffect(() => {
                                   {new Date(bed.vacate_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                                 </Badge>
                               </div>
-                              <div className="mt-1 text-[9px] text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="mt-1 text-[9px] text-amber-600">
                                 Click to manage this bed
                               </div>
                             </button>

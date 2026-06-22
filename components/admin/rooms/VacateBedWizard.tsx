@@ -236,15 +236,26 @@ export function VacateBedWizard({
     }
   }, [open, bedAssignment, existingVacateRequest]);
 
-  useEffect(() => {
-    if (tenantVacateDate && open) {
-      const formattedDate = formatDateForInput(tenantVacateDate);
-      setFormData((prev) => ({
-        ...prev,
-        requestedVacateDate: formattedDate,
-      }));
-    }
-  }, [tenantVacateDate, open]);
+useEffect(() => {
+  if (!open) return;
+  
+  if (tenantVacateDate) {
+    // Tenant has a requested date — use it
+    const formattedDate = formatDateForInput(tenantVacateDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  } else if (existingVacateRequest === null) {
+    // Confirmed no tenant request exists — default to today
+    const today = new Date().toISOString().split("T")[0];
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: today,
+    }));
+  }
+  // If existingVacateRequest === undefined, still loading — don't set anything yet
+}, [tenantVacateDate, existingVacateRequest, open]);
 
   useEffect(() => {
     if (tenantVacateData && initialData && open) {
@@ -402,19 +413,34 @@ useEffect(() => {
   }
 }, [open, tenantDetails?.id, checkExistingPayments]);
 
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    } catch (e) {
-      console.error("Error formatting date:", e);
+const formatDateForInput = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    // ✅ If the date is in ISO format with time, extract just the date part
+    // This prevents timezone offset issues
+    if (dateString.includes('T')) {
+      const datePart = dateString.split('T')[0];
+      if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return datePart;
+      }
+    }
+    
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return dateString;
     }
-  };
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return "";
+  }
+};
 
   const checkIfLockinCompleted = async (): Promise<boolean> => {
     try {
@@ -450,35 +476,37 @@ useEffect(() => {
     }
   };
 
-  const extractTenantVacateData = async (vacateRequests: any[]) => {
-    if (!vacateRequests || vacateRequests.length === 0) return null;
+const extractTenantVacateData = async (vacateRequests: any[]) => {
+  if (!vacateRequests || vacateRequests.length === 0) return null;
 
-    // Get the most recent request (by created date)
-    const sortedRequests = [...vacateRequests].sort(
-      (a, b) =>
-        new Date(b.vacate_request_date).getTime() -
-        new Date(a.vacate_request_date).getTime(),
-    );
-    const latestRequest = sortedRequests[0];
+  const sortedRequests = [...vacateRequests].sort(
+    (a, b) =>
+      new Date(b.vacate_request_date).getTime() -
+      new Date(a.vacate_request_date).getTime(),
+  );
+  const latestRequest = sortedRequests[0];
 
-    const requestWithId = {
-      ...latestRequest,
-      id: latestRequest.vacate_request_id,
-      status: latestRequest.vacate_status, // Use vacate_status instead of request_status
-      created_at: latestRequest.vacate_request_date,
-    };
+  const requestWithId = {
+    ...latestRequest,
+    id: latestRequest.vacate_request_id,
+    status: latestRequest.vacate_status,
+    created_at: latestRequest.vacate_request_date,
+  };
 
-    setTenantVacateData(requestWithId);
+  setTenantVacateData(requestWithId);
 
-    if (latestRequest.expected_vacate_date) {
-      const tenantDate = latestRequest.expected_vacate_date;
-      setTenantVacateDate(tenantDate);
-      const formattedDate = formatDateForInput(tenantDate);
-      setFormData((prev) => ({
-        ...prev,
-        requestedVacateDate: formattedDate,
-      }));
-    }
+  // ✅ Extract the date correctly
+  if (latestRequest.expected_vacate_date) {
+    const tenantDate = latestRequest.expected_vacate_date;
+    console.log("📅 Extracted tenant vacate date:", tenantDate);
+    setTenantVacateDate(tenantDate);
+    const formattedDate = formatDateForInput(tenantDate);
+    console.log("📅 Formatted date for input:", formattedDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  }
 
     if (latestRequest.vacate_request_date) {
       const requestDate = latestRequest.vacate_request_date.split("T")[0];
@@ -858,14 +886,14 @@ useEffect(() => {
         await fetchPartnerDetails(data.bedAssignment.tenant_id);
       }
 
-    if (!tenantVacateDate) {
-  const today = new Date();
-  const formattedDate = today.toISOString().split("T")[0];
-  setFormData((prev) => ({
-    ...prev,
-    requestedVacateDate: formattedDate,
-  }));
-}
+//     if (!tenantVacateDate) {
+//   const today = new Date();
+//   const formattedDate = today.toISOString().split("T")[0];
+//   setFormData((prev) => ({
+//     ...prev,
+//     requestedVacateDate: formattedDate,
+//   }));
+// }
     } catch (error) {
       console.error("Error loading initial data:", error);
       const errorMessage =
@@ -1726,11 +1754,11 @@ const calculateNoticePeriodStatus = () => {
           originalSecurityDeposit,
         );
 
-       if (allTenantsVacated) {
+if (allTenantsVacated) {
   // ✅ CHECK if bed was reassigned to a pre-assigned tenant
-  // The server already did the swap, so we need to check the current state
   let hasPreAssignment = false;
   let currentTenantId = null;
+  let bedIsOccupied = false;
   
   try {
     const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
@@ -1748,6 +1776,7 @@ const calculateNoticePeriodStatus = () => {
     if (checkData.success && checkData.data && checkData.data.length > 0) {
       const bedData = checkData.data[0];
       currentTenantId = bedData.tenant_id;
+      bedIsOccupied = bedData.is_available === 0 || bedData.is_available === false;
       // If tenant_id is not null, a pre-assigned tenant was swapped in
       if (currentTenantId) {
         hasPreAssignment = true;
@@ -1758,9 +1787,13 @@ const calculateNoticePeriodStatus = () => {
     console.warn('Could not check bed state:', err);
   }
 
-  if (hasPreAssignment) {
+  // ✅ Check if the tenant on the bed is the pre-assigned one (or any tenant)
+  // We should NOT mark as available if the bed has a tenant (pre-assigned swap happened)
+  if (hasPreAssignment || bedIsOccupied) {
     // ✅ Bed already has a new (pre-assigned) tenant — don't touch it
-    console.log("✅ Skipping updateBedAssignment - pre-assigned tenant already assigned");
+    console.log("✅ Skipping updateBedAssignment - bed already has tenant (pre-assigned swap or occupied)");
+    // ✅ Just update the room occupancy count via the refresh
+    // No need to call updateBedAssignment
   } else {
     // ✅ No pre-assignment happened — proceed with normal clear
     await updateBedAssignment(bedAssignment.id.toString(), {
@@ -2984,58 +3017,59 @@ const calculateNoticePeriodStatus = () => {
               </div>
             )}
             {/* STEP 5: VACATE DATE */}
-            {step === 6 && (
-              <div className="space-y-4 p-2">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-1 text-sm">
-                    Select Vacate Date
-                  </h3>
-                  <p className="text-xs text-blue-700">
-                    Set the actual vacate date for processing.
-                  </p>
-                </div>
+{step === 6 && (
+  <div className="space-y-4 p-2">
+    <div className="bg-blue-50 p-3 rounded-lg">
+      <h3 className="font-medium text-blue-800 mb-1 text-sm">
+        Select Vacate Date
+      </h3>
+      <p className="text-xs text-blue-700">
+        Set the actual vacate date for processing.
+      </p>
+    </div>
 
-                {tenantVacateDate && (
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">
-                        Tenant requested vacate date:{" "}
-                        {formatDate(tenantVacateDate)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-700 mt-1">
-                      You can use this date or select a different one.
-                    </p>
-                  </div>
-                )}
+    {tenantVacateDate && (
+      <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3 w-3 text-amber-600" />
+          <span className="text-sm font-medium text-amber-800">
+            Tenant requested vacate date: {formatDate(tenantVacateDate)}
+          </span>
+        </div>
+        <p className="text-xs text-amber-700 mt-1">
+          This date has been auto-filled. You can change it if needed.
+        </p>
+      </div>
+    )}
 
-                <div>
-                  <Label className="text-sm font-medium mb-1.5 block">
-                    Actual Vacate Date*
-                  </Label>
-                <Input 
-  type="date" 
-  value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
-  onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)} 
-  required 
-  className="h-9" 
-/>
-                  <div className="text-xs text-gray-500 mt-2">
-                    <div>
-                      • This is the actual date tenant will vacate the bed
-                    </div>
-                    <div>• Should be at least today's date</div>
-                    {tenantVacateDate && (
-                      <div className="text-blue-600">
-                        • Tenant originally requested:{" "}
-                        {formatDate(tenantVacateDate)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+    <div>
+      <Label className="text-sm font-medium mb-1.5 block">
+        Actual Vacate Date*
+      </Label>
+      <Input 
+        type="date" 
+        value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
+        onChange={(e) => {
+          console.log("📅 Date input changed to:", e.target.value);
+          handleInputChange("requestedVacateDate", e.target.value);
+        }} 
+        required 
+        className="h-9" 
+      />
+      <div className="text-xs text-gray-500 mt-2">
+        <div>
+          • This is the actual date tenant will vacate the bed
+        </div>
+        <div>• Should be at least today's date</div>
+        {tenantVacateDate && (
+          <div className="text-blue-600">
+            • Tenant originally requested: {formatDate(tenantVacateDate)}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
             {step === 7 && calculation && (
               <div className="space-y-4 p-2">
