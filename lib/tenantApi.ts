@@ -161,6 +161,8 @@ original_id?: number;
     created_at: string;
   }>;
    total_refunded?: number;  
+   total_pending? : number;
+   security_deposit? : number; 
 };
 
 // Add to Property type

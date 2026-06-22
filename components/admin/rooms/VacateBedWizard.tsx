@@ -236,15 +236,26 @@ export function VacateBedWizard({
     }
   }, [open, bedAssignment, existingVacateRequest]);
 
-  useEffect(() => {
-    if (tenantVacateDate && open) {
-      const formattedDate = formatDateForInput(tenantVacateDate);
-      setFormData((prev) => ({
-        ...prev,
-        requestedVacateDate: formattedDate,
-      }));
-    }
-  }, [tenantVacateDate, open]);
+useEffect(() => {
+  if (!open) return;
+  
+  if (tenantVacateDate) {
+    // Tenant has a requested date — use it
+    const formattedDate = formatDateForInput(tenantVacateDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  } else if (existingVacateRequest === null) {
+    // Confirmed no tenant request exists — default to today
+    const today = new Date().toISOString().split("T")[0];
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: today,
+    }));
+  }
+  // If existingVacateRequest === undefined, still loading — don't set anything yet
+}, [tenantVacateDate, existingVacateRequest, open]);
 
   useEffect(() => {
     if (tenantVacateData && initialData && open) {
@@ -402,19 +413,34 @@ useEffect(() => {
   }
 }, [open, tenantDetails?.id, checkExistingPayments]);
 
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    } catch (e) {
-      console.error("Error formatting date:", e);
+const formatDateForInput = (dateString: string) => {
+  if (!dateString) return "";
+  try {
+    // ✅ If the date is in ISO format with time, extract just the date part
+    // This prevents timezone offset issues
+    if (dateString.includes('T')) {
+      const datePart = dateString.split('T')[0];
+      if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return datePart;
+      }
+    }
+    
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return dateString;
     }
-  };
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return "";
+  }
+};
 
   const checkIfLockinCompleted = async (): Promise<boolean> => {
     try {
@@ -450,35 +476,37 @@ useEffect(() => {
     }
   };
 
-  const extractTenantVacateData = async (vacateRequests: any[]) => {
-    if (!vacateRequests || vacateRequests.length === 0) return null;
+const extractTenantVacateData = async (vacateRequests: any[]) => {
+  if (!vacateRequests || vacateRequests.length === 0) return null;
 
-    // Get the most recent request (by created date)
-    const sortedRequests = [...vacateRequests].sort(
-      (a, b) =>
-        new Date(b.vacate_request_date).getTime() -
-        new Date(a.vacate_request_date).getTime(),
-    );
-    const latestRequest = sortedRequests[0];
+  const sortedRequests = [...vacateRequests].sort(
+    (a, b) =>
+      new Date(b.vacate_request_date).getTime() -
+      new Date(a.vacate_request_date).getTime(),
+  );
+  const latestRequest = sortedRequests[0];
 
-    const requestWithId = {
-      ...latestRequest,
-      id: latestRequest.vacate_request_id,
-      status: latestRequest.vacate_status, // Use vacate_status instead of request_status
-      created_at: latestRequest.vacate_request_date,
-    };
+  const requestWithId = {
+    ...latestRequest,
+    id: latestRequest.vacate_request_id,
+    status: latestRequest.vacate_status,
+    created_at: latestRequest.vacate_request_date,
+  };
 
-    setTenantVacateData(requestWithId);
+  setTenantVacateData(requestWithId);
 
-    if (latestRequest.expected_vacate_date) {
-      const tenantDate = latestRequest.expected_vacate_date;
-      setTenantVacateDate(tenantDate);
-      const formattedDate = formatDateForInput(tenantDate);
-      setFormData((prev) => ({
-        ...prev,
-        requestedVacateDate: formattedDate,
-      }));
-    }
+  // ✅ Extract the date correctly
+  if (latestRequest.expected_vacate_date) {
+    const tenantDate = latestRequest.expected_vacate_date;
+    console.log("📅 Extracted tenant vacate date:", tenantDate);
+    setTenantVacateDate(tenantDate);
+    const formattedDate = formatDateForInput(tenantDate);
+    console.log("📅 Formatted date for input:", formattedDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  }
 
     if (latestRequest.vacate_request_date) {
       const requestDate = latestRequest.vacate_request_date.split("T")[0];
@@ -858,14 +886,14 @@ useEffect(() => {
         await fetchPartnerDetails(data.bedAssignment.tenant_id);
       }
 
-    if (!tenantVacateDate) {
-  const today = new Date();
-  const formattedDate = today.toISOString().split("T")[0];
-  setFormData((prev) => ({
-    ...prev,
-    requestedVacateDate: formattedDate,
-  }));
-}
+//     if (!tenantVacateDate) {
+//   const today = new Date();
+//   const formattedDate = today.toISOString().split("T")[0];
+//   setFormData((prev) => ({
+//     ...prev,
+//     requestedVacateDate: formattedDate,
+//   }));
+// }
     } catch (error) {
       console.error("Error loading initial data:", error);
       const errorMessage =
@@ -1726,22 +1754,63 @@ const calculateNoticePeriodStatus = () => {
           originalSecurityDeposit,
         );
 
-        if (allTenantsVacated) {
-          // Both tenants vacated - mark bed as available but preserve rent
-          await updateBedAssignment(bedAssignment.id.toString(), {
-            tenant_id: null,
-            tenant_gender: null,
-            is_available: true,
-            tenant_rent: originalBedRent,
-            is_couple: false,
-            security_deposit: null,
-            vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
-          });
-          console.log(
-            "✅ Both tenants vacated - Bed marked as available with rent preserved:",
-            originalBedRent,
-          );
-        } else {
+if (allTenantsVacated) {
+  // ✅ CHECK if bed was reassigned to a pre-assigned tenant
+  let hasPreAssignment = false;
+  let currentTenantId = null;
+  let bedIsOccupied = false;
+  
+  try {
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+    const checkRes = await fetch(
+      `/api/rooms/bed-assignments?bed_id=${bedAssignment.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const checkData = await checkRes.json();
+    
+    if (checkData.success && checkData.data && checkData.data.length > 0) {
+      const bedData = checkData.data[0];
+      currentTenantId = bedData.tenant_id;
+      bedIsOccupied = bedData.is_available === 0 || bedData.is_available === false;
+      // If tenant_id is not null, a pre-assigned tenant was swapped in
+      if (currentTenantId) {
+        hasPreAssignment = true;
+        console.log(`✅ Bed ${bedAssignment.id} already has tenant ${currentTenantId} (pre-assigned swap)`);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not check bed state:', err);
+  }
+
+  // ✅ Check if the tenant on the bed is the pre-assigned one (or any tenant)
+  // We should NOT mark as available if the bed has a tenant (pre-assigned swap happened)
+  if (hasPreAssignment || bedIsOccupied) {
+    // ✅ Bed already has a new (pre-assigned) tenant — don't touch it
+    console.log("✅ Skipping updateBedAssignment - bed already has tenant (pre-assigned swap or occupied)");
+    // ✅ Just update the room occupancy count via the refresh
+    // No need to call updateBedAssignment
+  } else {
+    // ✅ No pre-assignment happened — proceed with normal clear
+    await updateBedAssignment(bedAssignment.id.toString(), {
+      tenant_id: null,
+      tenant_gender: null,
+      is_available: true,
+      tenant_rent: originalBedRent,
+      is_couple: false,
+      security_deposit: null,
+      vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
+    });
+    console.log(
+      "✅ Both tenants vacated - Bed marked as available with rent preserved:",
+      originalBedRent,
+    );
+  }
+} else {
           // Only one tenant vacated - update bed to remaining tenant
           const remainingTenant = tenantsToVacate.find((t) => !t.selected);
           if (remainingTenant) {
@@ -2464,41 +2533,57 @@ const calculateNoticePeriodStatus = () => {
                   </CardContent>
                 </Card>
 
-                {/* Admin Override for Lock-in */}
-                <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="adminOverrideLockin"
-                    checked={isAdminOverrideLockin}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsAdminOverrideLockin(checked);
-                      if (checked) {
-                        toast.info(
-                          "Admin override enabled - Lock-in penalty will be waived",
-                        );
-                      } else {
-                        toast.info(
-                          "Admin override disabled - Standard lock-in rules apply",
-                        );
-                      }
-                      calculateAllPenalties();
-                    }}
-                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor="adminOverrideLockin"
-                      className="font-medium text-purple-800"
-                    >
-                      Admin Override - Waive Lock-in Penalty
-                    </Label>
-                    <p className="text-xs text-purple-600 mt-0.5">
-                      Check this to bypass lock-in penalty regardless of
-                      completion status.
-                    </p>
-                  </div>
-                </div>
+                {/* Admin Override for Lock-in - Only show if penalty is applicable */}
+{lockinStatus && lockinStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+    <input
+      type="checkbox"
+      id="adminOverrideLockin"
+      checked={isAdminOverrideLockin}
+      onChange={(e) => {
+        const checked = e.target.checked;
+        setIsAdminOverrideLockin(checked);
+        if (checked) {
+          toast.info(
+            "Admin override enabled - Lock-in penalty will be waived",
+          );
+        } else {
+          toast.info(
+            "Admin override disabled - Standard lock-in rules apply",
+          );
+        }
+        calculateAllPenalties();
+      }}
+      className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+    />
+    <div className="flex-1">
+      <Label
+        htmlFor="adminOverrideLockin"
+        className="font-medium text-purple-800"
+      >
+        Admin Override - Waive Lock-in Penalty
+      </Label>
+      <p className="text-xs text-purple-600 mt-0.5">
+        Check this to bypass lock-in penalty regardless of completion status.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* If lock-in is completed, show a green success message instead */}
+{lockinStatus && lockinStatus.isCompleted && !lockinStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-green-800">
+        ✓ Lock-in Period Completed
+      </Label>
+      <p className="text-xs text-green-700 mt-0.5">
+        No lock-in penalty applicable. Admin override is not needed.
+      </p>
+    </div>
+  </div>
+)}
 
                 {/* Tenant Agreement Status for Lock-in */}
                 {existingVacateRequest && !isAdminOverrideLockin && (
@@ -2737,41 +2822,77 @@ const calculateNoticePeriodStatus = () => {
                   </CardContent>
                 </Card>
 
-                {/* Admin Override for Notice */}
-                <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="adminOverrideNotice"
-                    checked={isAdminOverrideNotice}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsAdminOverrideNotice(checked);
-                      if (checked) {
-                        toast.info(
-                          "Admin override enabled - Notice period penalty will be waived",
-                        );
-                      } else {
-                        toast.info(
-                          "Admin override disabled - Standard notice period rules apply",
-                        );
-                      }
-                      calculateAllPenalties();
-                    }}
-                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor="adminOverrideNotice"
-                      className="font-medium text-purple-800"
-                    >
-                      Admin Override - Waive Notice Period Penalty
-                    </Label>
-                    <p className="text-xs text-purple-600 mt-0.5">
-                      Check this to bypass notice period penalty regardless of
-                      completion status.
-                    </p>
-                  </div>
-                </div>
+                {/* Admin Override for Notice - Only show if penalty is applicable */}
+{noticePeriodStatus && noticePeriodStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+    <input
+      type="checkbox"
+      id="adminOverrideNotice"
+      checked={isAdminOverrideNotice}
+      onChange={(e) => {
+        const checked = e.target.checked;
+        setIsAdminOverrideNotice(checked);
+        if (checked) {
+          toast.info(
+            "Admin override enabled - Notice period penalty will be waived",
+          );
+        } else {
+          toast.info(
+            "Admin override disabled - Standard notice period rules apply",
+          );
+        }
+        calculateAllPenalties();
+      }}
+      className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+    />
+    <div className="flex-1">
+      <Label
+        htmlFor="adminOverrideNotice"
+        className="font-medium text-purple-800"
+      >
+        Admin Override - Waive Notice Period Penalty
+      </Label>
+      <p className="text-xs text-purple-600 mt-0.5">
+        Check this to bypass notice period penalty regardless of completion status.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* If notice is completed, show a green success message instead */}
+{noticePeriodStatus && noticePeriodStatus.isCompleted && !noticePeriodStatus.penaltyApplicable && (
+  <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-green-800">
+        ✓ Notice Period Completed
+      </Label>
+      <p className="text-xs text-green-700 mt-0.5">
+        No notice period penalty applicable. Admin override is not needed.
+      </p>
+    </div>
+  </div>
+)}
+
+{/* Also show if lock-in is NOT completed - notice penalty applies */}
+{noticePeriodStatus && !noticePeriodStatus.isLockinCompleted && (
+  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+    <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <Label className="font-medium text-red-800">
+        ⚠️ Early Vacate - Lock-in Not Completed
+      </Label>
+      <p className="text-xs text-red-700 mt-0.5">
+        Since lock-in period is not completed, notice period penalty applies in full.
+        {noticePeriodStatus && noticePeriodStatus.penaltyApplicable && (
+          <span className="block mt-1 font-semibold">
+            Penalty: {formatCurrency(noticePeriodStatus?.penalty?.calculatedAmount || 0)}
+          </span>
+        )}
+      </p>
+    </div>
+  </div>
+)}
 
                 {/* Tenant Agreement Status for Notice */}
                 {existingVacateRequest && !isAdminOverrideNotice && (
@@ -2896,58 +3017,59 @@ const calculateNoticePeriodStatus = () => {
               </div>
             )}
             {/* STEP 5: VACATE DATE */}
-            {step === 6 && (
-              <div className="space-y-4 p-2">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-1 text-sm">
-                    Select Vacate Date
-                  </h3>
-                  <p className="text-xs text-blue-700">
-                    Set the actual vacate date for processing.
-                  </p>
-                </div>
+{step === 6 && (
+  <div className="space-y-4 p-2">
+    <div className="bg-blue-50 p-3 rounded-lg">
+      <h3 className="font-medium text-blue-800 mb-1 text-sm">
+        Select Vacate Date
+      </h3>
+      <p className="text-xs text-blue-700">
+        Set the actual vacate date for processing.
+      </p>
+    </div>
 
-                {tenantVacateDate && (
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">
-                        Tenant requested vacate date:{" "}
-                        {formatDate(tenantVacateDate)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-700 mt-1">
-                      You can use this date or select a different one.
-                    </p>
-                  </div>
-                )}
+    {tenantVacateDate && (
+      <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3 w-3 text-amber-600" />
+          <span className="text-sm font-medium text-amber-800">
+            Tenant requested vacate date: {formatDate(tenantVacateDate)}
+          </span>
+        </div>
+        <p className="text-xs text-amber-700 mt-1">
+          This date has been auto-filled. You can change it if needed.
+        </p>
+      </div>
+    )}
 
-                <div>
-                  <Label className="text-sm font-medium mb-1.5 block">
-                    Actual Vacate Date*
-                  </Label>
-                <Input 
-  type="date" 
-  value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
-  onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)} 
-  required 
-  className="h-9" 
-/>
-                  <div className="text-xs text-gray-500 mt-2">
-                    <div>
-                      • This is the actual date tenant will vacate the bed
-                    </div>
-                    <div>• Should be at least today's date</div>
-                    {tenantVacateDate && (
-                      <div className="text-blue-600">
-                        • Tenant originally requested:{" "}
-                        {formatDate(tenantVacateDate)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+    <div>
+      <Label className="text-sm font-medium mb-1.5 block">
+        Actual Vacate Date*
+      </Label>
+      <Input 
+        type="date" 
+        value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
+        onChange={(e) => {
+          console.log("📅 Date input changed to:", e.target.value);
+          handleInputChange("requestedVacateDate", e.target.value);
+        }} 
+        required 
+        className="h-9" 
+      />
+      <div className="text-xs text-gray-500 mt-2">
+        <div>
+          • This is the actual date tenant will vacate the bed
+        </div>
+        <div>• Should be at least today's date</div>
+        {tenantVacateDate && (
+          <div className="text-blue-600">
+            • Tenant originally requested: {formatDate(tenantVacateDate)}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
             {step === 7 && calculation && (
               <div className="space-y-4 p-2">

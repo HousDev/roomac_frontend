@@ -56,7 +56,13 @@ interface Tenant {
   email: string;
   phone?: string;
   property_name?: string;
-  room_number?: string;
+  room_number?: string | number;
+  bed_number?: string | number;
+  current_assignment?: {
+    room_number: string;
+    property_name: string;
+    bed_number: number;
+  };
 }
 
 export default function NoticePeriodRequestsPage() {
@@ -112,17 +118,28 @@ const [itemsPerPage, setItemsPerPage] = useState<number>(10);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter tenants based on search (computed, not state)
-  const getFilteredTenants = () => {
-    if (!tenantSearch.trim()) return tenants;
-    const query = tenantSearch.toLowerCase();
-    return tenants.filter(tenant => 
-      tenant.full_name.toLowerCase().includes(query) ||
-      tenant.email?.toLowerCase().includes(query) ||
-      tenant.phone?.includes(query) ||
-      tenant.property_name?.toLowerCase().includes(query)
-    );
-  };
+  // Filter tenants based on search
+// Filter tenants based on search - FIXED VERSION
+const getFilteredTenants = () => {
+  if (!tenantSearch.trim()) return tenants;
+  const query = tenantSearch.toLowerCase();
+  return tenants.filter(tenant => {
+    // Safely convert all values to strings before calling toLowerCase
+    const fullName = String(tenant.full_name || '').toLowerCase();
+    const email = String(tenant.email || '').toLowerCase();
+    const phone = String(tenant.phone || '');
+    const propertyName = String(tenant.property_name || '').toLowerCase();
+    const roomNumber = String(tenant.room_number || '').toLowerCase();
+    const bedNumber = String(tenant.bed_number || '');
+    
+    return fullName.includes(query) ||
+           email.includes(query) ||
+           phone.includes(query) ||
+           propertyName.includes(query) ||
+           roomNumber.includes(query) ||
+           bedNumber.includes(query);
+  });
+};
 
   const loadRequests = async () => {
     try {
@@ -140,18 +157,32 @@ const [itemsPerPage, setItemsPerPage] = useState<number>(10);
     }
   };
 
-  const loadTenants = async () => {
-    try {
-      const res = await fetch("/api/tenants?is_active=true&include_deleted=false");
-      const data = await res.json();
-      if (data.success) {
-        setTenants(data.data);
-      }
-    } catch (error) {
-      console.error('Error loading tenants:', error);
-      setTenants([]);
+const loadTenants = async () => {
+  try {
+    // Use the existing /api/tenants endpoint with a larger page size to get all tenants
+    const res = await fetch("/api/tenants?page=1&pageSize=1000&is_active=true");
+    const data = await res.json();
+    if (data.success) {
+      // Transform the data to include room details from current_assignment
+      const transformedTenants = data.data.map((tenant: any) => ({
+        id: tenant.id,
+        full_name: tenant.full_name,
+        email: tenant.email,
+        phone: tenant.phone,
+        // Get room details from current_assignment
+        room_number: tenant.current_assignment?.room_number || 'N/A',
+        property_name: tenant.current_assignment?.property_name || 'N/A',
+        bed_number: tenant.current_assignment?.bed_number || 'N/A',
+        // Keep the original assignment object if needed
+        current_assignment: tenant.current_assignment || null
+      }));
+      setTenants(transformedTenants);
     }
-  };
+  } catch (error) {
+    console.error('Error loading tenants:', error);
+    setTenants([]);
+  }
+};
 
   const handleViewRequest = (request: NoticePeriodRequest) => {
     setSelectedRequest(request);
@@ -792,34 +823,48 @@ const currentPageItems = itemsPerPage === 9999
               
               <div className="relative" ref={tenantDropdownRef}>
                 {/* Selected Tenant Display */}
-                <div
-                  className="w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors"
-                  onClick={() => {
-                    setIsTenantDropdownOpen(!isTenantDropdownOpen);
-                    setTimeout(() => {
-                      if (tenantSearchRef.current && !isTenantDropdownOpen) {
-                        tenantSearchRef.current.focus();
-                      }
-                    }, 50);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    {selectedTenant ? (
-                      <>
-                        <User className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm">
-                          {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          ({tenants.find(t => t.id.toString() === selectedTenant)?.email})
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-sm text-gray-400">Select a tenant...</span>
-                    )}
-                  </div>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
-                </div>
+                {/* Selected Tenant Display */}
+<div
+  className="w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors"
+  onClick={() => {
+    setIsTenantDropdownOpen(!isTenantDropdownOpen);
+    setTimeout(() => {
+      if (tenantSearchRef.current && !isTenantDropdownOpen) {
+        tenantSearchRef.current.focus();
+      }
+    }, 50);
+  }}
+>
+  <div className="flex flex-col flex-1 min-w-0">
+    {selectedTenant ? (
+      <>
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
+          <span className="text-sm font-medium truncate">
+            {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
+          </span>
+        </div>
+        {/* Show room, property, bed details for selected tenant */}
+        {(() => {
+          const selected = tenants.find(t => t.id.toString() === selectedTenant);
+          if (selected) {
+            return (
+              <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                <span className="bg-blue-50 px-1.5 py-0.5 rounded">R- {selected.room_number || 'N/A'}</span>
+                <span className="bg-purple-50 px-1.5 py-0.5 rounded">{selected.property_name || 'N/A'}</span>
+                <span className="bg-green-50 px-1.5 py-0.5 rounded">B- {selected.bed_number || 'N/A'}</span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+      </>
+    ) : (
+      <span className="text-sm text-gray-400">Select a tenant...</span>
+    )}
+  </div>
+  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
+</div>
 
                 {/* Dropdown with Search */}
                 {isTenantDropdownOpen && (
@@ -842,46 +887,60 @@ const currentPageItems = itemsPerPage === 9999
                     
                     {/* Tenants List */}
                     <div className="max-h-64 overflow-y-auto">
-                      {getFilteredTenants().length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
-                          No tenants found
-                        </div>
-                      ) : (
-                        getFilteredTenants().map((tenant) => (
-                          <div
-                            key={tenant.id}
-                            className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
-                              selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                            }`}
-                            onClick={() => {
-                              setSelectedTenant(tenant.id.toString());
-                              setIsTenantDropdownOpen(false);
-                              setTenantSearch("");
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-sm text-gray-900">{tenant.full_name}</p>
-                                <p className="text-xs text-gray-500 flex items-center gap-2 mt-1">
-                                  <Mail className="h-3 w-3" />
-                                  {tenant.email}
-                                </p>
-                                {tenant.phone && (
-                                  <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                                    📞 {tenant.phone}
-                                  </p>
-                                )}
-                              </div>
-                              {tenant.property_name && (
-                                <Badge variant="outline" className="text-xs bg-gray-50">
-                                  {tenant.property_name}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
+  {getFilteredTenants().length === 0 ? (
+    <div className="p-4 text-center text-sm text-gray-500">
+      No tenants found
+    </div>
+  ) : (
+    getFilteredTenants().map((tenant) => (
+      <div
+        key={tenant.id}
+        className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
+          selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+        }`}
+        onClick={() => {
+          setSelectedTenant(tenant.id.toString());
+          setIsTenantDropdownOpen(false);
+          setTenantSearch("");
+        }}
+      >
+        <div className="flex flex-col">
+          {/* Tenant Name - Main display */}
+          <p className="font-medium text-sm text-gray-900 flex items-center gap-2">
+            <User className="h-3.5 w-3.5 text-blue-500" />
+            {tenant.full_name}
+          </p>
+          
+          {/* Room & Property Info - Show as badges */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-100">
+              R-{tenant.room_number || 'N/A'}
+            </span>
+            <span className="text-xs bg-purple-50 px-2 py-0.5 rounded-full text-purple-700 border border-purple-100">
+              {tenant.property_name || 'N/A'}
+            </span>
+            <span className="text-xs bg-green-50 px-2 py-0.5 rounded-full text-green-700 border border-green-100">
+              B-{tenant.bed_number || 'N/A'}
+            </span>
+          </div>
+          
+          {/* Email & Phone - Small secondary info */}
+          {/* <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
+            <span className="flex items-center gap-0.5">
+              <Mail className="h-2.5 w-2.5" />
+              {tenant.email}
+            </span>
+            {tenant.phone && (
+              <span className="flex items-center gap-0.5">
+                📞 {tenant.phone}
+              </span>
+            )}
+          </div> */}
+        </div>
+      </div>
+    ))
+  )}
+</div>
                   </div>
                 )}
               </div>
