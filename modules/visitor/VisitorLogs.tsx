@@ -679,12 +679,25 @@ const handleExport = () => {
 
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="sticky top-20 z-10 ">
+          {/* Stats */}
+        <div className="px-0 sm:px-0 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <StatCard title="Total Visitors"    value={stats.total}             icon={Users}        color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+            <StatCard title="Checked In"        value={stats.checked_in}        icon={CheckCircle}  color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
+            <StatCard title="Overstayed"        value={stats.overstayed}        icon={AlertCircle}  color="bg-red-600"    bg="bg-gradient-to-br from-red-50 to-red-100" />
+            <StatCard title="Checked Out Today" value={stats.checked_out_today} icon={XCircle}      color="bg-gray-600"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
+            <StatCard title="Total Checked Out" value={stats.checked_out}       icon={ShieldCheck}  color="bg-cyan-600"   bg="bg-gradient-to-br from-cyan-50 to-cyan-100" />
+          </div>
+        </div>
         <div className="px-0 sm:px-0 pt-0  pb-2 flex items-end justify-end gap-2">
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-
+ <button onClick={loadAll} disabled={loading}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
             <button onClick={() => setSidebarOpen(o => !o)}
               className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200 hover:bg-gray-50'}`}>
               <Filter className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Filters</span>
               {activeCount > 0 && (
@@ -698,21 +711,18 @@ const handleExport = () => {
 
           {can('export_visitor_logs') && (
             <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export</span>
             </button>
           )}
 
-            <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+           
 
             {can('create_visitor') && (
 
             <button onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-cyan-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="xs:inline">New Visitor</span>
             </button>
@@ -720,16 +730,7 @@ const handleExport = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-            <StatCard title="Total Visitors"    value={stats.total}             icon={Users}        color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Checked In"        value={stats.checked_in}        icon={CheckCircle}  color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Overstayed"        value={stats.overstayed}        icon={AlertCircle}  color="bg-red-600"    bg="bg-gradient-to-br from-red-50 to-red-100" />
-            <StatCard title="Checked Out Today" value={stats.checked_out_today} icon={XCircle}      color="bg-gray-600"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
-            <StatCard title="Total Checked Out" value={stats.checked_out}       icon={ShieldCheck}  color="bg-cyan-600"   bg="bg-gradient-to-br from-cyan-50 to-cyan-100" />
-          </div>
-        </div>
+      
       </div>
 
       {/* ── BODY ────────────────────────────────────────────────────────── */}

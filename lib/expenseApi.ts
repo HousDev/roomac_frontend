@@ -153,5 +153,11 @@ export const getExpensePayments = async (expenseId: number) => {
   });
 };
 
-
+export const bulkImportExpenses = async (rows: Record<string, any>[]) => {
+  return await request("/api/expenses/bulk-import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows }),
+  });
+};
 

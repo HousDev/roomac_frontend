@@ -961,6 +961,19 @@ useEffect(() => {
       setActiveTab("basic");
       return false;
     }
+    if (!formData.phone || formData.phone.trim().length !== 10) {
+  toast.error("Phone number must be exactly 10 digits");
+  setActiveTab("basic");
+  return false;
+}
+// Partner phone validation (only if partner details are present)
+if (showPartnerDetails && partnerDetails.full_name && partnerDetails.full_name.trim() !== "") {
+  if (!partnerDetails.phone || partnerDetails.phone.trim().length !== 10) {
+    toast.error("Partner phone number must be exactly 10 digits");
+    setActiveTab("basic");
+    return false;
+  }
+}
     if (!formData.phone.trim()) {
       toast.error("Phone number is required");
       setActiveTab("basic");
@@ -1203,7 +1216,7 @@ if (partnerDetails.full_name) {
     setUploadProgress(100);
 
     if (result.success) {
-      onSuccess(); // Call onSuccess immediately with the returned tenant data
+ // Call onSuccess immediately with the returned tenant data
       // Check if it was a restored tenant
       if (result.restored) {
         toast.success("Existing deleted tenant restored and updated successfully");
@@ -1622,17 +1635,15 @@ if (partnerDetails.full_name) {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          handleInputChange("phone", e.target.value)
-                        }
-                        placeholder="9876543210"
-                        maxLength={10}
-                        required
-                        className={F}
-                      />
+             <Input
+  type="tel"
+  value={formData.phone}
+  onChange={(e) => handleInputChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+  placeholder="9876543210"
+  maxLength={10}
+  required
+  className={F}
+/>
                     </div>
                   </div>
 
@@ -1892,14 +1903,14 @@ if (partnerDetails.full_name) {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="tel"
-              value={partnerDetails.phone}
-              onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="9876543210"
-              maxLength={10}
-              className={F}
-            />
+          <Input
+  type="tel"
+  value={partnerDetails.phone}
+  onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+  placeholder="9876543210"
+  maxLength={10}
+  className={F}
+/>
           </div>
         </div>
       </div>

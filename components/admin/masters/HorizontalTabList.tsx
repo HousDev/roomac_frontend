@@ -92,7 +92,7 @@ export default function HorizontalTabList({
               className={`
                 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors
                 ${activeTab === tab.name && activeSectionName === ""
-                  ? "bg-blue-600 text-white"
+                  ? "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
                   : "text-gray-700 hover:bg-gray-100"
                 }
               `}
@@ -104,7 +104,7 @@ export default function HorizontalTabList({
               {itemCounts[tab.name] > 0 && (
                 <span className={`text-xs px-1.5 rounded-full ${
                   activeTab === tab.name && activeSectionName === ""
-                    ? "bg-blue-500 text-white"
+                    ? " text-white"
                     : "bg-gray-200 text-gray-700"
                 }`}>
                   {itemCounts[tab.name]}
@@ -119,7 +119,7 @@ export default function HorizontalTabList({
             className={`
               flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors
               ${activeSectionName === "Category Mapping"
-                ? "bg-blue-600 text-white"
+                ? "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white"
                 : "text-gray-700 hover:bg-gray-100"
               }
             `}

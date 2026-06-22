@@ -67,6 +67,7 @@ export interface PurchasesResponse {
   success: boolean;
   count: number;
   data: MaterialPurchase[];
+  
 }
 
 export interface SinglePurchaseResponse {
@@ -100,6 +101,8 @@ export const getPurchases = async (filters?: {
   search?: string;
   from_date?: string;
   to_date?: string;
+   page?: number;        // ← ADD
+  limit?: number;
 }): Promise<PurchasesResponse> => {
   const queryParams = new URLSearchParams();
   if (filters?.property_id) queryParams.append("property_id", String(filters.property_id));
@@ -107,7 +110,8 @@ export const getPurchases = async (filters?: {
   if (filters?.search) queryParams.append("search", filters.search);
   if (filters?.from_date) queryParams.append("from_date", filters.from_date);
   if (filters?.to_date) queryParams.append("to_date", filters.to_date);
-
+if (filters?.page !== undefined) queryParams.append("page", String(filters.page));      // ← ADD
+  if (filters?.limit !== undefined) queryParams.append("limit", String(filters.limit)); 
   const url = `/api/material-purchases${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   return request<PurchasesResponse>(url, { method: "GET" });
 };

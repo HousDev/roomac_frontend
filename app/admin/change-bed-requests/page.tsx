@@ -652,11 +652,11 @@ const handleBulkDelete = async () => {
   }`}>
     <table className="w-full min-w-[1300px] table-fixed border-collapse">
 
-      <thead className="sticky top-0 z-10">
+      <thead className="sticky top-0 z-[25]">
         <tr className="bg-white border-b-2 border-blue-200">
 
           {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-200 text-left">
             {can('delete_requests') && (
               <div className="py-2 flex justify-center">
                 <Checkbox 
@@ -669,7 +669,7 @@ const handleBulkDelete = async () => {
           </th>
 
           {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_request_id')}>
                 <span className="font-semibold text-gray-700 text-xs">ID</span>
@@ -685,14 +685,14 @@ const handleBulkDelete = async () => {
           </th>
 
           {/* Actions - 80px sticky */}
-          <th className="md:sticky md:left-[120px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Actions</span>
             </div>
           </th>
 
           {/* Tenant Name - 130px sticky */}
-          <th className="md:sticky md:left-[200px] z-[60] w-[130px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[200px] z-[30] w-[130px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
                 <span className="font-semibold text-gray-700 text-xs">Name</span>
@@ -708,7 +708,7 @@ const handleBulkDelete = async () => {
           </th>
 
           {/* Phone - 120px sticky */}
-          <th className="md:sticky md:left-[330px] z-[60] w-[120px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[330px] z-[30] w-[120px] bg-white border-r border-gray-200 text-left">
             <div className="py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Phone</span>
               <div className="h-6 mt-1.5" />
@@ -855,7 +855,7 @@ const handleBulkDelete = async () => {
             }`}
           >
             {/* Checkbox - sticky white */}
-            <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-0 z-[20] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
               {can('delete_requests') && (
                 <div className="flex justify-center">
                   <Checkbox 
@@ -868,7 +868,7 @@ const handleBulkDelete = async () => {
             </td>
 
             {/* ID - sticky white */}
-            <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-[40px] z-[20] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
                 <span className="truncate">#{request.tenant_request_id}</span>
@@ -876,7 +876,7 @@ const handleBulkDelete = async () => {
             </td>
 
             {/* Actions - sticky white */}
-            <td className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
+            <td className="md:sticky md:left-[120px] z-[20] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
               <div className="flex items-center gap-0.5 flex-nowrap">
                 <Button
                   size="sm"
@@ -902,7 +902,7 @@ const handleBulkDelete = async () => {
             </td>
 
             {/* Name - sticky white */}
-            <td className="md:sticky md:left-[200px] z-[30] w-[130px] bg-white border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-[200px] z-[20] w-[130px] bg-white border-r border-gray-100 py-2 px-2">
               <div className="flex items-center gap-1">
                 <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
                   <User className="h-3 w-3 text-blue-600" />
@@ -912,7 +912,7 @@ const handleBulkDelete = async () => {
             </td>
 
             {/* Phone - sticky white */}
-            <td className="md:sticky md:left-[330px] z-[30] w-[120px] bg-white border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-[330px] z-[20] w-[120px] bg-white border-r border-gray-100 py-2 px-2">
               <div className="text-[11px] text-gray-600 flex items-center gap-0.5 truncate">
                 <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
                 {request.tenant_phone || '—'}
@@ -1024,19 +1024,24 @@ const handleBulkDelete = async () => {
           <span className="hidden sm:inline text-gray-600">Rows:</span>
           <Select
             value={String(pagination.pageSize)}
-            onValueChange={(val) => {
-              handlePageChange(1);
-            }}
+onValueChange={(val) => {
+  setPagination(prev => ({ 
+    ...prev, 
+    limit: val === 'all' ? sortedRequests.length : parseInt(val),
+    page: 1 
+  }));
+}}
           >
             <SelectTrigger className="h-7 w-[58px] text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
+           <SelectContent>
+  <SelectItem value="10">10</SelectItem>
+  <SelectItem value="25">25</SelectItem>
+  <SelectItem value="50">50</SelectItem>
+  <SelectItem value="100">100</SelectItem>
+  <SelectItem value="all">All</SelectItem>
+</SelectContent>
           </Select>
         </div>
       </div>

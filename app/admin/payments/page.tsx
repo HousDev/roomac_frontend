@@ -213,6 +213,10 @@ const [showPendingRentOnlyDemands, setShowPendingRentOnlyDemands] = useState(fal
 const [accuratePendingRentMap, setAccuratePendingRentMap] = useState<Map<number, number>>(new Map());
 // Add state for pending rent tenant IDs
 const [pendingRentTenantIds, setPendingRentTenantIds] = useState<number[]>([]);
+// Add these with your other useState declarations
+const [pendingRoomsSingle, setPendingRoomsSingle] = useState<any[]>([]);
+const [pendingTenantsSingle, setPendingTenantsSingle] = useState<any[]>([]);
+const [loadingPendingRooms, setLoadingPendingRooms] = useState(false);
 
   const [bookingLoading, setBookingLoading] = useState(false);
   const [paymentFormData, setPaymentFormData] =
@@ -311,6 +315,7 @@ const [pendingRentTenantIds, setPendingRentTenantIds] = useState<number[]>([]);
     payment_count: "",
     total_paid_amount: "",
     total_rejected_amount: "",
+    total_pending_amount: "",  
   });
   const [filterPropertyId, setFilterPropertyId] = useState("all");
   const [filterStartDate, setFilterStartDate] = useState("");
@@ -681,6 +686,41 @@ const fetchRoomsWithPendingPayments = async (propertyId: number, paymentType?: s
   }
 };
 
+// Fetch pending rooms for single tenant mode
+const fetchPendingRoomsSingle = async (propertyId: number, paymentType?: string) => {
+  setLoadingPendingRooms(true);
+  try {
+    const type = paymentType || demandPayment.payment_type || 'rent';
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/bulk-reminders/rooms?property_id=${propertyId}&payment_type=${type}`
+    );
+    const data = await response.json();
+    if (data.success) {
+      setPendingRoomsSingle(data.data);
+      
+      // Also extract all tenants with pending from these rooms
+      const allTenants: any[] = [];
+      data.data.forEach((room: any) => {
+        if (room.tenants && room.tenants.length) {
+          room.tenants.forEach((tenant: any) => {
+            allTenants.push({
+              ...tenant,
+              room_number: room.room_number,
+              room_id: room.id
+            });
+          });
+        }
+      });
+      setPendingTenantsSingle(allTenants);
+    }
+  } catch (error) {
+    console.error("Error fetching pending rooms:", error);
+    toast.error("Failed to fetch rooms with pending payments");
+  } finally {
+    setLoadingPendingRooms(false);
+  }
+};
+
 // Add this function to calculate bulk summary
 const calculateBulkSummary = () => {
   let totalTenants = 0;
@@ -914,9 +954,11 @@ const handleDemandPropertyChange = async (propertyId: string) => {
   setFilteredRooms([]); // Clear filtered rooms
   setPaymentFormData(null); // Clear bed assignment data
   setSecurityDepositInfo(null); // Clear security deposit info
+  setPendingRoomsSingle([]); // Clear pending rooms
+  setPendingTenantsSingle([]); // Clear pending tenants
   
   if (propertyId) {
-    await fetchRoomsByProperty(propertyId);
+    await fetchPendingRoomsSingle(parseInt(propertyId), demandPayment.payment_type);
   }
 };
   // Handle room change
@@ -939,8 +981,27 @@ const handleDemandRoomChange = async (roomId: string) => {
   setPaymentFormData(null); // Clear bed assignment data
   setSecurityDepositInfo(null); // Clear security deposit info
   
-  if (roomId) {
-    await fetchTenantsByRoom(roomId);
+   if (roomId) {
+    // ✅ Filter tenants from pendingRoomsSingle that belong to this room
+    const roomData = pendingRoomsSingle.find((room: any) => room.id === parseInt(roomId));
+    if (roomData && roomData.tenants) {
+      // Map tenants with their pending amounts
+      const tenantsWithPending = roomData.tenants.map((tenant: any) => ({
+        id: tenant.id,
+        full_name: tenant.full_name,
+        phone: tenant.phone,
+        email: tenant.email,
+        salutation: tenant.salutation,
+        bed_number: tenant.bed_number,
+        total_pending: tenant.total_pending || 0,
+        room_number: roomData.room_number
+      }));
+      setFilteredTenants(tenantsWithPending);
+    } else {
+      setFilteredTenants([]);
+    }
+  } else {
+    setFilteredTenants([]);
   }
 };
 
@@ -1080,46 +1141,63 @@ const handleDemandRoomChange = async (roomId: string) => {
   };
 
   // Add this handler for demand payment type change
-  // Update handleDemandPaymentTypeChange to auto-fill amount when type changes
-  const handleDemandPaymentTypeChange = async (value: string) => {
-    setDemandPayment((prev) => ({ ...prev, payment_type: value }));
+const handleDemandPaymentTypeChange = async (value: string) => {
+  setDemandPayment((prev) => ({ ...prev, payment_type: value }));
+  
+  // Clear selections when payment type changes
+  setSelectedRoomId("");
+  setSelectedTenants([]);
+  setFilteredTenants([]);
+  setPaymentFormData(null);
+  setSecurityDepositInfo(null);
 
-    if (value === "security_deposit" && demandPayment.tenant_id) {
+  // Refetch rooms for the new payment type
+  if (selectedPropertyId) {
+    await fetchPendingRoomsSingle(parseInt(selectedPropertyId), value);
+  }
+
+  // ✅ AUTO-FILL AMOUNT IF TENANT IS ALREADY SELECTED
+  if (demandPayment.tenant_id) {
+    if (value === "security_deposit") {
       try {
         const response = await paymentApi.getSecurityDepositInfo(
           parseInt(demandPayment.tenant_id),
         );
         if (response.success) {
           setSecurityDepositInfo(response.data);
-          // ✅ Auto-fill amount with pending amount
-          setDemandPayment((prev) => ({
-            ...prev,
-            amount: response.data.pending_amount,
-          }));
+          const pendingAmount = response.data?.pending_amount || 0;
+          if (pendingAmount > 0) {
+            setDemandPayment((prev) => ({
+              ...prev,
+              amount: pendingAmount,
+            }));
+          }
         }
       } catch (error) {
         console.error("Error fetching security deposit info:", error);
       }
-    } else if (value === "rent" && demandPayment.tenant_id) {
+    } else if (value === "rent") {
       try {
         const formResponse = await paymentApi.getTenantPaymentFormData(
           parseInt(demandPayment.tenant_id),
         );
-        if (formResponse.success && formResponse.data?.total_pending) {
+        if (formResponse.success) {
           setPaymentFormData(formResponse.data);
-          // ✅ Auto-fill amount with total pending amount
-          setDemandPayment((prev) => ({
-            ...prev,
-            amount: formResponse.data.total_pending,
-          }));
+          const totalPending = formResponse.data?.total_pending || 0;
+          if (totalPending > 0) {
+            setDemandPayment((prev) => ({
+              ...prev,
+              amount: totalPending,
+            }));
+          }
         }
       } catch (error) {
         console.error("Error fetching rent pending amount:", error);
       }
     }
-  };
+  }
+};
 
-// Update handleDemandTenantSelect to properly fetch and display security deposit info
 const handleDemandTenantSelect = async (tenantId: string) => {
   // Clear previous data first
   setPaymentFormData(null);
@@ -1137,9 +1215,20 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     );
     if (formResponse.success) {
       setPaymentFormData(formResponse.data);
+      
+      // ✅ AUTO-FILL AMOUNT FOR RENT
+      if (demandPayment.payment_type === "rent") {
+        const totalPending = formResponse.data?.total_pending || 0;
+        if (totalPending > 0) {
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: totalPending,
+          }));
+        }
+      }
     }
 
-    // Fetch security deposit info - THIS IS KEY
+    // Fetch security deposit info
     const depositResponse = await paymentApi.getSecurityDepositInfo(
       parseInt(tenantId),
     );
@@ -1148,15 +1237,15 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     if (depositResponse.success && depositResponse.data) {
       setSecurityDepositInfo(depositResponse.data);
       
-      // Auto-fill amount with pending amount for security deposit
-      if (
-        demandPayment.payment_type === "security_deposit" &&
-        depositResponse.data?.pending_amount > 0
-      ) {
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: depositResponse.data.pending_amount,
-        }));
+      // ✅ AUTO-FILL AMOUNT FOR SECURITY DEPOSIT
+      if (demandPayment.payment_type === "security_deposit") {
+        const pendingAmount = depositResponse.data?.pending_amount || 0;
+        if (pendingAmount > 0) {
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: pendingAmount,
+          }));
+        }
       }
     } else {
       // Set default info if no deposit found
@@ -1638,7 +1727,11 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     setFilteredTenants([]);
     setPropertySearch("");
     setRoomSearch("");
-
+// ✅ Reset pending rooms states
+  setPendingRoomsSingle([]);
+  setPendingTenantsSingle([]);
+  setLoadingPendingRooms(false);
+    
     // ✅ Reset loading states
     setBookingLoading(false);
   };
@@ -1960,6 +2053,8 @@ const groupPaymentsByTenant = (
   ignoreDateFiltersValue: boolean = false,  // Add this parameter
   roomFilterValue: string = "",  
   showPendingRentOnlyValue: boolean = false,  
+  startDateValue: string = "",      // ← ADD
+  endDateValue: string = ""
 ) => {
   const grouped: { [key: string]: any } = {};
 
@@ -1981,6 +2076,9 @@ const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
         total_amount: 0,
         total_paid_amount: 0,
         total_rejected_amount: 0,
+        total_pending_amount: 0,  // ✅ Will be set from accuratePendingRentMap + deposit pending
+        rent_pending_amount: 0,   // ✅ Store rent pending separately
+        deposit_pending_amount: 0, // ✅ Store deposit pending separately
         payment_count: 0,
         last_payment_date: null,
         first_payment_date: null,
@@ -1989,9 +2087,10 @@ const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
         approved_count: 0,
         pending_count: 0,
         rejected_count: 0,
+        
         has_online_booking: false,
         has_manual_payment: false,
-        is_vacated: !completeTenant || !completeTenant.current_assignment,
+        is_vacated: Boolean(payment.is_vacated) || (!completeTenant?.current_assignment && !payment.room_number),
         room_number: completeTenant?.room_number || payment.room_number || completeTenant?.current_assignment?.room_number,
         bed_number: completeTenant?.bed_number || payment.bed_number || completeTenant?.current_assignment?.bed_number,
         property_name: completeTenant?.property_name || payment.property_name || completeTenant?.current_assignment?.property_name,
@@ -2049,6 +2148,41 @@ const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
     if (!b.last_payment_date) return -1;
     return new Date(b.last_payment_date).getTime() - new Date(a.last_payment_date).getTime();
   });
+
+
+  // ✅ STEP 1: Calculate accurate pending amounts for each tenant
+  // This combines rent pending (from accuratePendingRentMap) and deposit pending (from security deposit info)
+  for (const group of groupedArray) {
+    const tenantId = group.tenant_id;
+    
+    // Get rent pending from accuratePendingRentMap
+    const rentPending = accuratePendingRentMap.get(tenantId) || 0;
+    
+    // Get deposit pending from security deposit info
+    let depositPending = 0;
+    const completeTenant = tenants.find((t) => t.id === tenantId);
+    if (completeTenant) {
+      // Get security deposit payments for this tenant
+      const depositPayments = payments.filter(
+        (p) => p.tenant_id === tenantId && p.payment_type === "security_deposit"
+      );
+      const totalDepositPaid = depositPayments
+        .filter((p) => p.status === "approved" || p.status === "paid")
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      
+      const totalSecurityDeposit:any = completeTenant?.security_deposit || 
+        completeTenant?.current_assignment?.security_deposit || 0;
+      depositPending = Math.max(0, totalSecurityDeposit - totalDepositPaid);
+    }
+    
+    // Store both values
+    group.rent_pending_amount = rentPending;
+    group.deposit_pending_amount = depositPending;
+    
+    // ✅ Total pending = rent pending + deposit pending
+    group.total_pending_amount = rentPending + depositPending;
+  }
+
 
   // ── ALL FILTERS RUN HERE on full dataset ──
 
@@ -2200,25 +2334,25 @@ if (exactPendingFilterValue && accuratePendingRentMap.size > 0) {
   }
 
 // 10. Date range filter — any payment in range
-  if (!ignoreDateFiltersValue && (filterStartDate || filterEndDate)) {
-    groupedArray = groupedArray.filter((group: any) =>
-      group.payments.some((p: any) => {
-        const payDate = new Date(p.payment_date);
-        payDate.setHours(0, 0, 0, 0);
-        if (filterStartDate) {
-          const start = new Date(filterStartDate);
-          start.setHours(0, 0, 0, 0);
-          if (payDate < start) return false;
-        }
-        if (filterEndDate) {
-          const end = new Date(filterEndDate);
-          end.setHours(23, 59, 59, 999);
-          if (payDate > end) return false;
-        }
-        return true;
-      })
-    );
-  }
+if (!ignoreDateFiltersValue && (startDateValue || endDateValue)) {
+  groupedArray = groupedArray.filter((group: any) =>
+    group.payments.some((p: any) => {
+      const payDate = new Date(p.payment_date);
+      payDate.setHours(0, 0, 0, 0);
+      if (startDateValue) {
+        const start = new Date(startDateValue);
+        start.setHours(0, 0, 0, 0);
+        if (payDate < start) return false;
+      }
+      if (endDateValue) {
+        const end = new Date(endDateValue);
+        end.setHours(23, 59, 59, 999);
+        if (payDate > end) return false;
+      }
+      return true;
+    })
+  );
+}
 
 // 11. Pending rent only filter - USE THE PARAMETER
 if (showPendingRentOnlyValue && pendingRentTenantIds.length > 0) {
@@ -2412,7 +2546,9 @@ paymentPagination.itemsPerPage,
 exactPendingFilter,  // Pass the value
    ignoreDateFilters,
    roomFilterGlobal,  
-  showPendingRentOnly,  
+  showPendingRentOnly, 
+  filterStartDate,    // ← ADD
+  filterEndDate, 
   );
 
   // Add this function for demands pagination
@@ -3264,39 +3400,76 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex justify-end gap-2">
-              {can("create_payments") && (
-                <Button
-                  size="sm"
-                  className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
-                  onClick={async () => {
-                    // ✅ If properties are empty, fetch them first
-                    if (properties.length === 0) {
-                      await fetchProperties();
-                    }
-                    resetPaymentForm();
-                    setIsAddPaymentOpen(true);
-                  }}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Add Payment</span>
-                </Button>
-              )}
-              {can("send_demand_payment") && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white flex-1 sm:flex-none"
-                  onClick={() => {
-                    resetDemandPaymentForm(); // ✅ Reset before opening
-                    setIsDemandPaymentOpen(true);
-                  }}
-                >
-                  <Bell className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Demand Payment</span>
-                </Button>
-              )}
-            </div>
+          <div className="flex items-center justify-between gap-2">
+  {/* Left side: Filter button for current tab */}
+  <div>
+    {activeTab === "payments" && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] border-blue-600 text-white hover:bg-blue-600 hover:text-white flex items-center gap-1"
+        onClick={() => setShowPaymentFilterSidebar(true)}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="text-xs">Filter</span>
+      </Button>
+    )}
+    {activeTab === "receipts" && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] border-blue-600 text-white hover:bg-blue-600 hover:text-white flex items-center gap-1"
+        onClick={() => setShowReceiptFilterSidebar(true)}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="text-xs">Filter</span>
+      </Button>
+    )}
+    {activeTab === "demands" && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] border-blue-600 text-white hover:bg-blue-600 hover:text-white flex items-center gap-1"
+        onClick={() => setShowDemandFilterSidebar(true)}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="text-xs">Filter</span>
+      </Button>
+    )}
+  </div>
+
+  {/* Right side: Action buttons */}
+  <div className="flex gap-2">
+    {can("create_payments") && (
+      <Button
+        size="sm"
+        className="h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
+        onClick={async () => {
+          if (properties.length === 0) await fetchProperties();
+          resetPaymentForm();
+          setIsAddPaymentOpen(true);
+        }}
+      >
+        <Plus className="h-3.5 w-3.5 mr-1" />
+        <span className="text-xs">Add Payment</span>
+      </Button>
+    )}
+    {can("send_demand_payment") && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
+        onClick={() => {
+          resetDemandPaymentForm();
+          setIsDemandPaymentOpen(true);
+        }}
+      >
+        <Bell className="h-3.5 w-3.5 mr-1" />
+        <span className="text-xs">Demand Payment</span>
+      </Button>
+    )}
+  </div>
+</div>
           </div>
 
           {/* Payments Tab Content */}
@@ -3466,155 +3639,151 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                         <col style={{ width: "85px" }} />   {/* Due Date */}
                         <col style={{ width: "140px" }} />  {/* Status / Actions */}
                       </colgroup>
-                      <thead>
-                        <tr>
-                          {/* Checkbox */}
-                          <th className="py-1.5 px-1 bg-gray-200 border-r  border-b  text-center">
-                            <div className="flex flex-col gap-1 items-center">
-                              <span className="font-semibold text-gray-700 text-[10px]">✓</span>
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selectedDemandIds.length === paginatedDemandsData().items.length &&
-                                  paginatedDemandsData().items.length > 0
-                                }
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedDemandIds(paginatedDemandsData().items.map((d: any) => d.id));
-                                  } else {
-                                    setSelectedDemandIds([]);
-                                  }
-                                }}
-                                className="w-3 h-3 accent-orange-500"
-                              />
-                            </div>
-                          </th>
+                     <thead>
+  {/* ── Row 1: Column Titles ── */}
+  <tr>
+    <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
+      <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Demand Date</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Due Date</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-center">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status / Actions</span>
+    </th>
+  </tr>
 
-                          {/* Demand Date */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Demand Date</span>
-                              <Input
-                                placeholder="dd/mm/yy"
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.date || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
-                              />
-                            </div>
-                          </th>
+  {/* ── Row 2: Search Inputs ── */}
+  <tr className="bg-white border-t border-gray-300">
+    {/* Checkbox */}
+    <td className="p-1 border-r border-gray-200 text-center">
+      <input
+        type="checkbox"
+        checked={
+          selectedDemandIds.length === paginatedDemandsData().items.length &&
+          paginatedDemandsData().items.length > 0
+        }
+        onChange={(e) => {
+          if (e.target.checked) {
+            setSelectedDemandIds(paginatedDemandsData().items.map((d: any) => d.id));
+          } else {
+            setSelectedDemandIds([]);
+          }
+        }}
+        className="w-3 h-3 accent-orange-500"
+      />
+    </td>
 
-                          {/* Tenant */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
-                              <Input
-                                placeholder="Search..."
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.tenant || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Demand Date */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="dd/mm/yy"
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.date || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
+      />
+    </td>
 
-                          {/* Contact */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r  border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
-                              <Input
-                                placeholder="Search..."
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.contact || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Tenant */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.tenant || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+      />
+    </td>
 
-                          {/* Property */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
-                              <Input
-                                placeholder="Search..."
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.property || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Contact */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.contact || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
+      />
+    </td>
 
-                          {/* Room/Bed */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
-                              <Input
-                                placeholder="Search..."
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.room || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Property */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.property || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
+      />
+    </td>
 
-                          {/* Type */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
-                              <select
-                                value={demandFilters.payment_type || "all"}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
-                                className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
-                              >
-                                <option value="all">All</option>
-                                <option value="rent">Rent</option>
-                                <option value="security_deposit">Security Deposit</option>
-                              </select>
-                            </div>
-                          </th>
+    {/* Room/Bed */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.room || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
+      />
+    </td>
 
-                          {/* Amount */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
-                              <Input
-                                placeholder="₹"
-                                type="number"
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.amount || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Type */}
+    <td className="p-1 border-r border-gray-200">
+      <select
+        value={demandFilters.payment_type || "all"}
+        onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
+        className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
+      >
+        <option value="all">All</option>
+        <option value="rent">Rent</option>
+        <option value="security_deposit">Security Deposit</option>
+      </select>
+    </td>
 
-                          {/* Due Date */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Due Date</span>
-                              <Input
-                                type="text"
-                                placeholder="dd/mm/yy"
-                                className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                                value={demandFilters.from_date || ""}
-                                onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
-                              />
-                            </div>
-                          </th>
+    {/* Amount */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="₹"
+        type="number"
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.amount || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
+      />
+    </td>
 
-                          {/* Status / Actions */}
-                          <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-center">
-                            <div className="flex flex-col gap-1 items-center">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowDemandFilterSidebar(true)}
-                                className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                              >
-                                <Filter className="w-2.5 h-2.5 mr-0.5" />Filter
-                              </Button>
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
+    {/* Due Date */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        type="text"
+        placeholder="dd/mm/yy"
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={demandFilters.from_date || ""}
+        onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+      />
+    </td>
+
+    {/* Status / Actions – no input */}
+    <td className="p-1" />
+  </tr>
+</thead>
                     </table>
 
                     {/* ── Scrollable Body ── */}
@@ -5256,8 +5425,8 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
       {/* Mode toggle — sits inside header like a sub-nav */}
       <div className="flex gap-1 mt-3">
         {[
-          { id: false, label: "Single tenant", icon: User },
-          { id: true,  label: "Bulk mode",     icon: Users },
+          { id: false, label: "Single Tenant", icon: User },
+          { id: true,  label: "Bulk Mode",     icon: Users },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={String(id)}
@@ -5350,91 +5519,125 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">
-                Room <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={selectedRoomId}
-                onValueChange={handleDemandRoomChange}
-                disabled={!selectedPropertyId || loadingRooms}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
-                  <div className="sticky top-0 bg-white p-2 border-b z-10"
-                    onPointerDown={(e) => e.stopPropagation()}>
-                    <Input
-                      placeholder="Search room..."
-                      value={roomSearch}
-                      onChange={(e) => handleRoomSearch(e.target.value)}
-                      className="h-7 text-xs"
-                      disabled={!selectedPropertyId}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  <div className="max-h-[250px] overflow-y-auto">
-                    {filteredRooms.map((r) => (
-                      <SelectItem key={r.id} value={r.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Home className="h-3 w-3 text-slate-400" />
-                          <span className="text-xs">Room {r.room_number}</span>
-                          <span className="text-[10px] text-slate-400">({r.sharing_type})</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </div>
-                </SelectContent>
-              </Select>
-              {loadingRooms && (
-                <div className="flex items-center gap-1 text-blue-600">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span className="text-[10px]">Loading rooms...</span>
+  <Label className="text-[11px] font-medium text-slate-600">
+    Room <span className="text-red-500">*</span>
+  </Label>
+  <Select
+    value={selectedRoomId}
+    onValueChange={handleDemandRoomChange}
+    disabled={!selectedPropertyId || loadingPendingRooms}
+  >
+    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+      <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
+    </SelectTrigger>
+    <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
+      <div className="sticky top-0 bg-white p-2 border-b z-10"
+        onPointerDown={(e) => e.stopPropagation()}>
+        <Input
+          placeholder="Search room..."
+          value={roomSearch}
+          onChange={(e) => handleRoomSearch(e.target.value)}
+          className="h-7 text-xs"
+          disabled={!selectedPropertyId}
+          onKeyDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+      <div className="max-h-[250px] overflow-y-auto">
+        {loadingPendingRooms ? (
+          <div className="px-2 py-4 text-center text-xs text-slate-500">
+            <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+            Loading rooms with pending...
+          </div>
+        ) : pendingRoomsSingle.length === 0 ? (
+          <div className="px-2 py-4 text-center text-xs text-slate-400">
+            {selectedPropertyId 
+              ? `No rooms with pending ${demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"}`
+              : "Select a property first"}
+          </div>
+        ) : (
+          pendingRoomsSingle.map((room) => (
+            <SelectItem key={room.id} value={room.id.toString()}>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Home className="h-3 w-3 text-slate-400" />
+                  <span className="text-xs">Room {room.room_number}</span>
+                  <span className="text-[10px] text-slate-400">
+                    ({room.tenants?.length || 0} tenant{room.tenants?.length !== 1 ? "s" : ""})
+                  </span>
                 </div>
-              )}
-            </div>
+                <span className="text-[10px] text-amber-600 font-medium">
+                  ₹{(room.total_pending || 0).toLocaleString()} 
+        {demandPayment.payment_type === "security_deposit" ? " deposit pending" : " rent pending"}
+                </span>
+              </div>
+            </SelectItem>
+          ))
+        )}
+      </div>
+    </SelectContent>
+  </Select>
+  {loadingPendingRooms && (
+    <div className="flex items-center gap-1 text-blue-600">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span className="text-[10px]">Loading rooms with pending payments...</span>
+    </div>
+  )}
+</div>
           </div>
 
           {/* Row 2: Tenant + Payment Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-slate-600">
-                Tenant <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={demandPayment.tenant_id}
-                onValueChange={handleDemandTenantSelect}
-                disabled={!selectedRoomId}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                  <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose tenant..."} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {filteredTenants.length === 0 && selectedRoomId ? (
-                    <div className="px-2 py-4 text-center text-xs text-slate-500">No tenants in this room</div>
-                  ) : (
-                    filteredTenants.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3 w-3 text-slate-400" />
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium">{t.full_name}</span>
-                            <span className="text-[10px] text-slate-400">{t.phone}</span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {bookingLoading && (
-                <div className="flex items-center gap-1 text-blue-600">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span className="text-[10px]">Loading tenant details...</span>
+  <Label className="text-[11px] font-medium text-slate-600">
+    Tenant <span className="text-red-500">*</span>
+  </Label>
+  <Select
+    value={demandPayment.tenant_id}
+    onValueChange={handleDemandTenantSelect}
+    disabled={!selectedRoomId || filteredTenants.length === 0}
+  >
+    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+      <SelectValue placeholder={
+        !selectedRoomId 
+          ? "Select room first" 
+          : filteredTenants.length === 0 
+            ? "No pending tenants" 
+            : "Choose tenant..."
+      } />
+    </SelectTrigger>
+    <SelectContent className="max-h-[300px]">
+      {filteredTenants.length === 0 && selectedRoomId ? (
+        <div className="px-2 py-4 text-center text-xs text-slate-500">
+          No tenants with pending {demandPayment.payment_type === "security_deposit" ? "deposits" : "rent"} in this room
+        </div>
+      ) : (
+        filteredTenants.map((t) => (
+          <SelectItem key={t.id} value={t.id.toString()}>
+            <div className="flex items-center justify-between w-full gap-4">
+              <div className="flex items-center gap-2">
+                <User className="h-3 w-3 text-slate-400" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">{t.full_name}</span>
+                  <span className="text-[10px] text-slate-400">{t.phone}</span>
                 </div>
-              )}
+              </div>
+              <span className="text-[10px] text-amber-600 font-medium whitespace-nowrap">
+                ₹{(t.total_pending || 0).toLocaleString()}
+              </span>
             </div>
+          </SelectItem>
+        ))
+      )}
+    </SelectContent>
+  </Select>
+  {bookingLoading && (
+    <div className="flex items-center gap-1 text-blue-600">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span className="text-[10px]">Loading tenant details...</span>
+    </div>
+  )}
+</div>
 
             <div className="space-y-1">
               <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
@@ -7412,7 +7615,7 @@ const filteredGroups = pagination.items.map((group: any) => ({
     <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
   <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
     <div className="overflow-auto flex-1 min-h-0 flex flex-col">
-<div className="min-w-[1040px] flex flex-col flex-1 min-h-0">
+<div className="min-w-[1300px] flex flex-col flex-1 min-h-0">
 
         {/* ✅ Sticky Header */}
         <table className="table-fixed w-full border-collapse sticky top-0 z-10 bg-gray-200">
@@ -7426,200 +7629,224 @@ const filteredGroups = pagination.items.map((group: any) => ({
 <col style={{ width: "47px" }} />
 <col style={{ width: "90px" }} />
 <col style={{ width: "80px" }} />
+<col style={{ width: "90px" }} />  
 <col style={{ width: "80px" }} />
 <col style={{ width: "95px" }} />
 <col style={{ width: "61px" }} />
           </colgroup>
-          <thead>
-            <tr> 
-              {/* Expand */}
-              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300" />
+         <thead>
+  {/* ── Row 1: Column Titles ── */}
+  <tr>
+    <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300" />
 
-              {/* Actions */}
-              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowFilterSidebar?.(true)}
-                    className="h-5 px-1 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                  >
-                    <Filter className="w-2.5 h-2.5 mr-0.5" />Filter
-                  </Button>
-                </div>
-              </th>
+    <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+    </th>
 
-              {/* Name */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("tenant_name")}>
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Name</span>
-                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                  </div>
-                  <Input
-                    placeholder="Search..."
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.tenant_name || ""}
-                    onChange={(e) => { setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value }); onPageChange?.(1); }}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("tenant_name")}>
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Name</span>
+        <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+      </div>
+    </th>
 
-              {/* Property */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
-                  <Input
-                    placeholder="Search..."
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.property_name || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, property_name: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+    </th>
 
-              {/* Room/Bed */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
-                  <Input
-                    placeholder="Search..."
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.room_bed || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, room_bed: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+    </th>
 
-              {/* Contact */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
-                  <Input
-                    placeholder="Search..."
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.contact || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, contact: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+    </th>
 
-              {/* CNT */}
-              <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
-                <div className="flex flex-col gap-1 items-center">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
-                  <Input
-                    placeholder="#"
-                    type="number"
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
-                    value={columnFilters?.payment_count || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
+    </th>
 
-              {/* Total */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
-                <div className="flex flex-col gap-1 items-end">
-                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("total_amount")}>
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total</span>
-                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                  </div>
-                  <Input
-                    placeholder="₹"
-                    type="number"
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.amount || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+      <div className="flex items-center gap-1 cursor-pointer justify-end" onClick={() => handleSort?.("total_amount")}>
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total</span>
+        <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+      </div>
+    </th>
 
-              {/* Paid */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
-                <div className="flex flex-col gap-1 items-end">
-                  <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">Paid</span>
-                  <Input
-                    placeholder="₹"
-                    type="number"
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.total_paid_amount || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, total_paid_amount: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+      <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">Paid</span>
+    </th>
 
-              {/* Rejected */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
-                <div className="flex flex-col gap-1 items-end">
-                  <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">Rejected</span>
-                  <Input
-                    placeholder="₹"
-                    type="number"
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.total_rejected_amount || ""}
-                    onChange={(e) => setColumnFilters?.({ ...columnFilters, total_rejected_amount: e.target.value })}
-                  />
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+      <span className="font-semibold text-amber-700 text-[10px] uppercase tracking-wide">Pending</span>
+    </th>
 
-              {/* Status */}
-              <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("status")}>
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
-                    <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                  </div>
-                  <Select
-                    value={columnFilters?.status || "all"}
-                    onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
-                  >
-                    <SelectTrigger className="h-5 text-[10px] bg-white border-gray-300 px-1.5 font-normal w-full">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">All</SelectItem>
-                      <SelectItem value="approved" className="text-xs">Approved</SelectItem>
-                      <SelectItem value="pending" className="text-xs">Pending</SelectItem>
-                      <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-right">
+      <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">Rejected</span>
+    </th>
 
-              {/* Last Pay */}
-              <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-left">
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
-                  <Input
-                    placeholder="dd/mm/yy"
-                    className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                    value={columnFilters?.payment_date || ""}
-                    onChange={(e) => { setColumnFilters?.({ ...columnFilters, payment_date: e.target.value }); onPageChange?.(1); }}
-                  />
-                </div>
-              </th>
-            </tr>
-          </thead>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.("status")}>
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+        <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+      </div>
+    </th>
+
+    <th className="py-1.5 px-2 bg-gray-200 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
+    </th>
+  </tr>
+
+  {/* ── Row 2: Search Inputs ── */}
+<tr className="bg-white border-t border-gray-300">
+  {/* Expand column – no border-right to match expense table's first cell */}
+  <td className="p-1 border-r border-gray-100" />
+
+  {/* Actions – no filter, but keep the cell with border */}
+  <td className="p-1 border-r border-gray-100" />
+
+  {/* Name */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.tenant_name || ""}
+      onChange={(e) => { setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value }); onPageChange?.(1); }}
+    />
+  </td>
+
+  {/* Property */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.property_name || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, property_name: e.target.value })}
+    />
+  </td>
+
+  {/* Room/Bed */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.room_bed || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, room_bed: e.target.value })}
+    />
+  </td>
+
+  {/* Contact */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.contact || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, contact: e.target.value })}
+    />
+  </td>
+
+  {/* CNT */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="#"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
+      value={columnFilters?.payment_count || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
+    />
+  </td>
+
+  {/* Total */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="₹"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.amount || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
+    />
+  </td>
+
+  {/* Paid */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="₹"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.total_paid_amount || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, total_paid_amount: e.target.value })}
+    />
+  </td>
+
+  {/* Pending */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="₹"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.total_pending_amount || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, total_pending_amount: e.target.value })}
+    />
+  </td>
+
+  {/* Rejected */}
+  <td className="p-1 border-r border-gray-100">
+    <Input
+      placeholder="₹"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.total_rejected_amount || ""}
+      onChange={(e) => setColumnFilters?.({ ...columnFilters, total_rejected_amount: e.target.value })}
+    />
+  </td>
+
+  {/* Status */}
+  <td className="p-1 border-r border-gray-100">
+    <Select
+      value={columnFilters?.status || "all"}
+      onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
+    >
+      <SelectTrigger className="h-5 text-[10px] bg-white border-gray-300 px-1.5 font-normal w-full">
+        <SelectValue placeholder="All" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all" className="text-xs">All</SelectItem>
+        <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+        <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+        <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+      </SelectContent>
+    </Select>
+  </td>
+
+  {/* Last Pay – no border-right (last column) */}
+  <td className="p-1">
+    <Input
+      placeholder="dd/mm/yy"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={columnFilters?.payment_date || ""}
+      onChange={(e) => { setColumnFilters?.({ ...columnFilters, payment_date: e.target.value }); onPageChange?.(1); }}
+    />
+  </td>
+</tr>
+</thead>
         </table>
 
         {/* ✅ Scrollable Body */}
         <div className="overflow-y-auto flex-1 min-h-0">
           <table className="table-fixed w-full border-collapse">
             <colgroup>
-              <col style={{ width: "32px" }} />
-<col style={{ width: "70px" }} />
-<col style={{ width: "175px" }} />
-<col style={{ width: "117px" }} />
-<col style={{ width: "90px" }} />
+              <col style={{ width: "36px" }} />
+<col style={{ width: "81px" }} />
+<col style={{ width: "202px" }} />
+<col style={{ width: "132px" }} />
 <col style={{ width: "105px" }} />
-<col style={{ width: "47px" }} />
-<col style={{ width: "90px" }} />
-<col style={{ width: "80px" }} />
-<col style={{ width: "80px" }} />
-<col style={{ width: "95px" }} />
-<col style={{ width: "49px" }} />
+<col style={{ width: "122px" }} />
+<col style={{ width: "54px" }} />
+<col style={{ width: "104px" }} />
+<col style={{ width: "92px" }} />
+<col style={{ width: "106px" }} />
+<col style={{ width: "91px" }} />
+<col style={{ width: "108px" }} />
             </colgroup>
             <tbody>
               {loading ? (
@@ -7795,6 +8022,30 @@ const filteredGroups = pagination.items.map((group: any) => ({
                             ₹{group.total_paid_amount?.toLocaleString() || 0}
                           </span>
                         </td>
+
+                        {/* Pending */}
+<td className="py-2 px-2 text-right border-r border-slate-100">
+  <div className="flex flex-col items-end">
+    <span className="text-[11px] font-bold text-amber-600 whitespace-nowrap">
+      ₹{group.total_pending_amount?.toLocaleString() || 0}
+    </span>
+    {group.rent_pending_amount > 0 && group.deposit_pending_amount > 0 && (
+      <span className="text-[8px] text-slate-400 whitespace-nowrap">
+        R: ₹{group.rent_pending_amount.toLocaleString()} • D: ₹{group.deposit_pending_amount.toLocaleString()}
+      </span>
+    )}
+    {group.rent_pending_amount > 0 && group.deposit_pending_amount === 0 && (
+      <span className="text-[8px] text-slate-400 block leading-tight">
+        R: ₹{group.rent_pending_amount.toLocaleString()}
+      </span>
+    )}
+    {group.deposit_pending_amount > 0 && group.rent_pending_amount === 0 && (
+      <span className="text-[8px] text-slate-400 block leading-tight">
+        D: ₹{group.deposit_pending_amount.toLocaleString()}
+      </span>
+    )}
+  </div>
+</td>
 
                         {/* Rejected */}
                         <td className="py-2 px-2 text-right border-r border-slate-100">
@@ -8322,147 +8573,143 @@ const totalPages = isAll ? 1 : Math.ceil(filteredReceipts.length / (itemsPerPage
               <col style={{ width: "64px" }} />   {/* Actions */}
             </colgroup>
             <thead>
-              <tr>
-                {/* Checkbox */}
-                <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <span className="font-semibold text-gray-700 text-[10px]">✓</span>
-                    <input
-                      type="checkbox"
-                      checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
-                        else setSelectedReceiptIds([]);
-                      }}
-                      className="w-3 h-3 accent-blue-500"
-                    />
-                  </div>
-                </th>
+  {/* ── Row 1: Column Titles ── */}
+  <tr>
+    <th className="py-1.5 px-1 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-center">
+      <span className="font-semibold text-gray-700 text-[10px]">✓</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Receipt #</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method</span>
+    </th>
+    <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room</span>
+    </th>
+    <th className="py-1.5 px-1 bg-gray-200 border-b border-gray-300 text-center">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Action</span>
+    </th>
+  </tr>
 
-                {/* Receipt # */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Receipt #</span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.receipt_number || ""}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, receipt_number: e.target.value })}
-                    />
-                  </div>
-                </th>
+  {/* ── Row 2: Search Inputs ── */}
+  <tr className="bg-white border-t border-gray-300">
+    {/* Checkbox column – no input */}
+    <td className="p-1 border-r border-gray-200 text-center">
+      <input
+        type="checkbox"
+        checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
+        onChange={(e) => {
+          if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
+          else setSelectedReceiptIds([]);
+        }}
+        className="w-3 h-3 accent-blue-500"
+      />
+    </td>
 
-                {/* Date */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
-                    <Input
-                      placeholder="dd/mm/yy"
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.date}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Receipt # */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.receipt_number || ""}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, receipt_number: e.target.value })}
+      />
+    </td>
 
-                {/* Tenant */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.tenant}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Date */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="dd/mm/yy"
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.date}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
+      />
+    </td>
 
-                {/* Contact */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Contact</span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.contact || ""}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, contact: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Tenant */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.tenant}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
+      />
+    </td>
 
-                {/* Type */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
-                    <select
-                      value={receiptFilters.payment_type || "all"}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, payment_type: e.target.value })}
-                      className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
-                    >
-                      <option value="all">All</option>
-                      <option value="rent">Rent</option>
-                      <option value="security_deposit">Security Deposit</option>
-                    </select>
-                  </div>
-                </th>
+    {/* Contact */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.contact || ""}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, contact: e.target.value })}
+      />
+    </td>
 
-                {/* Amount */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
-                    <Input
-                      placeholder="₹"
-                      type="number"
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.amount}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Type */}
+    <td className="p-1 border-r border-gray-200">
+      <select
+        value={receiptFilters.payment_type || "all"}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, payment_type: e.target.value })}
+        className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
+      >
+        <option value="all">All</option>
+        <option value="rent">Rent</option>
+        <option value="security_deposit">Security Deposit</option>
+      </select>
+    </td>
 
-                {/* Method/Bank */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method</span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.method}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Amount */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="₹"
+        type="number"
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.amount}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
+      />
+    </td>
 
-                {/* Room/Bed */}
-                <th className="py-1.5 px-2 bg-gray-200 border-r border-gray-300 border-b border-gray-300 text-left">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room</span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-                      value={receiptFilters.room}
-                      onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
-                    />
-                  </div>
-                </th>
+    {/* Method */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.method}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
+      />
+    </td>
 
-                {/* Actions */}
-                <th className="py-1.5 px-1 bg-gray-200 border-b border-gray-300 text-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Action</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowFilterSidebar?.(true)}
-                      className="h-5 px-1 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                    >
-                      <Filter className="w-2.5 h-2.5" />
-                    </Button>
-                  </div>
-                </th>
-              </tr>
-            </thead>
+    {/* Room */}
+    <td className="p-1 border-r border-gray-200">
+      <Input
+        placeholder="Search..."
+        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+        value={receiptFilters.room}
+        onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
+      />
+    </td>
+
+    {/* Actions – no input */}
+    <td className="p-1" />
+  </tr>
+</thead>
           </table>
 
           {/* Scrollable Body */}

@@ -12,7 +12,7 @@ import {
   deleteCommunicationLog,
   type CommunicationLog,
 } from "@/lib/communicationLogApi";
-import { AlertCircle, CheckCircle, ChevronRight, Clock, FileText, Trash2, X } from "lucide-react";
+import { AlertCircle, CheckCircle, ChevronRight, Clock, FileText, Filter, Trash2, X } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { useRouter, usePathname } from "next/navigation";
 import { CommunicationTabs } from "@/components/admin/communications/CommunicationTabs";
@@ -1069,16 +1069,26 @@ const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-
       <div className="flex flex-wrap items-center  gap-2 mb-4 -mt-4 justify-end">
     {/* <CommunicationTabs /> */}
     <div className="flex gap-2 justify-end">
-        <button
-            onClick={() => setSidebarOpen(true)}
-            className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold border flex items-center gap-1 ${
-                hasActiveSidebarFilters
-                    ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
-                    : "bg-white text-[#6B7A99] border-[#E4E8F0]"
-            }`}
-        >
-            Filters {hasActiveSidebarFilters && "●"}
-        </button>
+       <button
+    onClick={() => setSidebarOpen(true)}
+    className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold border flex items-center gap-1 ${
+        hasActiveSidebarFilters
+            ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
+            : "text-white border-transparent"
+    }`}
+    style={
+        !hasActiveSidebarFilters
+            ? {
+                  background:
+                      "linear-gradient(to right, #0A1F5C, #123A9A, #1E4ED8)",
+                  boxShadow: "0 3px 10px rgba(30,78,216,0.3)",
+              }
+            : {}
+    }
+>
+    <Filter size={14} />
+    Filters {hasActiveSidebarFilters && "●"}
+</button>
         <button
             onClick={handleExport}
             disabled={exporting}

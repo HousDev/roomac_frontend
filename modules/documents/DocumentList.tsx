@@ -1987,6 +1987,13 @@ const handleExport = () => {
 
       {/* STICKY HEADER */}
       <div className="sticky top-16 z-10 pb-2">
+         {/* Stats */}
+        <div className="pb-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <StatCard title="Total Documents"  value={stats.total}     icon={FileText}    color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+          <StatCard title="Created"          value={stats.created}   icon={AlertCircle} color="bg-indigo-600"  bg="bg-gradient-to-br from-indigo-50 to-indigo-100" />
+          <StatCard title="E-Sign Pending"   value={stats.esign}     icon={PenLine}     color="bg-green-600"   bg="bg-gradient-to-br from-green-50 to-green-100" />
+          <StatCard title="Completed"        value={stats.completed} icon={Shield}      color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100" />
+        </div>
         <div className="pb-2 flex items-center justify-end gap-2 flex-wrap">
           {selectedItems.length > 0 && (
             <div className="flex items-center gap-1.5">
@@ -1995,11 +2002,11 @@ const handleExport = () => {
             </div>
           )}
           <button onClick={() => setSidebarOpen(o=>!o)}
-            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors ${sidebarOpen||hasFilters ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
+            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white text-[11px] font-medium transition-colors ${sidebarOpen||hasFilters ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
             <Filter className="h-3.5 w-3.5" /><span className="hidden sm:inline">Filters</span>
             {filterCount > 0 && <span className="h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center bg-white text-blue-600">{filterCount}</span>}
           </button>
-          <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium">
+          <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:bg-gray-50 text-[11px] font-medium">
             <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">Export</span>
           </button>
           <button onClick={loadDocs} disabled={loading} className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
@@ -2007,13 +2014,7 @@ const handleExport = () => {
           </button>
         </div>
 
-        {/* Stats */}
-        <div className="pb-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <StatCard title="Total Documents"  value={stats.total}     icon={FileText}    color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-          <StatCard title="Created"          value={stats.created}   icon={AlertCircle} color="bg-indigo-600"  bg="bg-gradient-to-br from-indigo-50 to-indigo-100" />
-          <StatCard title="E-Sign Pending"   value={stats.esign}     icon={PenLine}     color="bg-green-600"   bg="bg-gradient-to-br from-green-50 to-green-100" />
-          <StatCard title="Completed"        value={stats.completed} icon={Shield}      color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100" />
-        </div>
+       
       </div>
 
       {/* TABLE */}

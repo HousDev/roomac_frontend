@@ -1381,11 +1381,27 @@ const handleVerifyOTP = async () => {
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <div className="sticky top-20 z-10">
+         {/* Stats */}
+        <div className="px-0 sm:px-0 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <StatCard title="Total Handovers" value={stats.total}
+              icon={FileText} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+            <StatCard title="Active" value={stats.active}
+              icon={Boxes} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
+            <StatCard title="Confirmed" value={stats.confirmed}
+              icon={ShieldCheck} color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100" />
+            <StatCard title="Pending" value={stats.pending}
+              icon={AlertTriangle} color="bg-amber-600" bg="bg-gradient-to-br from-amber-50 to-amber-100" />
+          </div>
+        </div>
         <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-
+<button onClick={loadAll} disabled={loading}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
             <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
                 ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
               <Filter className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Filters</span>
@@ -1399,20 +1415,17 @@ const handleVerifyOTP = async () => {
   {can('export_tenant_handover') && (
 
             <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export</span>
             </button>
   )}
 
-            <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            
   {can('create_tenant_handover') && (
 
             <button onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className=" xs:inline">Add Handover</span>
             </button>
@@ -1420,19 +1433,7 @@ const handleVerifyOTP = async () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total Handovers" value={stats.total}
-              icon={FileText} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Active" value={stats.active}
-              icon={Boxes} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Confirmed" value={stats.confirmed}
-              icon={ShieldCheck} color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100" />
-            <StatCard title="Pending" value={stats.pending}
-              icon={AlertTriangle} color="bg-amber-600" bg="bg-gradient-to-br from-amber-50 to-amber-100" />
-          </div>
-        </div>
+       
       </div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
