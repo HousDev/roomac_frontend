@@ -64,6 +64,10 @@ import {
   X,
   AlertTriangle,
   GraduationCap as GraduationIcon,
+  History,
+  LogIn,
+  ArrowRight,
+  LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,11 +107,22 @@ interface PartnerDetails {
   photo_url: string | null;
 }
 
+interface StayHistoryEntry {
+    id: number | string;
+    check_in_date: string | null;
+    check_out_date: string | null;
+    room_number?: string | number | null;
+    bed_number?: string | number | null;
+    property_name?: string | null;
+    vacate_reason_value?: string | null;
+    is_current: boolean;
+}
+
 export default function TenantDetailPage() {
   const params = useParams();
   const router = useRouter();
   console.log('📄 Tenant detail page - ID from URL:', params.id);
-
+ 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +144,56 @@ export default function TenantDetailPage() {
 
   const tid = params.id as string;
 
+  function buildStayHistory(t: Tenant | null): StayHistoryEntry[] {
+        if (!t) return [];
+
+        const records = Array.isArray(t.vacate_records) ? t.vacate_records : [];
+
+        const pastStays: StayHistoryEntry[] = records.map((v: any) => ({
+            id: v.id,
+            check_in_date: v.check_in_date || v.stay_check_in_date || null,
+            check_out_date: v.final_vacate_date || v.requested_vacate_date || null,
+            room_number: v.room_number ?? v.room?.room_number ?? null,
+            bed_number: v.bed_number ?? null,
+            property_name: v.property_name ?? v.property?.name ?? null,
+            vacate_reason_value: v.vacate_reason_value || null,
+            is_current: false,
+        }));
+
+        // Determine whether the tenant currently has an ongoing (non-vacated) stay.
+        // If the most recent vacate record's check-out date doesn't match the
+        // tenant's latest check_in_date, they've checked in again since — that's
+        // the current stay and it belongs at the top of the list.
+        const mostRecentCheckout = pastStays[0]?.check_in_date;
+        const isReturning =
+            t.check_in_date &&
+            (!mostRecentCheckout ||
+                new Date(t.check_in_date).getTime() !== new Date(mostRecentCheckout).getTime());
+
+        const currentStay: StayHistoryEntry | null =
+            t.check_in_date && (isReturning || pastStays.length === 0)
+                ? {
+                    id: "current",
+                    check_in_date: t.check_in_date,
+                    check_out_date: null,
+                    room_number: t.room_number ?? null,
+                    bed_number: t.bed_number ?? null,
+                    property_name: t.assigned_property_name || t.property_name || null,
+                    vacate_reason_value: null,
+                    is_current: true,
+                }
+                : null;
+
+        const all = currentStay ? [currentStay, ...pastStays] : pastStays;
+
+        // Most recent first
+        return all.sort((a, b) => {
+            const da = a.check_in_date ? new Date(a.check_in_date).getTime() : 0;
+            const db = b.check_in_date ? new Date(b.check_in_date).getTime() : 0;
+            return db - da;
+        });
+    }
+
   useEffect(() => {
     console.log('🔍 useEffect triggered for tenant ID:', tid);
     if (tid) {
@@ -141,6 +206,8 @@ useEffect(() => {
     loadPayments();
   }
 }, [activeTab, tid, effectiveTenantIdForPayments]);
+
+
 
 // const loadTenant = async () => {
 //   console.log(`🔍 Loading tenant details for ID: `);
@@ -815,6 +882,8 @@ const downloadReceipt = (id: number) => {
   window.open(`/api/payments/receipts/${id}/download`, "_blank");
 };
 
+
+
 // For backward compatibility
 const openReceipt = (id: number) => {
   previewReceipt(id);
@@ -899,6 +968,8 @@ const rentVal = (() => {
   }
   return "N/A";
 })();
+
+const bookingHistory = buildStayHistory(tenant);
 
   // Helper function to get occupation icon
   const getOccupationIcon = (category: string) => {
@@ -1093,6 +1164,11 @@ tenant.property_details?.name ||   // ← add optional chaining
                     icon: <FileCheck className="w-4 h-4" />,
                     label: "Terms",
                   },
+                   {
+                                        v: "history",
+                                        icon: <History className="w-4 h-4" />,
+                                        label: "Stay History",
+                                    },
                   {
                     v: "partner",
                     icon: <Heart className="w-4 h-4" />,
@@ -2127,6 +2203,120 @@ tenant.property_details?.name ||   // ← add optional chaining
     </div>
   </div>
 </TabsContent>
+
+  {/* Stay History Tab - NEW: shows past check-in/check-out cycles for returning tenants.
+                  Built directly from tenant.vacate_records[] — no separate API call. */}
+                            <TabsContent value="history" className="mt-0">
+                                {bookingHistory.length === 0 ? (
+                                    <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                                            <History className="w-6 h-6 text-slate-300" />
+                                        </div>
+                                        <p className="text-sm text-slate-400">No past stays recorded for this tenant</p>
+                                        <p className="text-xs text-slate-300 mt-1">Earlier check-in / check-out cycles will appear here if this tenant has stayed before</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3 px-1">
+                                            <div className="w-8 h-8 rounded-lg bg-[#0F2A5C] text-white flex items-center justify-center shadow-sm shrink-0">
+                                                <History className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-lexend font-semibold text-slate-900 text-sm">Stay History</h3>
+                                                <p className="text-xs text-slate-500">
+                                                    {bookingHistory.length} recorded {bookingHistory.length === 1 ? "stay" : "stays"} for this tenant
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Vertical timeline of past stays — order is genuinely chronological, so a connected line is justified */}
+                                        <div className="relative pl-2">
+                                            <div className="absolute left-[23px] top-2 bottom-2 w-px bg-slate-200" />
+                                            <div className="space-y-3">
+                                                {bookingHistory.map((stay, idx) => (
+                                                    <div key={stay.id} className="relative flex gap-4">
+                                                        <div className="relative z-10 shrink-0">
+                                                            <div
+                                                                className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-sm ${stay.is_current
+                                                                        ? "bg-emerald-600 text-white shadow-emerald-200"
+                                                                        : "bg-white text-[#0F2A5C] border-2 border-[#0F2A5C]/15"
+                                                                    }`}
+                                                            >
+                                                                {stay.is_current ? <LogIn className="w-4 h-4" /> : <History className="w-4 h-4" />}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex-1 bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-bold text-slate-900">
+                                                                        Stay {bookingHistory.length - idx}
+                                                                    </span>
+                                                                    {stay.is_current && (
+                                                                        <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                                            Current
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                {stay.property_name && (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                                                                        <Building className="w-3 h-3" /> {stay.property_name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <div className="flex-1 flex items-center gap-2 bg-emerald-50/60 rounded-lg px-3 py-2 border border-emerald-100">
+                                                                    <LogIn className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">Checked In</p>
+                                                                        <p className="text-xs font-semibold text-emerald-900 truncate">
+                                                                            {stay.check_in_date
+                                                                                ? new Date(stay.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                                                                                : "Not recorded"}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <ArrowRight className="w-4 h-4 text-slate-300 shrink-0" />
+
+                                                                <div className={`flex-1 flex items-center gap-2 rounded-lg px-3 py-2 border ${stay.check_out_date ? "bg-rose-50/60 border-rose-100" : "bg-slate-50 border-slate-200"}`}>
+                                                                    <LogOut className={`w-3.5 h-3.5 shrink-0 ${stay.check_out_date ? "text-rose-600" : "text-slate-400"}`} />
+                                                                    <div className="min-w-0">
+                                                                        <p className={`text-[9px] font-bold uppercase tracking-wider ${stay.check_out_date ? "text-rose-600" : "text-slate-400"}`}>
+                                                                            {stay.check_out_date ? "Checked Out" : "Still Staying"}
+                                                                        </p>
+                                                                        <p className={`text-xs font-semibold truncate ${stay.check_out_date ? "text-rose-900" : "text-slate-500"}`}>
+                                                                            {stay.check_out_date
+                                                                                ? new Date(stay.check_out_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                                                                                : "Ongoing"}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                                                                    <Bed className="w-3.5 h-3.5 text-slate-400" />
+                                                                    {stay.room_number || stay.bed_number
+                                                                        ? `Room ${stay.room_number ?? "—"} · Bed ${stay.bed_number ?? "—"}`
+                                                                        : "Room not recorded"}
+                                                                </span>
+                                                                {stay.vacate_reason_value && (
+                                                                    <span className="text-[11px] text-slate-400 italic truncate max-w-[55%]">
+                                                                        {stay.vacate_reason_value}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </TabsContent>
+
 
               {/* Partner Tab - NEW */}
              <TabsContent value="partner" className="mt-0 space-y-3">
