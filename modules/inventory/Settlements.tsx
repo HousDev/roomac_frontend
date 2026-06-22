@@ -8,6 +8,7 @@ import {
   Building, ShieldCheck, IndianRupee, Receipt, Banknote, AlertTriangle,
   CreditCard, User,
   Edit,
+  FileText,
 } from 'lucide-react';
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -537,38 +538,41 @@ const handleExport = () => {
 
       {/* HEADER */}
       <div className="sticky top-20 z-10">
-        <div className="px-0 sm:px-0 pt-0 pb-0 flex justify-end gap-1.5">
-          <button onClick={() => setSidebarOpen(o => !o)}
-            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-              ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-            <Filter className="h-3.5 w-3.5"/><span className="hidden sm:inline">Filters</span>
-          </button>
-                    {can('export_settlements') && (
 
-          <button onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium">
-            <Download className="h-3.5 w-3.5"/><span className="hidden sm:inline">Export</span>
-          </button>
-                    )}
-          <button onClick={loadAll} disabled={loading}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}/>
-          </button>
-          {can('create_settlements') && (
-
-          <button onClick={openAdd}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm">
-            <Plus className="h-3.5 w-3.5"/>New Settlement
-          </button>
-          )}
-        </div>
-
-        <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
           <StatCard title="Total"             value={stats.total}             icon={IndianRupee}       color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100"/>
           <StatCard title="Pending"           value={stats.pending}           icon={AlertTriangle} color="bg-amber-600"   bg="bg-gradient-to-br from-amber-50 to-amber-100"/>
           <StatCard title="Paid / Completed"  value={stats.paid}              icon={ShieldCheck}   color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100"/>
           <StatCard title="Total Refunds"     value={money(stats.totalRefund)} icon={Banknote}     color="bg-indigo-600"  bg="bg-gradient-to-br from-indigo-50 to-indigo-100"/>
         </div>
+        <div className="px-0 sm:px-0 pt-0 pb-2 flex justify-end gap-1.5">
+           <button onClick={loadAll} disabled={loading}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}/>
+          </button>
+          <button onClick={() => setSidebarOpen(o => !o)}
+            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+              ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600' : 'bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200 hover:bg-gray-50'}`}>
+            <Filter className="h-3.5 w-3.5"/><span className="hidden sm:inline">Filters</span>
+          </button>
+                    {can('export_settlements') && (
+
+          <button onClick={handleExport}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium">
+            <Download className="h-3.5 w-3.5"/><span className="hidden sm:inline">Export</span>
+          </button>
+                    )}
+         
+          {can('create_settlements') && (
+
+          <button onClick={openAdd}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm">
+            <Plus className="h-3.5 w-3.5"/>New Settlement
+          </button>
+          )}
+        </div>
+
+      
       </div>
 
       {/* TABLE */}
@@ -651,7 +655,7 @@ const handleExport = () => {
                   </td></tr>
                 ) : filteredItems.length === 0 ? (
                   <tr><td colSpan={15} className="text-center py-12">
-                    <Receipt className="h-10 w-10 text-gray-300 mx-auto mb-3"/>
+                    <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3"/>
                     <p className="text-sm font-medium text-gray-500">No settlements found</p>
                   </td></tr>
                 ) : filteredItems.map((s, idx) => (

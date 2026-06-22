@@ -8,6 +8,7 @@ import {
   addExpensePayment,
   getExpensePayments,
   getBankNames,
+   bulkImportExpenses,
 } from "@/lib/expenseApi";
 import { getAllStaff } from "@/lib/staffApi";
 import { listProperties } from "@/lib/propertyApi";
@@ -15,8 +16,12 @@ import { consumeMasters, getMasterItemsByTab, getMasterValues } from "@/lib/mast
 import { getPurchases } from "@/lib/materialPurchaseApi";
 import Swal from "sweetalert2";
 import { toast } from "sonner";
+import { getSettings, getSettingValue } from "@/lib/settingsApi";
 import { useAuth } from "@/context/authContext";
 import { getSubcategoriesByCategory } from "@/lib/categorySubcategoryMapApi";
+import { AlertCircle, Building2, Calendar, CheckCircle, Clock, CreditCard, Edit, Edit2, Eye, Filter, IndianRupeeIcon, Package, Pencil, Plus, Printer, Repeat, Trash2, Upload, Wallet, X } from "lucide-react";
+import * as XLSX from "xlsx";
+import { Download, Upload as UploadIcon } from "lucide-react";
 /* ─── tiny helpers ─────────────────────────────────────────────────────────── */
 const fmt = (n: number) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
@@ -91,6 +96,7 @@ const blankForm = () => ({
   sub_category_id: "",     
   sub_category_name: "",
   total_amount: "",
+  paid_now: "", 
   vendor_name: "",
   payment_mode: null,
   expense_date: new Date().toISOString().split("T")[0],
@@ -302,8 +308,8 @@ const ReceiptThumbnail = ({
     <div
       onClick={onClick}
       style={{
-        width: 32,
-        height: 32,
+        width: 20,
+        height: 20,
         borderRadius: 6,
         overflow: "hidden",
         border: "1px solid #E2E8F4",
@@ -326,8 +332,8 @@ const ReceiptThumbnail = ({
         />
       ) : isPdf ? (
         <svg
-          width="16"
-          height="16"
+          width="10"
+          height="10"
           fill="none"
           stroke="#E53E3E"
           strokeWidth="2"
@@ -338,8 +344,8 @@ const ReceiptThumbnail = ({
         </svg>
       ) : (
         <svg
-          width="16"
-          height="16"
+          width="10"
+          height="10"
           fill="none"
           stroke="#8892A4"
           strokeWidth="2"
@@ -364,7 +370,7 @@ export default function ExpensesManagement() {
   const [properties, setProperties] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [purchasedItems, setPurchasedItems] = useState<string[]>([]);
-
+const dateInputRef = useRef<HTMLInputElement>(null);
   // Stats
   const [stats, setStats] = useState<any>({});
 
@@ -399,7 +405,8 @@ const [filterVendor, setFilterVendor] = useState("All");
   const [filterProp, setFilterProp] = useState("All");
   const [filterPaymentMode, setFilterPaymentMode] = useState("All");
   const [colSearch, setColSearch] = useState({
-  property: "", category: "", vendor: "", status: "", addedBy: "", amount: "", paidBy: "", expenseDate: ""
+  property: "", category: "", vendor: "", status: "", addedBy: "", amount: "", paidBy: "", expenseDate: "",item: "",          
+  subCategory: "",
 });
 const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
 const [selectAll, setSelectAll] = useState(false);
@@ -407,7 +414,9 @@ const [selectAll, setSelectAll] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   // Add with other state declarations
 const [bankNames, setBankNames] = useState<Array<{ id: number; name: string }>>([]);
-
+const [siteSettings, setSiteSettings] = useState({
+  siteName: "ROOMAC", logo: "", phone: "", email: "", address: "",
+});
 const [showCustomBankInput, setShowCustomBankInput] = useState(false);
 const [subCategories, setSubCategories] = useState<any[]>([]);
 const [dynamicSubCategories, setDynamicSubCategories] = useState<any[]>([]);
@@ -420,6 +429,12 @@ const [itemsPerPage, setItemsPerPage] = useState<number | "All">(10);
     open: false,
     expense: null,
   });
+
+  const [showImportModal, setShowImportModal] = useState(false);
+const [importFile, setImportFile] = useState<File | null>(null);
+const [importPreview, setImportPreview] = useState<any[]>([]);
+const [importing, setImporting] = useState(false);
+const importFileRef = useRef<HTMLInputElement>(null);
     // Add these states for payment history
   const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -557,7 +572,23 @@ useEffect(() => {
   fetchSubs();
 }, [form.category_name]);
 
-
+useEffect(() => {
+  const fetchSiteSettings = async () => {
+    try {
+      const settings = await getSettings();
+      setSiteSettings({
+        siteName: getSettingValue(settings, "site_name", "ROOMAC"),
+        logo: getSettingValue(settings, "logo_header", ""),
+        phone: getSettingValue(settings, "contact_phone", ""),
+        email: getSettingValue(settings, "contact_email", ""),
+        address: getSettingValue(settings, "contact_address", ""),
+      });
+    } catch (err) {
+      console.error("Failed to load site settings:", err);
+    }
+  };
+  fetchSiteSettings();
+}, []);
 // Fetch bank names from masters
 useEffect(() => {
   const fetchBankNames = async () => {
@@ -627,10 +658,417 @@ const loadExpenses = useCallback(async () => {
     setPaymentModal({ open: true, expense });
   };
 
-  const closePaymentModal = () => {
+ const closePaymentModal = () => {
     setPaymentModal({ open: false, expense: null });
   };
 
+  /* ── Print expense as a proper receipt ───────────────────────────────────── */
+  const printExpense = (exp: any) => {
+    if (!exp) return;
+
+    const totalPaid = paymentTransactions.length
+      ? paymentTransactions.reduce((s, t) => s + (parseFloat(t.paid_amount) || 0), 0)
+      : Number(exp.total_paid || 0);
+    const totalAmt = Number(exp.total_amount || exp.amount || 0);
+    const balanceAmt = totalAmt - totalPaid;
+
+    const validItems = (exp.items || []).filter(
+      (i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name
+    );
+
+    const itemsRows = validItems
+      .map(
+        (i: any, idx: number) => `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td>${i.name || i.item_name || "—"}</td>
+          <td>${i.sub_category || i.sub_category_name || "—"}</td>
+          <td class="num">${i.qty || i.quantity || "—"}</td>
+          <td class="num">${fmt(i.price || i.unit_price || 0)}</td>
+          <td class="num">${fmt(Number(i.qty || i.quantity || 0) * Number(i.price || i.unit_price || 0))}</td>
+        </tr>`
+      )
+      .join("");
+
+    const paymentRows = (paymentTransactions || [])
+      .map(
+        (t: any) => `
+        <tr>
+          <td>${fmtDate(t.transaction_date?.split("T")[0] || t.created_at?.split("T")[0])}</td>
+          <td>${t.payment_mode || "—"}</td>
+          <td>${t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || "—"}</td>
+          <td class="num">${fmt(t.paid_amount)}</td>
+        </tr>`
+      )
+      .join("");
+
+    const statusColor =
+      exp.status === "Paid" ? "#16a34a" : exp.status === "Partial" ? "#d97706" : "#dc2626";
+    const statusBg =
+      exp.status === "Paid" ? "#dcfce7" : exp.status === "Partial" ? "#fef3c7" : "#fee2e2";
+    const statusLabel = exp.status === "Paid" ? "PAID" : exp.status === "Partial" ? "PARTIAL" : "UNPAID";
+
+    const isPdf = exp.receipt_name?.toLowerCase().endsWith(".pdf");
+    const receiptHtml = exp.receipt_url
+      ? isPdf
+        ? `<div class="section-title">Attached Receipt</div><iframe src="${exp.receipt_url}" class="receipt-frame"></iframe>`
+        : `<div class="section-title">Attached Receipt</div><img class="receipt-img" src="${exp.receipt_url}" />`
+      : "";
+
+    const win = window.open("", "_blank", "width=820,height=1000");
+    if (!win) return;
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>Receipt - ${exp.vendor_name || exp.category_name || "Expense"}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
+            body { background: #F4F6FB; padding: 24px; color: #1A2B6D; }
+            .sheet {
+              max-width: 720px;
+              margin: 0 auto;
+              background: #fff;
+              border-radius: 14px;
+              overflow: hidden;
+              box-shadow: 0 4px 24px rgba(26,43,109,0.08);
+              border: 1px solid #E2E8F4;
+            }
+            .head {
+              background: linear-gradient(135deg, #0A1F5C, #1E4ED8);
+              color: #fff;
+              padding: 22px 28px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            }
+            .head .brand { display: flex; align-items: center; gap: 10px; }
+            .head .brand img { height: 36px; max-width: 120px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
+            .head .brand-name { font-size: 19px; font-weight: 800; letter-spacing: 0.3px; }
+            .head .brand-sub { font-size: 10px; color: #BFD0FF; margin-top: 2px; }
+            .head .receipt-tag { text-align: right; }
+            .head .receipt-tag .label { font-size: 11px; letter-spacing: 1.5px; color: #BFD0FF; text-transform: uppercase; }
+            .head .receipt-tag .num { font-size: 15px; font-weight: 700; margin-top: 2px; }
+
+            .meta-bar {
+              display: flex;
+              justify-content: space-between;
+              padding: 14px 28px;
+              background: #F8FAFF;
+              border-bottom: 1px solid #E2E8F4;
+              font-size: 11px;
+              color: #5A6480;
+            }
+            .meta-bar div span { display:block; font-weight: 700; color: #1A2B6D; font-size: 12.5px; margin-top:2px; }
+
+            .body-pad { padding: 22px 28px; }
+
+            .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+            .field .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #8892A4; font-weight: 700; }
+            .field .value { font-size: 13px; font-weight: 600; margin-top: 3px; color: #1A2B6D; }
+
+            .status-chip {
+              display: inline-block;
+              padding: 3px 10px;
+              border-radius: 20px;
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+              color: ${statusColor};
+              background: ${statusBg};
+            }
+
+            .section-title {
+              font-size: 11.5px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.6px;
+              color: #3B5BDB;
+              margin: 22px 0 10px;
+              padding-bottom: 6px;
+              border-bottom: 2px solid #E2E8F4;
+            }
+
+            table { width: 100%; border-collapse: collapse; }
+            thead th {
+              background: #F0F3FF;
+              color: #3B5BDB;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.4px;
+              text-align: left;
+              padding: 8px 8px;
+              font-weight: 700;
+            }
+            tbody td {
+              padding: 7px 8px;
+              font-size: 12px;
+              border-bottom: 1px solid #EFF2FA;
+              color: #374151;
+            }
+            td.num, th.num { text-align: right; }
+            td:first-child.num { text-align: center; }
+
+            .totals {
+              margin-top: 14px;
+              margin-left: auto;
+              width: 280px;
+            }
+            .totals .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; }
+            .totals .row.label-muted { color: #8892A4; }
+            .totals .row.grand {
+              border-top: 2px solid #1A2B6D;
+              margin-top: 4px;
+              padding-top: 10px;
+              font-size: 15px;
+              font-weight: 800;
+              color: #1A2B6D;
+            }
+            .totals .row.paid { color: #16a34a; font-weight: 700; }
+            .totals .row.balance { color: #d97706; font-weight: 700; }
+
+            .notes-box {
+              background: #F8FAFF;
+              border: 1px solid #E2E8F4;
+              border-radius: 8px;
+              padding: 10px 12px;
+              font-size: 12px;
+              color: #374151;
+              margin-top: 6px;
+            }
+
+            .receipt-img { max-width: 100%; max-height: 380px; margin-top: 8px; border: 1px solid #E2E8F4; border-radius: 8px; display: block; }
+            .receipt-frame { width: 100%; height: 380px; border: 1px solid #E2E8F4; border-radius: 8px; margin-top: 8px; }
+
+            .foot {
+              padding: 16px 28px 24px;
+              text-align: center;
+              font-size: 10.5px;
+              color: #9AA3B5;
+              border-top: 1px dashed #E2E8F4;
+              margin-top: 10px;
+            }
+            .foot .thanks { font-size: 12px; font-weight: 700; color: #3B5BDB; margin-bottom: 4px; }
+
+            @media print {
+              body { background: #fff; padding: 0; }
+              .sheet { box-shadow: none; border: none; border-radius: 0; max-width: 100%; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <div class="head">
+              <div class="brand">
+                ${siteSettings.logo ? `<img src="${siteSettings.logo}" />` : ""}
+                <div>
+                  <div class="brand-name">${siteSettings.siteName}</div>
+                  <div class="brand-sub">${siteSettings.address || ""}</div>
+                </div>
+              </div>
+              <div class="receipt-tag">
+                <div class="label">Expense Receipt</div>
+                <div class="num">#${String(exp.id).padStart(5, "0")}</div>
+              </div>
+            </div>
+
+            <div class="meta-bar">
+              <div>Expense Date<span>${fmtDate(exp.expense_date)}</span></div>
+              <div>Property<span>${exp.property_name || "—"}</span></div>
+              <div style="text-align:right;">Status<span><span class="status-chip">${statusLabel}</span></span></div>
+            </div>
+
+            <div class="body-pad">
+              <div class="grid3">
+                <div class="field"><div class="label">Category</div><div class="value">${exp.category_name || "—"}</div></div>
+                <div class="field"><div class="label">Sub Category</div><div class="value">${exp.sub_category_name || "—"}</div></div>
+                <div class="field"><div class="label">Vendor</div><div class="value">${exp.vendor_name || "—"}</div></div>
+                <div class="field"><div class="label">Added By</div><div class="value">${exp.added_by_name || "—"}</div></div>
+                <div class="field"><div class="label">Payment Mode</div><div class="value">${exp.payment_mode || "—"}</div></div>
+                <div class="field"><div class="label">Reference</div><div class="value">${exp.transaction_id || exp.cheque_no || exp.upi_id || exp.card_ref || "—"}</div></div>
+              </div>
+
+              ${itemsRows ? `
+              <div class="section-title">Purchase Items</div>
+              <table>
+                <thead><tr><th class="num">#</th><th>Item</th><th>Sub Category</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead>
+                <tbody>${itemsRows}</tbody>
+              </table>` : ""}
+
+              ${paymentRows ? `
+              <div class="section-title">Payment History</div>
+              <table>
+                <thead><tr><th>Date</th><th>Mode</th><th>Reference</th><th class="num">Amount</th></tr></thead>
+                <tbody>${paymentRows}</tbody>
+              </table>` : ""}
+
+              <div class="totals">
+                <div class="row grand"><span>Total Amount</span><span>${fmt(totalAmt)}</span></div>
+                <div class="row paid"><span>Paid</span><span>${fmt(totalPaid)}</span></div>
+                <div class="row balance"><span>Balance Due</span><span>${fmt(balanceAmt)}</span></div>
+              </div>
+
+              ${exp.notes ? `
+              <div class="section-title">Notes</div>
+              <div class="notes-box">${exp.notes}</div>` : ""}
+
+              ${receiptHtml}
+            </div>
+
+            <div class="foot">
+              <div class="thanks">Thank you</div>
+              ${siteSettings.email || siteSettings.phone ? `${siteSettings.email || ""} ${siteSettings.email && siteSettings.phone ? "•" : ""} ${siteSettings.phone || ""}` : ""}
+              <div style="margin-top:4px;">Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
+const handleDownloadTemplate = () => {
+  const headers = [
+    "Property", "Items", "Qty", "UnitPrice",
+    "Category", "SubCategory", "Vendor",
+    "Amount", "PaymentMode", "Date", "AddedBy"
+  ];
+  const rows = [
+    // Scenario 1: Single item — Groceries
+   [
+  "Roomac Co-Living", "Rice", "5", "60",
+  "Groceries", "Food", "",          
+  300, "Cash", "2026-06-20", "Kamlesh Shah"
+],
+// Row 2
+[
+  "Roomac Co-Living", "Rice,Dal,Oil", "5,2,1", "60,90,180",
+  "Groceries", "Food", "Devanand",   
+  660, "UPI", "2026-06-20", "Kamlesh Shah"
+],
+    // Scenario 3: Property Rent
+    [
+      "Roomac Co-Living", "June Rent", "1", "25000",
+      "Property Rent", "Monthly Rent", "",
+      25000, "Bank Transfer", "2026-06-01", "Kamlesh Shah"
+    ],
+    // Scenario 4: Maintenance — multiple items
+    [
+      "Roomac Co-Living", "Pipe Repair,Labour Charges", "1,1", "800,500",
+      "Maintenance", "Plumbing", "Raju Plumber",
+      1300, "Cash", "2026-06-10", "Kamlesh Shah"
+    ],
+  
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws["!cols"] = headers.map(() => ({ wch: 22 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Expenses Template");
+  XLSX.writeFile(wb, "expenses_import_template.xlsx");
+};
+  
+const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setImportFile(file);
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+    const wb = XLSX.read(data, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+  const cleaned = rows
+  .filter((r) => r.Property || r.Category)
+  .map((r) => ({
+    property_name: String(r.Property || "").trim(),
+    items: (() => {
+      const names = String(r.Items || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const qtys = String(r.Qty || "").split(",").map((s: string) => s.trim());
+      const prices = String(r.UnitPrice || "").split(",").map((s: string) => s.trim());
+      return names.map((name: string, idx: number) => ({
+        name,
+        qty: Number(qtys[idx]) || 1,
+        price: Number(prices[idx]) || 0,
+        total_amount: (Number(qtys[idx]) || 1) * (Number(prices[idx]) || 0),
+      }));
+    })(),
+    category_name: String(r.Category || "").trim(),
+    sub_category_name: String(r.SubCategory || "").trim(),
+    vendor_name: String(r.Vendor || "").trim(),
+    amount: Number(r.Amount) || 0,
+    payment_mode: String(r.PaymentMode || "").trim(),
+    expense_date: r.Date
+      ? (typeof r.Date === "number"
+          ? XLSX.SSF.format("yyyy-mm-dd", r.Date)
+          : String(r.Date).trim())
+      : "",
+    added_by_name: String(r.AddedBy || "").trim(),
+    // notes — REMOVED
+  }));
+    setImportPreview(cleaned);
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+const handleImportSave = async () => {
+  if (importPreview.length === 0) return;
+  setImporting(true);
+  try {
+    const result = await bulkImportExpenses(importPreview);
+    const created = result.data?.created || 0;
+    const skipped = result.data?.skipped || [];
+    
+    if (created > 0) {
+      toast.success(`✅ ${created} expenses imported successfully`);
+    }
+    
+    if (skipped.length > 0) {
+      // Skipped rows ka reason dikhao
+      const reasons = skipped.map((s: any) => s.reason).filter(Boolean);
+      const uniqueReasons = [...new Set(reasons)];
+      toast.error(
+        `⚠️ ${skipped.length} rows skipped:\n${uniqueReasons.join('\n')}`,
+        { duration: 6000 }
+      );
+      console.log("Skipped rows:", skipped);
+    }
+    
+    setShowImportModal(false);
+    setImportPreview([]);
+    setImportFile(null);
+    await loadExpenses();
+  } catch (err: any) {
+    toast.error(err.message || "Import failed");
+  } finally {
+    setImporting(false);
+  }
+};
+
+
+const handleExportAll = () => {
+  const rows = expenses.map((e) => ({
+    Property: e.property_name,
+    Category: e.category_name,
+    SubCategory: e.sub_category_name,
+    Vendor: e.vendor_name,
+    Amount: e.total_amount,
+    Paid: e.total_paid,
+    Balance: e.balance,
+    PaymentMode: e.payment_mode,
+    Date: e.expense_date,
+    Status: e.status,
+    Notes: e.notes,
+    AddedBy: e.added_by_name,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+  XLSX.writeFile(wb, `expenses_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+};
   /* ── Filtered list ─────────────────────────────────────────────────────── */
  const filtered = useMemo(() => expenses.filter((e) => {
   if (filterCat !== "All" && e.category_name !== filterCat) return false;
@@ -638,7 +1076,10 @@ const loadExpenses = useCallback(async () => {
   if (filterStatus !== "All" && e.status !== filterStatus) return false;
   if (filterProp !== "All" && e.property_name !== filterProp) return false;
   if (filterVendor !== "All" && e.vendor_name !== filterVendor) return false;
-  
+if (colSearch.item && !e.items?.some((i: any) =>
+  (i.name || i.item_name)?.toLowerCase().includes(colSearch.item.toLowerCase())
+)) return false;
+if (colSearch.subCategory && !e.sub_category_name?.toLowerCase().includes(colSearch.subCategory.toLowerCase())) return false;
   // ✅ Date filters – only apply if ignoreDateFilters is false
   if (!ignoreDateFilters) {
     if (filterMonth && !e.expense_date?.startsWith(filterMonth)) return false;
@@ -738,16 +1179,16 @@ setPaymentDetails({
   }
 
 function openEdit(exp: any) {
-  const initialItems = exp.items?.length
-    ? exp.items.map((i: any) => ({
-        id: i.id || Math.random(),
-        name: i.name || i.item_name,
-        category: i.category || i.category_name || "",
-        sub_category: i.sub_category || i.sub_category_name || "",
-        qty: i.qty || i.quantity || "",
-        price: i.price || i.unit_price || "",
-        total_amount: i.total_amount || ((Number(i.qty) || 0) * (Number(i.price) || 0)),
-      }))
+ const initialItems = exp.items?.length
+  ? exp.items.map((i: any) => ({
+      id: i.id || Math.random(),
+      name: i.name || i.item_name || "",
+      category: i.category || i.category_name || "",
+      sub_category: i.sub_category || i.sub_category_name || "",
+      qty: String(i.qty || i.quantity || ""),
+      price: String(i.price || i.unit_price || ""),
+      total_amount: Number(i.total_amount) || ((Number(i.qty || i.quantity) || 0) * (Number(i.price || i.unit_price) || 0)),
+    }))
     : [{
         id: Date.now() + Math.random(),
         name: "",
@@ -835,7 +1276,7 @@ setForm({
   setReceiptFile(null);
   setReceiptPreview(exp.receipt_name || "");
   // Pehle subcategories fetch karo, phir modal open karo
-  if (exp.category_name) {
+ if (exp.category_name) {
     getSubcategoriesByCategory(exp.category_name)
       .then((res: any) => {
         const subs = (res?.data || []).map((s: any) => ({
@@ -843,12 +1284,31 @@ setForm({
           name: s.subcategory_name,
         }));
         setDynamicSubCategories(subs);
+
+        // ✅ Ab items mein sub_category correctly set karo subs aane ke baad
+        setForm((prev: any) => ({
+          ...prev,
+          items: prev.items.map((item: any) => {
+            const matchedSub = subs.find(
+              (s: any) => s.name === (item.sub_category || item.sub_category_name || "")
+            );
+            return {
+              ...item,
+              sub_category: matchedSub ? matchedSub.name : (item.sub_category || ""),
+            };
+          }),
+        }));
+
+        setShowModal(true); // ← modal tab open karo jab subs aa jayein
       })
-      .catch(() => setDynamicSubCategories([]));
+      .catch(() => {
+        setDynamicSubCategories([]);
+        setShowModal(true);
+      });
   } else {
     setDynamicSubCategories([]);
+    setShowModal(true);
   }
-  setShowModal(true);
 }
 
   function validate() {
@@ -857,7 +1317,7 @@ setForm({
   if (!form.category_id) e.category_id = "Required";
   if (!form.expense_date) e.expense_date = "Required";
   // if (!form.added_by_name?.trim()) e.added_by_name = "Required";
-  if (form.items.filter((i: any) => i.name).length === 0) e.items = "At least one item required";
+  // if (form.items.filter((i: any) => i.name).length === 0) e.items = "At least one item required";
   return e;
 }
 
@@ -869,15 +1329,22 @@ async function save() {
   }
   setSubmitting(true);
   try {
-    const validItems = form.items.filter((i: any) => i.name);
+    const validItems = form.items.filter(
+      (i: any) => i.name?.trim() || i.sub_category || i.qty || i.price
+    );
     const updatedItems = validItems.map((item: any) => ({
       ...item,
       total_amount: (Number(item.qty) || 0) * (Number(item.price) || 0),
     }));
     
-    const itemsTotal = updatedItems.reduce((sum, i) => sum + i.total_amount, 0);
-    const expenseTotalAmount = itemsTotal;
-    const paymentAmount = form.total_amount ? Number(form.total_amount) : 0;
+   const itemsTotal = updatedItems.reduce((sum, i) => sum + i.total_amount, 0);
+const expenseTotalAmount =
+  itemsTotal > 0
+    ? itemsTotal
+    : (form.total_amount !== "" && form.total_amount !== null && form.total_amount !== undefined
+        ? Number(form.total_amount)
+        : 0);
+const paymentAmount = form.paid_now ? Number(form.paid_now) : 0;
     
     // Prepare payment details
     let cheque_no = null, cheque_bank = null, transaction_id = null, upi_id = null, card_ref = null, bank_name = null;
@@ -1064,7 +1531,6 @@ const payload = {
 
 useEffect(() => {
   if (isInitializingEdit.current) {
-    isInitializingEdit.current = false;
     return;
   }
   if (form.category_name && form.items.length > 0) {
@@ -1077,6 +1543,25 @@ useEffect(() => {
   }
 }, [form.category_name]);
 
+useEffect(() => {
+  if (isInitializingEdit.current) {
+    return;
+  }
+  const computedTotal = form.items.reduce(
+    (sum, i) => sum + ((Number(i.qty) || 0) * (Number(i.price) || 0)),
+    0
+  );
+  if (computedTotal > 0) {
+    setForm((f) => ({ ...f, total_amount: String(computedTotal) }));
+  }
+}, [form.items]);
+
+useEffect(() => {
+  if (isInitializingEdit.current) {
+    const id = setTimeout(() => { isInitializingEdit.current = false; }, 0);
+    return () => clearTimeout(id);
+  }
+}, [form.property_id]);
 
 const processPayment = async () => {
   if (!paymentModal.expense) return;
@@ -1187,131 +1672,182 @@ const processPayment = async () => {
   }
 };
 
+// ── Bulk delete handler ──────────────────────────────────────────────
+const handleBulkDelete = async () => {
+  const result = await Swal.fire({
+    title: 'Delete Selected?',
+    text: `You are about to delete ${bulkSelected.size} expense(s). This cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete all!',
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    width: '400px',
+    padding: '1.5rem',
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4',
+    },
+    buttonsStyling: false,
+  });
+  if (!result.isConfirmed) return;
+
+  try {
+    await Promise.all([...bulkSelected].map((id) => deleteExpense(id)));
+    toast.success(`${bulkSelected.size} expenses deleted`);
+    setBulkSelected(new Set());
+    setSelectAll(false);
+    await loadExpenses();
+  } catch (err: any) {
+    toast.error(err.message || 'Bulk delete failed');
+  }
+};
+
 // Update the conditional fields effect for payment modal
 // Update the conditional fields effect for payment modal
 useEffect(() => {
   if (!paymentModal.open) return;
-  
+
   const paymentModeSelect = document.getElementById('paymentMode') as HTMLSelectElement;
   const container = document.getElementById('paymentConditionalFields');
-  
+
   const updateConditionalFields = () => {
     if (!container) return;
     const mode = paymentModeSelect?.value;
-    
+
+    // Helper: wrap a field in a grid item, optionally spanning full width
+    const fieldWrapper = (content: string, spanFull = false) => {
+      return `<div style="${spanFull ? 'grid-column: span 2;' : ''}">${content}</div>`;
+    };
+
     let html = '';
+
     if (mode === 'UPI') {
       html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">UPI ID</label>
-          <input id="upiId" type="text" placeholder="example@upi" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; outline: none;" />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">UPI ID</label>
+            <input id="upiId" type="text" placeholder="example@upi" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; outline: none;" />
+          `, true)}
         </div>
       `;
-} else if (mode === 'Bank Transfer') {
-  // Get bank names for dropdown
-  const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
-  html = `
-    <div style="margin-bottom: 10px;">
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-      <select id="bankName" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
-        <option value="">Select Bank</option>
-        ${bankOptions}
-        <option value="Other">Other (Specify)</option>
-      </select>
-      <input id="bankNameOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-    </div>
-    <div style="margin-bottom: 10px;">
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID / Reference</label>
-      <input id="transactionRef" type="text" placeholder="Transaction reference" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-    </div>
-    <script>
-      setTimeout(function() {
-        const bankSelect = document.getElementById('bankName');
-        const bankOther = document.getElementById('bankNameOther');
-        if (bankSelect && bankOther) {
-          bankSelect.addEventListener('change', function() {
-            if (this.value === 'Other') {
-              bankOther.style.display = 'block';
-            } else {
-              bankOther.style.display = 'none';
-            }
-          });
-        }
-      }, 100);
-    <\/script>
-  `;
-} else if (mode === 'Cheque') {
-  // Get bank names for dropdown
-  const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
-  html = `
-    <div style="margin-bottom: 10px;">
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
-      <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-    </div>
-    <div style="margin-bottom: 10px;">
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-      <select id="chequeBank" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
-        <option value="">Select Bank</option>
-        ${bankOptions}
-        <option value="Other">Other (Specify)</option>
-      </select>
-      <input id="chequeBankOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-    </div>
-    <script>
-      setTimeout(function() {
-        const chequeSelect = document.getElementById('chequeBank');
-        const chequeOther = document.getElementById('chequeBankOther');
-        if (chequeSelect && chequeOther) {
-          chequeSelect.addEventListener('change', function() {
-            if (this.value === 'Other') {
-              chequeOther.style.display = 'block';
-            } else {
-              chequeOther.style.display = 'none';
-            }
-          });
-        }
-      }, 100);
-    <\/script>
-  `;
-} else if (mode === 'Card') {
+    } else if (mode === 'Bank Transfer') {
+      const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
       html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Card Reference / Last 4 digits</label>
-          <input id="cardRef" type="text" placeholder="Last 4 digits" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+            <select id="bankName" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
+              <option value="">Select Bank</option>
+              ${bankOptions}
+              <option value="Other">Other (Specify)</option>
+            </select>
+            <input id="bankNameOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID / Reference</label>
+            <input id="transactionRef" type="text" placeholder="Transaction reference" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
+        </div>
+        <script>
+          setTimeout(function() {
+            const bankSelect = document.getElementById('bankName');
+            const bankOther = document.getElementById('bankNameOther');
+            if (bankSelect && bankOther) {
+              bankSelect.addEventListener('change', function() {
+                if (this.value === 'Other') {
+                  bankOther.style.display = 'block';
+                } else {
+                  bankOther.style.display = 'none';
+                }
+              });
+            }
+          }, 100);
+        <\/script>
+      `;
+    } else if (mode === 'Cheque') {
+      const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
+      html = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
+            <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+            <select id="chequeBank" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
+              <option value="">Select Bank</option>
+              ${bankOptions}
+              <option value="Other">Other (Specify)</option>
+            </select>
+            <input id="chequeBankOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
+        </div>
+        <script>
+          setTimeout(function() {
+            const chequeSelect = document.getElementById('chequeBank');
+            const chequeOther = document.getElementById('chequeBankOther');
+            if (chequeSelect && chequeOther) {
+              chequeSelect.addEventListener('change', function() {
+                if (this.value === 'Other') {
+                  chequeOther.style.display = 'block';
+                } else {
+                  chequeOther.style.display = 'none';
+                }
+              });
+            }
+          }, 100);
+        <\/script>
+      `;
+    } else if (mode === 'Card') {
+      html = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Card Reference / Last 4 digits</label>
+            <input id="cardRef" type="text" placeholder="Last 4 digits" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `, true)}
         </div>
       `;
     } else if (mode === 'Online Payment Gateway') {
       html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID</label>
-          <input id="transactionId" type="text" placeholder="Gateway transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-        </div>
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Payment Gateway Name</label>
-          <input id="gatewayName" type="text" placeholder="e.g., Razorpay, Stripe" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID</label>
+            <input id="transactionId" type="text" placeholder="Gateway transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Payment Gateway Name</label>
+            <input id="gatewayName" type="text" placeholder="e.g., Razorpay, Stripe" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `)}
         </div>
       `;
     } else if (mode === 'Wallet') {
       html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Wallet Reference / Transaction ID</label>
-          <input id="walletRef" type="text" placeholder="Wallet transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${fieldWrapper(`
+            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Wallet Reference / Transaction ID</label>
+            <input id="walletRef" type="text" placeholder="Wallet transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+          `, true)}
         </div>
       `;
     }
-    
+
     container.innerHTML = html;
   };
-  
+
   if (paymentModeSelect) {
     paymentModeSelect.addEventListener('change', updateConditionalFields);
     updateConditionalFields();
-    
+
     return () => {
       paymentModeSelect.removeEventListener('change', updateConditionalFields);
     };
   }
-}, [paymentModal.open]);
+}, [paymentModal.open, bankNames]);
 
   const totalAmount = form.items.reduce((sum, i) => sum + ((Number(i.qty) || 0) * (Number(i.price) || 0)), 0);
   const computedStats = {
@@ -1361,1445 +1897,1267 @@ useEffect(() => {
 
   /* ═══════════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#F4F6FB" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <div >
 
       {/* STICKY HEADER + COMPACT STATS */}
-      <div style={{ position: "sticky", top: 16, zIndex: 10, background: "#F4F6FB" }}>
-        <div style={{ background: "#fff", borderBottom: "1px solid #E8ECF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8}}>
-           <button onClick={() => setFilterPanelOpen(true)}
-    style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: "1px solid #E8ECF4", borderRadius: 9, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
-    <svg width="14" height="14" fill="none" stroke="#374151" strokeWidth="2" viewBox="0 0 24 24">
-      <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="18" x2="12" y2="18"/>
-    </svg>
-    Filters
-    {(filterCat !== "All" || filterStatus !== "All" || filterProp !== "All" || filterMonth !== "" || filterFromDate !== "" || filterToDate !== "") && (
-      <span style={{ background: "#3B5BDB", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>!</span>
-    )}
-  </button>
-          {can("create_expenses") && (
-            <button onClick={openAdd} style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap" }}>
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              Add Expense
-            </button>
-            
-          )}
-          
+      <div
+  className="-mt-6 sm:-mt-4"
+  style={{
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+    background: "#F4F6FB",
+  }}
+>
+  {/* Stats + Action Buttons Row */}
+  <div className="px-2 py-2">
+    <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
+
+      {/* LEFT - Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 flex-1">
+        {/* Total Expenses */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border-0 p-2 sm:p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Wallet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
+            <p className="text-[9px] sm:text-[10px] text-blue-700 font-semibold">
+              Total Expenses
+            </p>
+          </div>
+          <p className="text-xs sm:text-sm font-bold text-blue-800">
+            {fmt(computedStats.total_amount || 0)}
+          </p>
+          <p className="text-[8px] text-blue-600 mt-0.5">
+            {stats.total_count || expenses.length} records
+          </p>
         </div>
-        
-        {/* Compact stat cards */}
-        <div className="exp-stat-grid" style={{ padding: "4px 3px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-          {[
-            { label: "Total Expenses", val: fmt(computedStats.total_amount || 0), sub: `${stats.total_count || expenses.length} records`, icon: "💰", c: "#1A2B6D", ibg: "#EEF1FB" },
-            { label: "Total Paid", val: fmt(computedStats.paid_amount || 0), sub: `${stats.paid_count || 0} paid`, icon: "✅", c: "#1B7A4E", ibg: "#E8F5F0" },
-            { label: "Pending Balance", val: fmt(computedStats.pending_amount || 0), sub: `${stats.pending_count || 0} pending`, icon: "⏳", c: "#B45309", ibg: "#FFF8EC" },
-            { label: "Partial Payments", val: fmt(computedStats.partial_count || 0), sub: `${stats.partial_count || 0} expenses`, icon: "⟳", c: "#6B21A8", ibg: "#F5F0FF" },
-          ].map((c, i) => (
-            <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "10px 12px", border: "1px solid #E8ECF4", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 9, color: "#8892A4", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: c.c, lineHeight: 1.2 }}>{c.val}</div>
-                <div style={{ fontSize: 9, color: "#B0BAC9", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
-              </div>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: c.ibg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{c.icon}</div>
-            </div>
-          ))}
+
+        {/* Total Paid */}
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm border-0 p-2 sm:p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+            <p className="text-[9px] sm:text-[10px] text-green-700 font-semibold">
+              Total Paid
+            </p>
+          </div>
+          <p className="text-xs sm:text-sm font-bold text-green-800">
+            {fmt(computedStats.paid_amount || 0)}
+          </p>
+          <p className="text-[8px] text-green-600 mt-0.5">
+            {stats.paid_count || 0} paid
+          </p>
+        </div>
+
+        {/* Pending Balance */}
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-sm border-0 p-2 sm:p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
+            <p className="text-[9px] sm:text-[10px] text-orange-700 font-semibold">
+              Pending Balance
+            </p>
+          </div>
+          <p className="text-xs sm:text-sm font-bold text-orange-800">
+            {fmt(computedStats.pending_amount || 0)}
+          </p>
+          <p className="text-[8px] text-orange-600 mt-0.5">
+            {stats.pending_count || 0} pending
+          </p>
+        </div>
+
+        {/* Partial Payments */}
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-sm border-0 p-2 sm:p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Repeat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
+            <p className="text-[9px] sm:text-[10px] text-purple-700 font-semibold">
+              Partial Payments
+            </p>
+          </div>
+          <p className="text-xs sm:text-sm font-bold text-purple-800">
+            {(computedStats.partial_count || 0)}
+          </p>
+          <p className="text-[8px] text-purple-600 mt-0.5">
+            {stats.partial_count || 0} expenses
+          </p>
         </div>
       </div>
 
-      <div style={{ padding: "4px 0px" }}>
-        {/* TABLE CARD */}
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8ECF4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-          {/* Filters bar */}
-       {/* Filters bar */}
-{bulkSelected.size > 0 && (
-  <div
-    style={{
-      padding: "12px 14px",
-      borderBottom: "1px solid #F0F3FA",
-    }}
-  >
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr",
-        gap: 12,
-        alignItems: "center",
-      }}
-    >
-      {/* Search Bar - commented */}
+      {/* RIGHT - Action Buttons */}
+      <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-11">
+        <button
+          onClick={() => setFilterPanelOpen(true)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
+        >
+          <Filter size={14} />
+          Filters
 
-      {/* Bulk Action Area - always shown when this block renders */}
-      <div
-        style={{
-          width: "100%",
-          minHeight: 44,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 14px",
-          background: "#EEF1FB",
-          border: "1px solid #E2E8F4",
-          borderRadius: 10,
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <span style={{ fontWeight: 700, color: "#1A2B6D", fontSize: "clamp(12px, 4vw, 14px)" }}>
+          {(filterCat !== "All" ||
+            filterStatus !== "All" ||
+            filterProp !== "All" ||
+            filterMonth !== "" ||
+            filterFromDate !== "" ||
+            filterToDate !== "") && (
+            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white text-[#2563EB] text-[9px] font-bold">
+              !
+            </span>
+          )}
+        </button>
+
+        {can("create_expenses") && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
+          >
+            <Plus size={14} />
+            Add Expense
+          </button>
+        )}
+
+
+        <button
+  onClick={handleExportAll}
+  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+>
+  <Download size={14} />
+  Export
+</button>
+
+{can("create_expenses") && (
+  <button
+    onClick={() => setShowImportModal(true)}
+    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+  >
+    <UploadIcon size={14} />
+    Import
+  </button>
+)}
+      </div>
+    </div>
+  </div>
+
+  {/* Bulk Selection Bar - BELOW STATS */}
+  {bulkSelected.size > 0 && (
+    <div className="px-3 pb-2">
+      <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px]">
+        <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
           {bulkSelected.size} selected
         </span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
               setBulkSelected(new Set());
               setSelectAll(false);
             }}
-            style={{ fontSize: "clamp(11px, 3.5vw, 12px)", color: "#8892A4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px", whiteSpace: "nowrap" }}
+            className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
           >
             Clear
           </button>
+
           <button
-            onClick={async () => {
-  const result = await Swal.fire({
-    title: 'Delete Selected?',
-    text: `You are about to delete ${bulkSelected.size} expense(s). This cannot be undone!`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Yes, delete all!',
-    cancelButtonText: 'Cancel',
-    background: '#fff',
-    width: '400px',
-    padding: '1.5rem',
-    customClass: {
-      popup: 'rounded-xl shadow-2xl',
-      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
-      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
-      actions: 'flex justify-center gap-2 mt-4'
-    },
-    buttonsStyling: false,
-  });
-  if (!result.isConfirmed) return;
-  try {
-    await Promise.all([...bulkSelected].map(id => deleteExpense(id)));
-    toast.success(`${bulkSelected.size} expenses deleted`);
-    setBulkSelected(new Set());
-    setSelectAll(false);
-    await loadExpenses();
-  } catch (err: any) {
-    toast.error(err.message || "Bulk delete failed");
-  }
-}}
-            style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", background: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 7, fontSize: "clamp(11px, 3.5vw, 12px)", fontWeight: 700, color: "#DC2626", cursor: "pointer", whiteSpace: "nowrap" }}
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
           >
-            <svg width="11" height="11" fill="none" stroke="#DC2626" strokeWidth="2" viewBox="0 0 24 24">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14H6L5 6" />
-              <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-            </svg>
+            <Trash2 className="w-3.5 h-3.5" />
             Delete {bulkSelected.size}
           </button>
         </div>
       </div>
     </div>
-  </div>
-)}
-
-  {/* <div
-      style={{
-        position: "relative",
-        width: "100%",
-      }}
-    >
-      <svg
-        style={{
-          position: "absolute",
-          left: 12,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-        }}
-        width="15"
-        height="15"
-        fill="none"
-        stroke="#8892A4"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search expenses..."
-        style={{
-          width: "100%",
-          height: 44,
-          padding: "0 14px 0 38px",
-          border: "1px solid #E2E8F0",
-          borderRadius: 12,
-          fontSize: 13,
-          background: "#F8FAFC",
-          outline: "none",
-          color: "#334155",
-        }}
-      />
-    </div> */}
-
-
-          {/* Table */}
-<div
-  className={`overflow-y-auto ${
-    filtered.length > 0
-      ? bulkSelected.size > 0
-        ? "max-h-[240px] sm:max-h-[380px]"
-        : "max-h-[310px] sm:max-h-[450px]"
-      : ""
-  }`}
->      {loading ? (
-              <div style={{ padding: 60, textAlign: "center", color: "#8892A4", fontSize: 14 }}>Loading expenses…</div>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, tableLayout: "fixed" }} >
-               <thead className="sticky top-0 z-10">
-  <tr style={{ background: "#F8FAFF" }}>
-    <th style={{ padding: "8px", width: 36, borderBottom: "1.5px solid #E2E8F0" }}>
-      <input type="checkbox" checked={selectAll}
-        onChange={(e) => {
-          setSelectAll(e.target.checked);
-          setBulkSelected(e.target.checked ? new Set(filtered.map(x => x.id)) : new Set());
-        }}
-        style={{ width: 14, height: 14, cursor: "pointer" }} />
-    </th>
-    <th style={{ padding: "4px 8px", width: "12%", borderBottom: "1.5px solid #E2E8F0" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Property</div>
-      <input value={colSearch.property} onChange={e => setColSearch(p => ({ ...p, property: e.target.value }))}
-        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-    </th>
-    <th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Category</div>
-      <input value={colSearch.category} onChange={e => setColSearch(p => ({ ...p, category: e.target.value }))}
-        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-    </th>
-    <th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Vendor</div>
-      <input value={colSearch.vendor} onChange={e => setColSearch(p => ({ ...p, vendor: e.target.value }))}
-        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-    </th>
-  <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
-  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Amount</div>
-  <input value={colSearch.amount} onChange={e => setColSearch(p => ({ ...p, amount: e.target.value }))}
-    placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-</th>
-<th style={{ padding: "4px 8px", width: "10%", borderBottom: "1.5px solid #E2E8F0" }}>
-  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Paid By</div>
-  <input value={colSearch.paidBy} onChange={e => setColSearch(p => ({ ...p, paidBy: e.target.value }))}
-    placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-</th>
-<th style={{ padding: "8px", width: "6%", borderBottom: "1.5px solid #E2E8F0" }}>
-  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 }}>Receipt</div>
-</th>
-<th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
-  <div className="whitespace-nowrap" style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Expenses Date</div>
-  <input
-  value={colSearch.expenseDate}
-  onChange={e =>
-    setColSearch(p => ({
-      ...p,
-      expenseDate: e.target.value,
-    }))
-  }
-  placeholder="29 May 2026"
-  style={{
-    width: "100%",
-    padding: "4px 6px",
-    border: "1px solid #E2E8F4",
-    borderRadius: 5,
-    fontSize: 10,
-    outline: "none",
-    background: "#fff",
-  }}
-/>
-</th>
-    <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Status</div>
-      <input value={colSearch.status} onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
-        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-    </th>
-    <th style={{ padding: "4px 8px", width: "8%", borderBottom: "1.5px solid #E2E8F0" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Added By</div>
-      <input value={colSearch.addedBy} onChange={e => setColSearch(p => ({ ...p, addedBy: e.target.value }))}
-        placeholder="Search…" style={{ width: "100%", padding: "4px 6px", border: "1px solid #E2E8F4", borderRadius: 5, fontSize: 10, outline: "none", background: "#fff" }} />
-    </th>
-    {["Created", "Actions"].map(h => (
-      <th key={h} style={{ padding: "8px", borderBottom: "1.5px solid #E2E8F0", width: "10%" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</div>
-      </th>
-    ))}
-  </tr>
-</thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={11} style={{ padding: 48, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>No expenses found</td></tr>
-                  ) : (
-                    paginatedItems.map((exp) => {
-                      const cc = getCatColor(exp.category_name);
-                      return (
-                        <tr key={exp.id} style={{ borderBottom: "1px solid #F1F5F9", transition: "background 0.12s ease" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                          <td style={{ padding: "10px 8px", textAlign: "center", width: 36 }}>
-  <input type="checkbox"
-    checked={bulkSelected.has(exp.id)}
-    onChange={(e) => {
-      setBulkSelected(prev => {
-        const next = new Set(prev);
-        e.target.checked ? next.add(exp.id) : next.delete(exp.id);
-        return next;
-      });
-    }}
-    style={{ width: 14, height: 14, cursor: "pointer" }} />
-</td>
-                          <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 600, color: "#0F172A" }}><span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3B82F6", flexShrink: 0 }} />{exp.property_name || "—"}</span></td>
-                          <td style={{ padding: "10px 8px" }}>{exp.category_name ? <span style={{ background: cc.bg, color: cc.text, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 4, height: 4, borderRadius: "50%", background: cc.dot }} />{exp.category_name}</span> : "—"}</td>
-                          <td style={{ padding: "10px 8px", fontSize: 12, color: "#334155" }}>{exp.vendor_name || "—"}</td>
-                          <td style={{ padding: "10px 8px", fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{fmt(exp.total_amount || exp.amount || 0)}</td>
-                          {/* Replace the Paid By column in the table with this */}
-<td style={{ padding: "10px 8px", fontSize: 12, color: "#475569" }}>
-  {exp.payment_mode ? (
-    <div>
-      <div>{exp.payment_mode}</div>
-      {/* Show transaction ID/reference for Online Payment Gateway */}
-      {exp.payment_mode === 'Online Payment Gateway' && exp.transaction_id && (
-        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
-          Txn: {exp.transaction_id}
-        </div>
-      )}
-      {exp.payment_mode === 'Cheque' && exp.cheque_no && (
-        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
-          Chq: {exp.cheque_no}
-        </div>
-      )}
-      {exp.payment_mode === 'UPI' && exp.upi_id && (
-        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
-          UPI: {exp.upi_id}
-        </div>
-      )}
-      {exp.payment_mode === 'Bank Transfer' && exp.transaction_id && (
-        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
-          Txn: {exp.transaction_id}
-        </div>
-      )}
-    </div>
-  ) : (
-    <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>
   )}
-</td>
-                          <td style={{ padding: "10px 8px" }}>{exp.receipt_url ? <ReceiptThumbnail url={exp.receipt_url} filename={exp.receipt_name} onClick={() => setViewItem(exp)} /> : <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>}</td>
-<td style={{ padding: "10px 8px", fontSize: 11, color: "#64748B" }}>
-  <div>{fmtDate(exp.expense_date)}</div>
-</td>                          
-<td style={{ padding: "10px 8px" }}>
-  <span
-    style={{
-      background: exp.status === "Paid" 
-        ? "#DCFCE7" 
-        : exp.status === "Partial" 
-        ? "#FEF3C7" 
-        : "#FEF2F2",
-      color: exp.status === "Paid" 
-        ? "#166534" 
-        : exp.status === "Partial" 
-        ? "#92400E" 
-        : "#991B1B",
-      padding: "3px 8px",
-      borderRadius: 12,
-      fontSize: 10,
-      fontWeight: 600,
-      whiteSpace: "nowrap",
-      display: "inline-block",
-    }}
-  >
-    {exp.status === "Paid" 
-      ? " Paid" 
-      : exp.status === "Partial" 
-      ? " Partial" 
-      : " Unpaid"}
-  </span>
-</td>
-<td style={{ padding: "10px 8px", fontSize: 11, color: "#475569" }}>{exp.added_by_name || "—"}</td>
-<td style={{ padding: "10px 8px", fontSize: 10, color: "#94A3B8" }}>
-  <div>{new Date(exp.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
-  <div style={{ fontSize: 9, color: "#B0BAC9", marginTop: 2 }}>{new Date(exp.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
-</td>                        
- <td style={{ padding: "10px 8px", width: "10%", minWidth: "140px" }}>
-  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
-    {/* View Button */}
-<button onClick={() => {
-      setViewItem(exp);
-      fetchPaymentTransactions(exp.id);  
-    }}    
-    title="View" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#FFFFFF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <svg width="12" height="12" fill="none" stroke="#3B82F6" strokeWidth="2" viewBox="0 0 24 24">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
+</div>
+
+<div style={{ padding: "4px 0px" }}>
+  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[310px] sm:h-[490px]">
+
+      {/* Single overflow container — both scroll directions */}
+      <div className="overflow-auto flex-1 min-h-0">
+        <table
+          className="border-collapse text-[11px] font-sans"
+          style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}
+        >
+          <colgroup>
+            <col style={{ width: "36px" }} />    {/* Checkbox */}
+            <col style={{ width: "70px" }} />    {/* Actions */}
+            <col style={{ width: "130px" }} />   {/* Property */}
+            <col style={{ width: "90px" }} />    {/* Item */}
+            <col style={{ width: "90px" }} />    {/* Category */}
+            <col style={{ width: "80px" }} />    {/* Sub Cat */}
+            <col style={{ width: "80px" }} />    {/* Vendor */}
+            <col style={{ width: "70px" }} />    {/* Amount */}
+            <col style={{ width: "90px" }} />    {/* Paid By */}
+            <col style={{ width: "30px" }} />    {/* Receipt */}
+            <col style={{ width: "50px" }} />    {/* Exp Date */}
+            <col style={{ width: "40px" }} />    {/* Status */}
+            <col style={{ width: "85px" }} />    {/* Added By */}
+            <col style={{ width: "90px" }} />   {/* Created */}
+          </colgroup>
+
+          {/* ── STICKY THEAD ── */}
+          <thead className="sticky top-0 z-10">
+            {/* Title Row */}
+            <tr className="bg-gray-200 border-b border-gray-300">
+              {/* Checkbox – sticky left */}
+              <th
+                className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={(e) => {
+                    setSelectAll(e.target.checked);
+                    setBulkSelected(e.target.checked ? new Set(filtered.map((x) => x.id)) : new Set());
+                  }}
+                  className="w-3.5 h-3.5 cursor-pointer"
+                />
+              </th>
+              {/* Actions – sticky left */}
+              <th
+                className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200"
+              >
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Item</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Category</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Sub Category</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vendor</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Paid By</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide flex flex-wrap">Rcpt</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide whitespace-nowrap">Exp Date</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Added By</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Created</span>
+              </th>
+            </tr>
+
+            {/* Search Row */}
+            <tr className="bg-white border-b border-gray-300">
+              {/* Checkbox – sticky */}
+              <td
+                className="p-1 border-r border-gray-200 bg-white"
+              />
+              {/* Actions – sticky */}
+              <td
+                className="p-1 border-r border-gray-200 bg-white"
+              />
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.property} onChange={(e) => setColSearch((p) => ({ ...p, property: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.item || ""} onChange={(e) => setColSearch((p) => ({ ...p, item: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.category} onChange={(e) => setColSearch((p) => ({ ...p, category: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.subCategory || ""} onChange={(e) => setColSearch((p) => ({ ...p, subCategory: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.vendor} onChange={(e) => setColSearch((p) => ({ ...p, vendor: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.amount} onChange={(e) => setColSearch((p) => ({ ...p, amount: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.paidBy} onChange={(e) => setColSearch((p) => ({ ...p, paidBy: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              {/* Receipt – empty */}
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.expenseDate} onChange={(e) => setColSearch((p) => ({ ...p, expenseDate: e.target.value }))} placeholder="29 May" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.status} onChange={(e) => setColSearch((p) => ({ ...p, status: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input value={colSearch.addedBy} onChange={(e) => setColSearch((p) => ({ ...p, addedBy: e.target.value }))} placeholder="Search…" className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0" />
+              </td>
+              {/* Created – empty */}
+              <td className="p-1" />
+            </tr>
+          </thead>
+
+          {/* ── TBODY ── */}
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={14} className="py-16 text-center text-slate-500 text-xs">Loading expenses…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={14} className="py-12 text-center text-slate-500 text-xs">No expenses found</td></tr>
+            ) : (
+              paginatedItems.map((exp) => {
+                const cc = getCatColor(exp.category_name);
+                const firstItem = exp.items?.find((i: any) => i.name || i.item_name);
+                const validItemCount = exp.items?.filter((i: any) => i.name || i.item_name).length || 0;
+                return (
+                  <tr
+                    key={exp.id}
+                    className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors"
+                  >
+                    {/* Checkbox – sticky */}
+                    <td
+                      className="px-1.5 py-1.5 text-center border-r border-slate-100 bg-white hover:bg-slate-50/80"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bulkSelected.has(exp.id)}
+                        onChange={(e) => {
+                          setBulkSelected((prev) => {
+                            const next = new Set(prev);
+                            e.target.checked ? next.add(exp.id) : next.delete(exp.id);
+                            return next;
+                          });
+                        }}
+                        className="w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </td>
+
+                    {/* Actions – sticky */}
+                   <td className="px-1 py-1.5 border-r border-slate-100 bg-white hover:bg-slate-50/80">
+  <div className="flex items-center gap-[1px] flex-nowrap">
+    <button
+      onClick={() => {
+        setViewItem(exp);
+        fetchPaymentTransactions(exp.id);
+      }}
+      title="View"
+      className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+    >
+      <Eye size={12} />
     </button>
-    
-    {/* PAY BUTTON - Show for expenses with balance > 0 (Partial or Unpaid) */}
+
     {(exp.balance > 0 || exp.total_paid < exp.total_amount) && (
       <button
         onClick={() => openPaymentModal(exp)}
         title="Make Payment"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 6,
-          border: "1px solid #DCFCE7",
-          background: "#DCFCE7",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.15s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#BBF7D0")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "#DCFCE7")}
+        className="w-6 h-6 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-colors"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6 3H18M6 8H18M6 13H15M11 3V8M11 13L17 21" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M11 3L17 3" stroke="#166534" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+        <IndianRupeeIcon size={12} />
       </button>
     )}
-    
-    {/* Edit Button */}
-    {can('edit_expenses') && (
-      <button onClick={() => openEdit(exp)} title="Edit" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#FFFFFF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="12" height="12" fill="none" stroke="#64748B" strokeWidth="2" viewBox="0 0 24 24">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
+
+    {can("edit_expenses") && (
+      <button
+        onClick={() => openEdit(exp)}
+        title="Edit"
+        className="w-6 h-6 rounded-lg text-green-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+      >
+        <Edit size={12} />
       </button>
     )}
-    
-    {/* Delete Button */}
-    {can('delete_expenses') && (
-      <button onClick={() => handleDelete(exp.id, exp.vendor_name || exp.category_name)} title="Delete" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #FEE2E2", background: "#FEF2F2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="11" height="11" fill="none" stroke="#EF4444" strokeWidth="2" viewBox="0 0 24 24">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6l-1 14H6L5 6" />
-          <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-        </svg>
+
+    {can("delete_expenses") && (
+      <button
+        onClick={() =>
+          handleDelete(exp.id, exp.vendor_name || exp.category_name)
+        }
+        title="Delete"
+        className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+      >
+        <Trash2 size={12} />
       </button>
     )}
   </div>
 </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
 
-          {/* Table footer */}
-         <div style={{ padding: "12px 14px", background: "#F8FAFF", borderTop: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-  {/* Left: Items per page selector */}
-  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-    <span style={{ fontSize: 11, color: "#8892A4" }}>Show</span>
-    <select
-      value={itemsPerPage}
-      onChange={(e) => {
-        const val = e.target.value;
-        setItemsPerPage(val === "All" ? "All" : Number(val));
-        setCurrentPage(1);
-      }}
-      style={{
-        padding: "4px 8px",
-        border: "1px solid #E2E8F0",
-        borderRadius: 6,
-        fontSize: 11,
-        background: "#fff",
-        outline: "none",
-        cursor: "pointer",
-      }}
-    >
-      <option value={10}>10</option>
-      <option value={25}>25</option>
-      <option value={50}>50</option>
-      <option value={100}>100</option>
-      <option value="All">All</option>
-    </select>
-    <span style={{ fontSize: 11, color: "#8892A4" }}>entries</span>
-  </div>
+                    {/* Property */}
+                    <td className="px-1.5 py-1.5 text-[11px] font-medium text-slate-800 border-r border-slate-100">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                        <span className="truncate">{exp.property_name || '—'}</span>
+                      </span>
+                    </td>
 
-  {/* Center: Page numbers + Prev/Next */}
-  {itemsPerPage !== "All" && totalPages > 1 && (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <button
-        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-        disabled={currentPage === 1}
-        style={{
-          padding: "4px 8px",
-          border: "1px solid #E2E8F0",
-          borderRadius: 6,
-          background: "#fff",
-          fontSize: 11,
-          cursor: currentPage === 1 ? "not-allowed" : "pointer",
-          opacity: currentPage === 1 ? 0.5 : 1,
-        }}
-      >
-        Previous
-      </button>
-      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-        let pageNum = i + 1;
-        if (totalPages > 5) {
-          if (currentPage <= 3) pageNum = i + 1;
-          else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-          else pageNum = currentPage - 2 + i;
-        }
-        return (
-          <button
-            key={pageNum}
-            onClick={() => setCurrentPage(pageNum)}
-            style={{
-              padding: "4px 8px",
-              border: "1px solid #E2E8F0",
-              borderRadius: 6,
-              background: currentPage === pageNum ? "#3B5BDB" : "#fff",
-              color: currentPage === pageNum ? "#fff" : "#374151",
-              fontWeight: currentPage === pageNum ? 700 : 400,
-              fontSize: 11,
-              cursor: "pointer",
-            }}
-          >
-            {pageNum}
-          </button>
-        );
-      })}
-      <button
-        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-        disabled={currentPage === totalPages}
-        style={{
-          padding: "4px 8px",
-          border: "1px solid #E2E8F0",
-          borderRadius: 6,
-          background: "#fff",
-          fontSize: 11,
-          cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-          opacity: currentPage === totalPages ? 0.5 : 1,
-        }}
-      >
-        Next
-      </button>
+                    {/* Item */}
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100">
+  {firstItem ? (
+    <div className="flex items-center gap-1 min-w-0">
+      <span className="font-medium text-slate-700 truncate">
+        {firstItem.name || firstItem.item_name}
+      </span>
+
+      {validItemCount > 1 && (
+        <span className="text-[9px] text-slate-400 whitespace-nowrap">
+          +{validItemCount - 1} more
+        </span>
+      )}
     </div>
+  ) : (
+    <span className="text-slate-400">—</span>
   )}
+</td>
+                    {/* Category */}
+                    <td className="px-1.5 py-1.5 border-r border-slate-100">
+                      {exp.category_name ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                          style={{ background: cc.bg, color: cc.text }}
+                        >
+                          <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: cc.dot }} />
+                          <span className="truncate">{exp.category_name}</span>
+                        </span>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
 
-  {/* Right: Summary + Totals */}
-  <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-    <span style={{ fontSize: 11, color: "#8892A4" }}>
-      Showing <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{paginatedItems.length}</span> of{" "}
-      <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{filtered.length}</span>
-    </span>
-    <span style={{ fontSize: 12, color: "#1B7A4E", fontWeight: 700 }}>
-      Paid: {fmt(paginatedItems.filter((e) => e.status === "Paid").reduce((s: number, e: any) => s + Number(e.total_paid || 0), 0))}
-    </span>
-    <span style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>
-      Balance: {fmt(paginatedItems.reduce((s: number, e: any) => s + Number(e.balance || 0), 0))}
-    </span>
-    <span style={{ fontSize: 13, color: "#1A2B6D", fontWeight: 800 }}>
-      Total: {fmt(paginatedItems.reduce((s: number, e: any) => s + Number(e.total_amount || e.amount || 0), 0))}
-    </span>
+                    {/* Sub Category */}
+                    <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100">
+                      {exp.sub_category_name ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-slate-100 text-slate-600 truncate max-w-full">
+                          {exp.sub_category_name}
+                        </span>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
+
+                    {/* Vendor */}
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+                      {exp.vendor_name || '—'}
+                    </td>
+
+                    {/* Amount */}
+                    <td className="px-1.5 py-1.5 text-[11px] font-bold text-slate-700 border-r border-slate-100 whitespace-nowrap">
+                      {fmt(exp.total_amount || exp.amount || 0)}
+                    </td>
+
+                    {/* Paid By */}
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+                      {exp.payment_mode ? (
+                        <span>
+                          {exp.payment_mode}
+                          {exp.payment_mode === 'UPI' && exp.upi_id && <span className="text-[9px] text-slate-400 ml-0.5">(UPI:{exp.upi_id})</span>}
+                          {exp.payment_mode === 'Cheque' && exp.cheque_no && <span className="text-[9px] text-slate-400 ml-0.5">(Chq:{exp.cheque_no})</span>}
+                          {(exp.payment_mode === 'Bank Transfer' || exp.payment_mode === 'Online Payment Gateway') && exp.transaction_id && <span className="text-[9px] text-slate-400 ml-0.5">(Txn:{exp.transaction_id})</span>}
+                        </span>
+                      ) : <span className="text-slate-400 text-[10px]">—</span>}
+                    </td>
+
+                    {/* Receipt */}
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
+                      {exp.receipt_url ? (
+                        <ReceiptThumbnail url={exp.receipt_url} filename={exp.receipt_name} onClick={() => setViewItem(exp)} />
+                      ) : <span className="text-slate-400 text-[10px]">—</span>}
+                    </td>
+
+                    {/* Expense Date */}
+                    <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100 whitespace-nowrap">
+                      {fmtDate(exp.expense_date)}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-1.5 py-1.5 border-r border-slate-100">
+                      <span
+                        className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap"
+                        style={{
+                          background: exp.status === 'Paid' ? '#DCFCE7' : exp.status === 'Partial' ? '#FEF3C7' : '#FEF2F2',
+                          color: exp.status === 'Paid' ? '#166534' : exp.status === 'Partial' ? '#92400E' : '#991B1B',
+                        }}
+                      >
+                        {exp.status === 'Paid' ? 'Paid' : exp.status === 'Partial' ? 'Partial' : 'Unpaid'}
+                      </span>
+                    </td>
+
+                    {/* Added By */}
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+                      {exp.added_by_name || '—'}
+                    </td>
+
+                    {/* Created */}
+                    <td className="px-1.5 py-1.5 text-[10px] text-slate-400">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <span>{new Date(exp.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-[9px]">{new Date(exp.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </td>
+
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ── FOOTER ── */}
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <span>Show</span>
+        <select
+          value={itemsPerPage}
+          onChange={(e) => { const val = e.target.value; setItemsPerPage(val === 'All' ? 'All' : Number(val)); setCurrentPage(1); }}
+          className="px-2 py-1 border border-gray-300 rounded text-[11px] bg-white outline-none cursor-pointer"
+        >
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+          <option value="All">All</option>
+        </select>
+        <span>entries</span>
+        <span className="ml-2">Showing {paginatedItems.length} of {filtered.length} entries</span>
+      </div>
+
+      {itemsPerPage !== 'All' && totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Previous</button>
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNum = i + 1;
+            if (totalPages > 5) {
+              if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`h-7 w-7 text-xs border rounded ${currentPage === pageNum ? 'bg-blue-600 border-blue-600 text-white font-bold' : 'bg-white border-gray-300 text-slate-700 hover:bg-slate-50'}`}>{pageNum}</button>
+            );
+          })}
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 text-[11px] whitespace-nowrap">
+<span className="text-emerald-600 font-bold">Paid: {fmt(paginatedItems.reduce((s, e) => s + Number(e.total_paid || 0), 0))}</span>        <span className="text-amber-600 font-bold">Balance: {fmt(paginatedItems.reduce((s, e) => s + Number(e.balance || 0), 0))}</span>
+        <span className="text-slate-700 font-bold">Total: {fmt(paginatedItems.reduce((s, e) => s + Number(e.total_amount || e.amount || 0), 0))}</span>
+      </div>
+    </div>
   </div>
 </div>
-        </div>
-      </div>
+{showModal && (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm">
+    <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
 
-      {/* ADD/EDIT MODAL */}
-     {showModal && (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(5px)", padding: 12 }}>
-    <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 620, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-      {/* Modal header – compact */}
-      <div style={{ padding: "12px 18px 8px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 10 }}>
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1A2B6D" }}>{editId ? " Edit Expense" : " Add Expense"}</div>
-          <div style={{ fontSize: 10, color: "#8892A4", marginTop: 2 }}><span style={{ color: "#E53E3E" }}>*</span> required</div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+            {editId ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {editId ? "Edit Expense" : "Add Expense"}
+          </h2>
+          <p className="text-[10px] leading-tight text-blue-100">
+            <span className="text-rose-300">*</span> required
+          </p>
         </div>
-        <button onClick={() => setShowModal(false)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #E8ECF4", background: "#F8FAFF", cursor: "pointer", fontSize: 16, color: "#8892A4" }}>×</button>
+        <button
+          onClick={() => setShowModal(false)}
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+        >
+          <X className="h-3.5 w-3.5 text-white" />
+        </button>
       </div>
 
-      <div style={{ padding: "14px 18px" }}>
-        {/* SECTION 1 – Basic Info (compact grid) */}
-        <div style={{ marginBottom: 16 }}>
-          <SectionHead n="1" title="Basic Information" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+
+        {/* SECTION 1 — Basic Information */}
+        <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Building2 className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Basic Information</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label required>Property</Label>
-              <SearchableDropdown options={properties} value={form.property_id} onChange={(val, opt) => setForm((f) => ({ ...f, property_id: val, property_name: opt.name }))} placeholder="Select property" error={errors.property_id} />
-              <ErrMsg msg={errors.property_id} />
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Property<span className="ml-0.5 text-rose-400">*</span>
+              </label>
+              <div className="[&_button]:!h-8 [&_input]:!h-8 [&_*]:!rounded-md [&_*]:!text-[10px]">
+                <SearchableDropdown
+                  options={properties}
+                  value={form.property_id}
+                  onChange={(val, opt) => setForm((f) => ({ ...f, property_id: val, property_name: opt.name }))}
+                  placeholder="Select property"
+                  error={errors.property_id}
+                />
+              </div>
+              {errors.property_id && (
+                <p className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-500">
+                  <AlertCircle className="h-2.5 w-2.5" />{errors.property_id}
+                </p>
+              )}
             </div>
             <div>
-              <Label required>Category</Label>
-              <SearchableDropdown
-                options={categories}
-                value={form.category_id}
-                onChange={(val, opt) => {
-                  console.log("🟢 Category selected – id:", val, "name:", opt.name);
-                  setForm((f) => ({ ...f, category_id: val, category_name: opt.name }));
-                }}
-                placeholder="Select category"
-                error={errors.category_id}
-              />
-              <ErrMsg msg={errors.category_id} />
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Category<span className="ml-0.5 text-rose-400">*</span>
+              </label>
+              <div className="[&_button]:!h-8 [&_input]:!h-8 [&_*]:!rounded-md [&_*]:!text-[10px]">
+                <SearchableDropdown
+                  options={categories}
+                  value={form.category_id}
+                  onChange={(val, opt) => {
+                    console.log("🟢 Category selected – id:", val, "name:", opt.name);
+                    setForm((f) => ({ ...f, category_id: val, category_name: opt.name }));
+                  }}
+                  placeholder="Select category"
+                  error={errors.category_id}
+                />
+              </div>
+              {errors.category_id && (
+                <p className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-500">
+                  <AlertCircle className="h-2.5 w-2.5" />{errors.category_id}
+                </p>
+              )}
             </div>
           </div>
-         
         </div>
 
-        {/* SECTION 2 – Purchase Items (compact table) */}
-        <div style={{ marginBottom: 16 }}>
-          <SectionHead n="2" title="Purchase Items" sub="(items from bill)" />
-          <div style={{ background: "#F8FAFF", borderRadius: 12, border: "1px solid #E2E8F4", overflow: "hidden" }}>
-            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <div style={{ minWidth: 520 }}>
-                {/* Header – compact */}
-                <div style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 90px 35px", padding: "6px 10px", background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)", borderBottom: "1px solid #E2E8F4", gap: 6, fontSize: 9, fontWeight: 700, color: "#3B5BDB" }}>
-                  {["#", "Item Name", "Sub Category", "Qty", "Unit Price", ""].map(h => <div key={h}>{h}</div>)}
+        {/* SECTION 2 — Purchase Items */}
+        <div className="mb-2">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Package className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Purchase Items</span>
+            <span className="text-[9px] text-slate-400">(items from bill)</span>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <div className="min-w-[520px]">
+                {/* Table header */}
+                <div className="grid grid-cols-[30px_1fr_120px_80px_90px_35px] gap-1.5 border-b border-slate-100 bg-slate-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-blue-600">
+                  <div>#</div>
+                  <div>Item Name</div>
+                  <div>Sub Category</div>
+                  <div>Qty</div>
+                  <div>Unit Price</div>
+                  <div></div>
                 </div>
-                {/* Items rows – compact */}
+
+                {/* Item rows */}
                 {form.items.map((item: any, idx: number) => (
-                  <div key={item.id} style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 90px 35px", padding: "5px 10px", gap: 6, borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none", alignItems: "center", background: idx % 2 === 1 ? "#FAFBFF" : "#fff" }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: "#3B5BDB", textAlign: "center" }}>{idx + 1}</div>
-                    <div style={{ position: "relative" }}>
-                      <input type="text" value={item.name || ""} onChange={(e) => updateItem(item.id, "name", e.target.value)} placeholder="Item name" list={`items-list-${item.id}`} style={{ ...inp(), fontSize: 11, padding: "5px 8px", borderRadius: 6 }} />
-                      <datalist id={`items-list-${item.id}`}>{purchasedItems.map(pi => <option key={pi} value={pi} />)}</datalist>
+                  <div
+                    key={item.id}
+                    className={`grid grid-cols-[30px_1fr_120px_80px_90px_35px] items-center gap-1.5 px-2 py-1 ${
+                      idx < form.items.length - 1 ? "border-b border-slate-50" : ""
+                    } ${idx % 2 === 1 ? "bg-slate-50/50" : "bg-white"}`}
+                  >
+                    <div className="text-center text-[10px] font-semibold text-blue-600">{idx + 1}</div>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={item.name || ""}
+                        onChange={(e) => updateItem(item.id, "name", e.target.value)}
+                        placeholder="Item name"
+                        list={`items-list-${item.id}`}
+                        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                      <datalist id={`items-list-${item.id}`}>
+                        {purchasedItems.map((pi) => (
+                          <option key={pi} value={pi} />
+                        ))}
+                      </datalist>
                     </div>
-                   <select value={item.sub_category || ""} onChange={(e) => updateItem(item.id, "sub_category", e.target.value)} style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6 }}>
+
+                    <select
+                      value={item.sub_category || ""}
+                      onChange={(e) => updateItem(item.id, "sub_category", e.target.value)}
+                      className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    >
                       <option value="">Select Sub Cat</option>
-                      {/* Show current value as option if not yet in loaded list */}
-                      {item.sub_category && !dynamicSubCategories.find(s => s.name === item.sub_category) && (
+                      {item.sub_category && !dynamicSubCategories.find((s) => s.name === item.sub_category) && (
                         <option value={item.sub_category}>{item.sub_category}</option>
                       )}
-                      {dynamicSubCategories.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      {dynamicSubCategories.map((s) => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
                     </select>
-                    <input type="number" value={item.qty || ""} onChange={(e) => updateItem(item.id, "qty", e.target.value)} placeholder="Qty" style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6, textAlign: "center" }} />
-                    <input type="number" value={item.price || ""} onChange={(e) => updateItem(item.id, "price", e.target.value)} placeholder="Price" style={{ ...inp(), fontSize: 11, padding: "5px 6px", borderRadius: 6 }} />
- <button
-              onClick={() => removeItem(item.id)}
-              disabled={form.items.length <= 1}
-              style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid #FFE4E4", background: "#FFF5F5", cursor: form.items.length > 1 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", opacity: form.items.length > 1 ? 1 : 0.3, flexShrink: 0 }}
-            >
-              <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
-              </svg>
-            </button>
+
+                    <input
+                      type="number"
+                      value={item.qty || ""}
+                      onChange={(e) => updateItem(item.id, "qty", e.target.value)}
+                      placeholder="Qty"
+                      className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-center text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+
+                    <input
+                      type="number"
+                      value={item.price || ""}
+                      onChange={(e) => updateItem(item.id, "price", e.target.value)}
+                      placeholder="Price"
+                      className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      disabled={form.items.length <= 1}
+                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-red-100 bg-red-50 ${
+                        form.items.length > 1 ? "cursor-pointer opacity-100" : "cursor-not-allowed opacity-30"
+                      }`}
+                    >
+                      <Trash2 className="h-2.5 w-2.5 text-red-500" />
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
-            {/* Footer – compact */}
-            <div style={{ padding: "8px 12px", borderTop: "1px solid #E2E8F4", background: "#EEF1FB", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, overflowX: "auto" }}>
-              <button onClick={addItem} style={{ display: "flex", alignItems: "center", gap: 4, background: "#fff", border: "1px solid #3B5BDB", borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#3B5BDB", cursor: "pointer", whiteSpace: "nowrap" }}>+ Add Item</button>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", padding: "3px 10px", borderRadius: 6, border: "1px solid #E2E8F4" }}>
-                <svg width="12" height="12" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                <div><span style={{ fontSize: 8, color: "#8892A4" }}>EXPENSE DATE</span>
-                <input type="date" value={form.expense_date} onChange={(e) => setForm(f => ({ ...f, expense_date: e.target.value }))} style={{ border: "none", background: "transparent", fontSize: 11, fontWeight: 600, color: "#1A2B6D", outline: "none", padding: 0, fontFamily: "inherit", cursor: "pointer" }} /></div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg, #1A2B6D, #3B5BDB)", padding: "4px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>
-                <span style={{ fontSize: 9, color: "#fff", opacity: 0.9 }}>Items Total:</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>{fmt(totalAmount)}</span>
+
+            {/* Items footer — single line, no wrap */}
+            <div className="flex flex-nowrap items-center justify-between gap-1.5 overflow-x-auto border-t border-slate-100 bg-slate-50 px-2 py-1.5">
+              <button
+                onClick={addItem}
+                className="flex-shrink-0 whitespace-nowrap rounded-md border border-blue-600 bg-white px-2 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-50"
+              >
+                + Add Item
+              </button>
+
+              <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1">
+  <Calendar
+    className="h-3.5 w-3.5 text-blue-600 cursor-pointer"
+    onClick={() => {
+      dateInputRef.current?.showPicker?.();
+      dateInputRef.current?.focus();
+    }}
+  />
+
+  <span className="text-[8px] uppercase tracking-wide text-slate-400">
+    Expense Date
+  </span>
+
+  <input
+    ref={dateInputRef}
+    type="date"
+    value={form.expense_date}
+    onChange={(e) =>
+      setForm((f) => ({ ...f, expense_date: e.target.value }))
+    }
+    className="
+      border-none bg-transparent p-0
+      text-[11px] font-semibold text-[#0A1F5C]
+      outline-none
+      [&::-webkit-calendar-picker-indicator]:hidden
+      [&::-webkit-inner-spin-button]:hidden
+    "
+  />
+</div>
+
+              <div className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-blue-700 px-2.5 py-1">
+                <span className="text-[9px] text-white/90">Items Total:</span>
+                <span className="text-[12px] font-extrabold text-white">{fmt(totalAmount)}</span>
               </div>
             </div>
           </div>
-          {errors.items && <ErrMsg msg={errors.items} />}
+          {errors.items && (
+            <p className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-500">
+              <AlertCircle className="h-2.5 w-2.5" />{errors.items}
+            </p>
+          )}
         </div>
 
-        {/* SECTION 3 – Payment Details (compact grid) */}
-        <div style={{ marginBottom: 2 }}>
-          <SectionHead n="3" title="Payment Details" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+        {/* SECTION 3 — Payment Details */}
+        <div className="rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Wallet className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Payment Details</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>Total Amount (₹)</Label>
-              <input type="number" value={form.total_amount !== undefined && form.total_amount !== null && form.total_amount !== '' ? form.total_amount : ''} onChange={(e) => setForm(f => ({ ...f, total_amount: e.target.value === '' ? '' : e.target.value }))} placeholder="Enter total" style={inp()} />
-              {totalAmount > 0 && Number(form.total_amount) !== totalAmount && form.total_amount !== '' && <div style={{ fontSize: 9, color: "#8892A4", marginTop: 2 }}>Items: {fmt(totalAmount)} • override</div>}
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Total Amount (₹)
+              </label>
+              <input
+                type="number"
+                value={form.total_amount !== undefined && form.total_amount !== null && form.total_amount !== "" ? form.total_amount : ""}
+                onChange={(e) => setForm((f) => ({ ...f, total_amount: e.target.value === "" ? "" : e.target.value }))}
+                placeholder="Enter total"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+             {totalAmount > 0 && Number(form.total_amount) !== totalAmount && form.total_amount !== "" && (
+  <div className="mt-0.5 text-[9px] text-slate-400">Items: {fmt(totalAmount)} • override</div>
+)}
             </div>
-           <div>
-  <Label>Paid Through</Label>
-  <select value={form.payment_mode || ""} onChange={(e) => { setForm(f => ({ ...f, payment_mode: e.target.value })); setPaymentDetails({}); setShowCustomBankInput(false); }} style={inp()}>
-    <option value="">Select Payment Method</option>
-    {paymentMethods.map((method) => (
-      <option key={method.id} value={method.name}>
-        {method.name}
-      </option>
-    ))}
-  </select>
-</div>
             <div>
-  <Label>Vendor Name</Label>
-  <SearchableDropdown
-    options={vendors}
-    value={form.vendor_name || ""}
-    onChange={(val, opt) => setForm(f => ({ ...f, vendor_name: opt.name }))}
-    placeholder="Select vendor"
-    valueKey="name"          // ✅ ADD THIS
+  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+    Amount Paid Now (₹)
+  </label>
+  <input
+    type="number"
+    value={form.paid_now ?? ""}
+    onChange={(e) => setForm((f) => ({ ...f, paid_now: e.target.value }))}
+    placeholder="0 (leave blank if unpaid)"
+    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
   />
+  {/* <div className="mt-0.5 text-[9px] text-slate-400">Only fill this if you're recording a payment right now</div> */}
 </div>
-            {/* Added By – kept commented as original */}
-            {/* <div><Label required>Added By</Label><input value={form.added_by_name} onChange={(e) => setForm(f => ({ ...f, added_by_name: e.target.value }))} placeholder="Your name" style={inp(errors.added_by_name)} /><ErrMsg msg={errors.added_by_name} /></div> */}
 
-            {/* Conditional fields – unchanged, just compact spacing */}
-            {form.payment_mode === 'UPI' && <div><Label>UPI ID</Label><input type="text" placeholder="example@upi" value={paymentDetails.upiId || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, upiId: e.target.value })} style={inp()} /></div>}
-            {form.payment_mode === 'Bank Transfer' && (
-              <>
-                <div><Label>Bank Name</Label>
-                  <select value={paymentDetails.bankName || ''} onChange={(e) => { const v = e.target.value; if (v === 'Other') setPaymentDetails({ ...paymentDetails, bankName: '', showOtherBank: true }); else setPaymentDetails({ ...paymentDetails, bankName: v, showOtherBank: false }); }} style={inp()}>
-                    <option value="">Select Bank</option>{bankNames.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}<option value="Other">Other</option>
-                  </select>
-                  {paymentDetails.showOtherBank && <input type="text" placeholder="Other bank name" value={paymentDetails.otherBankName || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })} style={{ ...inp(), marginTop: 6 }} />}
-                </div>
-                <div><Label>Transaction ID</Label><input type="text" placeholder="Reference" value={paymentDetails.referenceNo || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, referenceNo: e.target.value })} style={inp()} /></div>
-              </>
-            )}
-            {form.payment_mode === 'Cheque' && (
-              <>
-                <div><Label>Cheque No.</Label><input type="text" placeholder="Cheque number" value={paymentDetails.chequeNo || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeNo: e.target.value })} style={inp()} /></div>
-                <div><Label>Bank Name</Label>
-                  <select value={paymentDetails.bankName || ''} onChange={(e) => { const v = e.target.value; if (v === 'Other') setPaymentDetails({ ...paymentDetails, bankName: '', showOtherBankCheque: true }); else setPaymentDetails({ ...paymentDetails, bankName: v, showOtherBankCheque: false }); }} style={inp()}>
-                    <option value="">Select Bank</option>{bankNames.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}<option value="Other">Other</option>
-                  </select>
-                  {paymentDetails.showOtherBankCheque && <input type="text" placeholder="Other bank" value={paymentDetails.otherBankName || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })} style={{ ...inp(), marginTop: 6 }} />}
-                </div>
-              </>
-            )}
-            {form.payment_mode === 'Card' && <div><Label>Card Ref / Last 4</Label><input type="text" placeholder="Last 4 digits" value={paymentDetails.cardRef || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, cardRef: e.target.value })} style={inp()} /></div>}
-            {form.payment_mode === 'Online Payment Gateway' && (
-              <>
-                <div><Label>Transaction ID</Label><input type="text" placeholder="Gateway txn ID" value={paymentDetails.transactionId || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} style={inp()} /></div>
-                <div><Label>Gateway Name</Label>
-                  <select value={paymentDetails.gatewayName || ''} onChange={(e) => { const v = e.target.value; if (v === 'Other') setPaymentDetails({ ...paymentDetails, gatewayName: '', showOtherGateway: true }); else setPaymentDetails({ ...paymentDetails, gatewayName: v, showOtherGateway: false }); }} style={inp()}>
-                    <option value="">Select</option><option value="Razorpay">Razorpay</option><option value="Stripe">Stripe</option><option value="PayPal">PayPal</option><option value="Other">Other</option>
-                  </select>
-                  {paymentDetails.showOtherGateway && <input type="text" placeholder="Other gateway" value={paymentDetails.otherGatewayName || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, gatewayName: e.target.value, otherGatewayName: e.target.value })} style={{ ...inp(), marginTop: 6 }} />}
-                </div>
-              </>
-            )}
-            {form.payment_mode === 'Wallet' && <div><Label>Wallet Reference</Label><input type="text" placeholder="Wallet txn ID" value={paymentDetails.walletRef || ''} onChange={(e) => setPaymentDetails({ ...paymentDetails, walletRef: e.target.value })} style={inp()} /></div>}
-
-            {/* Receipt Upload – compact */}
             <div>
-              <Label>Receipt</Label>
-              <div onClick={() => fileRef.current?.click()} style={{ border: "1.5px dashed #3B5BDB", borderRadius: 8, padding: "6px 10px", background: receiptPreview ? "#EEF1FB" : "#F8FAFF", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, height: 36 }}>
-                <svg width="12" height="12" fill="none" stroke={receiptPreview ? "#3B5BDB" : "#B0BAC9"} strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17,8 12,3 7,8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                <span style={{ fontSize: 11, color: receiptPreview ? "#3B5BDB" : "#B0BAC9", fontWeight: receiptPreview ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{receiptPreview || "Upload"}</span>
-                {receiptPreview && <button onClick={(e) => { e.stopPropagation(); setReceiptFile(null); setReceiptPreview(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>×</button>}
-                <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: "none" }} />
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Paid Through
+              </label>
+              <select
+                value={form.payment_mode || ""}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, payment_mode: e.target.value }));
+                  setPaymentDetails({});
+                  setShowCustomBankInput(false);
+                }}
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="">Select Payment Method</option>
+                {paymentMethods.map((method) => (
+                  <option key={method.id} value={method.name}>{method.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Vendor Name
+              </label>
+              <div className="[&_button]:!h-8 [&_input]:!h-8 [&_*]:!rounded-md [&_*]:!text-[10px]">
+                <SearchableDropdown
+                  options={vendors}
+                  value={form.vendor_name || ""}
+                  onChange={(val, opt) => setForm((f) => ({ ...f, vendor_name: opt.name }))}
+                  placeholder="Select vendor"
+                  valueKey="name"
+                />
               </div>
             </div>
 
-            {/* Notes – full width but compact */}
-            <div style={{ gridColumn: "1/-1" }}>
-              <Label>Notes</Label>
-              <textarea value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Additional notes…" rows={1} style={{ ...inp(), resize: "vertical", minHeight: 50, fontFamily: "inherit" }} />
+            {form.payment_mode === "UPI" && (
+              <div>
+                <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">UPI ID</label>
+                <input
+                  type="text"
+                  placeholder="example@upi"
+                  value={paymentDetails.upiId || ""}
+                  onChange={(e) => setPaymentDetails({ ...paymentDetails, upiId: e.target.value })}
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+
+            {form.payment_mode === "Bank Transfer" && (
+              <>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Bank Name</label>
+                  <select
+                    value={paymentDetails.bankName || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "Other") setPaymentDetails({ ...paymentDetails, bankName: "", showOtherBank: true });
+                      else setPaymentDetails({ ...paymentDetails, bankName: v, showOtherBank: false });
+                    }}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="">Select Bank</option>
+                    {bankNames.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    <option value="Other">Other</option>
+                  </select>
+                  {paymentDetails.showOtherBank && (
+                    <input
+                      type="text"
+                      placeholder="Other bank name"
+                      value={paymentDetails.otherBankName || ""}
+                      onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })}
+                      className="mt-1.5 h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Transaction ID</label>
+                  <input
+                    type="text"
+                    placeholder="Reference"
+                    value={paymentDetails.referenceNo || ""}
+                    onChange={(e) => setPaymentDetails({ ...paymentDetails, referenceNo: e.target.value })}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+              </>
+            )}
+
+            {form.payment_mode === "Cheque" && (
+              <>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Cheque No.</label>
+                  <input
+                    type="text"
+                    placeholder="Cheque number"
+                    value={paymentDetails.chequeNo || ""}
+                    onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeNo: e.target.value })}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Bank Name</label>
+                  <select
+                    value={paymentDetails.bankName || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "Other") setPaymentDetails({ ...paymentDetails, bankName: "", showOtherBankCheque: true });
+                      else setPaymentDetails({ ...paymentDetails, bankName: v, showOtherBankCheque: false });
+                    }}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="">Select Bank</option>
+                    {bankNames.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    <option value="Other">Other</option>
+                  </select>
+                  {paymentDetails.showOtherBankCheque && (
+                    <input
+                      type="text"
+                      placeholder="Other bank"
+                      value={paymentDetails.otherBankName || ""}
+                      onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })}
+                      className="mt-1.5 h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  )}
+                </div>
+              </>
+            )}
+
+            {form.payment_mode === "Card" && (
+              <div>
+                <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Card Ref / Last 4</label>
+                <input
+                  type="text"
+                  placeholder="Last 4 digits"
+                  value={paymentDetails.cardRef || ""}
+                  onChange={(e) => setPaymentDetails({ ...paymentDetails, cardRef: e.target.value })}
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+
+            {form.payment_mode === "Online Payment Gateway" && (
+              <>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Transaction ID</label>
+                  <input
+                    type="text"
+                    placeholder="Gateway txn ID"
+                    value={paymentDetails.transactionId || ""}
+                    onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Gateway Name</label>
+                  <select
+                    value={paymentDetails.gatewayName || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "Other") setPaymentDetails({ ...paymentDetails, gatewayName: "", showOtherGateway: true });
+                      else setPaymentDetails({ ...paymentDetails, gatewayName: v, showOtherGateway: false });
+                    }}
+                    className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="">Select</option>
+                    <option value="Razorpay">Razorpay</option>
+                    <option value="Stripe">Stripe</option>
+                    <option value="PayPal">PayPal</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {paymentDetails.showOtherGateway && (
+                    <input
+                      type="text"
+                      placeholder="Other gateway"
+                      value={paymentDetails.otherGatewayName || ""}
+                      onChange={(e) => setPaymentDetails({ ...paymentDetails, gatewayName: e.target.value, otherGatewayName: e.target.value })}
+                      className="mt-1.5 h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  )}
+                </div>
+              </>
+            )}
+
+            {form.payment_mode === "Wallet" && (
+              <div>
+                <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Wallet Reference</label>
+                <input
+                  type="text"
+                  placeholder="Wallet txn ID"
+                  value={paymentDetails.walletRef || ""}
+                  onChange={(e) => setPaymentDetails({ ...paymentDetails, walletRef: e.target.value })}
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+
+            {/* Receipt Upload */}
+            <div>
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Receipt</label>
+              <div
+                onClick={() => fileRef.current?.click()}
+                className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md border-[1.5px] border-dashed px-2 ${
+                  receiptPreview ? "border-blue-600 bg-blue-50" : "border-blue-300 bg-slate-50"
+                }`}
+              >
+                <Upload className={`h-3 w-3 flex-shrink-0 ${receiptPreview ? "text-blue-600" : "text-slate-400"}`} />
+                <span
+                  className={`flex-1 truncate text-[10px] ${
+                    receiptPreview ? "font-semibold text-blue-600" : "text-slate-400"
+                  }`}
+                >
+                  {receiptPreview || "Upload"}
+                </span>
+                {receiptPreview && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReceiptFile(null);
+                      setReceiptPreview("");
+                    }}
+                    className="flex-shrink-0 text-slate-400 hover:text-red-500"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} className="hidden" />
+              </div>
+            </div>
+
+            {/* Notes — full width on all screens */}
+            <div className="col-span-2">
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Notes</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Additional notes…"
+                rows={2}
+                className="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal footer – compact */}
-      <div style={{ padding: "10px 18px 14px", borderTop: "1px solid #F0F3FA", display: "flex", gap: 10 }}>
-        <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: "8px", border: "1px solid #E8ECF4", borderRadius: 9, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>Cancel</button>
-        <button onClick={save} disabled={submitting} style={{ flex: 2, padding: "8px", border: "none", borderRadius: 9, background: submitting ? "#B0BAC9" : "linear-gradient(135deg,#1A2B6D,#3B5BDB)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: submitting ? "not-allowed" : "pointer" }}>{submitting ? "Saving…" : editId ? "✓ Update" : "✓ Save"}</button>
+      {/* Footer */}
+      <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+        <button
+          onClick={() => setShowModal(false)}
+          className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={save}
+          disabled={submitting}
+          className={`h-8 flex-[2] rounded-lg text-[11px] font-bold text-white ${
+            submitting
+              ? "cursor-not-allowed bg-slate-300"
+              : "bg-gradient-to-r from-blue-600 to-blue-700 hover:opacity-90"
+          }`}
+        >
+          {submitting ? "Saving…" : editId ? " Update" : " Save"}
+        </button>
       </div>
     </div>
   </div>
 )}
 
-      {viewItem && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(15,23,42,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000,
-      backdropFilter: "blur(5px)",
-      padding: 12,
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 20,
-        width: "100%",
-        maxWidth: 680,
-        maxHeight: "92vh",
-        overflowY: "auto",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.25)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+  {viewItem && (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm">
+    <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
+
       {/* Header */}
-      <div
-        style={{
-          padding: "16px 20px 12px",
-          borderBottom: "1px solid #F0F3FA",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          position: "sticky",
-          top: 0,
-          background: "#fff",
-          borderRadius: "20px 20px 0 0",
-          zIndex: 5,
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 800, color: "#1A2B6D" }}>
-          📄 Expense Details
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+            <Eye className="h-3.5 w-3.5" />
+            Expense Details
+          </h2>
+          <p className="text-[10px] leading-tight text-blue-100">
+            {viewItem.property_name} • {fmtDate(viewItem.expense_date)}
+          </p>
         </div>
+        <div className="flex items-center gap-1.5">
           <button
-          onClick={() => {
-            setViewItem(null);
-            setPaymentTransactions([]);  // ADD THIS LINE
-          }}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            border: "1.5px solid #E8ECF4",
-            background: "#F8FAFF",
-            cursor: "pointer",
-            fontSize: 18,
-            color: "#8892A4",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          ×
-        </button>
+            onClick={() => printExpense(viewItem)}
+            title="Print"
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+          >
+            <Printer className="h-3.5 w-3.5 text-white" />
+          </button>
+          <button
+            onClick={() => { setViewItem(null); setPaymentTransactions([]); }}
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+          >
+            <X className="h-3.5 w-3.5 text-white" />
+          </button>
+        </div>
       </div>
 
-      <div style={{ padding: "18px 20px", flex: 1, overflowY: "auto" }}>
-        {/* Info grid */}
-        <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 14,
-    marginBottom: 18,
-  }}
-  className="view-info-grid"
->
-          {/* Property */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Property
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+
+        {/* SECTION 1 — Overview */}
+        <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Building2 className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Overview</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Property</div>
+              <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-700">
+                <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                {viewItem.property_name}
+              </div>
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "#374151",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Category</div>
+              {(() => {
+                const cc = getCatColor(viewItem.category_name);
+                return (
+                  <span className="mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: cc.bg, color: cc.text }}>
+                    <span className="h-1 w-1 rounded-full" style={{ background: cc.dot }} />
+                    {viewItem.category_name}
+                  </span>
+                );
+              })()}
+            </div>
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Sub Category</div>
+              <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.sub_category_name || "—"}</div>
+            </div>
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Vendor</div>
+              <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.vendor_name || "—"}</div>
+            </div>
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Added By</div>
+              <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.added_by_name || "—"}</div>
+            </div>
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Status</div>
               <span
+                className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
                 style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#3B5BDB",
-                  flexShrink: 0,
-                }}
-              />
-              {viewItem.property_name}
-            </div>
-          </div>
-
-          {/* Category */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Category
-            </div>
-            {(() => {
-              const cc = getCatColor(viewItem.category_name);
-              return (
-                <span
-                  style={{
-                    background: cc.bg,
-                    color: cc.text,
-                    padding: "3px 10px",
-                    borderRadius: 20,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: "50%",
-                      background: cc.dot,
-                    }}
-                  />
-                  {viewItem.category_name}
-                </span>
-              );
-            })()}
-          </div>
-
-          {/* Vendor */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Vendor
-            </div>
-            <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-              {viewItem.vendor_name || "—"}
-            </div>
-          </div>
-
-          {/* Total Amount - FIXED: Use total_amount instead of amount */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Total Amount
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#1A2B6D" }}>
-              {fmt(viewItem.total_amount || viewItem.amount || 0)}
-            </div>
-          </div>
-
-          {/* Paid Amount - ADD THIS */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Paid
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1B7A4E" }}>
-              {fmt(viewItem.total_paid || 0)}
-            </div>
-          </div>
-
-          {/* Balance Amount - ADD THIS */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Balance
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#B45309" }}>
-              {fmt(viewItem.balance || 0)}
-            </div>
-          </div>
-
-
-          {/* Status - FIXED: Show Partial status too */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Status
-            </div>
-            <span
-              style={{
-                background: viewItem.status === "Paid" 
-                  ? "#DCFCE7" 
-                  : viewItem.status === "Partial" 
-                  ? "#FEF3C7" 
-                  : "#FEF2F2",
-                color: viewItem.status === "Paid" 
-                  ? "#166534" 
-                  : viewItem.status === "Partial" 
-                  ? "#92400E" 
-                  : "#991B1B",
-                padding: "3px 12px",
-                borderRadius: 20,
-                fontSize: 12,
-                fontWeight: 600,
-                display: "inline-block",
-              }}
-            >
-              {viewItem.status === "Paid" 
-                ? "✓ Paid" 
-                : viewItem.status === "Partial" 
-                ? "⟳ Partial" 
-                : "⏳ Unpaid"}
-            </span>
-          </div>
-
-          {/* Expense Date */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Expense Date
-            </div>
-            <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-              {fmtDate(viewItem.expense_date)}
-            </div>
-          </div>
-
-          {/* Added By */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Added By
-            </div>
-            <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-              {viewItem.added_by_name}
-            </div>
-          </div>
-
-          {/* Created At */}
-          {/* <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Created At
-            </div>
-            <div style={{ fontSize: 12, color: "#B0BAC9", fontWeight: 400 }}>
-              {fmtDateTime(viewItem.created_at)}
-            </div>
-          </div> */}
-
-          {/* Notes */}
-          {viewItem.notes && (
-            <div style={{ gridColumn: "1/-1" }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "#8892A4",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  marginBottom: 3,
+                  background: viewItem.status === "Paid" ? "#DCFCE7" : viewItem.status === "Partial" ? "#FEF3C7" : "#FEF2F2",
+                  color: viewItem.status === "Paid" ? "#166534" : viewItem.status === "Partial" ? "#92400E" : "#991B1B",
                 }}
               >
-                Notes
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "#374151",
-                  fontWeight: 400,
-                  background: "#F8FAFF",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  border: "1px solid #E8ECF4",
-                }}
-              >
-                {viewItem.notes}
-              </div>
-            </div>
-          )}
-
-          {/* Receipt — Full preview */}
-          {viewItem.receipt_url && (
-            <div style={{ gridColumn: "1/-1" }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "#8892A4",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  marginBottom: 8,
-                }}
-              >
-                Receipt Preview
-              </div>
-              {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? (
-                <div
-                  style={{
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    border: "1.5px solid #E2E8F4",
-                    marginBottom: 10,
-                    background: "#F8FAFF",
-                  }}
-                >
-                  <iframe
-                    src={viewItem.receipt_url}
-                    title="Receipt PDF"
-                    style={{
-                      width: "100%",
-                      height: 340,
-                      border: "none",
-                      display: "block",
-                    }}
-                  />
-                </div>
-              ) : (
-                <div
-                  style={{
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    border: "1.5px solid #E2E8F4",
-                    marginBottom: 10,
-                    background: "#F8FAFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: 200,
-                  }}
-                >
-                  <img
-                    src={viewItem.receipt_url}
-                    alt="Receipt"
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: 320,
-                      objectFit: "contain",
-                      display: "block",
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
-              <div
-                style={{
-                  background: "#F8FAFF",
-                  border: "1.5px solid #E2E8F4",
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    background: "#EEF1FB",
-                    borderRadius: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? (
-                    <svg
-                      width="17"
-                      height="17"
-                      fill="none"
-                      stroke="#3B5BDB"
-                      strokeWidth="1.8"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14,2 14,8 20,8" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="17"
-                      height="17"
-                      fill="none"
-                      stroke="#3B5BDB"
-                      strokeWidth="1.8"
-                      viewBox="0 0 24 24"
-                    >
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21,15 16,10 5,21" />
-                    </svg>
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#1A2B6D",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {viewItem.receipt_name || "Receipt file"}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#8892A4", marginTop: 1 }}>
-                    {viewItem.receipt_name?.toLowerCase().endsWith(".pdf")
-                      ? "PDF Document"
-                      : "Image file"}
-                  </div>
-                </div>
-                <a
-                  href={viewItem.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
-                    color: "#fff",
-                    padding: "6px 13px",
-                    borderRadius: 8,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textDecoration: "none",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    width="11"
-                    height="11"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15,3 21,3 21,9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                  Open
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-        
-         {/* Items table */}
-        {viewItem.items?.filter((i: any) => i.name || i.item_name).length > 0 && (
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#3B5BDB",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 10,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
-                  borderRadius: 5,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 9,
-                  fontWeight: 800,
-                }}
-              >
-                ✦
+                {viewItem.status === "Paid" ? "✓ Paid" : viewItem.status === "Partial" ? "⟳ Partial" : "⏳ Unpaid"}
               </span>
-              Purchase Items (
-              {viewItem.items.filter((i: any) => i.name || i.item_name).length})
             </div>
-            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8ECF4" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 360 }}>
+          </div>
+        </div>
+
+        {/* SECTION 2 — Amount Summary */}
+        <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Wallet className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Amount Summary</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-md bg-blue-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-blue-600">Total</div>
+              <div className="mt-0.5 text-[14px] font-extrabold text-blue-800">{fmt(viewItem.total_amount || viewItem.amount || 0)}</div>
+            </div>
+            <div className="rounded-md bg-emerald-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600">Paid</div>
+              <div className="mt-0.5 text-[14px] font-extrabold text-emerald-700">{fmt(viewItem.total_paid || 0)}</div>
+            </div>
+            <div className="rounded-md bg-amber-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-amber-600">Balance</div>
+              <div className="mt-0.5 text-[14px] font-extrabold text-amber-700">{fmt(viewItem.balance || 0)}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes */}
+        {viewItem.notes && (
+          <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+            <div className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-500">Notes</div>
+            <div className="rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700">{viewItem.notes}</div>
+          </div>
+        )}
+
+        {/* Receipt */}
+        {viewItem.receipt_url && (
+          <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+            <div className="mb-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">Receipt</div>
+            {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? (
+              <iframe src={viewItem.receipt_url} title="Receipt PDF" className="mb-2 h-72 w-full rounded-md border border-slate-200" />
+            ) : (
+              <div className="mb-2 flex min-h-[160px] items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+                <img
+                  src={viewItem.receipt_url}
+                  alt="Receipt"
+                  className="max-h-72 max-w-full object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <a
+                href={viewItem.receipt_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-2.5 py-1 text-[10px] font-semibold text-white"
+              >
+                Open Receipt
+              </a>
+              <button
+                onClick={() => printExpense(viewItem)}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                <Printer className="h-3 w-3" /> Print Receipt
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Items table */}
+        {viewItem.items?.filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name).length > 0 && (
+          <div className="mb-2">
+            <div className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-blue-600">
+              <Package className="h-3 w-3" />
+              Purchase Items ({viewItem.items.filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name).length})
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full min-w-[420px] border-collapse text-[11px]">
                 <thead>
-                  <tr style={{ background: "#F8FAFF" }}>
-                    {["Item Name", "Category", "Qty", "Price", "Amount"].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "8px 12px",
-                          textAlign: "left",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "#8892A4",
-                          borderBottom: "1px solid #F0F3FA",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {h}
-                      </th>
+                  <tr className="bg-slate-50">
+                    {["Item Name", "Sub Category", "Qty", "Price", "Amount"].map((h) => (
+                      <th key={h} className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left text-[9px] font-bold text-slate-500">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {viewItem.items
-                    .filter((i: any) => i.name || i.item_name)
-                    .map((it: any, idx: number) => {
-                      const itCc = getCatColor(it.category || it.category_name || "");
-                      return (
-                        <tr
-                          key={idx}
-                          style={{ borderBottom: "1px solid #F5F7FC" }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "#FAFBFF")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          <td style={{ padding: "8px 12px", fontWeight: 600, color: "#1A2B6D" }}>
-                            {it.name || it.item_name}
-                          </td>
-                          <td style={{ padding: "8px 12px" }}>
-                            {it.category || it.category_name ? (
-                              <span
-                                style={{
-                                  background: itCc.bg,
-                                  color: itCc.text,
-                                  padding: "2px 8px",
-                                  borderRadius: 20,
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    width: 4,
-                                    height: 4,
-                                    borderRadius: "50%",
-                                    background: itCc.dot,
-                                  }}
-                                />
-                                {it.category || it.category_name}
-                              </span>
-                            ) : (
-                              <span style={{ color: "#CBD5E1" }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ padding: "8px 12px", color: "#374151" }}>
-                            {it.qty || it.quantity || "—"}
-                          </td>
-                          <td style={{ padding: "8px 12px", color: "#374151" }}>
-                            {fmt(it.price || it.unit_price || 0)}
-                          </td>
-                          <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D" }}>
-                            {fmt(
-                              Number(it.qty || it.quantity || 0) *
-                                Number(it.price || it.unit_price || 0)
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  <tr style={{ background: "#EEF1FB" }}>
-                    <td
-                      colSpan={4}
-                      style={{
-                        padding: "8px 12px",
-                        fontWeight: 700,
-                        color: "#1A2B6D",
-                        textAlign: "right",
-                        fontSize: 12,
-                      }}
-                    >
-                      Total:
-                    </td>
-                    <td style={{ padding: "8px 12px", fontWeight: 800, color: "#1A2B6D", fontSize: 13 }}>
+                    .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name)
+                    .map((it: any, idx: number) => (
+                      <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/60">
+                        <td className="px-2 py-1.5 font-semibold text-slate-700">{it.name || it.item_name || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-500">{it.sub_category || it.sub_category_name || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{it.qty || it.quantity || "—"}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{fmt(it.price || it.unit_price || 0)}</td>
+                        <td className="px-2 py-1.5 font-bold text-slate-700">
+                          {fmt(Number(it.qty || it.quantity || 0) * Number(it.price || it.unit_price || 0))}
+                        </td>
+                      </tr>
+                    ))}
+                  <tr className="bg-blue-50">
+                    <td colSpan={4} className="px-2 py-1.5 text-right text-[11px] font-bold text-blue-800">Total:</td>
+                    <td className="px-2 py-1.5 text-[12px] font-extrabold text-blue-800">
                       {fmt(
                         viewItem.items
-                          .filter((i: any) => i.name || i.item_name)
-                          .reduce(
-                            (s: number, i: any) =>
-                              s +
-                              Number(i.qty || i.quantity || 0) *
-                                Number(i.price || i.unit_price || 0),
-                            0
-                          )
+                          .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name)
+                          .reduce((s: number, i: any) => s + Number(i.qty || i.quantity || 0) * Number(i.price || i.unit_price || 0), 0)
                       )}
                     </td>
                   </tr>
@@ -2809,198 +3167,213 @@ useEffect(() => {
           </div>
         )}
 
-        {/* PAYMENT HISTORY SECTION - ADD THIS AFTER INFO GRID AND BEFORE ITEMS TABLE */}
+        {/* Payment History */}
         {paymentTransactions.length > 0 && (
-          <div style={{ marginTop: 20, marginBottom: 20 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#3B5BDB",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 10,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
-                  borderRadius: 5,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 9,
-                  fontWeight: 800,
-                }}
-              >
-                💰
-              </span>
-              Payment History ({paymentTransactions.length} transactions)
+          <div className="mb-2">
+            <div className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-blue-600">
+              <CreditCard className="h-3 w-3" />
+              Payment History ({paymentTransactions.length})
             </div>
-            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8ECF4" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full min-w-[480px] border-collapse text-[11px]">
                 <thead>
-                  <tr style={{ background: "#F8FAFF" }}>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}> Transaction Date</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Amount</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Payment Mode</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Reference / Details</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Notes</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Recorded By</th>
+                  <tr className="bg-slate-50">
+                    {["Date", "Amount", "Mode", "Reference", "Notes", "By"].map((h) => (
+                      <th key={h} className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left text-[9px] font-bold text-slate-500">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentTransactions.map((transaction, idx) => {
-                    const getPaymentIcon = (mode: string) => {
-                      if (mode === 'Cheque') return '📝';
-                      if (mode === 'UPI') return '📱';
-                      if (mode === 'Bank Transfer') return '🏦';
-                      if (mode === 'Card') return '💳';
-                      if (mode === 'Online Payment Gateway') return '🌐';
-                      if (mode === 'Wallet') return '👛';
-                      return '💵';
-                    };
-                    
-                    return (
-                      <tr
-                        key={transaction.id || idx}
-                        style={{ borderBottom: "1px solid #F5F7FC" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFBFF")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        <td style={{ padding: "8px 12px", fontSize: 11, color: "#475569" }}>
-                          {fmtDate(transaction.transaction_date?.split('T')[0] || transaction.created_at?.split('T')[0])}
-                        </td>
-                        <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1B7A4E" }}>
-                          {fmt(transaction.paid_amount)}
-                        </td>
-                        <td style={{ padding: "8px 12px", fontSize: 11 }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            {getPaymentIcon(transaction.payment_mode)} {transaction.payment_mode}
-                          </span>
-                        </td>
-                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
-                          {transaction.reference_no && <div>Ref: {transaction.reference_no}</div>}
-                          {transaction.transaction_id && transaction.payment_mode !== 'Bank Transfer' && <div>Txn: {transaction.transaction_id}</div>}
-                          {transaction.cheque_no && <div>Chq: {transaction.cheque_no}</div>}
-                          {transaction.upi_id && <div>UPI: {transaction.upi_id}</div>}
-                          {transaction.card_ref && <div>Card: {transaction.card_ref}</div>}
-                        </td>
-                       <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 200 }}>
-  {transaction.notes || '—'}
-</td>
-                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
-                          {transaction.created_by || '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                 <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
-  <td colSpan={2} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "left" }}>
-    Total Paid: <span style={{ fontWeight: 800, color: "#1B7A4E", fontSize: 13, marginLeft: 5 }}>{fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
-  </td>
-  <td colSpan={4} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "right" }}>
-    Pending Balance: <span style={{ fontWeight: 800, color: "#B45309", fontSize: 13, marginLeft: 5 }}>{fmt((viewItem?.total_amount || 0) - paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
-  </td>
-</tr>
+                  {paymentTransactions.map((t, idx) => (
+                    <tr key={t.id || idx} className="border-b border-slate-50 hover:bg-slate-50/60">
+                      <td className="px-2 py-1.5 text-slate-600">{fmtDate(t.transaction_date?.split("T")[0] || t.created_at?.split("T")[0])}</td>
+                      <td className="px-2 py-1.5 font-bold text-emerald-700">{fmt(t.paid_amount)}</td>
+                      <td className="px-2 py-1.5 text-slate-600">{t.payment_mode}</td>
+                      <td className="px-2 py-1.5 text-slate-500">{t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || "—"}</td>
+                      <td className="max-w-[160px] truncate px-2 py-1.5 text-slate-500">{t.notes || "—"}</td>
+                      <td className="px-2 py-1.5 text-slate-500">{t.created_by || "—"}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-emerald-50">
+                    <td colSpan={2} className="px-2 py-1.5 font-bold text-emerald-700">
+                      Total: {fmt(paymentTransactions.reduce((s, t) => s + (parseFloat(t.paid_amount) || 0), 0))}
+                    </td>
+                    <td colSpan={4} className="px-2 py-1.5 text-right font-bold text-amber-700">
+                      Pending: {fmt((viewItem?.total_amount || 0) - paymentTransactions.reduce((s, t) => s + (parseFloat(t.paid_amount) || 0), 0))}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
         )}
-       
+      </div>
+
+      {/* Footer */}
+      <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+        <button
+          onClick={() => printExpense(viewItem)}
+          className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          <Printer className="h-3.5 w-3.5" /> Print
+        </button>
+        <button
+          onClick={() => { setViewItem(null); setPaymentTransactions([]); }}
+          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+        >
+          Close
+        </button>
       </div>
     </div>
   </div>
 )}
 
       {/* COMPACT PAYMENT MODAL */}
-      {paymentModal.open && paymentModal.expense && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(3px)" }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            {/* Compact Header */}
-            <div style={{ padding: "16px 20px", background: "linear-gradient(135deg, #1A2B6D, #2D4A8A)", color: "#fff", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>💰 Make Payment</h3>
-                  <p style={{ fontSize: 11, opacity: 0.85, margin: "4px 0 0 0" }}>{paymentModal.expense.vendor_name || paymentModal.expense.category_name}</p>
-                </div>
-                <button onClick={closePaymentModal} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 16, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+    {/* COMPACT PAYMENT MODAL */}
+{paymentModal.open && paymentModal.expense && (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm">
+    <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
+
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+            <IndianRupeeIcon className="h-3.5 w-3.5" />
+            Make Payment
+          </h2>
+          <p className="text-[10px] leading-tight text-blue-100">
+            {paymentModal.expense.vendor_name || paymentModal.expense.category_name}
+          </p>
+        </div>
+        <button
+          onClick={closePaymentModal}
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+        >
+          <X className="h-3.5 w-3.5 text-white" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+
+        {/* Balance Summary - calculated balance */}
+        <div className="mb-2 rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-md bg-blue-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-blue-600">Total</div>
+              <div className="mt-0.5 text-[12px] font-extrabold text-blue-800">
+                {fmt(paymentModal.expense.total_amount)}
               </div>
             </div>
-
-            {/* Scrollable Content - Compact */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-              {/* Balance Summary - Compact */}
-              <div style={{ background: "#F8FAFF", borderRadius: 10, padding: "12px", marginBottom: 16, border: "1px solid #E2E8F0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: "#64748B" }}>Total Bill:</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D" }}>{fmt(paymentModal.expense.total_amount)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: "#64748B" }}>Already Paid:</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#1B7A4E" }}>{fmt(paymentModal.expense.total_paid)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid #E2E8F0" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Balance Due:</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: "#B45309" }}>{fmt(paymentModal.expense.balance)}</span>
-                </div>
-              </div>
-
-              {/* Payment Amount */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Amount <span style={{ color: "#E53E3E" }}>*</span></label>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#1A2B6D", fontWeight: 600, fontSize: 12 }}>₹</span>
-                  <input id="paymentAmount" type="text" placeholder="0.00" style={{ width: "100%", padding: "8px 12px 8px 28px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 13, outline: "none" }} />
-                </div>
-              </div>
-
-              {/* Payment Mode */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Mode <span style={{ color: "#E53E3E" }}>*</span></label>
-                <select id="paymentMode" style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, background: "#fff", cursor: "pointer" }}>
-  <option value="">Select Mode</option>
-  <option value="Cash">💵 Cash</option>
-  <option value="Bank Transfer">🏦 Bank Transfer</option>
-  <option value="UPI">📱 UPI</option>
-  <option value="Cheque">📝 Cheque</option>
-  <option value="Card">💳 Card</option>
-  <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
-  <option value="Wallet">👛 Wallet</option>
-</select>
-              </div>
-
-              {/* Conditional Fields Container */}
-              <div id="paymentConditionalFields" style={{ marginBottom: 14 }}></div>
-
-              {/* Payment Date */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Date</label>
-                <input id="transactionDate" type="date" defaultValue={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, outline: "none" }} />
-              </div>
-
-              {/* Notes */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Notes <span style={{ fontSize: 9, color: "#94A3B8" }}>(Optional)</span></label>
-                <textarea id="paymentNotes" rows={2} placeholder="Add payment notes..." style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, resize: "vertical", fontFamily: "inherit", outline: "none" }} />
+            <div className="rounded-md bg-emerald-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600">Paid</div>
+              <div className="mt-0.5 text-[12px] font-extrabold text-emerald-700">
+                {fmt(paymentModal.expense.total_paid)}
               </div>
             </div>
-
-            {/* Compact Footer */}
-            <div style={{ padding: "12px 20px", borderTop: "1px solid #F0F3FA", background: "#fff", display: "flex", gap: 10, flexShrink: 0 }}>
-              <button onClick={closePaymentModal} style={{ flex: 1, padding: "8px", border: "1px solid #E2E8F0", borderRadius: 8, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#475569", cursor: "pointer" }}>Cancel</button>
-              <button onClick={processPayment} disabled={submitting} style={{ flex: 2, padding: "8px", border: "none", borderRadius: 8, background: submitting ? "#B0BAC9" : "linear-gradient(135deg, #1A2B6D, #2D4A8A)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: submitting ? "not-allowed" : "pointer" }}>{submitting ? "Processing..." : "Confirm Payment"}</button>
+            <div className="rounded-md bg-amber-50 p-2">
+              <div className="text-[9px] font-semibold uppercase tracking-wide text-amber-600">Balance</div>
+              <div className="mt-0.5 text-[12px] font-extrabold text-amber-700">
+                {fmt((paymentModal.expense.total_amount || 0) - (paymentModal.expense.total_paid || 0))}
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Payment Details */}
+        <div className="rounded-lg border border-slate-100 bg-white p-2 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1 border-b border-slate-50 pb-1">
+            <Wallet className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600">Payment Details</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {/* Payment Amount - left column */}
+            <div>
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Payment Amount<span className="ml-0.5 text-rose-400">*</span>
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-blue-700">₹</span>
+                <input
+                  id="paymentAmount"
+                  type="text"
+                  placeholder="0.00"
+                  className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 pl-5 pr-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+
+            {/* Payment Date - right column */}
+            <div>
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Payment Date</label>
+              <input
+                id="transactionDate"
+                type="date"
+                defaultValue={new Date().toISOString().split("T")[0]}
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+
+            {/* Payment Mode - spans both columns */}
+            <div className="col-span-2">
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Payment Mode<span className="ml-0.5 text-rose-400">*</span>
+              </label>
+              <select
+                id="paymentMode"
+                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="">Select Mode</option>
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="UPI">UPI</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Card">Card</option>
+                <option value="Online Payment Gateway">Online Payment Gateway</option>
+                <option value="Wallet">Wallet</option>
+              </select>
+            </div>
+
+            {/* Conditional Fields Container - spans both columns */}
+            <div id="paymentConditionalFields" className="col-span-2" />
+
+            {/* Notes - spans both columns */}
+            <div className="col-span-2">
+              <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                Notes <span className="text-[8px] normal-case text-slate-400">(optional)</span>
+              </label>
+              <textarea
+                id="paymentNotes"
+                rows={2}
+                placeholder="Add payment notes…"
+                className="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+        <button
+          onClick={closePaymentModal}
+          className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={processPayment}
+          disabled={submitting}
+          className={`h-8 flex-[2] rounded-lg text-[11px] font-bold text-white ${
+            submitting ? "cursor-not-allowed bg-slate-300" : "bg-gradient-to-r from-blue-600 to-blue-700 hover:opacity-90"
+          }`}
+        >
+          {submitting ? "Processing…" : "Confirm Payment"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* RIGHT SIDE FILTER PANEL */}
 {filterPanelOpen && (
@@ -3145,28 +3518,104 @@ useEffect(() => {
   </>
 )}
 
-      {/* Responsive CSS */}
-      <style>{`
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #F0F3FA; }
-        ::-webkit-scrollbar-thumb { background: #C5CEE0; border-radius: 10px; }
+{showImportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB]">
+              <h2 className="text-sm font-bold text-white">📥 Import Expenses</h2>
+              <button onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }} className="text-white/70 hover:text-white text-lg">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-blue-700 mb-2">Step 1: Download Template</p>
+                <p className="text-xs text-blue-600 mb-2">
+  Columns: Property, Items (comma separated), Qty (comma separated), UnitPrice (comma separated), Category, SubCategory, Vendor, Amount, PaymentMode, Date (YYYY-MM-DD), AddedBy.
+</p>
+                <button onClick={handleDownloadTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-50">
+                  <Download size={12} /> Download Template
+                </button>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Step 2: Upload Filled Excel</p>
+                <div
+                  onClick={() => importFileRef.current?.click()}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    importFile ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300"
+                  }`}
+                >
+                  <UploadIcon size={20} className={`mx-auto mb-2 ${importFile ? "text-blue-500" : "text-gray-400"}`} />
+                  <p className="text-xs font-medium text-gray-600">
+                    {importFile ? importFile.name : "Click to upload Excel file"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">.xlsx or .xls files only</p>
+                  <input ref={importFileRef} type="file" accept=".xlsx,.xls" onChange={handleImportFileChange} className="hidden" />
+                </div>
+              </div>
+              {importPreview.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Step 3: Preview ({importPreview.length} expenses found)</p>
+                  <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr className="border-b">
+<th className="text-left p-2 font-semibold text-gray-600">Property</th>
+<th className="text-left p-2 font-semibold text-gray-600">Items (Qty × Price)</th> {/* ← CHANGE */}
+<th className="text-left p-2 font-semibold text-gray-600">Category</th>
+<th className="text-left p-2 font-semibold text-gray-600">Vendor</th>
+<th className="text-left p-2 font-semibold text-gray-600">Amount</th>
+<th className="text-left p-2 font-semibold text-gray-600">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map((row, i) => (
+                          <tr key={i} className="border-b hover:bg-gray-50">
+<td className="p-2 font-medium text-gray-800">{row.property_name}</td>
+<td className="p-2 text-gray-600"> {/* ← CHANGE */}
+  {row.items?.length > 0
+    ? row.items.map((i: any) =>
+        `${i.name}${i.qty ? ` (${i.qty}×₹${i.price})` : ""}`
+      ).join(", ")
+    : "—"}
+</td>
+<td className="p-2 text-gray-600">{row.category_name}</td>
+<td className="p-2 text-gray-600">{row.vendor_name || "—"}</td>
+<td className="p-2 text-gray-600">{fmt(row.amount)}</td>
+<td className="p-2 text-gray-600">{row.expense_date}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded">
+                    ⚠️ Property and Category names must exactly match existing records, or rows will be skipped.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t flex gap-3">
+              <button onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }}
+                className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleImportSave}
+                disabled={importing || importPreview.length === 0}
+                className="flex-1 py-2 bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {importing ? (
+                  <><span className="animate-spin">⟳</span> Importing...</>
+                ) : (
+                  <>✓ Import {importPreview.length > 0 ? `(${importPreview.length} expenses)` : ""}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        @media (max-width: 480px) {
-          .exp-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
-        }
-      `}</style>
-      <style>{`
-  * { box-sizing: border-box; }
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: #F0F3FA; }
-  ::-webkit-scrollbar-thumb { background: #C5CEE0; border-radius: 10px; }
 
-  @media (max-width: 480px) {
-    .exp-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
-    .view-info-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  }
-`}</style>
+    
     </div>
   );
 }

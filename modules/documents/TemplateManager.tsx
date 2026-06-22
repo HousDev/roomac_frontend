@@ -1540,7 +1540,19 @@ const handleExport = () => {
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <div className="sticky top-16 z-10">
+
+         {/* Stat cards */}
+        <div className="pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <StatCard title="Total"      value={stats.total}    icon={LayoutTemplate} color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+            <StatCard title="Active"     value={stats.active}   icon={CheckCircle}    color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
+            <StatCard title="Inactive"   value={stats.inactive} icon={XCircle}        color="bg-gray-500"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
+            <StatCard title="Categories" value={stats.cats}     icon={Layers}         color="bg-indigo-600" bg="bg-gradient-to-br from-indigo-50 to-indigo-100" />
+          </div>
+        </div>
         <div className="pb-2 flex items-end justify-end gap-2 flex-wrap">
+
+
 
           {/* Bulk action bar */}
           {someSelected && (
@@ -1566,7 +1578,7 @@ const handleExport = () => {
           {/* Filter toggle */}
           <button onClick={() => setSidebarOpen(o => !o)}
             className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-              ${sidebarOpen || hasFilters ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
+              ${sidebarOpen || hasFilters ? "bg-blue-600 text-white border-blue-600" : " bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white border-gray-200 hover:bg-gray-50"}`}>
             <Filter className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Filters</span>
             {filterCount > 0 && (
@@ -1579,34 +1591,26 @@ const handleExport = () => {
 
           {/* Export */}
           <button onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Export</span>
           </button>
 
           {/* Refresh */}
-          <button onClick={loadTemplates} disabled={loading}
+          {/* <button onClick={loadTemplates} disabled={loading}
             className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button>
+          </button> */}
 
           {/* Create */}
           <button onClick={openAdd}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:from-blue-700 hover:to-indigo-700  text-[11px] font-semibold shadow-sm transition-colors">
             <Plus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Create Template</span>
           </button>
         </div>
 
-        {/* Stat cards */}
-        <div className="pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total"      value={stats.total}    icon={LayoutTemplate} color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Active"     value={stats.active}   icon={CheckCircle}    color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Inactive"   value={stats.inactive} icon={XCircle}        color="bg-gray-500"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
-            <StatCard title="Categories" value={stats.cats}     icon={Layers}         color="bg-indigo-600" bg="bg-gradient-to-br from-indigo-50 to-indigo-100" />
-          </div>
-        </div>
+       
       </div>
 
       {/* ── TABLE ──────────────────────────────────────────────────────── */}

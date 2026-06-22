@@ -747,7 +747,7 @@ const handleRemoveDocument = useCallback(
   <Button
     variant="outline"
     onClick={handleExport}
-    className="w-28 h-9 text-sm bg-gradient-to-r from-blue-900 to-blue-800 text-white"
+    className="w-28 h-9 text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
     disabled={staff.length === 0}
   >
     <Download className="mr-2 h-4 w-4 text-white" />
@@ -763,8 +763,8 @@ const handleRemoveDocument = useCallback(
     }}
   >
     <DialogTrigger asChild>
-      <Button className="w-28 h-9 text-sm">
-        <Plus className="mr-2 h-4 w-4" />
+      <Button className="w-28 h-9 text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]">
+        <Plus className="mr-2 h-4 w-4  " />
         Add Staff
       </Button>
     </DialogTrigger>

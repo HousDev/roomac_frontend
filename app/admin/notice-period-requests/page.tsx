@@ -382,20 +382,8 @@ const currentPageItems = itemsPerPage === 9999
   return (
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
 
-      {/* Header with Title and Create Button */}
-      <div className="sticky top-28 z-10 flex justify-end items-end mb-4">
-        {can('manage_notice_period') && (
-          <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Notice Period
-          </Button>
-        )}
-      </div>
 
-      {/* Stats Cards */}
+ {/* Stats Cards */}
       <div className="sticky top-36 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
         {stats.map((stat, index) => (
           <Card key={index} className={`bg-gradient-to-br from-${stat.bgColor.split('-')[1]}-50 to-${stat.bgColor.split('-')[1]}-100 border-0 shadow-sm`}>
@@ -417,6 +405,20 @@ const currentPageItems = itemsPerPage === 9999
           </Card>
         ))}
       </div>
+      {/* Header with Title and Create Button */}
+      <div className="sticky top-28 z-10 flex justify-end items-end mb-4">
+        {can('manage_notice_period') && (
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            className=" bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:from-blue-700 hover:to-blue-800"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Notice Period
+          </Button>
+        )}
+      </div>
+
+     
 
       {/* Bulk Actions Bar */}
       {can('delete_requests') && selectedRequests.size > 0 && (
@@ -476,11 +478,11 @@ const currentPageItems = itemsPerPage === 9999
   }`}>
     <table className="w-full min-w-[900px] table-fixed border-collapse">
 
-      <thead className="sticky top-0 z-10">
+      <thead className="sticky top-0 z-[25]">
         <tr className="bg-white border-b-2 border-blue-200">
 
           {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-200 text-left">
             {can('delete_requests') && (
               <div className="py-2 flex justify-center">
                 <Checkbox
@@ -493,7 +495,7 @@ const currentPageItems = itemsPerPage === 9999
           </th>
 
           {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
                 <span className="font-semibold text-gray-700 text-xs">ID</span>
@@ -509,14 +511,14 @@ const currentPageItems = itemsPerPage === 9999
           </th>
 
           {/* Actions - 80px sticky */}
-          <th className="md:sticky md:left-[120px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
             <div className="py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Actions</span>
             </div>
           </th>
 
           {/* Tenant - 180px sticky */}
-          <th className="md:sticky md:left-[200px] z-[60] w-[180px] bg-white border-r border-gray-200 text-left">
+          <th className="md:sticky md:left-[200px] z-[30] w-[180px] bg-white border-r border-gray-200 text-left">
             <div className="space-y-1.5 py-2 px-2">
               <span className="font-semibold text-gray-700 text-xs">Tenant</span>
               <Input
@@ -603,7 +605,7 @@ const currentPageItems = itemsPerPage === 9999
             }`}
           >
             {/* Checkbox */}
-            <td className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-0 z-[20] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
               {can('delete_requests') && (
                 <div className="flex justify-center">
                   <Checkbox
@@ -616,7 +618,7 @@ const currentPageItems = itemsPerPage === 9999
             </td>
 
             {/* ID */}
-            <td className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-[40px] z-[20] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
                 <span className="truncate">#{request.id}</span>
@@ -624,7 +626,7 @@ const currentPageItems = itemsPerPage === 9999
             </td>
 
             {/* Actions */}
-            <td className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
+            <td className="md:sticky md:left-[120px] z-[20] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
               <div className="flex items-center gap-0.5 flex-nowrap">
                 <Button
                   size="sm"
@@ -650,7 +652,7 @@ const currentPageItems = itemsPerPage === 9999
             </td>
 
             {/* Tenant */}
-            <td className="md:sticky md:left-[200px] z-[30] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
+            <td className="md:sticky md:left-[200px] z-[20] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
               <div className="flex items-center gap-1">
                 <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
                   <User className="h-3 w-3 text-blue-600" />

@@ -262,7 +262,7 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
           <Dialog open={showAddPartnershipDialog} onOpenChange={setShowAddPartnershipDialog}>
             <DialogTrigger asChild>
               <Button
-                className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-sm whitespace-nowrap py-1.5 px-3 mx-2"
+                className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-sm whitespace-nowrap py-1.5 px-3 mx-2"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Add Partnership Enquiry</span>
@@ -319,24 +319,11 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
       </Button>
     )}
 
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-sm">
-          <BarChart className="h-4 w-4 mr-2" />
-          Detailed Stats
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Enquiry Statistics</DialogTitle>
-        </DialogHeader>
-        {enquiriesStats && <EnquiriesStats stats={enquiriesStats} />}
-      </DialogContent>
-    </Dialog>
+  
 
     {can('create_enquiries') && (
       <Button
-        className="bg-blue-600 hover:bg-blue-700 text-sm"
+        className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-sm"
         onClick={() => enquiriesOpenAdd?.()}
       >
         <Plus className="mr-2 h-4 w-4" />
@@ -347,18 +334,25 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
 )}
 
         {activeTab === "newsletter" && (
-          <div className="flex gap-2 mx-2">
-            <Button
-              onClick={handleExportNewsletter}
-              variant="outline"
-              size="sm"
-              className="text-sm whitespace-nowrap"
-              disabled={newsletterSubscribers.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-          </div>
+         <div className="flex gap-2 mx-2">
+  <Button
+    onClick={handleExportNewsletter}
+    variant="outline"
+    size="sm"
+    disabled={newsletterSubscribers.length === 0}
+    className="
+      text-sm whitespace-nowrap
+      bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]
+      text-white border-0
+      hover:from-[#0A1F5C] hover:via-[#123A9A] hover:to-[#1E4ED8]
+      hover:text-white
+      shadow-md
+    "
+  >
+    <Download className="mr-2 h-4 w-4" />
+    <span className="hidden sm:inline">Export</span>
+  </Button>
+</div>
         )}
       </div>
 

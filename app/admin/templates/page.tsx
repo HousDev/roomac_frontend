@@ -1211,7 +1211,7 @@ useEffect(() => {
               </button>
               {canManage && (
                 <button onClick={() => { setEditTemplate(null); setShowCreate(true); }}
-                  className="flex items-center gap-1.5 bg-blue-600 text-white border-none rounded-full px-3 py-[7px] text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md transition-all whitespace-nowrap flex-shrink-0">
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-none rounded-full px-3 py-[7px] text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md transition-all whitespace-nowrap flex-shrink-0">
                   Create Template
                 </button>
               )}
@@ -1247,7 +1247,7 @@ useEffect(() => {
           (s.key === 'active' && activeFilter === '1') ||
           (s.key === 'inactive' && activeFilter === '0') ||
           (s.key !== 'active' && s.key !== 'inactive' && statusFilter === s.key)
-            ? "bg-blue-600 text-white shadow-sm"
+            ? "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white shadow-sm"
             : "bg-transparent text-slate-400 hover:bg-slate-100"
         }`}
       >
@@ -1331,7 +1331,7 @@ useEffect(() => {
               <p className="text-[13px] text-slate-400 max-w-[300px]">Try adjusting your filters or create a new template.</p>
               {canManage && (
                 <button onClick={() => { setEditTemplate(null); setShowCreate(true); }}
-                  className="mt-2 inline-flex items-center gap-1.5 bg-blue-600 text-white border-none rounded-full px-5 py-2 text-[13px] font-semibold cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-px transition-all">
+                  className="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-none rounded-full px-5 py-2 text-[13px] font-semibold cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-px transition-all">
                   Create Template
                 </button>
               )}

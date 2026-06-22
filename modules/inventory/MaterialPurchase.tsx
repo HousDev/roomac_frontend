@@ -3,7 +3,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Package, Plus, Trash2, Loader2, X, Download,
   Building, IndianRupee, StickyNote, RefreshCw, Filter,
-  AlertTriangle, TrendingDown, Boxes, Eye, Printer
+  AlertTriangle, TrendingDown, Boxes, Eye, Printer,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +104,13 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
     partial_count: 0,
     paid_count: 0
   });
-  const { can } = useAuth(); // ← ADD THIS
+  const { can } = useAuth(); 
+  // ── Pagination state ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
 
   // Filters
   const [propertyFilter, setPropertyFilter] = useState('all');
@@ -181,50 +189,53 @@ const [editSubmitting, setEditSubmitting] = useState(false);
   }, []);
 
   // Load purchases and stats
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const filters: any = {};
-      if (propertyFilter !== 'all') filters.property_id = propertyFilter;
-      if (statusFilter !== 'all') filters.payment_status = statusFilter;
-      if (dateFilter.from) filters.from_date = dateFilter.from;
-      if (dateFilter.to) filters.to_date = dateFilter.to;
+ const loadAll = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === "All" ? 999999 : pageSize;
+    const filters: any = {};
+    if (propertyFilter !== 'all') filters.property_id = propertyFilter;
+    if (statusFilter !== 'all') filters.payment_status = statusFilter;
+    if (dateFilter.from) filters.from_date = dateFilter.from;
+    if (dateFilter.to) filters.to_date = dateFilter.to;
+    filters.page = page;
+    filters.limit = limit;
 
-      const [purchasesRes, statsRes] = await Promise.all([
-        getPurchases(filters),
-        getPurchaseStats()
-      ]);
+    const [purchasesRes, statsRes] = await Promise.all([
+      getPurchases(filters),
+      getPurchaseStats()
+    ]);
 
-
-      // Ensure items are properly parsed
-      const purchasesData = purchasesRes.data || [];
-      purchasesData.forEach(p => {
-        // 🔥 Parse items if it's a string
-        if (p.items) {
-          if (typeof p.items === 'string') {
-            try {
-              p.purchase_items = JSON.parse(p.items);
-            } catch (e) {
-              console.error('Error parsing items JSON:', e);
-              p.purchase_items = [];
-            }
-          } else if (Array.isArray(p.items)) {
-            p.purchase_items = p.items;
-          }
-        } else {
-          p.purchase_items = [];
+    // Parse items (existing logic)
+    const purchasesData = purchasesRes.data || [];
+    purchasesData.forEach(p => {
+      if (p.items) {
+        if (typeof p.items === 'string') {
+          try { p.purchase_items = JSON.parse(p.items); } catch { p.purchase_items = []; }
+        } else if (Array.isArray(p.items)) {
+          p.purchase_items = p.items;
         }
-      });
+      } else {
+        p.purchase_items = [];
+      }
+    });
 
-      setPurchases(purchasesData);
-      setStats(statsRes.data || stats);
-    } catch (err: any) {
-      console.error('Error loading purchases:', err);
-      toast.error(err.message || 'Failed to load purchases');
-    } finally {
-      setLoading(false);
-    }
-  }, [propertyFilter, statusFilter, dateFilter]);
+    setPurchases(purchasesData);
+    setStats(statsRes.data || stats);
+
+    // Set pagination meta
+    const total = purchasesRes.pagination?.totalItems ?? purchasesData.length;
+    setTotalItems(total);
+    const computedTotalPages = purchasesRes.pagination?.totalPages ?? Math.ceil(total / (pageSize === "All" ? total : pageSize));
+    setTotalPages(computedTotalPages);
+    setCurrentPage(page);
+  } catch (err: any) {
+    console.error('Error loading purchases:', err);
+    toast.error(err.message || 'Failed to load purchases');
+  } finally {
+    setLoading(false);
+  }
+}, [propertyFilter, statusFilter, dateFilter, pageSize]);
 
   useEffect(() => { 
     loadCategories(); 
@@ -232,7 +243,7 @@ const [editSubmitting, setEditSubmitting] = useState(false);
   }, []);
   
   useEffect(() => { 
-    loadAll(); 
+    loadAll(1); 
   }, [loadAll]);
 
   // Filtered items with column search
@@ -1268,12 +1279,25 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
     <div className="bg-gray-50 ">
       {/* Header */}
       <div className="sticky top-20 z-10">
+         <div className="px-0 sm:px-0 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <StatCard title="Total Purchases" value={stats.total_purchases} icon={Boxes} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+            <StatCard title="Total Amount" value={`₹${Number(stats.total_amount || 0).toLocaleString('en-IN')}`} icon={IndianRupee} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
+            <StatCard title="Total Paid" value={`₹${Number(stats.total_paid || 0).toLocaleString('en-IN')}`} icon={TrendingDown} color="bg-orange-600" bg="bg-gradient-to-br from-orange-50 to-orange-100" />
+            <StatCard title="Balance Due" value={`₹${Number(stats.total_balance || 0).toLocaleString('en-IN')}`} icon={AlertTriangle} color="bg-red-600" bg="bg-gradient-to-br from-red-50 to-red-100" />
+          </div>
+        </div>
         <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
+            
+            
+            <button onClick={loadAll} disabled={loading} className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
             <button
               onClick={() => setSidebarOpen(o => !o)}
               className={`
-                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px]  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white font-medium transition-colors
                 ${sidebarOpen || hasFilters
                   ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}
@@ -1293,18 +1317,16 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
 
   {can('export_material_purchase') && (
 
-            <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
+            <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Export</span>
             </button>
   )}
 
-            <button onClick={loadAll} disabled={loading} className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            
   {can('create_material_purchase') && (
 
-            <button onClick={openAdd} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
+            <button onClick={openAdd} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden xs:inline sm:inline">Add Purchase</span>
             </button>
@@ -1312,14 +1334,7 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
           </div>
         </div>
 
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total Purchases" value={stats.total_purchases} icon={Boxes} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Total Amount" value={`₹${Number(stats.total_amount || 0).toLocaleString('en-IN')}`} icon={IndianRupee} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Total Paid" value={`₹${Number(stats.total_paid || 0).toLocaleString('en-IN')}`} icon={TrendingDown} color="bg-orange-600" bg="bg-gradient-to-br from-orange-50 to-orange-100" />
-            <StatCard title="Balance Due" value={`₹${Number(stats.total_balance || 0).toLocaleString('en-IN')}`} icon={AlertTriangle} color="bg-red-600" bg="bg-gradient-to-br from-red-50 to-red-100" />
-          </div>
-        </div>
+       
       </div>
 
       <div className="relative">
@@ -1345,8 +1360,8 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
   className="overflow-auto rounded-b-lg transition-all duration-300"
   style={{
     maxHeight: selectedItems.size > 0
-      ? (window.innerWidth >= 768 ? '410px' : '310px')
-      : (window.innerWidth >= 768 ? '450px' : '370px')
+      ? (window.innerWidth >= 768 ? '380px' : '310px')
+      : (window.innerWidth >= 768 ? '430px' : '370px')
   }}
 >            
  <div className="min-w-[1000px]">
@@ -1469,6 +1484,77 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                 </Table>
               </div>
             </div>
+     {/* ── Pagination Bar ── */}
+{!loading && totalItems > 0 && (
+  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+    <div className="flex items-center gap-3 text-gray-500">
+      <span className="text-[11px]">
+        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} purchases
+      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400 text-[10px]">Rows:</span>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(val) => {
+            const newSize = val === "All" ? "All" : Number(val);
+            setPageSize(newSize);
+            setCurrentPage(1);
+            loadAll(1);
+          }}
+        >
+          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+            <SelectValue>{pageSize}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    <div className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => loadAll(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="h-6 w-6 p-0"
+      >
+        <ChevronLeft className="h-3 w-3" />
+      </Button>
+      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+        const page = i + 1;
+        return (
+          <Button
+            key={page}
+            size="sm"
+            variant={currentPage === page ? "default" : "outline"}
+            onClick={() => loadAll(page)}
+            className={`h-6 w-6 p-0 text-[10px] ${
+              currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            }`}
+          >
+            {page}
+          </Button>
+        );
+      })}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => loadAll(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="h-6 w-6 p-0"
+      >
+        <ChevronRight className="h-3 w-3" />
+      </Button>
+    </div>
+  </div>
+)}
           </Card>
         </main>
 

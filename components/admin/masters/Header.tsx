@@ -133,7 +133,7 @@ export default function Header({
             <button
               onClick={onNewItem}
               disabled={!activeTab}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               <Plus size={14} className="sm:w-[18px] sm:h-[18px]" />
               <span className="sm:hidden">New</span>

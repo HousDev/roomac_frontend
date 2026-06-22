@@ -95,7 +95,7 @@ export default function Header({
             
             <button
               onClick={onNewValue}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 text-sm"
+              className="px-4 py-2 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 text-sm"
             >
               <Plus size={16} />
               New Master Value
@@ -169,7 +169,7 @@ export default function Header({
             {/* New Master Value Button - In same row as status */}
             <button
               onClick={onNewValue}
-              className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 flex items-center gap-1 text-xs shadow-sm whitespace-nowrap"
+              className="px-3 py-1.5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 flex items-center gap-1 text-xs shadow-sm whitespace-nowrap"
             >
               <Plus size={14} />
               <span>New Value</span>

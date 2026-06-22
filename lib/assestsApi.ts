@@ -104,8 +104,8 @@ export const getInventory = async (filters?: {
   category_id?: string;
   stock_status?: "low_stock" | "out_of_stock";
   search?: string;
-  page?: number;      // <-- ADD
-  limit?: number;     // <-- ADD
+  page?: number;      
+  limit?: number;     
 }): Promise<PaginatedInventoryResponse> => {
   const queryParams = new URLSearchParams();
   if (filters?.property_id)  queryParams.append("property_id",  filters.property_id);

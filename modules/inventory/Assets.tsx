@@ -172,20 +172,21 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   setLoading(true);
   try {
     const limit = pageSize === "All" ? 999999 : pageSize;
-    const res = await getInventory({
-      stock_status: stockFilter !== 'all' ? stockFilter as any : undefined,
-      category_id:  categoryFilter !== 'all' ? categoryFilter : undefined,
-      property_id:  propertyFilter !== 'all' ? propertyFilter : undefined,
-      page,
-      limit,
-    });
+    const [res, statsRes] = await Promise.all([
+      getInventory({
+        stock_status: stockFilter !== 'all' ? stockFilter as any : undefined,
+        category_id:  categoryFilter !== 'all' ? categoryFilter : undefined,
+        property_id:  propertyFilter !== 'all' ? propertyFilter : undefined,
+        page,
+        limit,
+      }),
+      getInventoryStats(), // ← YE ADD KARO
+    ]);
     setItems(res.data || []);
     setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
     setTotalPages(res.pagination?.totalPages ?? 1);
     setCurrentPage(page);
-    // Also update stats if not paginated stats endpoint, but we keep separate
-    // stats are loaded separately, so we can keep them as-is or update with totals
-    // If stats not paginated, keep them unchanged.
+    setStats(statsRes.data); // ← YE ADD KARO
   } catch (err: any) {
     toast.error(err.message || 'Failed to load inventory');
   } finally {
@@ -472,7 +473,19 @@ const handleExport = () => {
 
       {/* ── HEADER — fully responsive ────────────────────────────────────── */}
       <div className="sticky top-16 z-10  ">
-
+ {/* Stats row — scrollable on xs, grid on sm+ */}
+        <div className="px-0 sm:px-0 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <StatCard title="Total Items"  value={stats.total_items}
+              icon={Boxes}         color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
+            <StatCard title="Total Value"  value={`₹${Number(stats.total_value || 0).toLocaleString('en-IN')}`}
+              icon={IndianRupee}   color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
+            <StatCard title="Low Stock"    value={stats.low_stock_count}
+              icon={TrendingDown}  color="bg-orange-600" bg="bg-gradient-to-br from-orange-50 to-orange-100" />
+            <StatCard title="Out of Stock" value={stats.out_of_stock_count}
+              icon={AlertTriangle} color="bg-red-600"    bg="bg-gradient-to-br from-red-50 to-red-100" />
+          </div>
+        </div>
         {/* Top row: title + actions */}
         <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
 
@@ -485,6 +498,7 @@ const handleExport = () => {
               Manage all inventory items
             </p>
           </div> */}
+          
 
           {/* Action buttons — icon-only on mobile, icon+label on sm+ */}
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
@@ -493,7 +507,7 @@ const handleExport = () => {
             <button
               onClick={() => setSidebarOpen(o => !o)}
               className={`
-                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white text-[11px] font-medium transition-colors
                 ${sidebarOpen || hasFilters
                   ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}
@@ -516,7 +530,7 @@ const handleExport = () => {
 
             <button
               onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors"
             >
               <Download className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Export</span>
@@ -524,19 +538,19 @@ const handleExport = () => {
               )}
 
             {/* Refresh */}
-            <button
+            {/* <button
               onClick={loadAll}
               disabled={loading}
               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            </button> */}
 
             {/* Add Item */}
              {can('create_assets') && (
             <button
               onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
             >
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden xs:inline sm:inline">Add Item</span>
@@ -545,19 +559,7 @@ const handleExport = () => {
           </div>
         </div>
 
-        {/* Stats row — scrollable on xs, grid on sm+ */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total Items"  value={stats.total_items}
-              icon={Boxes}         color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Total Value"  value={`₹${Number(stats.total_value || 0).toLocaleString('en-IN')}`}
-              icon={IndianRupee}   color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Low Stock"    value={stats.low_stock_count}
-              icon={TrendingDown}  color="bg-orange-600" bg="bg-gradient-to-br from-orange-50 to-orange-100" />
-            <StatCard title="Out of Stock" value={stats.out_of_stock_count}
-              icon={AlertTriangle} color="bg-red-600"    bg="bg-gradient-to-br from-red-50 to-red-100" />
-          </div>
-        </div>
+       
       </div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
@@ -696,9 +698,10 @@ const handleExport = () => {
             </div>
         
         
-        {/* ── Pagination Bar ── */}
-{!loading && items.length > 0 && (
+  {/* ── Pagination Bar ── */}
+{!loading && totalItems > 0 && (
   <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+    {/* Left side: Showing count + Rows per page dropdown */}
     <div className="flex items-center gap-3 text-gray-500">
       <span className="text-[11px]">
         Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
@@ -729,44 +732,43 @@ const handleExport = () => {
       </div>
     </div>
 
-    {totalPages > 1 && (
-      <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadAll(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="h-6 w-6 p-0"
-        >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
-        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          const page = i + 1;
-          return (
-            <Button
-              key={page}
-              size="sm"
-              variant={currentPage === page ? "default" : "outline"}
-              onClick={() => loadAll(page)}
-              className={`h-6 w-6 p-0 text-[10px] ${
-                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
-              }`}
-            >
-              {page}
-            </Button>
-          );
-        })}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadAll(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="h-6 w-6 p-0"
-        >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
-      </div>
-    )}
+    {/* Right side: Pagination buttons */}
+    <div className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => loadAll(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="h-6 w-6 p-0"
+      >
+        <ChevronLeft className="h-3 w-3" />
+      </Button>
+      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+        const page = i + 1;
+        return (
+          <Button
+            key={page}
+            size="sm"
+            variant={currentPage === page ? "default" : "outline"}
+            onClick={() => loadAll(page)}
+            className={`h-6 w-6 p-0 text-[10px] ${
+              currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            }`}
+          >
+            {page}
+          </Button>
+        );
+      })}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => loadAll(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="h-6 w-6 p-0"
+      >
+        <ChevronRight className="h-3 w-3" />
+      </Button>
+    </div>
   </div>
 )}
           </Card>

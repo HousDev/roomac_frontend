@@ -1405,46 +1405,7 @@ const handleResendOTP = async () => {
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <div className="sticky top-20 z-10">
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-
-            <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeCount > 0 && (
-                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
-                  {activeCount}
-                </span>
-              )}
-            </button>
-            {can('export_moveout_inspection') && (
-
-            <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-            )}
-
-            <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-{can('create_moveout_inspection') && (
-
-            <button onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className=" xs:inline">New Inspection</span>
-            </button>
-)}
-          </div>
-        </div>
-
-        {/* Stats */}
+         {/* Stats */}
         <div className="px-0 sm:px-0 pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
             <StatCard title="Total Inspections" value={stats.total}
@@ -1460,6 +1421,46 @@ const handleResendOTP = async () => {
             
           </div>
         </div>
+        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
+          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
+ <button onClick={loadAll} disabled={loading}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={() => setSidebarOpen(o => !o)}
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border text-[11px] font-medium transition-colors
+                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeCount > 0 && (
+                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
+                  {activeCount}
+                </span>
+              )}
+            </button>
+            {can('export_moveout_inspection') && (
+
+            <button onClick={handleExport}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+            )}
+
+           
+{can('create_moveout_inspection') && (
+
+            <button onClick={openAdd}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
+              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className=" xs:inline">Add Inspection</span>
+            </button>
+)}
+          </div>
+        </div>
+
+       
       </div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}

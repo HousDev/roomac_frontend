@@ -129,6 +129,8 @@ export default function AdminSupportTicketsPage() {
     id: "", name: "", subject: "", priority: "all", status: "all", category: "all", date: "",
   });
 
+  const [ticketsPerPage, setTicketsPerPage] = useState(10);
+
   const [ticketPage, setTicketPage] = useState(1);
   // ── Load ──────────────────────────────────────────────────────
   useEffect(() => { load(); }, []);
@@ -448,8 +450,9 @@ export default function AdminSupportTicketsPage() {
             </td>
           </tr>
         ) : (
-          filtered.map((ticket, idx) => (
-            <tr
+filtered
+  .slice((ticketPage - 1) * ticketsPerPage, ticketPage * ticketsPerPage)
+  .map((ticket, idx) => (            <tr
               key={ticket.id}
               className={`transition-all duration-150 hover:bg-violet-50/40 border-b border-gray-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"}`}
             >
@@ -562,20 +565,86 @@ export default function AdminSupportTicketsPage() {
   </div>
 
   {/* Pagination */}
-  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-      <span className="text-xs text-gray-500">{filtered.length} tickets</span>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" size="sm" onClick={() => setTicketPage(p => Math.max(p - 1, 1))}
-          disabled={ticketPage === 1} className="h-7 px-2 text-[11px]">Prev</Button>
-        <span className="text-[11px] text-gray-600 px-1">
-          {ticketPage}/{Math.ceil(filtered.length / 10) || 1}
-        </span>
-        <Button variant="outline" size="sm" onClick={() => setTicketPage(p => p + 1)}
-          disabled={ticketPage >= Math.ceil(filtered.length / 10)} className="h-7 px-2 text-[11px]">Next</Button>
-      </div>
+ <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+    
+    {/* Ticket Count */}
+    <span className="text-xs text-gray-500 whitespace-nowrap">
+      {filtered.length} tickets
+    </span>
+
+    {/* Page Size Dropdown */}
+    <div className="sm:ml-4 flex items-center gap-2">
+  <span className="hidden sm:inline text-xs text-gray-600">
+    Rows:
+  </span>
+
+  <Select
+        value={String(ticketsPerPage)}
+        onValueChange={(val) => {
+          setTicketsPerPage(
+            val === "all" ? filtered.length : parseInt(val)
+          );
+          setTicketPage(1);
+        }}
+      >
+        <SelectTrigger className="h-7 w-[58px] text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="10">10</SelectItem>
+          <SelectItem value="25">25</SelectItem>
+          <SelectItem value="50">50</SelectItem>
+          <SelectItem value="all">All</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
+
+    {/* Pagination */}
+    <div className="flex items-center gap-1 sm:ml-auto">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          setTicketPage((p) => Math.max(p - 1, 1))
+        }
+        disabled={ticketPage === 1}
+        className="h-7 px-2 text-[11px]"
+      >
+        Prev
+      </Button>
+
+      <span className="text-[11px] text-gray-600 px-1">
+        {ticketPage}/
+        {Math.ceil(
+          filtered.length /
+            (ticketsPerPage === filtered.length
+              ? filtered.length || 1
+              : ticketsPerPage)
+        ) || 1}
+      </span>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setTicketPage((p) => p + 1)}
+        disabled={
+          ticketPage >=
+          (Math.ceil(
+            filtered.length /
+              (ticketsPerPage === filtered.length
+                ? filtered.length || 1
+                : ticketsPerPage)
+          ) || 1)
+        }
+        className="h-7 px-2 text-[11px]"
+      >
+        Next
+      </Button>
+    </div>
+
   </div>
+</div>
 </div>
           )}
         </CardContent>
