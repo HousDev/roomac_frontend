@@ -145,6 +145,7 @@ original_id?: number;
   assigned_property_id?: number;
   bed_is_available?: boolean;
    has_vacated?: boolean; // Flag indicating if tenant has vacated
+   is_vacated?:boolean;
   vacate_records?: Array<{
     id: number;
     vacate_reason_value: string;
@@ -158,11 +159,13 @@ original_id?: number;
     inspection_penalty_amount?: number;
     lockin_penalty_amount?: number;
     notice_penalty_amount?: number;
+    stay_check_in_date?: string;
     created_at: string;
   }>;
    total_refunded?: number;  
    total_pending? : number;
    security_deposit? : number; 
+   vacated_date?:string;
 };
 
 // Add to Property type

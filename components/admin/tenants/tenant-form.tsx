@@ -561,38 +561,75 @@ useEffect(() => {
   };
 
   // Update the check-in date change handler
-  const handleCheckInDateChange = async (newDate: string) => {
-    if (!tenant?.id) {
-      // For new tenant, just update the date
-      handleInputChange("check_in_date", newDate);
-      return;
-    }
+  // const handleCheckInDateChange = async (newDate: string) => {
+  //   if (!tenant?.id) {
+  //     // For new tenant, just update the date
+  //     handleInputChange("check_in_date", newDate);
+  //     return;
+  //   }
 
-    // For existing tenant, check if they have any payments
-    const hasPayments = await checkIfTenantHasPayments(tenant.id);
+  //   // For existing tenant, check if they have any payments
+  //   const hasPayments = await checkIfTenantHasPayments(tenant.id);
 
-    if (hasPayments) {
-      // Show toast notification
-      toast.error(
-        "Cannot change check-in date because this tenant has existing payment transactions. Please delete all payment transactions first.",
-        {
-          duration: 5000,
-        },
-      );
-      return;
-    }
+  //   if (hasPayments) {
+  //     // Show toast notification
+  //     toast.error(
+  //       "Cannot change check-in date because this tenant has existing payment transactions. Please delete all payment transactions first.",
+  //       {
+  //         duration: 5000,
+  //       },
+  //     );
+  //     return;
+  //   }
 
-    // No payments, proceed with update
+  //   // No payments, proceed with update
+  //   handleInputChange("check_in_date", newDate);
+
+  //   // Show confirmation
+  //   toast.info(
+  //     "Check-in date updated. Monthly rent records will be recalculated on save.",
+  //     {
+  //       duration: 3000,
+  //     },
+  //   );
+  // };
+
+const handleCheckInDateChange = async (newDate: string) => {
+  if (!tenant?.id) {
     handleInputChange("check_in_date", newDate);
+    return;
+  }
 
-    // Show confirmation
+  // Check if tenant is reassigned (has vacate record AND active assignment)
+  const hasActiveAssignment = !!tenant.current_assignment;
+  const hasVacateRecord = tenant.has_vacated === true || 
+    (tenant.vacate_records && tenant.vacate_records.length > 0);
+  const isReassigned = hasVacateRecord && hasActiveAssignment;
+
+  if (isReassigned) {
+    handleInputChange("check_in_date", newDate);
     toast.info(
-      "Check-in date updated. Monthly rent records will be recalculated on save.",
-      {
-        duration: 3000,
-      },
+      "Check-in date updated for reassigned tenant. New rent records will start from this date. Previous payment history is preserved.",
+      { duration: 4000 }
     );
-  };
+    return;
+  }
+
+  // Regular tenant: check for payments
+  const hasPayments = await checkIfTenantHasPayments(tenant.id);
+  if (hasPayments) {
+    toast.error(
+      "Cannot change check-in date. Tenant has existing payment transactions. Please delete all payment transactions first.",
+      { duration: 5000 }
+    );
+    return;
+  }
+
+  handleInputChange("check_in_date", newDate);
+  toast.info("Check-in date updated. Monthly rent records will be recalculated on save.", {
+    duration: 3000,
+  });
+};
 
   // ── ALL original API helpers preserved ────────────────────────────────────
   const fetchMasters = async () => {
