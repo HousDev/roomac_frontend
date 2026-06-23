@@ -138,7 +138,7 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
         <Button
           size="sm"
           onClick={() => setShowScheduleDialog(true)}
-          className="h-7 px-2 text-xs bg-blue-900 hover:bg-blue-700"
+          className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700"
         >
           <CalendarPlus className="h-3 w-3 mr-1" />
           Schedule New

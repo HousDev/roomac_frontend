@@ -130,9 +130,9 @@ const handleDeleteClick = async () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
+<DialogContent className="max-w-lg w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-medium text-white uppercase tracking-wider mb-0.5">Enquiry Details</p>
             <h2 className="text-sm font-semibold text-white truncate">{localEnquiry.tenant_name}</h2>
@@ -148,82 +148,80 @@ const handleDeleteClick = async () => {
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[80vh]">
+        <div className="overflow-y-auto max-h-[90vh]">
           {/* Contact Info */}
-          <div className="px-4 py-3 space-y-1.5 border-b border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">Contact Information</span>
-              <span className="text-[10px] text-slate-500">
-                Added: {formatDateForDisplay(localEnquiry.created_at || "")}
-              </span>
-            </div>
+         <div className="px-4 py-3 border-b border-slate-100">
+  <div className="flex items-center justify-between mb-2">
+    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">Contact Information</span>
+    <span className="text-[10px] text-slate-500">
+      Added: {formatDateForDisplay(localEnquiry.created_at || "")}
+    </span>
+  </div>
 
-            <div className="flex items-center gap-2">
-              <Phone className="h-3 w-3 text-slate-500 flex-shrink-0" />
-              <span className="text-xs font-medium text-slate-800">{localEnquiry.phone}</span>
-            </div>
+  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+    <div className="flex items-center gap-2">
+      <Phone className="h-3 w-3 text-slate-500 flex-shrink-0" />
+      <span className="text-xs font-medium text-slate-800">{localEnquiry.phone}</span>
+    </div>
 
-            {localEnquiry.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-3 w-3 text-slate-500 flex-shrink-0" />
-                <span className="text-xs text-slate-600 truncate">{localEnquiry.email}</span>
-              </div>
-            )}
+    {localEnquiry.email && (
+      <div className="flex items-center gap-2 min-w-0">
+        <Mail className="h-3 w-3 text-slate-500 flex-shrink-0" />
+        <span className="text-xs text-slate-600 truncate">{localEnquiry.email}</span>
+      </div>
+    )}
 
-            <div className="flex items-start gap-2">
-              <MapPin className="h-3 w-3 text-slate-500 flex-shrink-0 mt-0.5" />
-              <span className="text-xs text-slate-600 leading-relaxed">
-                {localEnquiry.property_full_name || localEnquiry.property_name || "—"}
-              </span>
-            </div>
+    <div className="flex items-start gap-2 min-w-0">
+      <MapPin className="h-3 w-3 text-slate-500 flex-shrink-0 mt-0.5" />
+      <span className="text-xs text-slate-600 leading-relaxed truncate">
+        {localEnquiry.property_full_name || localEnquiry.property_name || "—"}
+      </span>
+    </div>
 
-            <div className="flex items-center gap-2">
-              <Calendar className="h-3 w-3 text-slate-500 flex-shrink-0" />
-              <span className="text-xs text-slate-600">
-                Move-in: <span className="font-medium text-slate-700">
-                  {formatDateForDisplay(localEnquiry.preferred_move_in_date)}
-                </span>
-              </span>
-            </div>
+    <div className="flex items-center gap-2">
+      <Calendar className="h-3 w-3 text-slate-500 flex-shrink-0" />
+      <span className="text-xs text-slate-600">
+        Move-in: <span className="font-medium text-slate-700">
+          {formatDateForDisplay(localEnquiry.preferred_move_in_date)}
+        </span>
+      </span>
+    </div>
 
-            {localEnquiry.budget_range && (
-              <div className="flex items-center gap-2">
-                <IndianRupee className="h-3 w-3 text-slate-500 flex-shrink-0" />
-                <span className="text-xs text-slate-600">
-                  Budget: <span className="font-medium text-slate-700">
-                    {formatBudget(localEnquiry.budget_range)}
-                  </span>
-                </span>
-              </div>
-            )}
+    {localEnquiry.budget_range && (
+      <div className="flex items-center gap-2">
+        <IndianRupee className="h-3 w-3 text-slate-500 flex-shrink-0" />
+        <span className="text-xs text-slate-600">
+          Budget: <span className="font-medium text-slate-700">
+            {formatBudget(localEnquiry.budget_range)}
+          </span>
+        </span>
+      </div>
+    )}
 
-            {/* Occupation Info */}
-            {(localEnquiry.occupation || localEnquiry.occupation_category) && (
-              <div className="mt-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2 mt-1">
-                  <Briefcase className="h-3 w-3 text-slate-500 flex-shrink-0" />
-                  <span className="text-xs text-slate-600">
-                    {localEnquiry.occupation_category && (
-                      <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] mr-1">
-                        {localEnquiry.occupation_category}
-                      </span>
-                    )}
-                    {localEnquiry.occupation}
-                  </span>
-                </div>
-              </div>
-            )}
+    {(localEnquiry.occupation || localEnquiry.occupation_category) && (
+      <div className="flex items-center gap-2 min-w-0">
+        <Briefcase className="h-3 w-3 text-slate-500 flex-shrink-0" />
+        <span className="text-xs text-slate-600 truncate">
+          {localEnquiry.occupation_category && (
+            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] mr-1">
+              {localEnquiry.occupation_category}
+            </span>
+          )}
+          {localEnquiry.occupation}
+        </span>
+      </div>
+    )}
+  </div>
 
-            {/* Remark */}
-            {localEnquiry.remark && (
-              <div className="mt-2 pt-2 border-t border-slate-100">
-                <div className="flex items-start gap-2">
-                  <StickyNote className="h-3 w-3 text-slate-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-xs text-slate-600 italic">"{localEnquiry.remark}"</span>
-                </div>
-              </div>
-            )}
-          </div>
+  {localEnquiry.remark && (
+    <div className="mt-2 pt-2 border-t border-slate-100">
+      <div className="flex items-start gap-2">
+        <StickyNote className="h-3 w-3 text-slate-500 flex-shrink-0 mt-0.5" />
+        <span className="text-xs text-slate-600 italic">"{localEnquiry.remark}"</span>
+      </div>
+    </div>
+  )}
+</div>
 
           {/* Message */}
           {localEnquiry.message && (
@@ -291,7 +289,7 @@ const handleDeleteClick = async () => {
                     <Button
                       onClick={handleAddFollowup}
                       disabled={!followupText.trim() || isAddingFollowup}
-                      className="w-full h-7 text-[11px] font-semibold bg-indigo-900 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition"
+                      className="w-full h-7 text-[11px] font-semibold bg-blue-600 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition"
                     >
                       {isAddingFollowup ? "Adding..." : "Add Followup"}
                     </Button>

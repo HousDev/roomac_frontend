@@ -2418,13 +2418,13 @@ const totals = useMemo(() => {
         </div>
         <Card className="flex flex-col  overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">
           {" "}
-          <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
+          <CardHeader className="sticky top-0 z-20 p-0 bg-gray-200 shadow-md">
             {/* Desktop View (lg and above) */}
             <div className="hidden lg:flex items-center gap-2 px-4 py-2.5">
               {/* LEFT: Icon + Search */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 backdrop-blur-sm flex-shrink-0">
-                  <Users2 className="w-4 h-4 text-white" />
+                  <Users2 className="w-4 h-4 text-gray-700" />
                 </div>
                 {/* <div className="relative flex-1 max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200 pointer-events-none" />
@@ -2444,7 +2444,7 @@ const totals = useMemo(() => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-white/80 hover:text-white hover:bg-white/20 rounded-lg"
+                  className="h-7 w-7 p-0 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg"
                   onClick={() => loadTenants()}
                   disabled={loading}
                 >
@@ -2459,7 +2459,7 @@ const totals = useMemo(() => {
     <Button
       variant="ghost"
       size="sm"
-      className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
+      className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs relative"
     >
       <Filter className="w-3.5 h-3.5 mr-1" />
       Filters
@@ -2698,7 +2698,7 @@ const totals = useMemo(() => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
+                        className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs relative"
                       >
                         <CheckSquare className="w-3.5 h-3.5 mr-1" />
                         Bulk Actions
@@ -2735,7 +2735,7 @@ const totals = useMemo(() => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs"
+                    className="h-7 px-2.5 text-gray-700 hover:text-gray-600 hover:bg-white/20 rounded-lg text-xs"
                     onClick={handleExportToExcel}
                   >
                     <Download className="w-3.5 h-3.5 mr-1" />
@@ -2747,7 +2747,7 @@ const totals = useMemo(() => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs"
+                    className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs"
                     onClick={handleImportClick}
                   >
                     <Upload className="w-3.5 h-3.5 mr-1" />
@@ -2934,13 +2934,13 @@ const totals = useMemo(() => {
             <div className="flex md:hidden items-center gap-1.5 px-3 py-2">
               {/* Left: icon + title + count/bulk badge */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Users2 className="w-4 h-4 text-white" />
-                <span className="text-sm font-semibold text-white">Tenants</span>
-                <span className="text-[10px] text-blue-200 ml-0.5">
+                <Users2 className="w-4 h-4 text-gray-800 hover:text-gray-700 hover:bg-white/20"/>
+                <span className="text-sm font-semibold text-gray-700">Tenants</span>
+                <span className="text-[10px] text-gray-700 ml-0.5">
                   ({totalTenants})
                 </span>
                 {selectedTenantIds.length > 0 && (
-                  <Badge className="ml-1 text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
+                  <Badge className="ml-1 text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-gray-300 border-0">
                     {selectedTenantIds.length} selected
                   </Badge>
                 )}
@@ -2952,7 +2952,7 @@ const totals = useMemo(() => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg"
+                className="h-7 w-7 p-0 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg"
                 onClick={() => loadTenants()}
                 disabled={loading}
               >
@@ -2970,7 +2970,7 @@ const totals = useMemo(() => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
+                    className="h-7 w-7 p-0 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg relative"
                   >
                     <Filter className="w-3 h-3" />
                     {activeFiltersCount > 0 && (
@@ -2988,7 +2988,7 @@ const totals = useMemo(() => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
+                    className="h-7 w-7 p-0 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg relative"
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
                     {selectedTenantIds.length > 0 && (
@@ -3111,7 +3111,7 @@ const totals = useMemo(() => {
  <div className="flex-1 min-h-0">
   <div className="overflow-auto" style={{ overflowX: "auto", overflowY: "auto", height: "calc(100vh - 250px)" }}>
     <table className="border-collapse border border-gray-200" style={{ minWidth: "800px", width: "100%" }}>
-      <thead className="bg-gray-50 border-b border-gray-200" style={{ position: "sticky", top: 0, zIndex: 30 }}>
+      <thead className="bg-gray-100 border-b border-gray-200" style={{ position: "sticky", top: 0, zIndex: 30 }}>
         {/* ── Column Title Row ── */}
         <tr className="border-b border-gray-200">
           {/* Sticky: checkbox */}

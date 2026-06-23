@@ -1,5 +1,5 @@
 // app/admin/enquiries/page.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import EnquiriesClientPage from '@/components/admin/enquiries/EnquiriesClientPage';
 import PartnershipEnquiriesClientPage from '@/components/admin/partnership/PartnershipClientPage';
@@ -8,7 +8,7 @@ import { Enquiry, getEnquiries, getEnquiryStats } from '@/lib/enquiryApi';
 import { getPartnershipEnquiries, getPartnershipStats, PartnershipEnquiry, PartnershipStats, createPartnershipEnquiry } from '@/lib/partnershipApi';
 import { getNewsletterSubscribers, getNewsletterStats, NewsletterSubscriber, NewsletterStats, deleteNewsletterSubscriber, bulkDeleteNewsletterSubscribers } from '@/lib/newsletterApi';
 import { Button } from "@/components/ui/button";
-import { Plus, X, Mail, Download, Upload, BarChart, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, X, Mail, Download, Upload, BarChart, RefreshCw, Trash2, Filter, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,15 @@ const [enquiriesOpenAdd, setEnquiriesOpenAdd] = useState<(() => void) | null>(nu
 const [enquiriesStats, setEnquiriesStats] = useState<any>(null);
 const [enquiriesBulkDelete, setEnquiriesBulkDelete] = useState<(() => void) | null>(null);
 const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
+const [enquiriesOpenFilterSidebar, setEnquiriesOpenFilterSidebar] = useState<(() => void) | null>(null);
+const [partnershipBulkDelete, setPartnershipBulkDelete] = useState<(() => void) | null>(null);
+const [partnershipSelectedCount, setPartnershipSelectedCount] = useState<number>(0);
+const [enquiriesExport, setEnquiriesExport] = useState<(() => void) | null>(null);
+const [enquiriesImport, setEnquiriesImport] = useState<((file: File | null) => void) | null>(null);
+const [enquiriesOpenBulkAssign, setEnquiriesOpenBulkAssign] = useState<(() => void) | null>(null);
+
+ const [newsletterBulkDelete, setNewsletterBulkDelete] = useState<(() => void) | null>(null);
+  const [newsletterSelectedCount, setNewsletterSelectedCount] = useState<number>(0);
   // Get initial tab from URL hash
   useEffect(() => {
     const getInitialTab = () => {
@@ -258,17 +267,32 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
         </div>
         
         {/* Action Buttons based on active tab */}
-{activeTab === "partnership" && can('create_partnership_enquiries') && (
-          <Dialog open={showAddPartnershipDialog} onOpenChange={setShowAddPartnershipDialog}>
-            <DialogTrigger asChild>
-              <Button
-                className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-sm whitespace-nowrap py-1.5 px-3 mx-2"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Add Partnership Enquiry</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-            </DialogTrigger>
+{/* Action Buttons based on active tab */}
+{activeTab === "partnership" && (
+  <div className="flex items-center gap-2 mx-2 flex-shrink-0">
+    {partnershipSelectedCount > 0 && can('delete_partnership_enquiries') && (
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => partnershipBulkDelete?.()}
+        className="text-sm bg-red-600 hover:bg-red-700"
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Delete Selected ({partnershipSelectedCount})
+      </Button>
+    )}
+
+    {can('create_partnership_enquiries') && (
+      <Dialog open={showAddPartnershipDialog} onOpenChange={setShowAddPartnershipDialog}>
+        <DialogTrigger asChild>
+          <Button
+            className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-sm whitespace-nowrap py-1.5 px-3"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Add Partnership Enquiry</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </DialogTrigger>
             
             <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0 rounded-2xl">
               <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white px-4 py-3 md:px-6 md:py-4 flex items-center justify-between rounded-t-lg">
@@ -294,10 +318,13 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
               </div>
             </DialogContent>
           </Dialog>
-        )}
-
+    )}
+  </div>
+)}
         {activeTab === "enquiries" && (
   <div className="hidden lg:flex items-center gap-2 mx-2 flex-shrink-0">
+
+    
     <Button
       variant="outline"
       size="sm"
@@ -306,6 +333,37 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
     >
       <RefreshCw className="h-4 w-4 mr-2" />
       Refresh
+    </Button>
+    <input
+  type="file"
+  id="enquiries-import-input"
+  accept=".xlsx,.xls,.csv"
+  className="hidden"
+  onChange={(e) => {
+    const file = e.target.files?.[0] ?? null;
+    enquiriesImport?.(file);
+    e.target.value = "";
+  }}
+/>
+    <Button
+      variant="outline"
+      size="sm"
+onClick={() => enquiriesImport?.(null)}
+      className="text-sm"
+    >
+      <Upload className="h-4 w-4 mr-2" />
+      Import
+    </Button>
+
+    {/* NEW: Export button */}
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => enquiriesExport?.()}
+      className="text-sm"
+    >
+      <Download className="h-4 w-4 mr-2" />
+      Export
     </Button>
     {enquiriesSelectedCount > 0 && can('delete_enquiries') && (
       <Button
@@ -319,7 +377,21 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
       </Button>
     )}
 
-  
+
+{enquiriesSelectedCount > 0 && can('edit_enquiries') && (
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => enquiriesOpenBulkAssign?.()}
+    className="text-sm"
+  >
+    <UserCheck className="h-4 w-4 mr-2" />
+    Assign ({enquiriesSelectedCount})
+  </Button>
+)}
+   <Button variant="outline" size="sm" onClick={() => enquiriesOpenFilterSidebar?.()}>
+      <Filter className="h-4 w-4 mr-2" />Filters
+    </Button>
 
     {can('create_enquiries') && (
       <Button
@@ -334,7 +406,18 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
 )}
 
         {activeTab === "newsletter" && (
-         <div className="flex gap-2 mx-2">
+  <div className="flex items-center gap-2 mx-2 flex-shrink-0">
+            {newsletterSelectedCount > 0 && can('bulk_delete_newsletter') && (
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => newsletterBulkDelete?.()}
+        className="text-sm bg-red-600 hover:bg-red-700"
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Delete Selected ({newsletterSelectedCount})
+      </Button>
+    )}
   <Button
     onClick={handleExportNewsletter}
     variant="outline"
@@ -371,21 +454,28 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
   onRegisterStats={(s) => setEnquiriesStats(s)}
   onRegisterBulkDelete={(fn) => setEnquiriesBulkDelete(() => fn)}
   onRegisterSelectedCount={(count) => setEnquiriesSelectedCount(count)}
+  onRegisterOpenFilterSidebar={(fn) => setEnquiriesOpenFilterSidebar(() => fn)}
+  onRegisterExport={(fn) => setEnquiriesExport(() => fn)}
+  onRegisterImport={(fn) => setEnquiriesImport(() => fn)}
+  onRegisterOpenBulkAssign={(fn) => setEnquiriesOpenBulkAssign(() => fn)}
+
             />
           )
         )}
         
-        {activeTab === "partnership" && (
-          loadingPartnership ? (
-            <div className="p-4">Loading partnership enquiries...</div>
-          ) : (
-            <PartnershipEnquiriesClientPage 
-              initialEnquiries={partnershipEnquiries}
-              initialStats={partnershipStats}
-              onFiltersChange={setPartnershipFilters}
-            />
-          )
-        )}
+       {activeTab === "partnership" && (
+  loadingPartnership ? (
+    <div className="p-4">Loading partnership enquiries...</div>
+  ) : (
+    <PartnershipEnquiriesClientPage 
+      initialEnquiries={partnershipEnquiries}
+      initialStats={partnershipStats}
+      onFiltersChange={setPartnershipFilters}
+      onRegisterBulkDelete={(fn) => setPartnershipBulkDelete(() => fn)}
+      onRegisterSelectedCount={(count) => setPartnershipSelectedCount(count)}
+    />
+  )
+)}
 
         {activeTab === "newsletter" && (
           loadingNewsletter ? (
@@ -395,6 +485,8 @@ const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
               initialSubscribers={newsletterSubscribers}
               initialStats={newsletterStats}
               onFiltersChange={setNewsletterFilters}
+               onRegisterBulkDelete={(fn) => setNewsletterBulkDelete(() => fn)}  // NEW
+  onRegisterSelectedCount={(count) => setNewsletterSelectedCount(count)} // NEW
             />
           )
         )}

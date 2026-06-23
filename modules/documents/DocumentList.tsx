@@ -2020,13 +2020,13 @@ const handleExport = () => {
       {/* TABLE */}
       <div className="relative">
         <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
+          {/* <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
             <span className="text-sm font-semibold text-gray-700">
               All Documents ({filteredRows.length})
               {selectedIds.size > 0 && <span className="ml-2 text-blue-600 text-xs">({selectedIds.size} selected)</span>}
             </span>
             {hasColSearch && <button onClick={() => setCol({document_number:"",tenant_name:"",property_name:""})} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>}
-          </div>
+          </div> */}  
 
           {/* ── MOBILE cards ── */}
           <div className="block lg:hidden divide-y divide-gray-100 overflow-y-auto max-h-[360px] md:max-h-[430px]">
@@ -2075,148 +2075,146 @@ const handleExport = () => {
           </div>
 
           {/* ── DESKTOP table ── */}
-          <div className="hidden lg:block overflow-auto overflow-y-auto max-h-[200px] md:max-h-[430px]" >
-            <div style={{ minWidth:"1060px" }}>
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                  <TableRow>
-                    <TableHead className="py-2 px-3 w-8">
-                      <button onClick={toggleAll} className="p-1 hover:bg-gray-200 rounded">
-                        {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                      </button>
-                    </TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">DOCUMENT</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">PARTIES</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">PROPERTY</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">STATUS & PROGRESS</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">TIMELINE</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right">ACTIONS</TableHead>
-                  </TableRow>
-                  {/* Column search */}
-                  <TableRow className="bg-gray-50/80">
-                    <TableCell className="py-1 px-3" />
-                    <TableCell className="py-1 px-2"><Input placeholder="Doc#…" value={col.document_number} onChange={e=>setCol(p=>({...p,document_number:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell className="py-1 px-2"><Input placeholder="Tenant…" value={col.tenant_name} onChange={e=>setCol(p=>({...p,tenant_name:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell className="py-1 px-2"><Input placeholder="Property…" value={col.property_name} onChange={e=>setCol(p=>({...p,property_name:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell /><TableCell /><TableCell />
-                  </TableRow>
-                </TableHeader>
+         <div className="hidden lg:block overflow-auto overflow-y-auto max-h-[200px] md:max-h-[430px]" >
+  <div style={{ minWidth:"980px" }}>
+    <Table>
+      <TableHeader className="sticky top-0 z-10 bg-gray-50">
+        <TableRow>
+          <TableHead className="py-1 px-2 w-6">
+            <button onClick={toggleAll} className="p-0.5 hover:bg-gray-200 rounded">
+              {selectAll ? <CheckSquare className="h-3 w-3 text-blue-600" /> : <Square className="h-3 w-3 text-gray-400" />}
+            </button>
+          </TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">DOCUMENT</TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">PARTIES</TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">PROPERTY</TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">STATUS & PROGRESS</TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">TIMELINE</TableHead>
+          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest text-right">ACTIONS</TableHead>
+        </TableRow>
+        {/* Column search */}
+        <TableRow className="bg-gray-50/80">
+          <TableCell className="py-0.5 px-2" />
+          <TableCell className="py-0.5 px-1.5"><Input placeholder="Doc#…" value={col.document_number} onChange={e=>setCol(p=>({...p,document_number:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
+          <TableCell className="py-0.5 px-1.5"><Input placeholder="Tenant…" value={col.tenant_name} onChange={e=>setCol(p=>({...p,tenant_name:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
+          <TableCell className="py-0.5 px-1.5"><Input placeholder="Property…" value={col.property_name} onChange={e=>setCol(p=>({...p,property_name:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
+          <TableCell /><TableCell /><TableCell />
+        </TableRow>
+      </TableHeader>
 
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">Loading…</p>
-                    </TableCell></TableRow>
-                  ) : filteredRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-12">
-                      <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-gray-500">No documents found</p>
-                    </TableCell></TableRow>
-                  ) : filteredRows.map(d => (
-                    <TableRow key={d.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
-                      <TableCell className="py-2 px-3">
-                        <button onClick={() => toggleOne(d.id)} className="p-1 hover:bg-gray-200 rounded">
-                          {selectedIds.has(d.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                      </TableCell>
+      <TableBody>
+        {loading ? (
+          <TableRow><TableCell colSpan={7} className="text-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 mx-auto mb-2" />
+            <p className="text-xs text-gray-500">Loading…</p>
+          </TableCell></TableRow>
+        ) : filteredRows.length === 0 ? (
+          <TableRow><TableCell colSpan={7} className="text-center py-10">
+            <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-500">No documents found</p>
+          </TableCell></TableRow>
+        ) : filteredRows.map(d => (
+          <TableRow key={d.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
+            <TableCell className="py-1 px-2">
+              <button onClick={() => toggleOne(d.id)} className="p-0.5 hover:bg-gray-200 rounded">
+                {selectedIds.has(d.id) ? <CheckSquare className="h-3 w-3 text-blue-600" /> : <Square className="h-3 w-3 text-gray-400" />}
+              </button>
+            </TableCell>
 
-                      {/* Document */}
-                      <TableCell className="py-2 px-3">
-                        <p className="font-mono text-[11px] font-bold text-blue-600">{d.document_number}</p>
-                        <p className="text-[11px] font-semibold text-gray-800 max-w-[150px] truncate">{d.document_name}</p>
-                        <p className="text-[9px] text-gray-400">ID: {d.id} · {d.created_by}</p>
-                        {d.signature_required && <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[9px] px-1 py-0 mt-0.5">Sig. Req.</Badge>}
-                      </TableCell>
+            {/* Document */}
+            <TableCell className="py-1 px-2">
+              <p className="font-mono text-[10px] font-bold text-blue-600">{d.document_number}</p>
+              <p className="text-[10px] font-semibold text-gray-800 max-w-[130px] truncate">{d.document_name}</p>
+              {d.signature_required && <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[8px] px-1 py-0 mt-0.5">Sig. Req.</Badge>}
+            </TableCell>
 
-                      {/* Parties */}
-                      <TableCell className="py-2 px-3">
-                        <p className="text-[11px] font-semibold text-gray-800">{d.tenant_name}</p>
-                        {d.tenant_phone && <p className="text-[10px] text-gray-500 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{d.tenant_phone}</p>}
-                        {d.tenant_email && <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{d.tenant_email}</p>}
-                      </TableCell>
+            {/* Parties */}
+            <TableCell className="py-1 px-2">
+              <p className="text-[10px] font-semibold text-gray-800">{d.tenant_name}</p>
+              {d.tenant_email && <p className="text-[9px] text-gray-400 truncate max-w-[110px]">{d.tenant_email}</p>}
+            </TableCell>
 
-                      {/* Property */}
-                      <TableCell className="py-2 px-3">
-                        <p className="text-[11px] text-gray-700 max-w-[110px] truncate">{d.property_name || "N/A"}</p>
-                        {d.room_number && <p className="text-[10px] text-gray-500">Room: {d.room_number}</p>}
-                        {d.rent_amount ? <p className="text-[10px] text-green-600 font-medium">₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo</p> : null}
-                      </TableCell>
+            {/* Property */}
+            <TableCell className="py-1 px-2">
+              <p className="text-[10px] text-gray-700 max-w-[100px] truncate">{d.property_name || "N/A"}</p>
+              {d.room_number && <p className="text-[9px] text-gray-500">Room: {d.room_number}</p>}
+              {d.rent_amount ? <p className="text-[9px] text-green-600 font-medium">₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo</p> : null}
+            </TableCell>
 
-                      {/* Status & progress */}
-                      <TableCell className="py-2 px-3">
-                        <div className="space-y-1">
-                          <Badge className={`text-[9px] px-1.5 py-0 border ${priorityColor(d.priority)}`}>{d.priority}</Badge>
-                          <div className="w-20">
-                            <div className="flex justify-between mb-0.5">
-                              <span className="text-[9px] text-gray-400">Progress</span>
-                              <span className="text-[9px] font-semibold text-gray-600">
-                                {d.status === "Cancelled" ? "0" : Math.round((stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100)}%
-                              </span>
-                            </div>
-                            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"}`}
-                                style={{ width:`${d.status==="Cancelled" ? 5 : Math.max(5,Math.round((stepIndex(d.status)/(MAIN_STEPS.length-1))*100))}%` }} />
-                            </div>
-                          </div>
-                          <p className="text-[9px] text-gray-400">{fmt(d.created_at)}</p>
-                        </div>
-                      </TableCell>
+            {/* Status & progress */}
+            <TableCell className="py-1 px-2">
+              <div className="space-y-0.5">
+                <Badge className={`text-[8px] px-1 py-0 border ${priorityColor(d.priority)}`}>{d.priority}</Badge>
+                <div className="w-16">
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[8px] text-gray-400">Progress</span>
+                    <span className="text-[8px] font-semibold text-gray-600">
+                      {d.status === "Cancelled" ? "0" : Math.round((stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"}`}
+                      style={{ width:`${d.status==="Cancelled" ? 5 : Math.max(5,Math.round((stepIndex(d.status)/(MAIN_STEPS.length-1))*100))}%` }} />
+                  </div>
+                </div>
+                <p className="text-[8px] text-gray-400">{fmt(d.created_at)}</p>
+              </div>
+            </TableCell>
 
-                      {/* Timeline */}
-                      <TableCell className="py-2 px-3">
-                        <TimelineSteps doc={d} onStepClick={handleStepClick} />
-                      </TableCell>
+            {/* Timeline */}
+            <TableCell className="py-1 px-2">
+              <TimelineSteps doc={d} onStepClick={handleStepClick} />
+            </TableCell>
 
-                      {/* Actions */}
-                      <TableCell className="py-2 px-3">
-                        <div className="flex justify-end gap-0.5">
-                              {can("view_documents") && (
+            {/* Actions */}
+            <TableCell className="py-1 px-2">
+              <div className="flex justify-end gap-0">
+                    {can("view_documents") && (
 
-                          <button onClick={async () => {
-                            setLoadingView(d.id);
-                            try { const r=await getDocument(d.id); setViewDoc(r.data||d); }
-                            catch { setViewDoc(d); }
-                            finally { setLoadingView(null); }
-                          }} title="View" className="p-1.5 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            {loadingView===d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                          </button>
-                            )}
-                                {can("share_documents") && (
+                <button onClick={async () => {
+                  setLoadingView(d.id);
+                  try { const r=await getDocument(d.id); setViewDoc(r.data||d); }
+                  catch { setViewDoc(d); }
+                  finally { setLoadingView(null); }
+                }} title="View" className="p-1 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                  {loadingView===d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+                </button>
+                  )}
+                      {can("share_documents") && (
 
-                          <button onClick={() => setPopup({type:"share",doc:d})} title="Share"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"><Share2 className="h-3.5 w-3.5" /></button>
-                                )}
+                <button onClick={() => setPopup({type:"share",doc:d})} title="Share"
+                  className="p-1 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"><Share2 className="h-3 w-3" /></button>
+                      )}
 
-                          <button onClick={() => handlePrint(d)} title="Print"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3.5 w-3.5" /></button>
-                           {can("export_documents") && (
-                          <button onClick={() => handleDownload(d)} title="Download"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3.5 w-3.5" /></button>
-                           )}
-                          {/* Edit button in actions column */}
-                          {can("edit_documents") && (
-                          <button 
-                            onClick={() => setPopup({type:"edit",doc:d})} 
-                            title="Edit Template"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                          )}
-                              {can("delete_documents") && (
+                <button onClick={() => handlePrint(d)} title="Print"
+                  className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3 w-3" /></button>
+                 {can("export_documents") && (
+                <button onClick={() => handleDownload(d)} title="Download"
+                  className="p-1 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3 w-3" /></button>
+                 )}
+                {/* Edit button in actions column */}
+                {can("edit_documents") && (
+                <button 
+                  onClick={() => setPopup({type:"edit",doc:d})} 
+                  title="Edit Template"
+                  className="p-1 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                >
+                  <Edit className="h-3 w-3" />
+                </button>
+                )}
+                    {can("delete_documents") && (
 
-                          <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                              )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+                <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
+                  className="p-1 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3 w-3" /></button>
+                    )}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+</div>
        
        {!loading && docs.length > 0 && (
   <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">

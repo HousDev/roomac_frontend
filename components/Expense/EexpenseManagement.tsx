@@ -1981,55 +1981,58 @@ useEffect(() => {
       </div>
 
       {/* RIGHT - Action Buttons */}
-      <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-11">
-        <button
-          onClick={() => setFilterPanelOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
-        >
-          <Filter size={14} />
-          Filters
+     <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-11">
+  {/* Add Expense - First on mobile */}
+  {can("create_expenses") && (
+    <button
+      onClick={openAdd}
+      className="order-1 sm:order-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
+    >
+      <Plus size={14} />
+      Add Expense
+    </button>
+  )}
 
-          {(filterCat !== "All" ||
-            filterStatus !== "All" ||
-            filterProp !== "All" ||
-            filterMonth !== "" ||
-            filterFromDate !== "" ||
-            filterToDate !== "") && (
-            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white text-[#2563EB] text-[9px] font-bold">
-              !
-            </span>
-          )}
-        </button>
-
-        {can("create_expenses") && (
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
-          >
-            <Plus size={14} />
-            Add Expense
-          </button>
-        )}
-
-
-        <button
-  onClick={handleExportAll}
-  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
->
-  <Download size={14} />
-  Export
-</button>
-
-{can("create_expenses") && (
+  {/* Filter - Second on mobile */}
   <button
-    onClick={() => setShowImportModal(true)}
-    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+    onClick={() => setFilterPanelOpen(true)}
+    className="order-2 sm:order-1 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
   >
-    <UploadIcon size={14} />
-    Import
+    <Filter size={14} />
+    <span className="hidden sm:inline">Filters</span>
+
+    {(filterCat !== "All" ||
+      filterStatus !== "All" ||
+      filterProp !== "All" ||
+      filterMonth !== "" ||
+      filterFromDate !== "" ||
+      filterToDate !== "") && (
+      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white text-[#2563EB] text-[9px] font-bold">
+        !
+      </span>
+    )}
   </button>
-)}
-      </div>
+
+  {/* Export - Third on mobile */}
+  <button
+    onClick={handleExportAll}
+    className="order-3 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+  >
+    <Download size={14} />
+    <span className="hidden sm:inline">Export</span>
+  </button>
+
+  {/* Import - Fourth on mobile */}
+  {can("create_expenses") && (
+    <button
+      onClick={() => setShowImportModal(true)}
+      className="order-4 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+    >
+      <UploadIcon size={14} />
+      <span className="hidden sm:inline">Import</span>
+    </button>
+  )}
+</div>
     </div>
   </div>
 
@@ -3521,8 +3524,8 @@ useEffect(() => {
 {showImportModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB]">
-              <h2 className="text-sm font-bold text-white">📥 Import Expenses</h2>
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
+              <h2 className="text-sm font-bold text-white"> Import Expenses</h2>
               <button onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }} className="text-white/70 hover:text-white text-lg">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -3601,12 +3604,12 @@ useEffect(() => {
               <button
                 onClick={handleImportSave}
                 disabled={importing || importPreview.length === 0}
-                className="flex-1 py-2 bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {importing ? (
                   <><span className="animate-spin">⟳</span> Importing...</>
                 ) : (
-                  <>✓ Import {importPreview.length > 0 ? `(${importPreview.length} expenses)` : ""}</>
+                  <> Import {importPreview.length > 0 ? `(${importPreview.length} expenses)` : ""}</>
                 )}
               </button>
             </div>

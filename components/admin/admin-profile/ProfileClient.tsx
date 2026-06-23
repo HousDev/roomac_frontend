@@ -148,6 +148,7 @@ const [profileData, setProfileData] = useState<ProfileData>({
         phone_country_code: profileData.phone_country_code,
         address: profileData.address,
         bio: profileData.bio,
+        avatar_url: profileData.avatar_url,
       };
 
       const result = await updateProfile(updateData);

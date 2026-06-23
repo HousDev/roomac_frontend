@@ -67,7 +67,7 @@ const QuickActionCard = ({ icon: Icon, title, description, onClick, gradient, li
 const DocumentTypeCard = ({ template, onClick, icon: Icon }: any) => (
   <button
     onClick={() => onClick(template.id, template.name)}
-    className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-all hover:border-blue-200 hover:bg-blue-50/30 w-full text-left group"
+    className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-all hover:border-blue-100 hover:bg-blue-50/30 w-full text-left group"
   >
     <div className="flex items-center gap-3">
       <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
@@ -311,14 +311,14 @@ export function DocumentCenter() {
 
         <div className="p-4 sm:p-6">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-5 gap-3">
               {[1, 2, 3, 4, 5, 6].map(i => (
                 <div key={i} className="h-20 bg-gray-100 animate-pulse rounded-lg" />
               ))}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {displayTemplates.map((template, idx) => (
                   <DocumentTypeCard
                     key={idx}
@@ -330,7 +330,7 @@ export function DocumentCenter() {
               </div>
               
               {displayTemplates.length === 0 && (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500 mb-4">No templates available</p>
                   <button
@@ -349,7 +349,7 @@ export function DocumentCenter() {
 
       {/* Recently Used Section - optional */}
       {displayTemplates.length > 0 && (
-        <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 sm:px-6 py-3 border-b bg-white">
             <h2 className="text-sm sm:text-base font-semibold text-gray-800">
               Recently Used Templates
