@@ -637,8 +637,8 @@ const visualIframeRef = useRef<HTMLIFrameElement>(null);
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState<number | "All">(25);
-const [totalItems, setTotalItems] = useState(0);
-const [totalPages, setTotalPages] = useState(1);
+// const [totalItems, setTotalItems] = useState(0);
+// const [totalPages, setTotalPages] = useState(1);
   // ── Logo ───────────────────────────────────────────────────────────────────
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -710,29 +710,23 @@ const [totalPages, setTotalPages] = useState(1);
   // ══════════════════════════════════════════════════════════════════════════
   // DATA LOADERS
   // ══════════════════════════════════════════════════════════════════════════
-
- const loadTemplates = useCallback(async (page = currentPage) => {
+const loadTemplates = useCallback(async () => {
   setLoading(true);
   try {
-    const limit = pageSize === "All" ? 999999 : pageSize;
     const res = await listTemplates({
       category: catFilter !== "all" ? catFilter : undefined,
       is_active: statusFilter !== "all" ? statusFilter : undefined,
-      page,
-      limit,
+      // no page/limit → get all
     });
     setTemplates(res.data || []);
-    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
-    setTotalPages(res.pagination?.totalPages ?? 1);
-    setCurrentPage(page);
   } catch (err: any) {
     toast.error(err.message || "Failed to load templates");
   } finally {
     setLoading(false);
   }
-}, [catFilter, statusFilter, pageSize]);
+}, [catFilter, statusFilter]);
 
-useEffect(() => { loadTemplates(1); }, [loadTemplates]);
+useEffect(() => { loadTemplates(); }, [loadTemplates]);
   // ══════════════════════════════════════════════════════════════════════════
   // DERIVED / FILTERED DATA
   // ══════════════════════════════════════════════════════════════════════════
@@ -755,6 +749,21 @@ useEffect(() => { loadTemplates(1); }, [loadTemplates]);
     const matchesCategory = varCategory === "All" || v.category === varCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const totalPages = useMemo(() => {
+  if (pageSize === "All") return 1;
+  return Math.ceil(filteredRows.length / (pageSize as number));
+}, [filteredRows, pageSize]);
+
+const paginatedRows = useMemo(() => {
+  if (pageSize === "All") return filteredRows;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredRows.slice(start, start + (pageSize as number));
+}, [filteredRows, currentPage, pageSize]);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [col, catFilter, statusFilter]);
 
   const groupedVars = useMemo(() => {
     const groups: Record<string, typeof COMMON_VARS> = {};
@@ -1613,162 +1622,262 @@ const handleExport = () => {
        
       </div>
 
-      {/* ── TABLE ──────────────────────────────────────────────────────── */}
-      <div className="relative">
-        <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-            <span className="text-sm font-semibold text-gray-700">
-              Document Templates ({filteredRows.length})
-            </span>
-            {hasCol && (
-              <button onClick={clearCol} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>
-            )}
-          </div>
+     {/* ── TABLE ──────────────────────────────────────────────────────── */}<div className="relative">
+  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    
 
-          <div className="overflow-auto overflow-y-auto max-h-[360px] md:max-h-[430px]">
-            <div className="min-w-[950px]">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                  <TableRow>
-                    <TableHead className="py-2 px-3 w-10">
-                      <Checkbox checked={allSelected} onCheckedChange={toggleAll} className="h-3.5 w-3.5" />
-                    </TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Template Name</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Category</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Description</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Variables</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Version</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Updated</TableHead>
-                    <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                  </TableRow>
+    <div className="flex flex-col h-[310px] sm:h-[450px]">
+      <div className="overflow-auto flex-1 min-h-0">
+        <table
+          className="border-collapse text-[11px] font-sans"
+          style={{ tableLayout: "fixed", minWidth: "900px", width: "100%" }}
+        >
+          <colgroup>
+            <col style={{ width: "36px" }} />   {/* Checkbox */}
+            <col style={{ width: "80px" }} />   {/* Actions */}
+            <col style={{ width: "180px" }} />  {/* Name */}
+            <col style={{ width: "120px" }} />  {/* Category */}
+            <col style={{ width: "160px" }} />  {/* Description */}
+            <col style={{ width: "60px" }} />   {/* Variables */}
+            <col style={{ width: "55px" }} />   {/* Version */}
+            <col style={{ width: "70px" }} />   {/* Status */}
+            <col style={{ width: "90px" }} />   {/* Updated */}
+          </colgroup>
 
-                  {/* Column search row */}
-                  <TableRow className="bg-gray-50/80">
-                    <TableCell className="py-1 px-3" />
-                    {[
-                      { k: "name",        ph: "Search name…" },
-                      { k: "category",    ph: "Category…" },
-                      { k: "description", ph: "Desc…" },
-                      { k: null,          ph: "" },
-                      { k: "version",     ph: "Ver…" },
-                      { k: "status",      ph: "active/inactive" },
-                      { k: null,          ph: "" },
-                      { k: null,          ph: "" },
-                    ].map((c, i) => (
-                      <TableCell key={i} className="py-1 px-2">
-                        {c.k
-                          ? <Input placeholder={c.ph}
-                              value={col[c.k as keyof typeof col]}
-                              onChange={e => setCol(p => ({ ...p, [c.k!]: e.target.value }))}
-                              className="h-6 text-[10px]" />
-                          : <div />}
-                      </TableCell>
-                    ))}
-                    <TableCell />
-                  </TableRow>
-                </TableHeader>
+          {/* ── STICKY THEAD ── */}
+          <thead className="sticky top-0 z-10">
+            {/* Title Row */}
+            <tr className="bg-gray-200 border-b border-gray-300">
+              <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+              <input
+  type="checkbox"
+  checked={allSelected}
+  onChange={toggleAll}   
+  className="w-3.5 h-3.5 cursor-pointer"
+/>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Template Name</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Category</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Description</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vars</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Ver</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Updated</span>
+              </th>
+            </tr>
 
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12">
-                        <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                        <p className="text-xs text-gray-500">Loading…</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12">
-                        <LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-500">No templates found</p>
-                        <p className="text-xs text-gray-400 mt-1">Create one to get started</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRows.map(t => (
-                    <TableRow key={t.id} className={`hover:bg-gray-50 ${selectedIds.has(t.id) ? "bg-blue-50/40" : ""}`}>
-                      <TableCell className="py-2 px-3">
-                        <Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleOne(t.id)} className="h-3.5 w-3.5" />
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          {t.logo_url && (
-                            <img 
-                              src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`}
-                              alt="" 
-                              className="h-5 w-5 rounded object-contain border border-gray-200"
-                              onError={(e) => (e.currentTarget.style.display = "none")}
-                            />
-                          )}
-                          <span className="text-xs font-semibold text-gray-800">{t.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2 py-0">
-                          {t.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-500 max-w-[160px] truncate">
-                        {t.description || "—"}
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex items-center gap-1">
-                          <Code className="h-3 w-3 text-blue-500" />
-                          <span className="text-[11px] font-bold text-blue-600">{t.variables?.length || 0}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
-                          v{t.version}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <Badge className={`text-[10px] px-2 py-0 ${t.is_active
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : "bg-gray-100 text-gray-500 border border-gray-200"}`}>
-                          {t.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-[10px] text-gray-500">
-                        {new Date(t.updated_at).toLocaleDateString("en-IN", {
-                          day: "2-digit", month: "short", year: "numeric",
-                        })}
-                      </TableCell>
-                     <TableCell className="py-2 px-3">
-  <div className="flex justify-end gap-0.5">
-    {[
-      { icon: <Eye className="h-3 w-3" />,     fn: () => openPreviewForRow(t),                        cls: "text-blue-500 hover:bg-blue-50",     title: "Preview" },
-      { icon: <Pencil className="h-3 w-3" />,  fn: () => openEdit(t),                                 cls: "text-green-500 hover:bg-green-50",   title: "Edit" },
-      { icon: <Copy className="h-3 w-3" />,    fn: () => openDuplicate(t),                            cls: "text-purple-500 hover:bg-purple-50", title: "Duplicate" },
-      { icon: <History className="h-3 w-3" />, fn: () => { setHistoryTpl(t); setShowHistory(true); }, cls: "text-orange-500 hover:bg-orange-50", title: "History" },
-      { icon: <Trash2 className="h-3 w-3" />,  fn: () => handleDelete(t.id, t.name),                  cls: "text-red-500 hover:bg-red-50",       title: "Delete" },
-    ].map((btn, i) => (
-      <button
-        key={i}
-        onClick={btn.fn}
-        title={btn.title}
-        className={`p-1.5 rounded-md transition-colors ${btn.cls}`}
-      >
-        {btn.icon}
-      </button>
-    ))}
-  </div>
-</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+            {/* Search Row */}
+            <tr className="bg-white border-b border-gray-300">
+              <td className="p-1 border-r border-gray-200 bg-white" />
+              <td className="p-1 border-r border-gray-200 bg-white" />
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Search name…"
+                  value={col.name}
+                  onChange={e => setCol(p => ({ ...p, name: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Category…"
+                  value={col.category}
+                  onChange={e => setCol(p => ({ ...p, category: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Desc…"
+                  value={col.description}
+                  onChange={e => setCol(p => ({ ...p, description: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="v…"
+                  value={col.version}
+                  onChange={e => setCol(p => ({ ...p, version: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="active…"
+                  value={col.status}
+                  onChange={e => setCol(p => ({ ...p, status: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1" />
+            </tr>
+          </thead>
 
+          {/* ── TBODY ── */}
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                  Loading…
+                </td>
+              </tr>
+) : paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-12 text-center text-slate-500 text-xs">
+                  <LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-500">No templates found</p>
+                  <p className="text-xs text-gray-400 mt-1">Create one to get started</p>
+                </td>
+              </tr>
+) : paginatedRows.map(t => (              <tr
+                key={t.id}
+                className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${selectedIds.has(t.id) ? "bg-blue-50/40" : ""}`}
+              >
+                {/* Checkbox */}
+                <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
+                 <input
+  type="checkbox"
+  checked={selectedIds.has(t.id)}
+  onChange={() => toggleOne(t.id)}
+  className="w-3.5 h-3.5 cursor-pointer"
+/>
+                </td>
 
-          {/* ── Pagination Bar ── */}
-{!loading && templates.length > 0 && (
-  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-    <div className="flex items-center gap-3 text-gray-500">
-      <span className="text-[11px]">
-        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
-        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} templates
+                {/* Actions */}
+                <td className="px-1 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-[1px] flex-nowrap">
+                    <button
+                      onClick={() => openPreviewForRow(t)}
+                      title="Preview"
+                      className="w-6 h-6 rounded-lg text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => openEdit(t)}
+                      title="Edit"
+                      className="w-6 h-6 rounded-lg text-green-500 hover:bg-green-50 flex items-center justify-center transition-colors"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => openDuplicate(t)}
+                      title="Duplicate"
+                      className="w-6 h-6 rounded-lg text-purple-500 hover:bg-purple-50 flex items-center justify-center transition-colors"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => { setHistoryTpl(t); setShowHistory(true); }}
+                      title="History"
+                      className="w-6 h-6 rounded-lg text-orange-500 hover:bg-orange-50 flex items-center justify-center transition-colors"
+                    >
+                      <History className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(t.id, t.name)}
+                      title="Delete"
+                      className="w-6 h-6 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </td>
+
+                {/* Name */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {t.logo_url && (
+                      <img
+                        src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`}
+                        alt=""
+                        className="h-4 w-4 rounded object-contain border border-gray-200 flex-shrink-0"
+                        onError={e => (e.currentTarget.style.display = "none")}
+                      />
+                    )}
+                    <span className="text-[11px] font-semibold text-slate-800 truncate">{t.name}</span>
+                  </div>
+                </td>
+
+                {/* Category */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 truncate max-w-full">
+                    {t.category}
+                  </span>
+                </td>
+
+                {/* Description */}
+                <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100 truncate">
+                  {t.description || "—"}
+                </td>
+
+                {/* Variables */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-1">
+                    <Code className="h-3 w-3 text-blue-500" />
+                    <span className="text-[11px] font-bold text-blue-600">{t.variables?.length || 0}</span>
+                  </div>
+                </td>
+
+                {/* Version */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
+                    v{t.version}
+                  </span>
+                </td>
+
+                {/* Status */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span
+                    className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                    style={{
+                      background: t.is_active ? "#DCFCE7" : "#F3F4F6",
+                      color: t.is_active ? "#166534" : "#6B7280",
+                    }}
+                  >
+                    {t.is_active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+
+                {/* Updated */}
+                <td className="px-1.5 py-1.5 text-[10px] text-slate-400">
+                  {new Date(t.updated_at).toLocaleDateString("en-IN", {
+                    day: "2-digit", month: "short", year: "numeric",
+                  })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ── Pagination Bar ── */}
+   {!loading && templates.length > 0 && (
+  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span>
+        Showing {paginatedRows.length === 0 ? 0 : ((currentPage - 1) * (pageSize === "All" ? filteredRows.length : pageSize as number)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? filteredRows.length : pageSize as number), filteredRows.length)} of {filteredRows.length} templates
       </span>
       <div className="flex items-center gap-1">
         <span className="text-gray-400 text-[10px]">Rows:</span>
@@ -1778,14 +1887,13 @@ const handleExport = () => {
             const newSize = val === "All" ? "All" : Number(val);
             setPageSize(newSize);
             setCurrentPage(1);
-            loadTemplates(1);
           }}
         >
-          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+          <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
             <SelectValue>{pageSize}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
+            {PAGE_SIZE_OPTIONS.map(size => (
               <SelectItem key={String(size)} value={String(size)} className="text-xs">
                 {size}
               </SelectItem>
@@ -1797,137 +1905,151 @@ const handleExport = () => {
 
     {totalPages > 1 && (
       <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadTemplates(currentPage - 1)}
+        <button
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
           disabled={currentPage === 1}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
+          Previous
+        </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          const page = i + 1;
+          let pageNum = i + 1;
+          if (totalPages > 5) {
+            if (currentPage <= 3) pageNum = i + 1;
+            else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+            else pageNum = currentPage - 2 + i;
+          }
           return (
-            <Button
-              key={page}
-              size="sm"
-              variant={currentPage === page ? "default" : "outline"}
-              onClick={() => loadTemplates(page)}
-              className={`h-6 w-6 p-0 text-[10px] ${
-                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            <button
+              key={pageNum}
+              onClick={() => setCurrentPage(pageNum)}
+              className={`h-7 w-7 text-xs border rounded ${
+                currentPage === pageNum
+                  ? "bg-blue-600 border-blue-600 text-white font-bold"
+                  : "bg-white border-gray-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {page}
-            </Button>
+              {pageNum}
+            </button>
           );
         })}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadTemplates(currentPage + 1)}
+        <button
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
+          Next
+        </button>
       </div>
     )}
+
+    <div className="text-[11px] text-slate-500">
+      {paginatedRows.length} of {filteredRows.length} shown
+    </div>
   </div>
 )}
-        </Card>
+  </div>
 
-        {/* ── FILTER SIDEBAR ─────────────────────────────────────────── */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
-            onClick={() => setSidebarOpen(false)} />
+  {/* ── FILTER SIDEBAR ── */}
+  {sidebarOpen && (
+    <div
+      className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
+      onClick={() => setSidebarOpen(false)}
+    />
+  )}
+  <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
+    transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+
+    <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-white" />
+        <span className="text-sm font-semibold text-white">Filters</span>
+        {hasFilters && (
+          <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+            {filterCount} active
+          </span>
         )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
-
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {filterCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            {/* Category */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <LayoutTemplate className="h-3 w-3 text-blue-500" /> Category
-              </p>
-              <div className="space-y-1">
-                {["all", ...CATEGORIES].map(c => (
-                  <label key={c}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                      ${catFilter === c ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="cat" checked={catFilter === c} onChange={() => setCatFilter(c)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${catFilter === c ? "bg-blue-500" : "bg-gray-300"}`} />
-                    <span className="text-[12px] font-medium">{c === "all" ? "All Categories" : c}</span>
-                    {catFilter === c && (
-                      <svg className="ml-auto h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100" />
-
-            {/* Status */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <CheckCircle className="h-3 w-3 text-green-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {[
-                  { val: "all",   label: "All",      dot: "bg-gray-400" },
-                  { val: "true",  label: "Active",   dot: "bg-green-500" },
-                  { val: "false", label: "Inactive", dot: "bg-gray-400" },
-                ].map(o => (
-                  <label key={o.val}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                      ${statusFilter === o.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="status" checked={statusFilter === o.val} onChange={() => setStatusFilter(o.val)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${o.dot}`} />
-                    <span className="text-[12px] font-medium">{o.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
       </div>
+      <div className="flex items-center gap-2">
+        {hasFilters && (
+          <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+            Clear all
+          </button>
+        )}
+        <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
+    <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <LayoutTemplate className="h-3 w-3 text-blue-500" /> Category
+        </p>
+        <div className="space-y-1">
+          {["all", ...CATEGORIES].map(c => (
+            <label
+              key={c}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                ${catFilter === c ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+            >
+              <input type="radio" name="cat" checked={catFilter === c} onChange={() => setCatFilter(c)} className="sr-only" />
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${catFilter === c ? "bg-blue-500" : "bg-gray-300"}`} />
+              <span className="text-[12px] font-medium">{c === "all" ? "All Categories" : c}</span>
+              {catFilter === c && (
+                <svg className="ml-auto h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100" />
+
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <CheckCircle className="h-3 w-3 text-green-500" /> Status
+        </p>
+        <div className="space-y-1">
+          {[
+            { val: "all",   label: "All",      dot: "bg-gray-400" },
+            { val: "true",  label: "Active",   dot: "bg-green-500" },
+            { val: "false", label: "Inactive", dot: "bg-gray-400" },
+          ].map(o => (
+            <label
+              key={o.val}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                ${statusFilter === o.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+            >
+              <input type="radio" name="status" checked={statusFilter === o.val} onChange={() => setStatusFilter(o.val)} className="sr-only" />
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${o.dot}`} />
+              <span className="text-[12px] font-medium">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+      <button
+        onClick={clearFilters}
+        disabled={!hasFilters}
+        className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Clear All
+      </button>
+      <button
+        onClick={() => setSidebarOpen(false)}
+        className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold"
+      >
+        Apply & Close
+      </button>
+    </div>
+  </aside>
+</div>
 
       {/* ══ CREATE / EDIT MODAL ═════════════════════════════════════════════ */}
       {showForm && (

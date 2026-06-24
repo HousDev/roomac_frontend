@@ -2942,10 +2942,13 @@ function LoadingSkeleton() {
   );
 }
 
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({
   tenant,
   assignment,
+  payments,
+  paymentSummary,
   onIdCard,
   onEdit,
   copiedEmail,
@@ -2953,8 +2956,8 @@ function OverviewTab({
   onCopyEmail,
   onCopyPhone,
 }: {
-  tenant: any; assignment: any; onIdCard: () => void; onEdit: () => void;
-  copiedEmail: boolean; copiedPhone: boolean;
+  tenant: any; assignment: any; paymentSummary: any; onIdCard: () => void; onEdit: () => void;
+  copiedEmail: boolean; copiedPhone: boolean; payments: any[];
   onCopyEmail: () => void; onCopyPhone: () => void;
 }) {
   const vacateRecord = tenant.vacate_records?.[0] ?? null;
@@ -2975,6 +2978,54 @@ function OverviewTab({
     if (assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
     if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
     return "N/A";
+  })();
+
+  // ─── Security Deposit — same lookup order as the tenants table ──────────
+ const securityDeposit = (() => {
+  if (vacateRecord?.security_deposit_amount) return Number(vacateRecord.security_deposit_amount);
+  if (assignment?.security_deposit) return Number(assignment.security_deposit);
+  if (tenant.security_deposit) return Number(tenant.security_deposit);
+  if (paymentSummary?.security_deposit_info?.total) return Number(paymentSummary.security_deposit_info.total);
+  if (paymentSummary?.security_deposit_info?.paid) return Number(paymentSummary.security_deposit_info.paid);
+  if (paymentSummary?.vacate_info?.security_deposit) return Number(paymentSummary.vacate_info.security_deposit);
+  // ← ADD THIS: direct payments se fetch karo
+  const sdPayments = (payments || []).filter((p: any) =>
+    p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
+  );
+  if (sdPayments.length > 0) return sdPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+  return 0;
+})();
+
+  // ─── Couple booking — same flag the tenants table uses ──────────────────
+  const isCoupleBooking = tenant.is_couple_booking === true || tenant.is_couple_booking === 1;
+
+  // ─── Profile stat box calculations (Stays / Months / Rent Paid) ──────────
+  const staysCount = (() => {
+    if (tenant.vacate_records?.length) return tenant.vacate_records.length;
+    return tenant.check_in_date ? 1 : 0;
+  })();
+
+  const monthsStayed = (() => {
+    if (!tenant.check_in_date) return 0;
+    const start = new Date(tenant.check_in_date);
+    if (isNaN(start.getTime())) return 0;
+    const end = vacateRecord?.requested_vacate_date ? new Date(vacateRecord.requested_vacate_date) : new Date();
+    if (isNaN(end.getTime())) return 0;
+    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    if (end.getDate() < start.getDate()) months--;
+    return Math.max(0, months);
+  })();
+
+  const rentPaidTotal = (() => {
+    if (vacateRecord) return paymentSummary?.total_rent_paid ?? 0;
+    return paymentSummary?.total_paid ?? 0;
+  })();
+
+  const rentPaidDisplay = (() => {
+    const n = Number(rentPaidTotal || 0);
+    if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+    if (n >= 1000) return `₹${Math.round(n / 1000)}k`;
+    return `₹${n}`;
   })();
 
 
@@ -3021,8 +3072,9 @@ const buildPrintHTML = () => {
     <div class="row"><span class="lbl">Full Name</span><span class="val">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</span></div>
     <div class="row"><span class="lbl">Gender</span><span class="val">${tenant.gender || "—"}</span></div>
     <div class="row"><span class="lbl">Date of Birth</span><span class="val">${tenant.date_of_birth ? new Date(tenant.date_of_birth).toLocaleDateString("en-IN") : "—"} (${calcAge(tenant.date_of_birth)} yrs)</span></div>
-    <div class="row"><span class="lbl">Aadhar</span><span class="val" style="font-family:monospace">${tenant.aadhar_number ?? "—"}</span></div>
-    <div class="row"><span class="lbl">PAN</span><span class="val" style="font-family:monospace">${tenant.pan_number ?? "—"}</span></div>
+<div class="row"><span class="lbl">Aadhar</span><span class="val" style="font-family:monospace">${tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
+    <div class="row"><span class="lbl">PAN</span><span class="val" style="font-family:monospace">${tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
+
   </div>
   <div class="section">
     <div class="section-title">Contact</div>
@@ -3083,7 +3135,7 @@ const handlePDFProfile = () => {
   return (
     <div className="space-y-3">
       {/* Action bar */}
-      <div className="flex justify-end gap-2">
+<div className="hidden lg:flex justify-end gap-2 mb-3">
         <button
           onClick={onEdit}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
@@ -3101,13 +3153,13 @@ const handlePDFProfile = () => {
         
          <button
     onClick={handlePrintProfile}
-    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] border border-gray-200 rounded-lg text-[10px] font-bold text-white hover:bg-gray-50 transition-colors shadow-sm"
   >
     <Printer size={12} /> Print
   </button>
   <button
     onClick={handlePDFProfile}
-    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0D2567] rounded-lg text-[10px] font-bold text-white hover:bg-[#1B3FA0] transition-colors shadow-sm"
+    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] rounded-lg text-[10px] font-bold text-white hover:bg-[#1B3FA0] transition-colors shadow-sm"
   >
     <Download size={12} /> Download PDF
   </button>
@@ -3117,60 +3169,130 @@ const handlePDFProfile = () => {
         {/* Left Sidebar */}
         <div className="lg:col-span-1 space-y-3">
           {/* Profile card */}
-          <div className="rounded-xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 60%, #0D2567 100%)" }}>
-            <div className="px-4 pt-5 pb-4 flex flex-col items-center text-center gap-2">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-400 to-[#1B3FA0] flex items-center justify-center text-white font-black text-xl shadow-lg ring-2 ring-[#F5A623]/40">
-                  {tenant.photo_url ? (
-                    <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
-                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"
-                  )}
-                </div>
-                <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0D2567] ${tenant.is_active ? "bg-emerald-400" : "bg-gray-500"}`} />
-              </div>
-              <div>
-                <p className="text-sm font-black text-white leading-tight" style={fontStyle}>
-                  {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
-                </p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <BadgePill variant={tenant.is_active ? "green" : "gray"}>{tenant.is_active ? "Active" : "Inactive"}</BadgePill>
-                  <span className="text-[10px] text-blue-300 font-mono">#{tenant.id}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="rounded-xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 60%, #0D2567 100%)" }}>
+  <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col items-center text-center gap-1.5 sm:gap-2">
+    <div className="relative">
+      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-400 to-[#1B3FA0] flex items-center justify-center text-white font-black text-base sm:text-xl shadow-lg ring-2 ring-[#F5A623]/40">
+        {tenant.photo_url ? (
+          <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"
+        )}
+      </div>
+      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-[#0D2567] ${tenant.is_active ? "bg-emerald-400" : "bg-gray-500"}`} />
+    </div>
+    <div>
+      <p className="text-xs sm:text-sm font-black text-white leading-tight" style={fontStyle}>
+        {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
+      </p>
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+        <BadgePill variant={tenant.is_active ? "green" : "gray"}>{tenant.is_active ? "Active" : "Inactive"}</BadgePill>
+        <span className="text-[9px] sm:text-[10px] text-blue-300 font-mono">#{tenant.id}</span>
+      </div>
+    </div>
+  </div>
+  {/* Stat boxes: Stays / Months / Rent Paid */}
+  <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
+    {[
+      { label: "Stays", value: staysCount },
+      { label: "Months", value: monthsStayed },
+      { label: "Rent Paid", value: rentPaidDisplay },
+    ].map(({ label, value }) => (
+      <div key={label} className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center">
+        <p className="text-xs sm:text-sm font-black text-white" style={fontStyle}>{value}</p>
+        <p className="text-[7px] sm:text-[8px] font-bold text-blue-300 uppercase tracking-widest mt-0.5" style={fontStyle}>{label}</p>
+      </div>
+    ))}
+  </div>
+</div>
 
           {/* Account status */}
-          <Section title="Account" icon={<BadgeCheck size={11} />} accent="bg-slate-600">
-            <div className="space-y-0">
-              <InfoRow label="Status" value={<BadgePill variant={tenant.is_active ? "green" : "gray"}>{tenant.is_active ? "Active" : "Inactive"}</BadgePill>} />
-              <InfoRow label="Portal" value={<BadgePill variant={tenant.portal_access_enabled ? "green" : "amber"}>{tenant.portal_access_enabled ? "Enabled" : "Disabled"}</BadgePill>} />
-              <InfoRow label="Login" value={<BadgePill variant={tenant.has_credentials ? "blue" : "amber"}>{tenant.has_credentials ? "Configured" : "Not Set"}</BadgePill>} />
-              <InfoRow label="Check-in" value={tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} />
-            </div>
-            {tenant.credential_email && (
-              <div className="mt-2 pt-2 border-t border-gray-50">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1" style={fontStyle}>Credential Email</p>
-                <p className="text-[10px] font-mono text-gray-600 break-all">{tenant.credential_email}</p>
-              </div>
-            )}
-          </Section>
+        <Section title="Account" icon={<BadgeCheck size={11} />} accent="bg-slate-600">
+  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+    <div className="flex items-center gap-2 py-1">
+      <span
+        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+        style={fontStyle}
+      >
+        Status
+      </span>
+      <BadgePill variant={tenant.is_active ? "green" : "gray"}>
+        {tenant.is_active ? "Active" : "Inactive"}
+      </BadgePill>
+    </div>
+
+    <div className="flex items-center gap-2 py-1">
+      <span
+        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+        style={fontStyle}
+      >
+        Portal
+      </span>
+      <BadgePill variant={tenant.portal_access_enabled ? "green" : "amber"}>
+        {tenant.portal_access_enabled ? "Enabled" : "Disabled"}
+      </BadgePill>
+    </div>
+
+    <div className="flex items-center gap-2 py-1">
+      <span
+        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+        style={fontStyle}
+      >
+        Login
+      </span>
+      <BadgePill variant={tenant.has_credentials ? "blue" : "amber"}>
+        {tenant.has_credentials ? "Configured" : "Not Set"}
+      </BadgePill>
+    </div>
+
+    <div className="flex items-center gap-2 py-1">
+      <span
+        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+        style={fontStyle}
+      >
+        Check-in
+      </span>
+      <span className="text-[11px] font-medium text-gray-700">
+        {tenant.check_in_date
+          ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "—"}
+      </span>
+    </div>
+  </div>
+
+  {tenant.credential_email && (
+    <div className="mt-2 pt-2 border-t border-gray-100">
+      <p
+        className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1"
+        style={fontStyle}
+      >
+        Credential Email
+      </p>
+      <p className="text-[10px] font-mono text-gray-600 break-all">
+        {tenant.credential_email}
+      </p>
+    </div>
+  )}
+</Section>
 
           {/* Emergency contact */}
-          <Section title="Emergency Contact" icon={<Heart size={11} />} accent="bg-rose-500">
-            {tenant.emergency_contact_name ? (
-              <div className="space-y-0">
-                <InfoRow label="Name" value={tenant.emergency_contact_name} />
-                <InfoRow label="Phone" value={tenant.emergency_contact_phone} />
-                <InfoRow label="Relation" value={tenant.emergency_contact_relation} />
-                {tenant.emergency_contact_email && <InfoRow label="Email" value={tenant.emergency_contact_email} />}
-              </div>
-            ) : (
-              <p className="text-[10px] text-gray-400 py-1 text-center italic" style={fontStyle}>No emergency contact on file</p>
-            )}
-          </Section>
+        <Section title="Emergency Contact" icon={<Heart size={11} />} accent="bg-rose-500">
+  {tenant.emergency_contact_name ? (
+    <div className="space-y-0">
+      <InfoRow label="Name" value={tenant.emergency_contact_name} />
+      <InfoRow label="Phone" value={tenant.emergency_contact_phone} />
+      <InfoRow label="Relation" value={tenant.emergency_contact_relation} />
+      {tenant.emergency_contact_email && <InfoRow label="Email" value={tenant.emergency_contact_email} />}
+    </div>
+  ) : (
+    <p className="text-[10px] text-gray-400 py-1 text-center italic" style={fontStyle}>No emergency contact on file</p>
+  )}
+</Section>
         </div>
 
         {/* Right Main */}
@@ -3183,7 +3305,10 @@ const handlePDFProfile = () => {
                 <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Current Stay</span>
               </div>
               <div className="flex items-center gap-2">
-                {assignment?.is_couple && <BadgePill variant="rose"><Heart size={9} />Couple</BadgePill>}
+                <BadgePill variant={isCoupleBooking ? "rose" : "blue"}>
+                  {isCoupleBooking ? <Heart size={9} /> : <User size={9} />}
+                  {isCoupleBooking ? "Couple" : "Single"}
+                </BadgePill>
                 {vacateRecord ? <BadgePill variant="red"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Vacated</BadgePill>
                   : <BadgePill variant="green"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Active</BadgePill>}
               </div>
@@ -3194,9 +3319,11 @@ const handlePDFProfile = () => {
                 { label: "Room / Bed", value: assignment ? `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}` : "Not Assigned" },
                 { label: "Monthly Rent", value: <span className="font-black text-emerald-600">{rentVal}</span> },
                 { label: "Check-in", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
-                { label: vacateRecord ? "Vacated On" : "Status", value: vacateRecord ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : <BadgePill variant="green">Active</BadgePill> },
+                { label: vacateRecord ? "Check-out" : "Status", value: vacateRecord ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : <BadgePill variant="green">Active</BadgePill> },
+                { label: "Security Deposit", value: <span className="font-black text-amber-600">{formatINR(securityDeposit)}</span> },
                 { label: "Lock-in", value: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—" },
                 { label: "Notice Period", value: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—" },
+                { label: "Refund", value: vacateRecord ? <span className="font-black text-emerald-600">{formatINR(vacateRecord.refundable_amount || 0)}</span> : "—" },
               ].map(({ label, value, wide }: any) => (
                 <div key={label} className={wide ? "col-span-2 sm:col-span-1" : ""}>
                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
@@ -3213,23 +3340,33 @@ const handlePDFProfile = () => {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Penalty</p><p className="text-xs font-bold text-gray-800">₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</p></div>
-                  <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Status</p><p className="text-xs font-bold text-amber-700">{vacateRecord.status || "—"}</p></div>
-                  <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund</p><p className="text-xs font-bold text-emerald-600">₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}</p></div>
+                  <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund Status</p><p className="text-xs font-bold text-amber-700">{vacateRecord.status || "—"}</p></div>
+                  <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund Amt</p><p className="text-xs font-bold text-emerald-600">₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}</p></div>
                   <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Reason</p><p className="text-xs text-gray-700">{vacateRecord.vacate_reason_value || "—"}</p></div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Personal + Contact */}
+          {/* Personal + Contact + Occupation + Terms — 2x2 grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Section title="Personal" icon={<Fingerprint size={11} />} accent="bg-[#1B3FA0]">
               <div className="space-y-0">
                 <InfoRow label="Full Name" value={`${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}`} />
                 <InfoRow label="Gender" value={tenant.gender} />
                 <InfoRow label="DOB" value={tenant.date_of_birth ? <span>{new Date(tenant.date_of_birth).toLocaleDateString("en-IN")} <BadgePill>{calcAge(tenant.date_of_birth)} yrs</BadgePill></span> : null} />
-                <InfoRow label="Aadhar" value={tenant.aadhar_number ?? null} mono />
-                <InfoRow label="PAN" value={tenant.pan_number ?? null} mono />
+ <InfoRow label="Aadhar" value={
+                  tenant.aadhar_number ?? 
+                  (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? 
+                  (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? 
+                  null
+                } mono />
+                <InfoRow label="PAN" value={
+                  tenant.pan_number ?? 
+                  (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? 
+                  (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? 
+                  null
+                } mono />
               </div>
             </Section>
 
@@ -3255,63 +3392,59 @@ const handlePDFProfile = () => {
                 </div>
               </div>
             </Section>
-          </div>
 
-          {/* Occupation Card */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
-              <div className="w-5 h-5 rounded-md bg-violet-600 flex items-center justify-center text-white flex-shrink-0">
-                {tenant.occupation_category ? (
-                  tenant.occupation_category === "Student" ? <GraduationCap size={11} /> :
-                  tenant.occupation_category === "Working Professional" ? <BriefcaseBusiness size={11} /> :
-                  <Briefcase size={11} />
-                ) : <Briefcase size={11} />}
+            {/* Occupation Card */}
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+                <div className="w-5 h-5 rounded-md bg-violet-600 flex items-center justify-center text-white flex-shrink-0">
+                  {tenant.occupation_category ? (
+                    tenant.occupation_category === "Student" ? <GraduationCap size={11} /> :
+                    tenant.occupation_category === "Working Professional" ? <BriefcaseBusiness size={11} /> :
+                    <Briefcase size={11} />
+                  ) : <Briefcase size={11} />}
+                </div>
+                <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Occupation</span>
+              
               </div>
-              <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Occupation</span>
-              {tenant.occupation_category && (
-                <BadgePill variant="violet">{tenant.occupation_category}</BadgePill>
-              )}
-            </div>
-            <div className="px-4 py-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
-                <KVRow label="Occupation" value={tenant.occupation || "—"} />
-                <KVRow label="Organization" value={tenant.organization || "—"} />
-                {tenant.exact_occupation && <KVRow label="Exact Role" value={tenant.exact_occupation} />}
-                {tenant.work_mode && <KVRow label="Work Mode" value={tenant.work_mode.charAt(0).toUpperCase() + tenant.work_mode.slice(1)} />}
-                {tenant.shift_timing && <KVRow label="Shift" value={tenant.shift_timing.charAt(0).toUpperCase() + tenant.shift_timing.slice(1)} />}
-                {tenant.monthly_income && <KVRow label="Monthly Income" value={`₹${Number(tenant.monthly_income).toLocaleString()}`} />}
-                {tenant.years_of_experience && <KVRow label="Experience" value={`${tenant.years_of_experience} yrs`} />}
-                {tenant.employee_id && <KVRow label="Employee ID" value={tenant.employee_id} mono />}
-                {tenant.student_id && <KVRow label="Student ID" value={tenant.student_id} mono />}
-                {tenant.course_duration && <KVRow label="Course" value={tenant.course_duration.replace("_", " ")} />}
+              <div className="px-4 py-3">
+                <div className="space-y-0">
+                  <InfoRow label="Category" value={tenant.occupation_category ? <BadgePill variant="violet">{tenant.occupation_category}</BadgePill> : "Other"} />
+                  <InfoRow label="Occupation" value={tenant.occupation} />
+                  <InfoRow label="Organization" value={tenant.organization} />
+                  <InfoRow label="Work Mode" value={tenant.work_mode ? tenant.work_mode.charAt(0).toUpperCase() + tenant.work_mode.slice(1) : null} />
+                  <InfoRow label="Shift" value={tenant.shift_timing ? tenant.shift_timing.charAt(0).toUpperCase() + tenant.shift_timing.slice(1) : null} />
+                  {tenant.exact_occupation && <InfoRow label="Exact Role" value={tenant.exact_occupation} />}
+                  {tenant.monthly_income && <InfoRow label="Monthly Income" value={`₹${Number(tenant.monthly_income).toLocaleString()}`} />}
+                  {tenant.years_of_experience && <InfoRow label="Experience" value={`${tenant.years_of_experience} yrs`} />}
+                  {tenant.employee_id && <InfoRow label="Employee ID" value={tenant.employee_id} mono />}
+                  {tenant.student_id && <InfoRow label="Student ID" value={tenant.student_id} mono />}
+                  {tenant.course_duration && <InfoRow label="Course" value={tenant.course_duration.replace("_", " ")} />}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Terms Card */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
-              <div className="w-5 h-5 rounded-md bg-amber-500 flex items-center justify-center text-white flex-shrink-0"><FileCheck size={11} /></div>
-              <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Tenancy Terms</span>
-            </div>
-            <div className="px-4 py-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2">
-                <KVRow label="Lock-in Period" value={tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"} />
-                <KVRow label="Lock-in Penalty" value={
-                  tenant.lockin_penalty_amount
-                    ? tenant.lockin_penalty_type === "percentage"
-                      ? `${tenant.lockin_penalty_amount}% of rent`
-                      : `₹${Number(tenant.lockin_penalty_amount).toLocaleString()}`
-                    : "—"
-                } />
-                <KVRow label="Notice Period" value={tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"} />
-                <KVRow label="Notice Penalty" value={
-                  tenant.notice_penalty_amount
-                    ? tenant.notice_penalty_type === "percentage"
-                      ? `${tenant.notice_penalty_amount}% of rent`
-                      : `₹${Number(tenant.notice_penalty_amount).toLocaleString()}`
-                    : "—"
-                } />
+            {/* Terms Card */}
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+                <div className="w-5 h-5 rounded-md bg-amber-500 flex items-center justify-center text-white flex-shrink-0"><FileCheck size={11} /></div>
+                <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Terms &amp; Conditions</span>
+              </div>
+              <div className="px-4 py-3">
+                <div className="space-y-0">
+                  <InfoRow label="Lock-in Period" value={tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"} />
+                  <InfoRow label="Lock-in Penalty" value={
+                    tenant.lockin_penalty_amount
+                      ? <BadgePill variant="violet">{tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of rent` : `₹${Number(tenant.lockin_penalty_amount).toLocaleString()}`}</BadgePill>
+                      : "—"
+                  } />
+                  <InfoRow label="Notice Period" value={tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"} />
+                  <InfoRow label="Notice Penalty" value={
+                    tenant.notice_penalty_amount
+                      ? <BadgePill variant="amber">{tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of rent` : `₹${Number(tenant.notice_penalty_amount).toLocaleString()}`}</BadgePill>
+                      : "—"
+                  } />
+                  <InfoRow label="Penalty Applied" value={<BadgePill variant="green">{formatINR(vacateRecord?.total_penalty_amount || 0)}</BadgePill>} />
+                </div>
               </div>
             </div>
           </div>
@@ -3340,7 +3473,7 @@ function DocumentsTab({ tenant, onView,onUpload, }: { tenant: any; onView: (url:
             <span className="text-xs font-black text-white" style={fontStyle}>{uploaded}/{total} uploaded</span>
           </div>
           <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-[#F5A623] rounded-full transition-all" style={{ width: `${total > 0 ? (uploaded / total) * 100 : 0}%` }} />
+            <div className="h-full bg-[#d5c7b0] rounded-full transition-all" style={{ width: `${total > 0 ? (uploaded / total) * 100 : 0}%` }} />
           </div>
         </div>
         <div className="ml-4 text-lg font-black text-white" style={fontStyle}>{total > 0 ? Math.round((uploaded / total) * 100) : 0}%</div>
@@ -3371,6 +3504,7 @@ function DocumentsTab({ tenant, onView,onUpload, }: { tenant: any; onView: (url:
   );
 }
 
+// ─── Payments Tab ─────────────────────────────────────────────────────────────
 // ─── Payments Tab ─────────────────────────────────────────────────────────────
 function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewReceipt, onDownloadReceipt }: {
   payments: any[]; paymentSummary: any; loadingPayments: boolean;
@@ -3428,7 +3562,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
     refund: "Refund",
   };
 
-  const isApprovedOrPaid = (status: string) => status === "approved" || status === "paid";
+  const isApprovedOrPaid = (status: string) => status === "approved" || status === "paid" || status === "refund" || status === "completed";
   const isRejectedOrFailed = (status: string) => status === "rejected" || status === "failed";
 
   return (
@@ -3437,8 +3571,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
       {/* Vacated: Penalty + Security Deposit as separate collapsibles side-by-side */}
       {isVacated && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-          {/* Penalty Breakdown */}
+          {/* Penalty Breakdown - unchanged */}
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <Collapsible open={penaltyOpen} onOpenChange={setPenaltyOpen}>
               <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-gray-50 transition-colors">
@@ -3449,6 +3582,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
                 {penaltyOpen ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
               </CollapsibleTrigger>
               <CollapsibleContent className="px-4 pb-4 border-t border-gray-100">
+                {/* same content, no change */}
                 <div className="pt-3 space-y-2">
                   {paymentSummary?.vacate_info?.lockin_penalty_amount > 0 && (
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
@@ -3499,7 +3633,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
             </Collapsible>
           </div>
 
-          {/* Security Deposit */}
+          {/* Security Deposit - unchanged */}
           {paymentSummary?.vacate_info?.security_deposit > 0 && (
             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
               <Collapsible open={depositOpen} onOpenChange={setDepositOpen}>
@@ -3539,7 +3673,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary Cards - already 2 cols on mobile, fine */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {!isVacated ? (
           <>
@@ -3558,26 +3692,26 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
         )}
       </div>
 
-      {/* Transactions Table */}
+      {/* Transactions Table - responsive padding/font on mobile */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50/40">
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100 flex items-center justify-between gap-2 sm:gap-3 bg-gray-50/40 flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-md bg-[#1B3FA0] flex items-center justify-center text-white"><ReceiptText size={11} /></div>
-            <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Transactions</span>
-            <span className="text-[10px] text-gray-400" style={fontStyle}>{displayPayments.length} records</span>
+            <span className="text-[10px] sm:text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Transactions</span>
+            <span className="text-[9px] sm:text-[10px] text-gray-400" style={fontStyle}>{displayPayments.length} records</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-gray-400">
+          <div className="flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] text-gray-400">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Approved / Paid</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />Rejected</span>
             {!isVacated && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Pending</span>}
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-[10px] sm:text-[11px]">
             <thead>
               <tr className="border-b border-gray-50">
                 {["Date", "Amount", "Type", "Mode", "Period", "Status", ""].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap" style={fontStyle}>{h}</th>
+                  <th key={h} className="text-left px-2 sm:px-3 py-1.5 sm:py-2 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap" style={fontStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3590,41 +3724,41 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
                 const typeKey = p.payment_type || p.type || "";
                 return (
                   <tr key={p.id} className={`border-b border-gray-50/80 hover:bg-gray-50/40 transition-colors ${rejected ? "bg-red-50/20" : ""}`}>
-                    <td className="px-3 py-2.5 text-[11px] text-gray-500 whitespace-nowrap" style={fontStyle}>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-[10px] sm:text-[11px] text-gray-500 whitespace-nowrap" style={fontStyle}>
                       {p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                     </td>
-                    <td className={`px-3 py-2.5 text-xs font-bold whitespace-nowrap ${rejected ? "text-red-400 line-through" : approved ? "text-gray-900" : "text-amber-600"}`} style={fontStyle}>
+                    <td className={`px-2 sm:px-3 py-1.5 sm:py-2.5 text-[10px] sm:text-xs font-bold whitespace-nowrap ${rejected ? "text-red-400 line-through" : approved ? "text-gray-900" : "text-amber-600"}`} style={fontStyle}>
                       {formatINR(p.amount || 0)}
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${typeColor[typeKey] ?? "bg-gray-100 text-gray-600"}`} style={fontStyle}>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 whitespace-nowrap">
+                      <span className={`px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ${typeColor[typeKey] ?? "bg-gray-100 text-gray-600"}`} style={fontStyle}>
                         {typeDisplay[typeKey] || typeKey || "—"}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-[11px] text-gray-500 whitespace-nowrap capitalize" style={fontStyle}>{p.payment_mode || "—"}</td>
-                    <td className="px-3 py-2.5 text-[11px] text-gray-500 whitespace-nowrap" style={fontStyle}>{p.month} {p.year}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-[10px] sm:text-[11px] text-gray-500 whitespace-nowrap capitalize" style={fontStyle}>{p.payment_mode || "—"}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 text-[10px] sm:text-[11px] text-gray-500 whitespace-nowrap" style={fontStyle}>{p.month} {p.year}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5 whitespace-nowrap">
                       {approved && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200" style={fontStyle}>
-                          <CheckCircle2 size={9} />{p.status === "paid" ? "Paid" : "Approved"}
+                        <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200" style={fontStyle}>
+                          <CheckCircle2 size={8} className="sm:size-[9px]" />{p.status === "paid" ? "Paid" : "Approved"}
                         </span>
                       )}
                       {rejected && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600 border border-red-200" style={fontStyle}>
-                          <XCircle size={9} />{p.status === "failed" ? "Failed" : "Rejected"}
+                        <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-red-100 text-red-600 border border-red-200" style={fontStyle}>
+                          <XCircle size={8} className="sm:size-[9px]" />{p.status === "failed" ? "Failed" : "Rejected"}
                         </span>
                       )}
                       {!approved && !rejected && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200" style={fontStyle}>
-                          <Clock size={9} />{p.status ?? "Pending"}
+                        <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200" style={fontStyle}>
+                          <Clock size={8} className="sm:size-[9px]" />{p.status ?? "Pending"}
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2.5">
                       {approved && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => onPreviewReceipt(p.id)} className="p-1 hover:bg-blue-50 rounded transition-colors" title="View Receipt"><Eye size={11} className="text-[#1B3FA0]" /></button>
-                          <button onClick={() => onDownloadReceipt(p.id)} className="p-1 hover:bg-emerald-50 rounded transition-colors" title="Download Receipt"><Download size={11} className="text-emerald-500" /></button>
+                        <div className="flex items-center gap-0.5 sm:gap-1">
+                          <button onClick={() => onPreviewReceipt(p.id)} className="p-0.5 sm:p-1 hover:bg-blue-50 rounded transition-colors" title="View Receipt"><Eye size={10} className="sm:size-[11px] text-[#1B3FA0]" /></button>
+                          <button onClick={() => onDownloadReceipt(p.id)} className="p-0.5 sm:p-1 hover:bg-emerald-50 rounded transition-colors" title="Download Receipt"><Download size={10} className="sm:size-[11px] text-emerald-500" /></button>
                         </div>
                       )}
                     </td>
@@ -3635,13 +3769,13 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
           </table>
         </div>
         <div className="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100">
-          <div className="px-4 py-2 text-center">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest" style={fontStyle}>Total Approved / Paid</p>
-            <p className="text-sm font-black text-emerald-600 mt-0.5">{formatINR(isVacated ? paymentSummary?.total_rent_paid || 0 : paymentSummary?.total_paid || 0)}</p>
+          <div className="px-2 sm:px-4 py-1.5 sm:py-2 text-center">
+            <p className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-widest" style={fontStyle}>Total Approved / Paid</p>
+            <p className="text-xs sm:text-sm font-black text-emerald-600 mt-0.5">{formatINR(isVacated ? paymentSummary?.total_rent_paid || 0 : paymentSummary?.total_paid || 0)}</p>
           </div>
-          <div className="px-4 py-2 text-center">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest" style={fontStyle}>{isVacated ? "Total Rejected" : "Total Pending"}</p>
-            <p className="text-sm font-black text-red-500 mt-0.5">{formatINR(isVacated ? paymentSummary?.total_rejected || 0 : paymentSummary?.total_pending || 0)}</p>
+          <div className="px-2 sm:px-4 py-1.5 sm:py-2 text-center">
+            <p className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-widest" style={fontStyle}>{isVacated ? "Total Rejected" : "Total Pending"}</p>
+            <p className="text-xs sm:text-sm font-black text-red-500 mt-0.5">{formatINR(isVacated ? paymentSummary?.total_rejected || 0 : paymentSummary?.total_pending || 0)}</p>
           </div>
         </div>
       </div>
@@ -3649,6 +3783,7 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
   );
 }
 
+// ─── Partner Tab ──────────────────────────────────────────────────────────────
 // ─── Partner Tab ──────────────────────────────────────────────────────────────
 function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails | null; onView: (url: string) => void }) {
   if (!partnerDetails || !partnerDetails.full_name) {
@@ -3686,7 +3821,8 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+          {/* Grid: 2 columns on mobile, 3 columns on large screens */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-2 sm:gap-y-3">
             {[
               { label: "Phone", value: `${partnerDetails.country_code || ""} ${partnerDetails.phone || ""}`.trim() || "—" },
               { label: "Email", value: partnerDetails.email || "—" },
@@ -3696,7 +3832,7 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
               { label: "Organization", value: partnerDetails.organization || "—" },
               { label: "Address", value: partnerDetails.address || "—", wide: true },
             ].map(({ label, value, wide }: any) => (
-              <div key={label} className={wide ? "sm:col-span-2 lg:col-span-3" : ""}>
+              <div key={label} className={wide ? "col-span-2 lg:col-span-3" : ""}>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
                 <p className="text-xs font-semibold text-gray-800" style={fontStyle}>{value}</p>
               </div>
@@ -3731,68 +3867,471 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
 }
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
-function HistoryTab({ tenant, assignment }: { tenant: any; assignment: any }) {
-  const vacateRecord = tenant.vacate_records?.[0];
+function HistoryTab({
+  tenant,
+  assignment,
+  payments,
+  paymentSummary,
+}: {
+  tenant: any;
+  assignment: any;
+  payments: any[];
+  paymentSummary: any;
+}) {
 
-  return (
+  function resolveDocNumber(tenant: any, docType: "Aadhar Card" | "PAN Card"): string | null {
+    if (tenant.id_proof_type === docType && tenant.id_proof_number) return tenant.id_proof_number;
+    if (tenant.address_proof_type === docType && tenant.address_proof_number) return tenant.address_proof_number;
+    // legacy direct fields as fallback
+    if (docType === "Aadhar Card" && tenant.aadhar_number) return tenant.aadhar_number;
+    if (docType === "PAN Card" && tenant.pan_number) return tenant.pan_number;
+    return null;
+  }
+
+  const [expandedStay, setExpandedStay] = useState<string | null>(null);
+  const [sectionMap, setSectionMap] = useState<Record<string, string>>({});
+ 
+  const aadharNum = resolveDocNumber(tenant, "Aadhar Card");
+  const panNum = resolveDocNumber(tenant, "PAN Card");
+ 
+  // ── Build stay list: past stays (vacate_records, oldest first) + current ──
+ const pastStays = [...(tenant.vacate_records ?? [])]
+    .sort((a: any, b: any) => new Date(a.requested_vacate_date || 0).getTime() - new Date(b.requested_vacate_date || 0).getTime())
+    .map((vr: any, i: number) => ({
+      id: `vacate-${vr.id ?? i}`,
+      stayNumber: i + 1,
+      aadharNumber: tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null),
+      panNumber: tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null),
+      isCurrent: false,
+      property: vr.property_name || assignment?.property?.name || tenant.assigned_property_name || "Roomac Co-Living",
+      room: vr.room_number || assignment?.room?.room_number || "—",
+      bed: vr.bed_number || "—",
+      stayType: tenant.is_couple_booking ? "Couple" : "Single",
+      monthlyRent: Number(vr.rent_amount || 0),
+      checkIn: vr.stay_start_date || tenant.check_in_date || null,
+      checkOut: vr.requested_vacate_date || null,
+     securityDeposit: Number(vr.security_deposit_amount || paymentSummary?.vacate_info?.security_deposit || 0),
+ depositPaid: Number(
+  
+        paymentSummary?.security_deposit_info?.paid ||
+        paymentSummary?.security_deposit_info?.total ||
+        vr.security_deposit_amount || 0
+      ),      refundAmount: Number(vr.refundable_amount || paymentSummary?.vacate_info?.refundable_amount || 0),
+      refundStatus: vr.refund_status || vr.deposit_refund_status || paymentSummary?.vacate_info?.refund_status || vr.status || "N/A",
+      totalPenalty: Number(vr.total_penalty_amount || 0),
+      vacateReason: vr.vacate_reason_value || "—",
+      lockInPeriod: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—",
+      noticePeriod: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—",
+      partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
+      isVacatedRecord: true,
+    }));
+ 
+const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) && !(tenant.vacate_records?.length > 0);
+  const currentStay = hasCurrentStay
+    ? {
+        id: "current",
+        stayNumber: pastStays.length + 1,
+        isCurrent: true,
+        property: assignment?.property?.name || tenant.assigned_property_name || "Roomac Co-Living",
+        room: assignment?.room?.room_number || "—",
+        bed: assignment?.bed_number || "—",
+        stayType: tenant.is_couple_booking ? "Couple" : "Single",
+        monthlyRent: Number(assignment?.tenant_rent || tenant.monthly_rent || 0),
+        checkIn: tenant.check_in_date || null,
+        checkOut: null,
+        securityDeposit: (() => {
+          if (assignment?.security_deposit) return Number(assignment.security_deposit);
+          if (tenant.security_deposit) return Number(tenant.security_deposit);
+          if (paymentSummary?.security_deposit_info?.total) return Number(paymentSummary.security_deposit_info.total);
+          if (paymentSummary?.security_deposit_info?.paid) return Number(paymentSummary.security_deposit_info.paid);
+          if (paymentSummary?.vacate_info?.security_deposit) return Number(paymentSummary.vacate_info.security_deposit);
+          const sdP = (paymentSummary?.payments || []).filter((p: any) =>
+            p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
+          );
+          if (sdP.length > 0) return sdP.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+          return 0;
+        })(),
+       depositPaid: Number(
+  assignment?.security_deposit ||
+  paymentSummary?.security_deposit_info?.paid ||
+  paymentSummary?.security_deposit_info?.total ||
+  // ← ADD THIS:
+  (payments || [])
+    .filter((p: any) => p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved"))
+    .reduce((s: number, p: any) => s + Number(p.amount || 0), 0) ||
+  0
+),
+        refundAmount: 0,
+        refundStatus: null,
+        totalPenalty: 0,
+        vacateReason: null,
+        lockInPeriod: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—",
+        noticePeriod: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—",
+        partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
+        isVacatedRecord: false,
+      }
+    : null;
+ 
+  const allStays = [...(currentStay ? [currentStay] : []), ...pastStays].sort((a, b) => b.stayNumber - a.stayNumber);
+ 
+  const stayTypeCfg: Record<string, { bg: string; text: string; ring: string; icon: React.ReactNode }> = {
+    Single: { bg: "bg-blue-500", text: "text-blue-700", ring: "ring-blue-200", icon: <User size={10} /> },
+    Sharing: { bg: "bg-teal-500", text: "text-teal-700", ring: "ring-teal-200", icon: <Users size={10} /> },
+    Couple: { bg: "bg-rose-500", text: "text-rose-700", ring: "ring-rose-200", icon: <Heart size={10} /> },
+  };
+ 
+  const typeColor: Record<string, string> = {
+    rent: "bg-blue-100 text-blue-700",
+    security_deposit: "bg-amber-100 text-amber-700",
+    maintenance: "bg-cyan-100 text-cyan-700",
+    penalty_payment: "bg-red-100 text-red-700",
+    deposit_refund: "bg-emerald-100 text-emerald-700",
+    refund: "bg-emerald-100 text-emerald-700",
+  };
+  const typeDisplay: Record<string, string> = {
+    rent: "Rent",
+    security_deposit: "Security Deposit",
+    maintenance: "Maintenance",
+    penalty_payment: "Penalty",
+    deposit_refund: "Deposit Refund",
+    refund: "Refund",
+  };
+ 
+  // ── Print / download for one stay ──
+  const doPrint = (stay: any) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
+    <style>body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:2px}.sub{color:#6b7280;font-size:11px;margin-bottom:22px}h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:4px;margin:18px 0 8px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;margin-bottom:10px}.lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700}.val{font-size:12px;font-weight:700;margin-top:1px}.ft{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}</style>
+    </head><body><h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
+    <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+    <h2>Stay Details</h2><div class="g2">
+    <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
+    <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
+    <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
+    <div><div class="lbl">Rent</div><div class="val">₹${stay.monthlyRent.toLocaleString("en-IN")}</div></div>
+    <div><div class="lbl">Check-in</div><div class="val">${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}</div></div>
+    <div><div class="lbl">Check-out</div><div class="val">${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div></div>
+    <div><div class="lbl">Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
+    <div><div class="lbl">Refund</div><div class="val">₹${(stay.refundAmount ?? 0).toLocaleString("en-IN")} (${stay.refundStatus ?? "N/A"})</div></div>
+    </div><div class="ft">Roomac Co-Living Management System</div></body></html>`);
+    w.document.close();
+    w.print();
+  };
+ 
+  const doDownload = (stay: any) => {
+    const csv = [
+      `Stay History,${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name},ID:${tenant.id},Stay#${stay.stayNumber}`,
+      "",
+      "STAY",
+      `Property,${stay.property}`,
+      `Room,Room ${stay.room} Bed ${stay.bed}`,
+      `Type,${stay.stayType}`,
+      `Rent,₹${stay.monthlyRent}`,
+      `CheckIn,${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}`,
+      `CheckOut,${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}`,
+      `Deposit,₹${stay.securityDeposit}`,
+      `Refund,₹${stay.refundAmount ?? 0} (${stay.refundStatus ?? "N/A"})`,
+      `Penalty,₹${stay.totalPenalty ?? 0}`,
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `stay-${tenant.id}-${stay.stayNumber}.csv`;
+    a.click();
+  };
+ 
+  // ── Top stat cards ──
+  const totalStays = allStays.length;
+  const lifetimeRent =
+    pastStays.reduce((a, s) => a + s.monthlyRent, 0) /* rough — real per-stay rent totals aren't tracked historically */ +
+    Number(paymentSummary?.total_rent_paid ?? paymentSummary?.total_paid ?? 0);
+  const monthsStayed = (() => {
+    let total = 0;
+    for (const s of allStays) {
+      if (!s.checkIn) continue;
+      const start = new Date(s.checkIn);
+      const end = s.checkOut ? new Date(s.checkOut) : new Date();
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+      let m = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (end.getDate() < start.getDate()) m--;
+      total += Math.max(0, m);
+    }
+    return total;
+  })();
+ const refundReceived = pastStays.reduce((a, s) => a + (
+    ["approved", "completed", "Completed", "refunded", "Refunded"].includes(s.refundStatus ?? "") 
+      ? s.refundAmount : 0
+  ), 0) + Number(paymentSummary?.vacate_info?.refunded_amount || 0); 
+  if (allStays.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 gap-3">
+        <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center"><History size={20} className="text-gray-200" /></div>
+        <p className="text-xs text-gray-400" style={fontStyle}>No stay history available for this tenant</p>
+      </div>
+    );
+  }
+ 
+    return (
     <div className="space-y-3">
+      {/* Top stat cards - already 2 columns on mobile, fine */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Check-in Date", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—", bg: "bg-[#1B3FA0]", icon: <Calendar size={13} /> },
-          { label: "Status", value: tenant.is_active ? "Active" : vacateRecord ? "Vacated" : "Inactive", bg: tenant.is_active ? "bg-emerald-600" : "bg-red-500", icon: <Layers size={13} /> },
-          { label: "Property", value: assignment?.property?.name || tenant.assigned_property_name || "—", bg: "bg-violet-600", icon: <Building2 size={13} /> },
-          { label: "Tenant ID", value: `#${tenant.id}`, bg: "bg-slate-700", icon: <Fingerprint size={13} /> },
+          { label: "Total Stays", value: totalStays, bg: "bg-[#1B3FA0]", icon: <Layers size={13} /> },
+          { label: "Lifetime Rent", value: formatINR(lifetimeRent), bg: "bg-emerald-600", icon: <IndianRupee size={13} /> },
+          { label: "Months Stayed", value: monthsStayed, bg: "bg-violet-600", icon: <Calendar size={13} /> },
+          { label: "Refund Received", value: formatINR(refundReceived), bg: "bg-teal-600", icon: <Banknote size={13} /> },
         ].map(({ label, value, bg, icon }) => (
-          <div key={label} className={`${bg} rounded-xl p-3 text-white`}>
-            <div className="flex items-start justify-between mb-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-white/70" style={fontStyle}>{label}</p>
+          <div key={label} className={`${bg} rounded-xl p-2.5 sm:p-3 text-white`}>
+            <div className="flex items-start justify-between mb-0.5 sm:mb-1">
+              <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-white/70" style={fontStyle}>{label}</p>
               <div className="opacity-50">{icon}</div>
             </div>
-            <p className="text-base font-black truncate" style={fontStyle}>{value}</p>
+            <p className="text-sm sm:text-base font-black" style={fontStyle}>{value}</p>
           </div>
         ))}
       </div>
-
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
-          <div className={`w-5 h-5 rounded-md ${tenant.is_active ? "bg-emerald-500" : "bg-red-500"} flex items-center justify-center text-white`}><Home size={11} /></div>
-          <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>{tenant.is_active ? "Current Stay" : "Last Stay"}</span>
-          {tenant.is_active
-            ? <BadgePill variant="green"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Current</BadgePill>
-            : <BadgePill variant="red"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Vacated</BadgePill>}
-        </div>
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-            {[
-              { label: "Check-in", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—" },
-              { label: "Check-out", value: vacateRecord ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "Active" },
-              { label: "Lock-in", value: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—" },
-              { label: "Notice Period", value: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—" },
-              { label: "Room / Bed", value: assignment ? `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}` : "—" },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
-                <p className="text-xs font-semibold text-gray-800" style={fontStyle}>{value}</p>
-              </div>
-            ))}
-          </div>
-
-          {vacateRecord && (
-            <div className="bg-red-50 rounded-lg border border-red-100 px-3 py-2.5">
-              <div className="flex items-center gap-2 mb-2">
-                <LogOut size={11} className="text-red-500" />
-                <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider" style={fontStyle}>Vacate Details</span>
-                <BadgePill variant="amber">{vacateRecord.status || "Pending"}</BadgePill>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Penalty</p><p className="text-xs font-bold text-gray-800">₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</p></div>
-                <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund</p><p className="text-xs font-bold text-emerald-600">₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}</p></div>
-                <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Status</p><p className="text-xs font-bold text-amber-700">{vacateRecord.status || "—"}</p></div>
-                <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Reason</p><p className="text-xs text-gray-700">{vacateRecord.vacate_reason_value || "—"}</p></div>
+ 
+      <div className="flex justify-end">
+        <button
+          onClick={() => allStays.forEach(s => doPrint(s))}
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-gray-200 rounded-lg text-[9px] sm:text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+          style={fontStyle}
+        >
+          <Printer size={10} className="sm:size-[11px]" /> Print All
+        </button>
+      </div>
+ 
+      {/* Timeline */}
+      <div className="relative space-y-2.5">
+        <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-gray-200 hidden lg:block" />
+        {allStays.map(stay => {
+          const cfg = stayTypeCfg[stay.stayType] ?? stayTypeCfg.Single;
+          const isOpen = expandedStay === stay.id;
+          const section = sectionMap[stay.id] ?? "payments";
+ 
+          // Payments shown for this stay: real list for current stay, derived single-row summary for past stays
+          const stayPayments = stay.isCurrent
+            ? payments
+            : [
+                ...(stay.monthlyRent > 0
+                  ? [{ id: `${stay.id}-rent`, payment_date: stay.checkOut, amount: stay.monthlyRent, payment_type: "rent", payment_mode: "—", month: "", year: "", status: "approved" }]
+                  : []),
+                ...(stay.totalPenalty > 0
+                  ? [{ id: `${stay.id}-penalty`, payment_date: stay.checkOut, amount: stay.totalPenalty, payment_type: "penalty_payment", payment_mode: "—", month: "", year: "", status: "approved" }]
+                  : []),
+                ...(stay.refundAmount > 0
+                  ? [{ id: `${stay.id}-refund`, payment_date: stay.checkOut, amount: stay.refundAmount, payment_type: "deposit_refund", payment_mode: "—", month: "", year: "", status: stay.refundStatus }]
+                  : []),
+              ];
+ 
+          const stayRentPaid = stay.isCurrent
+            ? Number(paymentSummary?.total_paid ?? paymentSummary?.total_rent_paid ?? 0)
+            : stay.monthlyRent;
+          const docsUploaded = stay.isCurrent
+            ? [tenant.id_proof_url, tenant.address_proof_url, tenant.photo_url].filter(Boolean).length
+            : 0;
+          const docsTotal = stay.isCurrent ? 3 : 3;
+ 
+          return (
+            <div key={stay.id} className="relative lg:pl-10">
+              <div
+                className={`absolute left-3.5 top-4 w-3 h-3 rounded-full border-2 border-white shadow hidden lg:block ${stay.isCurrent ? "bg-emerald-500" : "bg-gray-300"}`}
+                style={{ transform: "translateX(-50%)" }}
+              />
+              <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
+                {/* Stay header - reduced padding on mobile */}
+                <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                      <span className="text-[10px] sm:text-xs font-bold text-gray-900" style={fontStyle}>{stay.property}</span>
+                      <span className={`inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-white ${cfg.text} ${cfg.ring}`}>{cfg.icon}{stay.stayType}</span>
+                      {stay.isCurrent && (
+                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                          <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500" />Current
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-3 mt-0.5 flex-wrap text-[9px] sm:text-[10px] text-gray-500">
+                      <span className="flex items-center gap-0.5"><BedDouble size={7} className="sm:size-[9px]" />Room {stay.room} · Bed {stay.bed}</span>
+                      <span className="flex items-center gap-0.5">
+                        <Calendar size={7} className="sm:size-[9px]" />
+                        {stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                        {" — "}
+                        {stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Active"}
+                      </span>
+                      <span className="flex items-center gap-0.5 font-bold text-gray-700"><IndianRupee size={7} className="sm:size-[9px]" />{formatINR(stay.monthlyRent)}/mo</span>
+                    </div>
+                    <div className="flex gap-1 sm:gap-1.5 mt-1 flex-wrap">
+                      {[
+                        { label: `${stayPayments.length} payments`, bg: "bg-gray-50 border-gray-100 text-gray-500" },
+                        { label: formatINR(stayRentPaid), bg: "bg-emerald-50 border-emerald-100 text-emerald-700" },
+                        { label: `dep ${formatINR(stay.depositPaid)}`, bg: "bg-gray-50 border-gray-100 text-gray-500" },
+                        { label: `${docsUploaded}/${docsTotal} docs`, bg: "bg-gray-50 border-gray-100 text-gray-500" },
+                        ...(stay.partner ? [{ label: stay.partner.name, bg: "bg-rose-50 border-rose-100 text-rose-600" }] : []),
+                      ].map(({ label, bg }) => (
+                        <span key={label} className={`border rounded px-1.5 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] font-medium ${bg}`} style={fontStyle}>{label}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                    <button onClick={e => { e.stopPropagation(); doPrint(stay); }} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={10} className="sm:size-[12px] text-gray-400" /></button>
+                    <button onClick={e => { e.stopPropagation(); doDownload(stay); }} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><Download size={10} className="sm:size-[12px] text-gray-400" /></button>
+                    {isOpen ? <ChevronUp size={11} className="sm:size-[13px] text-gray-400 ml-0.5" /> : <ChevronDown size={11} className="sm:size-[13px] text-gray-400 ml-0.5" />}
+                  </div>
+                </div>
+ 
+                {isOpen && (
+                  <div className="border-t border-gray-100">
+                    <div className="flex border-b border-gray-100 bg-gray-50/50 overflow-x-auto">
+                      {[
+                        { key: "payments", label: "Payments", icon: <CreditCard size={8} className="sm:size-[10px]" /> },
+                        { key: "documents", label: "Documents", icon: <FileText size={8} className="sm:size-[10px]" /> },
+                        { key: "deposit", label: "Deposit", icon: <Shield size={8} className="sm:size-[10px]" /> },
+                        { key: "terms", label: "Terms", icon: <ScrollText size={8} className="sm:size-[10px]" /> },
+                        ...(stay.partner ? [{ key: "partner", label: "Partner", icon: <Heart size={8} className="sm:size-[10px]" /> }] : []),
+                      ].map(t => (
+                        <button
+                          key={t.key}
+                          onClick={() => setSectionMap(m => ({ ...m, [stay.id]: t.key }))}
+                          className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-bold whitespace-nowrap border-b-2 transition-colors ${
+                            section === t.key ? "border-gray-900 text-gray-900 bg-white" : "border-transparent text-gray-400 hover:text-gray-600"
+                          }`}
+                          style={fontStyle}
+                        >
+                          {t.icon}{t.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-2 sm:p-3">
+                      {section === "payments" && (
+                        <div className="space-y-2">
+                          {!stay.isCurrent && (
+                            <p className="text-[8px] sm:text-[9px] text-gray-400 italic" style={fontStyle}>
+                              Detailed transaction history isn't tracked per past stay — figures below are summarized from the vacate record.
+                            </p>
+                          )}
+                          <div className="rounded-lg border border-gray-100 overflow-hidden">
+                            <table className="w-full text-[10px] sm:text-[11px]">
+                              <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                  {["Date", "Amount", "Type", "Mode", "Status"].map(h => (
+                                    <th key={h} className="text-left px-2 sm:px-3 py-1.5 sm:py-2 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap" style={fontStyle}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stayPayments.length === 0 ? (
+                                  <tr><td colSpan={5} className="text-center py-6 text-gray-400 text-xs" style={fontStyle}>No payment records</td></tr>
+                                ) : stayPayments.map((p: any) => {
+                                  const approved = p.status === "approved" || p.status === "paid";
+                                  const rejected = p.status === "rejected" || p.status === "failed";
+                                  const typeKey = p.payment_type || "";
+                                  return (
+                                    <tr key={p.id} className={`border-t border-gray-50 hover:bg-gray-50/50 ${rejected ? "bg-red-50/20" : ""}`}>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>
+                                      <td className={`px-2 sm:px-3 py-1.5 sm:py-2 font-bold whitespace-nowrap ${rejected ? "text-red-400 line-through" : "text-gray-900"}`}>{formatINR(p.amount || 0)}</td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap"><span className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold ${typeColor[typeKey] ?? "bg-gray-100 text-gray-600"}`}>{typeDisplay[typeKey] || typeKey || "—"}</span></td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap capitalize">{p.payment_mode || "—"}</td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
+                                        {approved && <span className="flex items-center gap-1 font-bold text-emerald-600"><CheckCircle2 size={8} className="sm:size-[9px]" />{p.status === "paid" ? "Paid" : "Approved"}</span>}
+                                        {rejected && <span className="flex items-center gap-1 font-bold text-red-500"><XCircle size={8} className="sm:size-[9px]" />{p.status === "failed" ? "Failed" : "Rejected"}</span>}
+                                        {!approved && !rejected && <span className="flex items-center gap-1 font-bold text-amber-600"><Clock size={8} className="sm:size-[9px]" />{p.status ?? "Pending"}</span>}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-emerald-50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-center">
+                              <p className="text-[8px] sm:text-[9px] font-bold text-emerald-600 uppercase tracking-wider" style={fontStyle}>Rent Paid</p>
+                              <p className="text-xs sm:text-sm font-black text-emerald-700">{formatINR(stayRentPaid)}</p>
+                            </div>
+                            <div className="bg-red-50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-center">
+                              <p className="text-[8px] sm:text-[9px] font-bold text-red-500 uppercase tracking-wider" style={fontStyle}>Penalty</p>
+                              <p className="text-xs sm:text-sm font-black text-red-600">{formatINR(stay.totalPenalty || 0)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+ 
+                    {section === "documents" && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { label: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url },
+                            { label: "Address Proof", type: tenant.address_proof_type, number: tenant.address_proof_number, url: tenant.address_proof_url },
+                            { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
+                          ].map(d => (
+                            <div key={d.label} className={`rounded-lg border p-2 sm:p-2.5 ${!d.url ? "border-dashed border-gray-200 bg-gray-50" : "border-gray-100 bg-white"}`}>
+                              <div className="flex items-start justify-between gap-1 mb-1">
+                                <FileText size={11} className="sm:size-[13px] text-blue-400" />
+                                <BadgePill variant={d.url ? "blue" : "gray"}>{d.url ? "Uploaded" : "Not Uploaded"}</BadgePill>
+                              </div>
+                              <p className="text-[9px] sm:text-[10px] font-bold text-gray-700" style={fontStyle}>{d.label}</p>
+                              {d.type && <p className="text-[8px] sm:text-[9px] text-gray-400" style={fontStyle}>{d.type}</p>}
+                              {d.number && <p className="text-[8px] sm:text-[9px] font-mono text-gray-500 mt-0.5">#{d.number}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+ 
+                      {section === "deposit" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ["Security Deposit", formatINR(stay.securityDeposit), "text-gray-900"],
+                            ["Deposit Paid", formatINR(stay.depositPaid), "text-emerald-600"],
+                            ...(stay.isVacatedRecord ? [
+                              ["Refund Amount", formatINR(stay.refundAmount ?? 0), "text-blue-600"],
+                              ["Refund Status", stay.refundStatus ?? "N/A", "text-amber-600"],
+                            ] : []),
+                          ].map(([k, v, c]) => (
+                            <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
+                              <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
+                              <p className={`text-xs sm:text-sm font-black mt-0.5 ${c}`} style={fontStyle}>{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+ 
+                      {section === "terms" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ["Lock-in", stay.lockInPeriod],
+                            ["Lock-in Penalty", tenant.lockin_penalty_amount ? (tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}%` : formatINR(tenant.lockin_penalty_amount)) : "—"],
+                            ["Notice", stay.noticePeriod],
+                            ["Notice Penalty", tenant.notice_penalty_amount ? (tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}%` : formatINR(tenant.notice_penalty_amount)) : "—"],
+                          ].map(([k, v]) => (
+                            <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
+                              <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
+                              <p className="text-[10px] sm:text-xs font-bold text-gray-800 mt-0.5" style={fontStyle}>{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+ 
+                      {section === "partner" && stay.partner && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            ["Name", stay.partner.name],
+                            ["Phone", stay.partner.phone],
+                            ["Relation", stay.partner.relation],
+                          ].map(([k, v]) => (
+                            <div key={k} className="bg-rose-50 rounded-lg p-2 sm:p-2.5">
+                              <p className="text-[8px] sm:text-[9px] text-rose-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
+                              <p className="text-[10px] sm:text-xs font-bold text-gray-800 mt-0.5" style={fontStyle}>{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -3800,7 +4339,12 @@ function HistoryTab({ tenant, assignment }: { tenant: any; assignment: any }) {
 
 // ─── ID Card Modal ────────────────────────────────────────────────────────────
 function TenantIdCard({ tenant, assignment, onClose }: { tenant: any; assignment: any; onClose: () => void }) {
-  const aadharNum = tenant.aadhar_number ?? null;
+  const aadharNum = tenant.aadhar_number ?? 
+    (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? 
+    (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? null;
+  const panNum = tenant.pan_number ?? 
+    (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? 
+    (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? null;
   const maskedAadhar = aadharNum ? `XXXX XXXX ${String(aadharNum).replace(/\s/g, "").slice(-4)}` : null;
   const stay = {
     room: assignment?.room?.room_number || "—",
@@ -3825,9 +4369,13 @@ function TenantIdCard({ tenant, assignment, onClose }: { tenant: any; assignment
 
   // ─── Print / PDF helpers for TenantIdCard ──────────────────────────────
 const buildCardHTML = () => {
-  const aadharNum = tenant.aadhar_number ?? null;
+   const aadharNum = tenant.aadhar_number ?? 
+    (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? 
+    (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? null;
+  const panNum = tenant.pan_number ?? 
+    (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? 
+    (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? null;
   const maskedAadhar = aadharNum ? `XXXX XXXX ${String(aadharNum).replace(/\s/g, "").slice(-4)}` : null;
-
   const stay = {
     room: assignment?.room?.room_number || "—",
     bed: assignment?.bed_number || "—",
@@ -3923,7 +4471,7 @@ const buildCardHTML = () => {
         <div class="bf"><div class="lbl">Phone</div><div class="val-mono">${tenant.country_code || ""} ${tenant.phone || "—"}</div></div>
         <div class="bf bf-full"><div class="lbl">Email</div><div class="val">${tenant.email || "—"}</div></div>
         ${aadharNum ? `<div class="bf"><div class="lbl">Aadhar No.</div><div class="val-mono">${maskedAadhar}</div></div>` : ""}
-        ${tenant.pan_number ? `<div class="bf"><div class="lbl">PAN No.</div><div class="val-mono">${tenant.pan_number}</div></div>` : ""}
+        ${panNum ? `<div class="bf"><div class="lbl">PAN No.</div><div class="val-mono">${panNum}</div></div>` : ""}
         <div class="bf bf-full"><div class="lbl">Address</div><div class="val">${tenant.address || "—"}</div></div>
         ${tenant.emergency_contact_name ? `<div class="bf bf-full"><div class="lbl">Emergency Contact</div><div class="val">${tenant.emergency_contact_name} · ${tenant.emergency_contact_phone || ""} (${tenant.emergency_contact_relation || ""})</div></div>` : ""}
       </div>
@@ -4022,7 +4570,7 @@ const handlePDF = () => {
             {[
               { label: "Phone", value: `${tenant.country_code || ""} ${tenant.phone || "—"}`, mono: true },
               { label: "Aadhar", value: maskedAadhar ?? "Not uploaded", mono: true },
-              { label: "PAN", value: tenant.pan_number ?? "Not provided", mono: true },
+              { label: "PAN", value: panNum ?? "Not provided", mono: true },
               { label: "Emergency", value: tenant.emergency_contact_name ?? "—", mono: false },
             ].map(({ label, value, mono }) => (
               <div key={label} className="bg-white rounded-lg border border-slate-100 px-2.5 py-2">
@@ -4054,12 +4602,12 @@ const handlePDF = () => {
 }
 
 // ─── Tabs config ──────────────────────────────────────────────────────────────
-const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+const TABS: { id: TabId; label: string; icon: React.ReactNode; countKey?: string }[] = [
   { id: "overview",   label: "Overview",     icon: <User size={12} /> },
   { id: "documents",  label: "Documents",    icon: <FileText size={12} /> },
   { id: "payments",   label: "Payments",     icon: <CreditCard size={12} /> },
   { id: "partner",    label: "Partner",      icon: <Heart size={12} /> },
-  { id: "history",    label: "Stay History", icon: <History size={12} /> },
+  { id: "history",    label: "Stay History", icon: <History size={12} />, countKey: "stayHistory" },
 ];
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -4089,10 +4637,10 @@ const [editInitialTab, setEditInitialTab] = useState<string>("basic");
   }, [tid]);
 
   useEffect(() => {
-    if (activeTab === "payments" && tid && effectiveTenantIdForPayments) {
-      loadPayments();
-    }
-  }, [activeTab, tid, effectiveTenantIdForPayments]);
+  if (tid && effectiveTenantIdForPayments) {
+    loadPayments();
+  }
+}, [tid, effectiveTenantIdForPayments]);
 
   const loadTenant = async () => {
     try {
@@ -4199,7 +4747,7 @@ const [editInitialTab, setEditInitialTab] = useState<string>("basic");
                 const propResult = await propRes.json();
                 assignmentData = {
                   id: bedData.id, bed_number: bedData.bed_number, bed_type: bedData.bed_type,
-                  tenant_rent: bedData.tenant_rent, is_couple: bedData.is_couple === 1,
+                  tenant_rent: bedData.tenant_rent, security_deposit: raw.security_deposit, is_couple: bedData.is_couple === 1,
                   is_vacated: true, vacated_date: vacateRecord.requested_vacate_date,
                   room: { id: roomData.id, room_number: roomData.room_number, floor: roomData.floor, sharing_type: roomData.sharing_type },
                   property: { id: propResult.data.id, name: propResult.data.name, address: propResult.data.address },
@@ -4215,7 +4763,7 @@ const [editInitialTab, setEditInitialTab] = useState<string>("basic");
             if (raw?.id) {
               assignmentData = {
                 id: raw.id, bed_number: raw.bed_number, bed_type: raw.bed_type,
-                tenant_rent: raw.tenant_rent, is_couple: raw.is_couple === 1 || raw.is_couple === true,
+                tenant_rent: raw.tenant_rent,security_deposit: raw.security_deposit, is_couple: raw.is_couple === 1 || raw.is_couple === true,
                 room: { id: raw.room?.id || raw.room_id, room_number: raw.room?.room_number || raw.room_number, floor: raw.room?.floor || raw.floor, sharing_type: raw.room?.sharing_type || raw.sharing_type },
                 property: { id: raw.property?.id || raw.property_id, name: raw.property?.name || raw.property_name },
               };
@@ -4383,98 +4931,110 @@ const handleUploadDoc = (docType: string) => {
   })();
 
   return (
-    <div className="min-h-screen bg-slate-100" style={fontStyle}>
+    <div className=" bg-slate-100" style={fontStyle}>
       <div className="max-w-9xl mx-auto px-2 sm:px-2 py-4 space-y-3">
 
         {/* ── Tenant Header (Roomac brand dark) ── */}
-        <div className="rounded-xl shadow-lg overflow-hidden border border-[#0D2567]/40" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 100%)" }}>
-          <div className="flex items-stretch min-h-[60px] flex-wrap sm:flex-nowrap">
+     <div className="rounded-xl shadow-lg overflow-hidden border border-[#0D2567]/40" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 100%)" }}>
+  <div className="overflow-x-auto">
+    <div className="flex items-stretch min-h-[50px] sm:min-h-[60px] flex-nowrap w-max sm:w-full px-2 sm:px-0 py-2 sm:py-0">
 
-            {/* Left — back + identity */}
-            <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 border-r border-white/10">
-              <button onClick={() => router.back()}
-                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white flex-shrink-0">
-                <ArrowLeft size={13} />
-              </button>
-              <div className="relative flex-shrink-0">
-                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-white font-black text-sm shadow-lg ring-2 ring-[#F5A623]/40"
-                  style={{ background: "linear-gradient(135deg, #F5A623, #d97706)" }}>
-                  {tenant.photo_url ? (
-                    <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
-                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ) : tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}
-                </div>
-                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0D2567] ${tenant.is_active ? "bg-emerald-400" : "bg-slate-500"}`} />
-              </div>
-              <div className="min-w-0">
-                <span className="text-sm font-black text-white whitespace-nowrap block">
-                  {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
-                </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <BadgePill variant={tenant.is_active ? "green" : vacateRecord ? "red" : "gray"}>
-                    {tenant.is_active ? "Active" : vacateRecord ? "Vacated" : "Inactive"}
-                  </BadgePill>
-                  <span className="text-[9px] text-blue-300 font-mono">#{tenant.id}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Centre — stat pills */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10 min-w-0">
-              {[
-                { title: "Member Since", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A", icon: <CalendarDays size={11} />, color: "text-[#F5A623]" },
-                { title: "Monthly Rent", value: rentVal, icon: <IndianRupee size={11} />, color: "text-emerald-400" },
-                { title: "Room / Bed", value: roomVal, icon: <BedDouble size={11} />, color: "text-violet-300" },
-                { title: "Property", value: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned", icon: <Building2 size={11} />, color: "text-amber-300" },
-              ].map(({ title, value, icon, color }) => (
-                <div key={title} className="flex items-center gap-2 px-3 py-3 hover:bg-white/5 transition-colors min-w-0">
-                  <span className={`flex-shrink-0 ${color}`}>{icon}</span>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest truncate">{title}</p>
-                    <p className="text-[11px] font-bold text-white truncate mt-0.5">{value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Right — created + vacated */}
-            <div className="flex flex-col justify-center items-end gap-1.5 px-4 py-3 flex-shrink-0 border-l border-white/10">
-              <div className="flex flex-col items-end gap-0.5">
-                <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest">Created</p>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-white">
-                  <Calendar size={10} className="text-blue-300" />
-                  {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
-                </div>
-              </div>
-              {vacateRecord && (
-                <div className="flex flex-col items-end gap-0.5">
-                  <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest">Vacated</p>
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-red-400">
-                    <LogOut size={10} />
-                    {new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* Left — back + identity */}
+      <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 flex-shrink-0 border-r border-white/10">
+        <button onClick={() => router.back()}
+          className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white flex-shrink-0">
+          <ArrowLeft size={11} className="sm:size-[13px]" />
+        </button>
+        <div className="relative flex-shrink-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden flex items-center justify-center text-white font-black text-xs sm:text-sm shadow-lg ring-2 ring-[#F5A623]/40"
+            style={{ background: "linear-gradient(135deg, #F5A623, #d97706)" }}>
+            {tenant.photo_url ? (
+              <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            ) : tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+          </div>
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-[#0D2567] ${tenant.is_active ? "bg-emerald-400" : "bg-slate-500"}`} />
+        </div>
+        <div className="min-w-0">
+          <span className="text-[11px] sm:text-sm font-black text-white whitespace-nowrap block">
+            {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
+          </span>
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
+            <BadgePill variant={tenant.is_active ? "green" : vacateRecord ? "red" : "gray"}>
+              {tenant.is_active ? "Active" : vacateRecord ? "Vacated" : "Inactive"}
+            </BadgePill>
+            <span className="text-[8px] sm:text-[9px] text-blue-300 font-mono">#{tenant.id}</span>
           </div>
         </div>
+      </div>
+
+      {/* Centre — stat pills (flex row on mobile, grid on desktop) */}
+      <div className="flex-1 flex flex-nowrap sm:grid sm:grid-cols-4 divide-x divide-white/10 min-w-0">
+        {[
+          { title: "Member Since", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A", icon: <CalendarDays size={9} className="sm:size-[11px]" />, color: "text-[#F5A623]" },
+          { title: "Monthly Rent", value: rentVal, icon: <IndianRupee size={9} className="sm:size-[11px]" />, color: "text-emerald-400" },
+          { title: "Room / Bed", value: roomVal, icon: <BedDouble size={9} className="sm:size-[11px]" />, color: "text-violet-300" },
+          { title: "Property", value: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned", icon: <Building2 size={9} className="sm:size-[11px]" />, color: "text-amber-300" },
+        ].map(({ title, value, icon, color }) => (
+          <div key={title} className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 hover:bg-white/5 transition-colors min-w-0 flex-shrink-0">
+            <span className={`flex-shrink-0 ${color}`}>{icon}</span>
+            <div className="min-w-0">
+              <p className="text-[8px] sm:text-[9px] font-bold text-blue-300 uppercase tracking-widest truncate">{title}</p>
+              <p className="text-[10px] sm:text-[11px] font-bold text-white truncate mt-0.5">{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Right — created + vacated */}
+      <div className="flex flex-col justify-center items-end gap-1 px-2 sm:px-4 py-2 sm:py-3 flex-shrink-0 border-l border-white/10">
+        <div className="flex flex-col items-end gap-0.5">
+          <p className="text-[8px] sm:text-[9px] font-bold text-blue-300 uppercase tracking-widest">Created</p>
+          <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] font-bold text-white">
+            <Calendar size={8} className="sm:size-[10px] text-blue-300" />
+            {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+          </div>
+        </div>
+        {vacateRecord && (
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-[8px] sm:text-[9px] font-bold text-blue-300 uppercase tracking-widest">Vacated</p>
+            <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] font-bold text-red-400">
+              <LogOut size={8} className="sm:size-[10px]" />
+              {new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
 
         {/* ── Tab content ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="border-b border-slate-100 overflow-x-auto" style={{ background: "#f8fafc" }}>
-            <div className="flex min-w-max px-1 pt-1">
-              {TABS.map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-t-lg mr-0.5 transition-all border-b-2 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "text-[#1B3FA0] bg-white shadow-sm"
-                      : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-white/70"
-                  }`}
-                  style={{ borderBottomColor: activeTab === tab.id ? "#1B3FA0" : "transparent", ...fontStyle }}
-                >
-                  {tab.icon} {tab.label}
-                </button>
-              ))}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto max-h-[520px]">
+          <div className="border-b border-slate-100 overflow-x-auto sticky top-0 z-10" style={{ background: "#f8fafc" }}>
+            <div className="flex min-w-max px-1 pt-1 sticky top-0 z-10">
+              {TABS.map(tab => {
+                const stayCount = tab.countKey === "stayHistory"
+                  ? (tenant?.vacate_records?.length ?? 0) + (tenant?.is_active && !(tenant?.vacate_records?.length > 0) ? 1 : 0)
+                  : 0;
+                return (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-t-lg mr-0.5 transition-all border-b-2 whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? "text-[#1B3FA0] bg-white shadow-sm"
+                        : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-white/70"
+                    }`}
+                    style={{ borderBottomColor: activeTab === tab.id ? "#1B3FA0" : "transparent", ...fontStyle }}
+                  >
+                    {tab.icon} {tab.label}
+                    {tab.countKey && stayCount > 0 && (
+                      <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-[#1B3FA0] text-white">
+                        {stayCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -4483,6 +5043,8 @@ const handleUploadDoc = (docType: string) => {
               <OverviewTab
                 tenant={tenant}
                 assignment={assignment}
+                    paymentSummary={paymentSummary}
+ payments={payments} 
                 onIdCard={() => setShowIdCard(true)}
                 onEdit={handleEdit}
                 copiedEmail={copiedEmail}
@@ -4503,8 +5065,14 @@ const handleUploadDoc = (docType: string) => {
               />
             )}
             {activeTab === "partner" && <PartnerTab partnerDetails={partnerDetails} onView={viewDoc} />}
-            {activeTab === "history" && <HistoryTab tenant={tenant} assignment={assignment} />}
-          </div>
+{activeTab === "history" && (
+  <HistoryTab
+    tenant={tenant}
+    assignment={assignment}
+    payments={payments}
+    paymentSummary={paymentSummary}
+  />
+)}          </div>
         </div>
       </div>
 

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { getSettings, getSettingValue } from "@/lib/settingsApi";
 import { useAuth } from "@/context/authContext";
 import { getSubcategoriesByCategory } from "@/lib/categorySubcategoryMapApi";
-import { AlertCircle, Building2, Calendar, CheckCircle, Clock, CreditCard, Edit, Edit2, Eye, Filter, IndianRupeeIcon, Package, Pencil, Plus, Printer, Repeat, Trash2, Upload, Wallet, X } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckCircle, Clock, CreditCard, Edit, Edit2, Eye, FileText, Filter, IndianRupeeIcon, Package, Pencil, Plus, Printer, Repeat, Trash2, Upload, Wallet, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Download, Upload as UploadIcon } from "lucide-react";
 /* ─── tiny helpers ─────────────────────────────────────────────────────────── */
@@ -438,7 +438,9 @@ const importFileRef = useRef<HTMLInputElement>(null);
     // Add these states for payment history
   const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
-
+// Receipt Preview Modal state
+const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
+const [receiptExpense, setReceiptExpense] = useState<any>(null);
   // Auth
   const { can, user } = useAuth();
 
@@ -663,272 +665,281 @@ const loadExpenses = useCallback(async () => {
   };
 
   /* ── Print expense as a proper receipt ───────────────────────────────────── */
-  const printExpense = (exp: any) => {
-    if (!exp) return;
+  // const printExpense = (exp: any) => {
+  //   if (!exp) return;
 
-    const totalPaid = paymentTransactions.length
-      ? paymentTransactions.reduce((s, t) => s + (parseFloat(t.paid_amount) || 0), 0)
-      : Number(exp.total_paid || 0);
-    const totalAmt = Number(exp.total_amount || exp.amount || 0);
-    const balanceAmt = totalAmt - totalPaid;
+  //   const totalPaid = paymentTransactions.length
+  //     ? paymentTransactions.reduce((s, t) => s + (parseFloat(t.paid_amount) || 0), 0)
+  //     : Number(exp.total_paid || 0);
+  //   const totalAmt = Number(exp.total_amount || exp.amount || 0);
+  //   const balanceAmt = totalAmt - totalPaid;
 
-    const validItems = (exp.items || []).filter(
-      (i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name
-    );
+  //   const validItems = (exp.items || []).filter(
+  //     (i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name
+  //   );
 
-    const itemsRows = validItems
-      .map(
-        (i: any, idx: number) => `
-        <tr>
-          <td class="num">${idx + 1}</td>
-          <td>${i.name || i.item_name || "—"}</td>
-          <td>${i.sub_category || i.sub_category_name || "—"}</td>
-          <td class="num">${i.qty || i.quantity || "—"}</td>
-          <td class="num">${fmt(i.price || i.unit_price || 0)}</td>
-          <td class="num">${fmt(Number(i.qty || i.quantity || 0) * Number(i.price || i.unit_price || 0))}</td>
-        </tr>`
-      )
-      .join("");
+  //   const itemsRows = validItems
+  //     .map(
+  //       (i: any, idx: number) => `
+  //       <tr>
+  //         <td class="num">${idx + 1}</td>
+  //         <td>${i.name || i.item_name || "—"}</td>
+  //         <td>${i.sub_category || i.sub_category_name || "—"}</td>
+  //         <td class="num">${i.qty || i.quantity || "—"}</td>
+  //         <td class="num">${fmt(i.price || i.unit_price || 0)}</td>
+  //         <td class="num">${fmt(Number(i.qty || i.quantity || 0) * Number(i.price || i.unit_price || 0))}</td>
+  //       </tr>`
+  //     )
+  //     .join("");
 
-    const paymentRows = (paymentTransactions || [])
-      .map(
-        (t: any) => `
-        <tr>
-          <td>${fmtDate(t.transaction_date?.split("T")[0] || t.created_at?.split("T")[0])}</td>
-          <td>${t.payment_mode || "—"}</td>
-          <td>${t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || "—"}</td>
-          <td class="num">${fmt(t.paid_amount)}</td>
-        </tr>`
-      )
-      .join("");
+  //   const paymentRows = (paymentTransactions || [])
+  //     .map(
+  //       (t: any) => `
+  //       <tr>
+  //         <td>${fmtDate(t.transaction_date?.split("T")[0] || t.created_at?.split("T")[0])}</td>
+  //         <td>${t.payment_mode || "—"}</td>
+  //         <td>${t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || "—"}</td>
+  //         <td class="num">${fmt(t.paid_amount)}</td>
+  //       </tr>`
+  //     )
+  //     .join("");
 
-    const statusColor =
-      exp.status === "Paid" ? "#16a34a" : exp.status === "Partial" ? "#d97706" : "#dc2626";
-    const statusBg =
-      exp.status === "Paid" ? "#dcfce7" : exp.status === "Partial" ? "#fef3c7" : "#fee2e2";
-    const statusLabel = exp.status === "Paid" ? "PAID" : exp.status === "Partial" ? "PARTIAL" : "UNPAID";
+  //   const statusColor =
+  //     exp.status === "Paid" ? "#16a34a" : exp.status === "Partial" ? "#d97706" : "#dc2626";
+  //   const statusBg =
+  //     exp.status === "Paid" ? "#dcfce7" : exp.status === "Partial" ? "#fef3c7" : "#fee2e2";
+  //   const statusLabel = exp.status === "Paid" ? "PAID" : exp.status === "Partial" ? "PARTIAL" : "UNPAID";
 
-    const isPdf = exp.receipt_name?.toLowerCase().endsWith(".pdf");
-    const receiptHtml = exp.receipt_url
-      ? isPdf
-        ? `<div class="section-title">Attached Receipt</div><iframe src="${exp.receipt_url}" class="receipt-frame"></iframe>`
-        : `<div class="section-title">Attached Receipt</div><img class="receipt-img" src="${exp.receipt_url}" />`
-      : "";
+  //   const isPdf = exp.receipt_name?.toLowerCase().endsWith(".pdf");
+  //   const receiptHtml = exp.receipt_url
+  //     ? isPdf
+  //       ? `<div class="section-title">Attached Receipt</div><iframe src="${exp.receipt_url}" class="receipt-frame"></iframe>`
+  //       : `<div class="section-title">Attached Receipt</div><img class="receipt-img" src="${exp.receipt_url}" />`
+  //     : "";
 
-    const win = window.open("", "_blank", "width=820,height=1000");
-    if (!win) return;
+  //   const win = window.open("", "_blank", "width=820,height=1000");
+  //   if (!win) return;
 
-    win.document.write(`
-      <html>
-        <head>
-          <title>Receipt - ${exp.vendor_name || exp.category_name || "Expense"}</title>
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
-            body { background: #F4F6FB; padding: 24px; color: #1A2B6D; }
-            .sheet {
-              max-width: 720px;
-              margin: 0 auto;
-              background: #fff;
-              border-radius: 14px;
-              overflow: hidden;
-              box-shadow: 0 4px 24px rgba(26,43,109,0.08);
-              border: 1px solid #E2E8F4;
-            }
-            .head {
-              background: linear-gradient(135deg, #0A1F5C, #1E4ED8);
-              color: #fff;
-              padding: 22px 28px;
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-            }
-            .head .brand { display: flex; align-items: center; gap: 10px; }
-            .head .brand img { height: 36px; max-width: 120px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
-            .head .brand-name { font-size: 19px; font-weight: 800; letter-spacing: 0.3px; }
-            .head .brand-sub { font-size: 10px; color: #BFD0FF; margin-top: 2px; }
-            .head .receipt-tag { text-align: right; }
-            .head .receipt-tag .label { font-size: 11px; letter-spacing: 1.5px; color: #BFD0FF; text-transform: uppercase; }
-            .head .receipt-tag .num { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  //   win.document.write(`
+  //     <html>
+  //       <head>
+  //         <title>Receipt - ${exp.vendor_name || exp.category_name || "Expense"}</title>
+  //         <style>
+  //           * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
+  //           body { background: #F4F6FB; padding: 24px; color: #1A2B6D; }
+  //           .sheet {
+  //             max-width: 720px;
+  //             margin: 0 auto;
+  //             background: #fff;
+  //             border-radius: 14px;
+  //             overflow: hidden;
+  //             box-shadow: 0 4px 24px rgba(26,43,109,0.08);
+  //             border: 1px solid #E2E8F4;
+  //           }
+  //           .head {
+  //             background: linear-gradient(135deg, #0A1F5C, #1E4ED8);
+  //             color: #fff;
+  //             padding: 22px 28px;
+  //             display: flex;
+  //             justify-content: space-between;
+  //             align-items: flex-start;
+  //           }
+  //           .head .brand { display: flex; align-items: center; gap: 10px; }
+  //           .head .brand img { height: 36px; max-width: 120px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
+  //           .head .brand-name { font-size: 19px; font-weight: 800; letter-spacing: 0.3px; }
+  //           .head .brand-sub { font-size: 10px; color: #BFD0FF; margin-top: 2px; }
+  //           .head .receipt-tag { text-align: right; }
+  //           .head .receipt-tag .label { font-size: 11px; letter-spacing: 1.5px; color: #BFD0FF; text-transform: uppercase; }
+  //           .head .receipt-tag .num { font-size: 15px; font-weight: 700; margin-top: 2px; }
 
-            .meta-bar {
-              display: flex;
-              justify-content: space-between;
-              padding: 14px 28px;
-              background: #F8FAFF;
-              border-bottom: 1px solid #E2E8F4;
-              font-size: 11px;
-              color: #5A6480;
-            }
-            .meta-bar div span { display:block; font-weight: 700; color: #1A2B6D; font-size: 12.5px; margin-top:2px; }
+  //           .meta-bar {
+  //             display: flex;
+  //             justify-content: space-between;
+  //             padding: 14px 28px;
+  //             background: #F8FAFF;
+  //             border-bottom: 1px solid #E2E8F4;
+  //             font-size: 11px;
+  //             color: #5A6480;
+  //           }
+  //           .meta-bar div span { display:block; font-weight: 700; color: #1A2B6D; font-size: 12.5px; margin-top:2px; }
 
-            .body-pad { padding: 22px 28px; }
+  //           .body-pad { padding: 22px 28px; }
 
-            .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
-            .field .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #8892A4; font-weight: 700; }
-            .field .value { font-size: 13px; font-weight: 600; margin-top: 3px; color: #1A2B6D; }
+  //           .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  //           .field .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #8892A4; font-weight: 700; }
+  //           .field .value { font-size: 13px; font-weight: 600; margin-top: 3px; color: #1A2B6D; }
 
-            .status-chip {
-              display: inline-block;
-              padding: 3px 10px;
-              border-radius: 20px;
-              font-size: 11px;
-              font-weight: 800;
-              letter-spacing: 0.5px;
-              color: ${statusColor};
-              background: ${statusBg};
-            }
+  //           .status-chip {
+  //             display: inline-block;
+  //             padding: 3px 10px;
+  //             border-radius: 20px;
+  //             font-size: 11px;
+  //             font-weight: 800;
+  //             letter-spacing: 0.5px;
+  //             color: ${statusColor};
+  //             background: ${statusBg};
+  //           }
 
-            .section-title {
-              font-size: 11.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 0.6px;
-              color: #3B5BDB;
-              margin: 22px 0 10px;
-              padding-bottom: 6px;
-              border-bottom: 2px solid #E2E8F4;
-            }
+  //           .section-title {
+  //             font-size: 11.5px;
+  //             font-weight: 800;
+  //             text-transform: uppercase;
+  //             letter-spacing: 0.6px;
+  //             color: #3B5BDB;
+  //             margin: 22px 0 10px;
+  //             padding-bottom: 6px;
+  //             border-bottom: 2px solid #E2E8F4;
+  //           }
 
-            table { width: 100%; border-collapse: collapse; }
-            thead th {
-              background: #F0F3FF;
-              color: #3B5BDB;
-              font-size: 10px;
-              text-transform: uppercase;
-              letter-spacing: 0.4px;
-              text-align: left;
-              padding: 8px 8px;
-              font-weight: 700;
-            }
-            tbody td {
-              padding: 7px 8px;
-              font-size: 12px;
-              border-bottom: 1px solid #EFF2FA;
-              color: #374151;
-            }
-            td.num, th.num { text-align: right; }
-            td:first-child.num { text-align: center; }
+  //           table { width: 100%; border-collapse: collapse; }
+  //           thead th {
+  //             background: #F0F3FF;
+  //             color: #3B5BDB;
+  //             font-size: 10px;
+  //             text-transform: uppercase;
+  //             letter-spacing: 0.4px;
+  //             text-align: left;
+  //             padding: 8px 8px;
+  //             font-weight: 700;
+  //           }
+  //           tbody td {
+  //             padding: 7px 8px;
+  //             font-size: 12px;
+  //             border-bottom: 1px solid #EFF2FA;
+  //             color: #374151;
+  //           }
+  //           td.num, th.num { text-align: right; }
+  //           td:first-child.num { text-align: center; }
 
-            .totals {
-              margin-top: 14px;
-              margin-left: auto;
-              width: 280px;
-            }
-            .totals .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; }
-            .totals .row.label-muted { color: #8892A4; }
-            .totals .row.grand {
-              border-top: 2px solid #1A2B6D;
-              margin-top: 4px;
-              padding-top: 10px;
-              font-size: 15px;
-              font-weight: 800;
-              color: #1A2B6D;
-            }
-            .totals .row.paid { color: #16a34a; font-weight: 700; }
-            .totals .row.balance { color: #d97706; font-weight: 700; }
+  //           .totals {
+  //             margin-top: 14px;
+  //             margin-left: auto;
+  //             width: 280px;
+  //           }
+  //           .totals .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; }
+  //           .totals .row.label-muted { color: #8892A4; }
+  //           .totals .row.grand {
+  //             border-top: 2px solid #1A2B6D;
+  //             margin-top: 4px;
+  //             padding-top: 10px;
+  //             font-size: 15px;
+  //             font-weight: 800;
+  //             color: #1A2B6D;
+  //           }
+  //           .totals .row.paid { color: #16a34a; font-weight: 700; }
+  //           .totals .row.balance { color: #d97706; font-weight: 700; }
 
-            .notes-box {
-              background: #F8FAFF;
-              border: 1px solid #E2E8F4;
-              border-radius: 8px;
-              padding: 10px 12px;
-              font-size: 12px;
-              color: #374151;
-              margin-top: 6px;
-            }
+  //           .notes-box {
+  //             background: #F8FAFF;
+  //             border: 1px solid #E2E8F4;
+  //             border-radius: 8px;
+  //             padding: 10px 12px;
+  //             font-size: 12px;
+  //             color: #374151;
+  //             margin-top: 6px;
+  //           }
 
-            .receipt-img { max-width: 100%; max-height: 380px; margin-top: 8px; border: 1px solid #E2E8F4; border-radius: 8px; display: block; }
-            .receipt-frame { width: 100%; height: 380px; border: 1px solid #E2E8F4; border-radius: 8px; margin-top: 8px; }
+  //           .receipt-img { max-width: 100%; max-height: 380px; margin-top: 8px; border: 1px solid #E2E8F4; border-radius: 8px; display: block; }
+  //           .receipt-frame { width: 100%; height: 380px; border: 1px solid #E2E8F4; border-radius: 8px; margin-top: 8px; }
 
-            .foot {
-              padding: 16px 28px 24px;
-              text-align: center;
-              font-size: 10.5px;
-              color: #9AA3B5;
-              border-top: 1px dashed #E2E8F4;
-              margin-top: 10px;
-            }
-            .foot .thanks { font-size: 12px; font-weight: 700; color: #3B5BDB; margin-bottom: 4px; }
+  //           .foot {
+  //             padding: 16px 28px 24px;
+  //             text-align: center;
+  //             font-size: 10.5px;
+  //             color: #9AA3B5;
+  //             border-top: 1px dashed #E2E8F4;
+  //             margin-top: 10px;
+  //           }
+  //           .foot .thanks { font-size: 12px; font-weight: 700; color: #3B5BDB; margin-bottom: 4px; }
 
-            @media print {
-              body { background: #fff; padding: 0; }
-              .sheet { box-shadow: none; border: none; border-radius: 0; max-width: 100%; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="sheet">
-            <div class="head">
-              <div class="brand">
-                ${siteSettings.logo ? `<img src="${siteSettings.logo}" />` : ""}
-                <div>
-                  <div class="brand-name">${siteSettings.siteName}</div>
-                  <div class="brand-sub">${siteSettings.address || ""}</div>
-                </div>
-              </div>
-              <div class="receipt-tag">
-                <div class="label">Expense Receipt</div>
-                <div class="num">#${String(exp.id).padStart(5, "0")}</div>
-              </div>
-            </div>
+  //           @media print {
+  //             body { background: #fff; padding: 0; }
+  //             .sheet { box-shadow: none; border: none; border-radius: 0; max-width: 100%; }
+  //           }
+  //         </style>
+  //       </head>
+  //       <body>
+  //         <div class="sheet">
+  //           <div class="head">
+  //             <div class="brand">
+  //               ${siteSettings.logo ? `<img src="${siteSettings.logo}" />` : ""}
+  //               <div>
+  //                 <div class="brand-name">${siteSettings.siteName}</div>
+  //                 <div class="brand-sub">${siteSettings.address || ""}</div>
+  //               </div>
+  //             </div>
+  //             <div class="receipt-tag">
+  //               <div class="label">Expense Receipt</div>
+  //               <div class="num">#${String(exp.id).padStart(5, "0")}</div>
+  //             </div>
+  //           </div>
 
-            <div class="meta-bar">
-              <div>Expense Date<span>${fmtDate(exp.expense_date)}</span></div>
-              <div>Property<span>${exp.property_name || "—"}</span></div>
-              <div style="text-align:right;">Status<span><span class="status-chip">${statusLabel}</span></span></div>
-            </div>
+  //           <div class="meta-bar">
+  //             <div>Expense Date<span>${fmtDate(exp.expense_date)}</span></div>
+  //             <div>Property<span>${exp.property_name || "—"}</span></div>
+  //             <div style="text-align:right;">Status<span><span class="status-chip">${statusLabel}</span></span></div>
+  //           </div>
 
-            <div class="body-pad">
-              <div class="grid3">
-                <div class="field"><div class="label">Category</div><div class="value">${exp.category_name || "—"}</div></div>
-                <div class="field"><div class="label">Sub Category</div><div class="value">${exp.sub_category_name || "—"}</div></div>
-                <div class="field"><div class="label">Vendor</div><div class="value">${exp.vendor_name || "—"}</div></div>
-                <div class="field"><div class="label">Added By</div><div class="value">${exp.added_by_name || "—"}</div></div>
-                <div class="field"><div class="label">Payment Mode</div><div class="value">${exp.payment_mode || "—"}</div></div>
-                <div class="field"><div class="label">Reference</div><div class="value">${exp.transaction_id || exp.cheque_no || exp.upi_id || exp.card_ref || "—"}</div></div>
-              </div>
+  //           <div class="body-pad">
+  //             <div class="grid3">
+  //               <div class="field"><div class="label">Category</div><div class="value">${exp.category_name || "—"}</div></div>
+  //               <div class="field"><div class="label">Sub Category</div><div class="value">${exp.sub_category_name || "—"}</div></div>
+  //               <div class="field"><div class="label">Vendor</div><div class="value">${exp.vendor_name || "—"}</div></div>
+  //               <div class="field"><div class="label">Added By</div><div class="value">${exp.added_by_name || "—"}</div></div>
+  //               <div class="field"><div class="label">Payment Mode</div><div class="value">${exp.payment_mode || "—"}</div></div>
+  //               <div class="field"><div class="label">Reference</div><div class="value">${exp.transaction_id || exp.cheque_no || exp.upi_id || exp.card_ref || "—"}</div></div>
+  //             </div>
 
-              ${itemsRows ? `
-              <div class="section-title">Purchase Items</div>
-              <table>
-                <thead><tr><th class="num">#</th><th>Item</th><th>Sub Category</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead>
-                <tbody>${itemsRows}</tbody>
-              </table>` : ""}
+  //             ${itemsRows ? `
+  //             <div class="section-title">Purchase Items</div>
+  //             <table>
+  //               <thead><tr><th class="num">#</th><th>Item</th><th>Sub Category</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead>
+  //               <tbody>${itemsRows}</tbody>
+  //             </table>` : ""}
 
-              ${paymentRows ? `
-              <div class="section-title">Payment History</div>
-              <table>
-                <thead><tr><th>Date</th><th>Mode</th><th>Reference</th><th class="num">Amount</th></tr></thead>
-                <tbody>${paymentRows}</tbody>
-              </table>` : ""}
+  //             ${paymentRows ? `
+  //             <div class="section-title">Payment History</div>
+  //             <table>
+  //               <thead><tr><th>Date</th><th>Mode</th><th>Reference</th><th class="num">Amount</th></tr></thead>
+  //               <tbody>${paymentRows}</tbody>
+  //             </table>` : ""}
 
-              <div class="totals">
-                <div class="row grand"><span>Total Amount</span><span>${fmt(totalAmt)}</span></div>
-                <div class="row paid"><span>Paid</span><span>${fmt(totalPaid)}</span></div>
-                <div class="row balance"><span>Balance Due</span><span>${fmt(balanceAmt)}</span></div>
-              </div>
+  //             <div class="totals">
+  //               <div class="row grand"><span>Total Amount</span><span>${fmt(totalAmt)}</span></div>
+  //               <div class="row paid"><span>Paid</span><span>${fmt(totalPaid)}</span></div>
+  //               <div class="row balance"><span>Balance Due</span><span>${fmt(balanceAmt)}</span></div>
+  //             </div>
 
-              ${exp.notes ? `
-              <div class="section-title">Notes</div>
-              <div class="notes-box">${exp.notes}</div>` : ""}
+  //             ${exp.notes ? `
+  //             <div class="section-title">Notes</div>
+  //             <div class="notes-box">${exp.notes}</div>` : ""}
 
-              ${receiptHtml}
-            </div>
+  //             ${receiptHtml}
+  //           </div>
 
-            <div class="foot">
-              <div class="thanks">Thank you</div>
-              ${siteSettings.email || siteSettings.phone ? `${siteSettings.email || ""} ${siteSettings.email && siteSettings.phone ? "•" : ""} ${siteSettings.phone || ""}` : ""}
-              <div style="margin-top:4px;">Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500);
-  };
+  //           <div class="foot">
+  //             <div class="thanks">Thank you</div>
+  //             ${siteSettings.email || siteSettings.phone ? `${siteSettings.email || ""} ${siteSettings.email && siteSettings.phone ? "•" : ""} ${siteSettings.phone || ""}` : ""}
+  //             <div style="margin-top:4px;">Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+  //           </div>
+  //         </div>
+  //       </body>
+  //     </html>
+  //   `);
+  //   win.document.close();
+  //   win.focus();
+  //   setTimeout(() => win.print(), 500);
+  // };
 
+
+// Open receipt preview modal instead of new window
+const openReceiptPreview = (exp: any) => {
+  if (!exp) return;
+  setReceiptExpense(exp);
+  setIsReceiptPreviewOpen(true);
+  fetchPaymentTransactions(exp.id); // load payment history for the modal
+};
+  
 const handleDownloadTemplate = () => {
   const headers = [
     "Property", "Items", "Qty", "UnitPrice",
@@ -2989,7 +3000,7 @@ useEffect(() => {
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={() => printExpense(viewItem)}
+onClick={() => openReceiptPreview(viewItem)}
             title="Print"
             className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
           >
@@ -3115,7 +3126,7 @@ useEffect(() => {
                 Open Receipt
               </a>
               <button
-                onClick={() => printExpense(viewItem)}
+onClick={() => openReceiptPreview(viewItem)}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
               >
                 <Printer className="h-3 w-3" /> Print Receipt
@@ -3215,7 +3226,7 @@ useEffect(() => {
       {/* Footer */}
       <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
         <button
-          onClick={() => printExpense(viewItem)}
+onClick={() => openReceiptPreview(viewItem)}
           className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
         >
           <Printer className="h-3.5 w-3.5" /> Print
@@ -3225,6 +3236,323 @@ useEffect(() => {
           className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
         >
           Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+{/* ── EXPENSE RECEIPT PREVIEW MODAL ── */}
+{isReceiptPreviewOpen && receiptExpense && (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm">
+    <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+            <FileText className="h-3.5 w-3.5" />
+            Expense Receipt
+          </h2>
+          <p className="text-[10px] leading-tight text-blue-100">
+            Receipt #{String(receiptExpense.id).padStart(5, '0')} • {receiptExpense.vendor_name || receiptExpense.category_name}
+          </p>
+        </div>
+        <button
+          onClick={() => setIsReceiptPreviewOpen(false)}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+        >
+          <X className="h-3.5 w-3.5 text-white" />
+        </button>
+      </div>
+
+      {/* Scrollable Receipt Content */}
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+       <div id="receipt-print-area" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm relative overflow-hidden">
+  
+  {/* ─── WATERMARK: full site name, diagonal (bottom-left to top-right) ─── */}
+  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+  <span
+    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+               text-[90px] font-black text-slate-200/50
+               whitespace-nowrap"
+  >
+    {siteSettings.siteName?.split(" ")[0]}
+  </span>
+</div>
+
+  {/* ─── HEADER: Logo left · Site Name center · Receipt No. (format: REC-0067-2606) ─── */}
+  <div className="flex items-center border-b border-slate-200 pb-3 mb-3 relative z-10">
+    <div className="w-28 flex-shrink-0">
+      {siteSettings.logo && (
+        <img
+          src={siteSettings.logo}
+          alt={siteSettings.siteName}
+          className="h-20 w-auto object-contain"
+          onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+        />
+      )}
+    </div>
+   <div className="flex-1 text-center">
+  <h2 className="text-lg font-bold text-slate-800">
+    {siteSettings.siteName}
+  </h2>
+
+  <p className="text-sm font-semibold text-slate-700">
+    Expense Receipt
+  </p>
+</div>
+    <div className="w-28 text-right text-[10px] text-slate-400">
+      <div>
+        <span className="block font-semibold text-slate-600">Receipt No.</span>
+    <span className="text-[10px]">
+  REC-{String(receiptExpense.id).padStart(4, '0')}-
+  {(() => {
+    const date = receiptExpense.expense_date
+      ? new Date(receiptExpense.expense_date)
+      : new Date();
+
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+
+    return `${mm}${yyyy}`;
+  })()}
+</span>
+      </div>
+    </div>
+  </div>
+
+  {/* ─── META BAR: Expense Date · Property · Status ─── */}
+  <div className="flex justify-between border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-500 mb-3 relative z-10">
+    <div>
+      <span className="uppercase text-[9px] font-semibold">Expense Date</span>
+      <span className="block font-bold text-slate-800">{fmtDate(receiptExpense.expense_date)}</span>
+    </div>
+    <div>
+      <span className="uppercase text-[9px] font-semibold">Property</span>
+      <span className="block font-bold text-slate-800">{receiptExpense.property_name || '—'}</span>
+    </div>
+    <div className="text-right">
+      <span className="uppercase text-[9px] font-semibold">Status</span>
+      <span className="block">
+        <span
+          className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold"
+          style={{
+            background: receiptExpense.status === 'Paid' ? '#DCFCE7' : receiptExpense.status === 'Partial' ? '#FEF3C7' : '#FEF2F2',
+            color: receiptExpense.status === 'Paid' ? '#166534' : receiptExpense.status === 'Partial' ? '#92400E' : '#991B1B',
+          }}
+        >
+          {receiptExpense.status === 'Paid' ? 'PAID' : receiptExpense.status === 'Partial' ? 'PARTIAL' : 'UNPAID'}
+        </span>
+      </span>
+    </div>
+  </div>
+
+  {/* ─── DETAILS GRID (Category, Sub Category, Vendor, Added By, Payment Mode, Reference) ─── */}
+  <div className="grid grid-cols-3 gap-x-4 gap-y-1 mb-3 text-xs relative z-10">
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Category</span><div className="font-medium text-slate-800">{receiptExpense.category_name || '—'}</div></div>
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Sub Category</span><div className="font-medium text-slate-800">{receiptExpense.sub_category_name || '—'}</div></div>
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Vendor</span><div className="font-medium text-slate-800">{receiptExpense.vendor_name || '—'}</div></div>
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Added By</span><div className="font-medium text-slate-800">{receiptExpense.added_by_name || '—'}</div></div>
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Payment Mode</span><div className="font-medium text-slate-800">{receiptExpense.payment_mode || '—'}</div></div>
+    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Reference</span><div className="font-medium text-slate-800">{receiptExpense.transaction_id || receiptExpense.cheque_no || receiptExpense.upi_id || receiptExpense.card_ref || '—'}</div></div>
+  </div>
+
+  {/* ─── PURCHASE ITEMS TABLE ─── */}
+{receiptExpense.items?.some((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name || i.qty || i.quantity || i.price || i.unit_price || i.total_amount) && (
+  <div className="mb-3 relative z-10">
+    <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Purchase Items</p>
+    <table className="w-full border-collapse border border-slate-300 text-xs">
+      <thead>
+        <tr className="bg-slate-100">
+          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">#</th>
+          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item</th>
+          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
+          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Sub Category</th>
+          <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Qty</th>
+          <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Price</th>
+          <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {receiptExpense.items
+          .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name || i.qty || i.quantity || i.price || i.unit_price || i.total_amount)
+          .map((item: any, idx: number) => (
+            <tr key={idx} className="hover:bg-slate-50">
+              <td className="border border-slate-300 px-2 py-1 text-center text-slate-500">{idx + 1}</td>
+              <td className="border border-slate-300 px-2 py-1 font-medium text-slate-700">
+                {item.name || item.item_name || item.sub_category || item.sub_category_name || '—'}
+              </td>
+              <td className="border border-slate-300 px-2 py-1 text-slate-600">
+                {receiptExpense.category_name || '—'}
+              </td>
+              <td className="border border-slate-300 px-2 py-1 text-slate-500">
+                {item.sub_category || item.sub_category_name || '—'}
+              </td>
+              <td className="border border-slate-300 px-2 py-1 text-right text-slate-600">
+                {item.qty || item.quantity || '—'}
+              </td>
+              <td className="border border-slate-300 px-2 py-1 text-right text-slate-600">
+                ₹{Number(item.price || item.unit_price || 0).toLocaleString()}
+              </td>
+              <td className="border border-slate-300 px-2 py-1 text-right font-medium text-slate-700">
+                ₹{(Number(item.qty || item.quantity || 0) * Number(item.price || item.unit_price || 0)).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+      </tbody>
+      <tfoot>
+        <tr className="bg-blue-50 font-bold">
+          <td colSpan={6} className="border border-slate-300 px-2 py-1 text-right text-blue-700">Total</td>
+          <td className="border border-slate-300 px-2 py-1 text-right text-blue-700">
+            ₹{receiptExpense.items
+              .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name || i.qty || i.quantity || i.price || i.unit_price || i.total_amount)
+              .reduce((sum: number, i: any) => sum + (Number(i.qty || i.quantity || 0) * Number(i.price || i.unit_price || 0)), 0)
+              .toLocaleString()}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+)}
+
+  {/* ─── PAYMENT HISTORY TABLE ─── */}
+  {paymentTransactions.length > 0 && (
+    <div className="mb-3 relative z-10">
+      <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Payment History</p>
+      <table className="w-full border-collapse border border-slate-300 text-xs">
+        <thead>
+          <tr className="bg-slate-100">
+            <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600"> Payment Date</th>
+            <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Mode</th>
+            <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Transaction Id</th>
+            <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {paymentTransactions.map((t, idx) => (
+            <tr key={t.id || idx} className="hover:bg-slate-50">
+              <td className="border border-slate-300 px-2 py-1 text-slate-600">{fmtDate(t.transaction_date?.split('T')[0] || t.created_at?.split('T')[0])}</td>
+              <td className="border border-slate-300 px-2 py-1 text-slate-600">{t.payment_mode}</td>
+              <td className="border border-slate-300 px-2 py-1 text-slate-500">{t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || '—'}</td>
+              <td className="border border-slate-300 px-2 py-1 text-right font-medium text-emerald-700">₹{Number(t.paid_amount).toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="bg-emerald-50 font-bold">
+            <td colSpan={3} className="border border-slate-300 px-2 py-1 text-right text-emerald-700">Total Paid</td>
+            <td className="border border-slate-300 px-2 py-1 text-right text-emerald-700">
+              ₹{paymentTransactions.reduce((s, t) => s + Number(t.paid_amount), 0).toLocaleString()}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )}
+
+  {/* ─── TOTALS BLOCK (right‑aligned) ─── */}
+  <div className="mt-3 flex justify-end relative z-10">
+    <div className="w-64">
+      <div className="flex justify-between py-1 text-sm">
+        <span className="text-slate-600">Total Amount</span>
+        <span className="font-bold text-slate-800">₹{Number(receiptExpense.total_amount || receiptExpense.amount).toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between py-1 text-sm">
+        <span className="text-slate-600">Paid</span>
+        <span className="font-bold text-emerald-700">₹{Number(receiptExpense.total_paid || 0).toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between py-1 text-sm border-t-2 border-slate-300 mt-1 pt-1">
+        <span className="font-bold text-slate-700">Balance Due</span>
+        <span className="font-bold text-amber-700">₹{Number(receiptExpense.balance || 0).toLocaleString()}</span>
+      </div>
+    </div>
+  </div>
+
+  {/* ─── NOTES ─── */}
+  {receiptExpense.notes && (
+    <div className="bg-yellow-50 p-2 rounded-lg mt-3 relative z-10">
+      <p className="text-[10px] font-medium text-yellow-700 mb-0.5">Notes</p>
+      <p className="text-sm text-yellow-800">{receiptExpense.notes}</p>
+    </div>
+  )}
+
+  {/* ─── ATTACHED RECEIPT ─── */}
+  {receiptExpense.receipt_url && (
+    <div className="mt-3 relative z-10">
+      <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Attached Receipt</p>
+      {receiptExpense.receipt_name?.toLowerCase().endsWith('.pdf') ? (
+        <iframe src={receiptExpense.receipt_url} className="w-full h-64 rounded-md border border-slate-200" />
+      ) : (
+        <img src={receiptExpense.receipt_url} alt="Receipt" className="max-h-72 max-w-full rounded-md border border-slate-200" />
+      )}
+    </div>
+  )}
+
+  {/* ─── FOOTER (with "Powered by") ─── */}
+ <div className="text-center text-[10px] text-slate-400 mt-3 pt-3 border-t border-slate-200 relative z-10 receipt-footer">
+  <p>
+    {siteSettings.phone && `Tel: ${siteSettings.phone}`}
+    {siteSettings.phone && siteSettings.email && '  |  '}
+    {siteSettings.email && `Email: ${siteSettings.email}`}
+  </p>
+  <p className="mt-0.5">
+    Powered by {siteSettings.siteName}
+  </p>
+  <p className="mt-0.5">
+    Generated on {new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+  </p>
+</div>
+</div>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+        <button
+          onClick={() => setIsReceiptPreviewOpen(false)}
+          className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Close
+        </button>
+        <button
+          onClick={() => {
+            // Print the receipt content from the print area
+            const content = document.getElementById('receipt-print-area');
+            if (!content) return;
+            const win = window.open('', '_blank', 'width=800,height=900');
+            if (!win) return;
+            // Copy the content's HTML and add minimal styling
+            win.document.write(`
+              <html>
+                <head><title>Expense Receipt</title>
+                  <style>
+                    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #fff; }
+                    #receipt-print-area { max-width: 720px; margin: 0 auto; }
+                    
+                    ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                      try {
+                        const rules = sheet.cssRules || sheet.rules;
+                        if (rules) {
+                          for (let rule of rules) acc += rule.cssText;
+                        }
+                      } catch(e) {}
+                      return acc;
+                    }, '')}
+                  </style>
+                </head>
+                <body>
+                  ${content.outerHTML}
+                </body>
+              </html>
+            `);
+            win.document.close();
+            win.focus();
+            win.print();
+          }}
+          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90 flex items-center justify-center gap-1"
+        >
+          <Printer className="h-3.5 w-3.5" /> Print Receipt
         </button>
       </div>
     </div>

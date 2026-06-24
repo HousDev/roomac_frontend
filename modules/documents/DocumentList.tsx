@@ -1714,16 +1714,20 @@ const [totalPages, setTotalPages] = useState(1);
 const loadDocs = useCallback(async (page = currentPage) => {
   setLoading(true);
   try {
-    const limit = pageSize === "All" ? 999999 : pageSize;
     const res = await listDocuments({
       status: statusFilter !== "all" ? statusFilter as DocumentStatus : undefined,
       priority: priorityFilter !== "all" ? priorityFilter as any : undefined,
       page,
-      limit,
+      pageSize: pageSize === "All" ? 999999 : pageSize as number,
     });
-    setDocs(res.data || []);
-    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
-    setTotalPages(res.pagination?.totalPages ?? 1);
+
+    const allData = res.data || [];
+    const backendTotal = res.total ?? allData.length;
+    const backendTotalPages = res.totalPages ?? Math.ceil(backendTotal / (pageSize === "All" ? backendTotal || 1 : pageSize as number));
+
+    setDocs(allData);
+    setTotalItems(backendTotal);
+    setTotalPages(backendTotalPages);
     setCurrentPage(page);
   } catch (e: any) {
     toast.error(e.message || "Failed to load documents");
@@ -1734,13 +1738,22 @@ const loadDocs = useCallback(async (page = currentPage) => {
 
 useEffect(() => {
   loadDocs(1);
-}, [loadDocs]);
-  const filteredRows = useMemo(() => docs.filter(d => {
-    const nOk = !col.document_number || d.document_number?.toLowerCase().includes(col.document_number.toLowerCase());
-    const tOk = !col.tenant_name     || d.tenant_name?.toLowerCase().includes(col.tenant_name.toLowerCase());
-    const pOk = !col.property_name   || (d.property_name||"").toLowerCase().includes(col.property_name.toLowerCase());
-    return nOk && tOk && pOk;
-  }), [docs, col]);
+}, [statusFilter, priorityFilter, pageSize]);
+const filteredRows = useMemo(() => docs.filter(d => {
+  // ✅ Document search now checks BOTH document_number AND document_name
+  const nOk = !col.document_number ||
+    d.document_number?.toLowerCase().includes(col.document_number.toLowerCase()) ||
+    d.document_name?.toLowerCase().includes(col.document_number.toLowerCase());
+
+  const tOk = !col.tenant_name || d.tenant_name?.toLowerCase().includes(col.tenant_name.toLowerCase());
+
+  // ✅ Property search now checks property_name AND room_number
+  const pOk = !col.property_name ||
+    (d.property_name || "").toLowerCase().includes(col.property_name.toLowerCase()) ||
+    (d.room_number ? String(d.room_number).toLowerCase().includes(col.property_name.toLowerCase()) : false);
+
+  return nOk && tOk && pOk;
+}), [docs, col]);
 
   const toggleAll = () => {
     if (selectAll) { setSelectedIds(new Set()); setSelectAll(false); }
@@ -2075,215 +2088,317 @@ const handleExport = () => {
           </div>
 
           {/* ── DESKTOP table ── */}
-         <div className="hidden lg:block overflow-auto overflow-y-auto max-h-[200px] md:max-h-[430px]" >
-  <div style={{ minWidth:"980px" }}>
-    <Table>
-      <TableHeader className="sticky top-0 z-10 bg-gray-50">
-        <TableRow>
-          <TableHead className="py-1 px-2 w-6">
-            <button onClick={toggleAll} className="p-0.5 hover:bg-gray-200 rounded">
-              {selectAll ? <CheckSquare className="h-3 w-3 text-blue-600" /> : <Square className="h-3 w-3 text-gray-400" />}
-            </button>
-          </TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">DOCUMENT</TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">PARTIES</TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">PROPERTY</TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">STATUS & PROGRESS</TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">TIMELINE</TableHead>
-          <TableHead className="py-1 px-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest text-right">ACTIONS</TableHead>
-        </TableRow>
-        {/* Column search */}
-        <TableRow className="bg-gray-50/80">
-          <TableCell className="py-0.5 px-2" />
-          <TableCell className="py-0.5 px-1.5"><Input placeholder="Doc#…" value={col.document_number} onChange={e=>setCol(p=>({...p,document_number:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
-          <TableCell className="py-0.5 px-1.5"><Input placeholder="Tenant…" value={col.tenant_name} onChange={e=>setCol(p=>({...p,tenant_name:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
-          <TableCell className="py-0.5 px-1.5"><Input placeholder="Property…" value={col.property_name} onChange={e=>setCol(p=>({...p,property_name:e.target.value}))} className="h-5 text-[9px]" /></TableCell>
-          <TableCell /><TableCell /><TableCell />
-        </TableRow>
-      </TableHeader>
+       <div className="hidden lg:block">
+<div className="overflow-auto h-[310px] sm:h-[450px] rounded-xl">
+    <table
+      className="border-collapse text-[11px] font-sans "
+      style={{ tableLayout: "fixed", minWidth: "1000px", width: "100%" }}
+    >
+      <colgroup>
+        <col style={{ width: "36px" }} />   {/* Checkbox */}
+        <col style={{ width: "110px" }} />  {/* Actions */}
+        <col style={{ width: "100px" }} />  {/* Document */}
+        <col style={{ width: "130px" }} />  {/* Parties */}
+        <col style={{ width: "100px" }} />  {/* Property */}
+        <col style={{ width: "150px" }} />  {/* Status & Progress */}
+        <col style={{ width: "250px" }} />  {/* Timeline */}
+      </colgroup>
 
-      <TableBody>
+      {/* ── STICKY THEAD ── */}
+      <thead className="sticky top-0 z-10 ">
+        {/* Title Row */}
+        <tr className="bg-gray-200 border-b border-gray-300 ">
+          <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+            <button onClick={toggleAll} className="p-0.5 hover:bg-gray-300 rounded">
+              {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
+            </button>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Document</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Parties</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status &amp; Progress</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Timeline</span>
+          </th>
+        </tr>
+
+        {/* Search Row */}
+        <tr className="bg-white border-b border-gray-300">
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Doc#…"
+              value={col.document_number}
+              onChange={e => setCol(p => ({ ...p, document_number: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Tenant…"
+              value={col.tenant_name}
+              onChange={e => setCol(p => ({ ...p, tenant_name: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Property…"
+              value={col.property_name}
+              onChange={e => setCol(p => ({ ...p, property_name: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1" />
+        </tr>
+      </thead>
+
+      {/* ── TBODY ── */}
+      <tbody>
         {loading ? (
-          <TableRow><TableCell colSpan={7} className="text-center py-10">
+          <tr><td colSpan={7} className="text-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-blue-600 mx-auto mb-2" />
             <p className="text-xs text-gray-500">Loading…</p>
-          </TableCell></TableRow>
+          </td></tr>
         ) : filteredRows.length === 0 ? (
-          <TableRow><TableCell colSpan={7} className="text-center py-10">
+          <tr><td colSpan={7} className="text-center py-10">
             <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-500">No documents found</p>
-          </TableCell></TableRow>
+          </td></tr>
         ) : filteredRows.map(d => (
-          <TableRow key={d.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
-            <TableCell className="py-1 px-2">
+          <tr key={d.id} className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
+
+            {/* Checkbox */}
+            <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
               <button onClick={() => toggleOne(d.id)} className="p-0.5 hover:bg-gray-200 rounded">
-                {selectedIds.has(d.id) ? <CheckSquare className="h-3 w-3 text-blue-600" /> : <Square className="h-3 w-3 text-gray-400" />}
+                {selectedIds.has(d.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
               </button>
-            </TableCell>
-
-            {/* Document */}
-            <TableCell className="py-1 px-2">
-              <p className="font-mono text-[10px] font-bold text-blue-600">{d.document_number}</p>
-              <p className="text-[10px] font-semibold text-gray-800 max-w-[130px] truncate">{d.document_name}</p>
-              {d.signature_required && <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[8px] px-1 py-0 mt-0.5">Sig. Req.</Badge>}
-            </TableCell>
-
-            {/* Parties */}
-            <TableCell className="py-1 px-2">
-              <p className="text-[10px] font-semibold text-gray-800">{d.tenant_name}</p>
-              {d.tenant_email && <p className="text-[9px] text-gray-400 truncate max-w-[110px]">{d.tenant_email}</p>}
-            </TableCell>
-
-            {/* Property */}
-            <TableCell className="py-1 px-2">
-              <p className="text-[10px] text-gray-700 max-w-[100px] truncate">{d.property_name || "N/A"}</p>
-              {d.room_number && <p className="text-[9px] text-gray-500">Room: {d.room_number}</p>}
-              {d.rent_amount ? <p className="text-[9px] text-green-600 font-medium">₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo</p> : null}
-            </TableCell>
-
-            {/* Status & progress */}
-            <TableCell className="py-1 px-2">
-              <div className="space-y-0.5">
-                <Badge className={`text-[8px] px-1 py-0 border ${priorityColor(d.priority)}`}>{d.priority}</Badge>
-                <div className="w-16">
-                  <div className="flex justify-between mb-0.5">
-                    <span className="text-[8px] text-gray-400">Progress</span>
-                    <span className="text-[8px] font-semibold text-gray-600">
-                      {d.status === "Cancelled" ? "0" : Math.round((stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"}`}
-                      style={{ width:`${d.status==="Cancelled" ? 5 : Math.max(5,Math.round((stepIndex(d.status)/(MAIN_STEPS.length-1))*100))}%` }} />
-                  </div>
-                </div>
-                <p className="text-[8px] text-gray-400">{fmt(d.created_at)}</p>
-              </div>
-            </TableCell>
-
-            {/* Timeline */}
-            <TableCell className="py-1 px-2">
-              <TimelineSteps doc={d} onStepClick={handleStepClick} />
-            </TableCell>
+            </td>
 
             {/* Actions */}
-            <TableCell className="py-1 px-2">
-              <div className="flex justify-end gap-0">
-                    {can("view_documents") && (
-
-                <button onClick={async () => {
-                  setLoadingView(d.id);
-                  try { const r=await getDocument(d.id); setViewDoc(r.data||d); }
-                  catch { setViewDoc(d); }
-                  finally { setLoadingView(null); }
-                }} title="View" className="p-1 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                  {loadingView===d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
-                </button>
-                  )}
-                      {can("share_documents") && (
-
-                <button onClick={() => setPopup({type:"share",doc:d})} title="Share"
-                  className="p-1 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"><Share2 className="h-3 w-3" /></button>
-                      )}
-
-                <button onClick={() => handlePrint(d)} title="Print"
-                  className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3 w-3" /></button>
-                 {can("export_documents") && (
-                <button onClick={() => handleDownload(d)} title="Download"
-                  className="p-1 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3 w-3" /></button>
-                 )}
-                {/* Edit button in actions column */}
-                {can("edit_documents") && (
-                <button 
-                  onClick={() => setPopup({type:"edit",doc:d})} 
-                  title="Edit Template"
-                  className="p-1 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                >
-                  <Edit className="h-3 w-3" />
-                </button>
+            <td className="px-1 py-1.5 border-r border-slate-100">
+              <div className="flex items-center gap-[1px] flex-nowrap">
+                {can("view_documents") && (
+                  <button onClick={async () => {
+                    setLoadingView(d.id);
+                    try { const r = await getDocument(d.id); setViewDoc(r.data || d); }
+                    catch { setViewDoc(d); }
+                    finally { setLoadingView(null); }
+                  }} title="View" className="w-6 h-6 rounded-lg text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors">
+                    {loadingView === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye size={12} />}
+                  </button>
                 )}
-                    {can("delete_documents") && (
-
-                <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
-                  className="p-1 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3 w-3" /></button>
-                    )}
+                {can("share_documents") && (
+                  <button onClick={() => setPopup({ type: "share", doc: d })} title="Share"
+                    className="w-6 h-6 rounded-lg text-green-600 hover:bg-green-50 flex items-center justify-center transition-colors">
+                    <Share2 size={12} />
+                  </button>
+                )}
+                <button onClick={() => handlePrint(d)} title="Print"
+                  className="w-6 h-6 rounded-lg text-gray-500 hover:bg-gray-100 flex items-center justify-center transition-colors">
+                  <Printer size={12} />
+                </button>
+                {can("export_documents") && (
+                  <button onClick={() => handleDownload(d)} title="Download"
+                    className="w-6 h-6 rounded-lg text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors">
+                    <Download size={12} />
+                  </button>
+                )}
+                {can("edit_documents") && (
+                  <button onClick={() => setPopup({ type: "edit", doc: d })} title="Edit Template"
+                    className="w-6 h-6 rounded-lg text-purple-600 hover:bg-purple-50 flex items-center justify-center transition-colors">
+                    <Edit size={12} />
+                  </button>
+                )}
+                {can("delete_documents") && (
+                  <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
+                    className="w-6 h-6 rounded-lg text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors">
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </div>
-            </TableCell>
-          </TableRow>
+            </td>
+
+            {/* Document — ID then name below */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+              <p className="font-mono text-[10px] font-bold text-blue-600 truncate">{d.document_number}</p>
+              <p className="text-[10px] font-semibold text-gray-800 truncate">{d.document_name}</p>
+              {d.signature_required && (
+                <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[8px] px-1 py-0 mt-0.5">Sig. Req.</Badge>
+              )}
+            </td>
+
+            {/* Parties — name + email only */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+              <p className="text-[10px] font-semibold text-gray-800 truncate">{d.tenant_name}</p>
+              {d.tenant_email && <p className="text-[9px] text-gray-400 truncate">{d.tenant_email}</p>}
+            </td>
+
+            {/* Property — line1: property/room, line2: rent on same line as needed */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+  <p className="text-[10px] font-medium text-gray-700 truncate">
+    {d.property_name || "N/A"}
+  </p>
+
+  <div className="flex items-center gap-2 text-[9px]">
+    {d.room_number && (
+      <span className="text-slate-500 whitespace-nowrap">
+        Room {d.room_number}
+      </span>
+    )}
+
+    {d.rent_amount && (
+      <span className="text-green-600 font-medium whitespace-nowrap">
+        ₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo
+      </span>
+    )}
+  </div>
+</td>
+
+            {/* Status & Progress — priority + % + bar, one compact line */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+  {/* Priority + Date */}
+  <div className="flex items-center justify-between mb-0.5">
+    <Badge
+      className={`text-[8px] px-1 py-0 border whitespace-nowrap ${priorityColor(
+        d.priority
+      )}`}
+    >
+      {d.priority}
+    </Badge>
+
+    <span className="text-[8px] text-gray-400 whitespace-nowrap">
+      {fmt(d.created_at)}
+    </span>
+  </div>
+
+  {/* Progress Row */}
+  <div className="flex items-center gap-1">
+    <span className="text-[8px] text-gray-500 whitespace-nowrap">
+      Progress
+    </span>
+
+    <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden min-w-[40px]">
+      <div
+        className={`h-full rounded-full ${
+          d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"
+        }`}
+        style={{
+          width: `${
+            d.status === "Cancelled"
+              ? 5
+              : Math.max(
+                  5,
+                  Math.round(
+                    (stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100
+                  )
+                )
+          }%`,
+        }}
+      />
+    </div>
+
+    <span className="text-[8px] font-semibold text-gray-600 whitespace-nowrap">
+      {d.status === "Cancelled"
+        ? "0"
+        : Math.round(
+            (stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100
+          )}
+      %
+    </span>
+  </div>
+</td>
+
+            {/* Timeline */}
+            <td className="px-1.5 py-1.5">
+              <TimelineSteps doc={d} onStepClick={handleStepClick} />
+            </td>
+
+          </tr>
         ))}
-      </TableBody>
-    </Table>
+      </tbody>
+    </table>
   </div>
 </div>
        
-       {!loading && docs.length > 0 && (
-  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-    <div className="flex items-center gap-3 text-gray-500">
-      <span className="text-[11px]">
-        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
-        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} documents
-      </span>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-400 text-[10px]">Rows:</span>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(val) => {
-            const newSize = val === "All" ? "All" : Number(val);
-            setPageSize(newSize);
-            setCurrentPage(1);
-            loadDocs(1);
-          }}
-        >
-          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
-            <SelectValue>{pageSize}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={String(size)} value={String(size)} className="text-xs">
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    {!loading && docs.length > 0 && (
+  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span>Show</span>
+      <select
+        value={pageSize}
+        onChange={(e) => {
+          const val = e.target.value;
+          const newSize = val === "All" ? "All" : Number(val);
+          setPageSize(newSize);
+          setCurrentPage(1);
+          loadDocs(1);
+        }}
+        className="px-2 py-1 border border-gray-300 rounded text-[11px] bg-white outline-none cursor-pointer"
+      >
+        <option value={10}>10</option>
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={100}>100</option>
+        <option value="All">All</option>
+      </select>
+      <span>entries</span>
+    <span className="ml-2">
+  Showing {Math.min(docs.length, totalItems)} of {totalItems} entries
+  {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+</span>
     </div>
 
-    {totalPages > 1 && (
+    {pageSize !== "All" && totalPages > 1 && (
       <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadDocs(currentPage - 1)}
+        <button
+          onClick={() => loadDocs(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
+          Previous
+        </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          const page = i + 1;
+          let pageNum = i + 1;
+          if (totalPages > 5) {
+            if (currentPage <= 3) pageNum = i + 1;
+            else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+            else pageNum = currentPage - 2 + i;
+          }
           return (
-            <Button
-              key={page}
-              size="sm"
-              variant={currentPage === page ? "default" : "outline"}
-              onClick={() => loadDocs(page)}
-              className={`h-6 w-6 p-0 text-[10px] ${
-                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            <button
+              key={pageNum}
+              onClick={() => loadDocs(pageNum)}
+              className={`h-7 w-7 text-xs border rounded ${
+                currentPage === pageNum
+                  ? "bg-blue-600 border-blue-600 text-white font-bold"
+                  : "bg-white border-gray-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {page}
-            </Button>
+              {pageNum}
+            </button>
           );
         })}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadDocs(currentPage + 1)}
+        <button
+          onClick={() => loadDocs(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
+          Next
+        </button>
       </div>
     )}
   </div>
