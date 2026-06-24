@@ -2163,9 +2163,13 @@ const tenantName = firstPayment?.tenant_name || getTenantName(tenantId);
     const completeTenant = tenants.find((t) => t.id === tenantId);
     if (completeTenant) {
       // Get security deposit payments for this tenant
-      const depositPayments = payments.filter(
-        (p) => p.tenant_id === tenantId && p.payment_type === "security_deposit"
-      );
+      const assignmentDate = completeTenant?.current_assignment?.assignment_date 
+  || completeTenant?.current_assignment?.created_at;
+const depositPayments = payments.filter(p => 
+  p.tenant_id === tenantId && 
+  p.payment_type === "security_deposit" &&
+  (!assignmentDate || new Date(p.payment_date) >= new Date(assignmentDate))
+);
       const totalDepositPaid = depositPayments
         .filter((p) => p.status === "approved" || p.status === "paid")
         .reduce((sum, p) => sum + Number(p.amount), 0);
@@ -2688,20 +2692,122 @@ return {
   // Rent Summary Table Component
 
   // In RentSummaryTable component
-  const RentSummaryTable = ({ formData }: { formData: any }) => {
-    if (!formData) return null;
+// Rent Summary Table Component - UPDATED to show both stays
+const RentSummaryTable = ({ formData }: { formData: any }) => {
+  if (!formData) return null;
 
-    const months = formData.month_wise_history || [];
-    const originalMonthlyRent = formData.monthly_rent || 0;
-    const firstMonthProrated = formData.first_month_prorated;
+  const months = formData.month_wise_history || [];
+  const previousStay = formData.previous_stay || null;
+  const originalMonthlyRent = formData.monthly_rent || 0;
+  const firstMonthProrated = formData.first_month_prorated;
 
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+  // Calculate totals for current stay
+  const totalPaid = months.reduce((sum: number, m: any) => sum + m.paid, 0);
+  const totalPending = months.reduce((sum: number, m: any) => sum + m.pending, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Previous Stay Section - shown only if tenant is reassigned */}
+      {previousStay && previousStay.month_wise_history?.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-amber-700 flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5" />
+                Previous Stay — Reference Only
+                <span className="text-[10px] font-normal text-amber-600 ml-1">
+                  (Vacated: {previousStay.vacate_date ? format(new Date(previousStay.vacate_date), 'dd MMM yyyy') : 'N/A'})
+                </span>
+              </h4>
+              <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">
+                Historical
+              </Badge>
+            </div>
+            <p className="text-[10px] text-amber-600 mt-0.5">
+              {previousStay.month_wise_history[0]?.month} {previousStay.month_wise_history[0]?.year} — {previousStay.month_wise_history[previousStay.month_wise_history.length - 1]?.month} {previousStay.month_wise_history[previousStay.month_wise_history.length - 1]?.year}
+              {previousStay.deposit && (
+                <span className="ml-2">
+                  • Deposit: ₹{previousStay.deposit.paid?.toLocaleString()} / ₹{previousStay.deposit.required?.toLocaleString()} paid
+                </span>
+              )}
+              <span className="ml-2 text-amber-500">(For reference only)</span>
+            </p>
+          </div>
+          <div className="p-4 max-h-[200px] overflow-y-auto bg-amber-50/30">
+            <table className="w-full text-sm">
+              <thead className="bg-amber-100/50 sticky top-0">
+                <tr>
+                  <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                  <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previousStay.month_wise_history.map((month: any, index: number) => {
+                  const isProrated = month.is_prorated || false;
+                  const proratedDays = month.prorated_days || 0;
+                  
+                  return (
+                    <tr
+                      key={`prev-${index}`}
+                      className={`border-t border-amber-100 ${month.status === 'paid' ? 'bg-green-50/30' : month.pending > 0 ? 'bg-red-50/30' : ''}`}
+                    >
+                      <td className="p-2 text-sm font-medium">
+                        {month.month} {month.year}
+                        {isProrated && (
+                          <span className="ml-1 text-[10px] text-amber-600">
+                            (Prorated - {proratedDays} days)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right">₹{month.rent?.toLocaleString()}</td>
+                      <td className="p-2 text-right text-green-600">₹{month.paid?.toLocaleString()}</td>
+                      <td className="p-2 text-right">
+                        <span className={month.pending > 0 ? "text-amber-600 font-medium" : "text-green-600"}>
+                          ₹{month.pending?.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          month.status === 'paid' ? 'bg-green-100 text-green-800' :
+                          month.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {month.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-amber-100/50">
+                <tr className="border-t border-amber-200 font-medium">
+                  <td className="p-2 text-sm">Total</td>
+                  <td className="p-2 text-right">₹{previousStay.month_wise_history.reduce((s: number, m: any) => s + m.rent, 0).toLocaleString()}</td>
+                  <td className="p-2 text-right text-green-600">₹{previousStay.month_wise_history.reduce((s: number, m: any) => s + m.paid, 0).toLocaleString()}</td>
+                  <td className="p-2 text-right text-amber-600">₹{previousStay.month_wise_history.reduce((s: number, m: any) => s + m.pending, 0).toLocaleString()}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Current Stay Section */}
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
               <IndianRupee className="h-3.5 w-3.5" />
-              Rent History Since Joining
+              {previousStay ? 'Current Stay — Rent History' : 'Rent History Since Joining'}
+              {formData.is_reassigned && (
+                <span className="text-[10px] font-normal text-blue-500 ml-1">
+                  (From {formData.check_in_date ? format(new Date(formData.check_in_date), 'dd MMM yyyy') : 'N/A'})
+                </span>
+              )}
             </h4>
             {firstMonthProrated && (
               <Badge
@@ -2755,7 +2861,6 @@ return {
                   );
                 })();
 
-                // For prorated month, show calculation in tooltip
                 const proratedTooltip = month.is_prorated
                   ? `Prorated: ${month.prorated_days} days × ₹${month.prorated_daily_rate}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
                   : "";
@@ -2842,19 +2947,20 @@ return {
           <div className="bg-white p-2 rounded border border-slate-200">
             <p className="text-xs text-slate-500">Total Paid</p>
             <p className="text-lg font-bold text-blue-600">
-              ₹{formData.total_paid?.toLocaleString()}
+              ₹{totalPaid?.toLocaleString()}
             </p>
           </div>
           <div className="bg-white p-2 rounded border border-slate-200">
             <p className="text-xs text-slate-500">Total Pending</p>
             <p className="text-lg font-bold text-amber-600">
-              ₹{formData.total_pending?.toLocaleString()}
+              ₹{totalPending?.toLocaleString()}
             </p>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 
   {

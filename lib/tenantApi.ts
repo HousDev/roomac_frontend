@@ -124,6 +124,7 @@ original_id?: number;
     year?: number;
     notes?: string;
     created_at: string;
+    assignment_date?:string;
   }>;
   current_assignment?: {
   id: number;
@@ -137,6 +138,7 @@ original_id?: number;
   tenant_rent?: number | string;
   rent_per_bed?: number | string;
   security_deposit?: number | string;
+  created_at?:string;
 };
   assigned_room_id?: number;
   assigned_bed_number?: number;
