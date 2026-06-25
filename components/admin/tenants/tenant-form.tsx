@@ -55,6 +55,8 @@ import {
   Camera,
   Plus,
   IndianRupee,
+  RefreshCw,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -157,6 +159,7 @@ additional_documents?: Array<{ filename: string; url: string; uploaded_at?: stri
 }
 
 export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
+  const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [properties, setProperties] = useState<OptionType[]>([]);
@@ -239,6 +242,9 @@ const [createCredentials, setCreateCredentials] = useState(() => {
   const [addressProofNumber, setAddressProofNumber] = useState(
     tenant?.address_proof_number || "",
   );
+  const [isReassignment, setIsReassignment] = useState(false);
+const [isReassignmentDisabled, setIsReassignmentDisabled] = useState(false);
+const [reassignmentTooltip, setReassignmentTooltip] = useState("");
 
   const [partnerAdditionalDocuments, setPartnerAdditionalDocuments] = useState<
   Array<{ filename: string; url: string; uploaded_at?: string }>
@@ -429,6 +435,51 @@ useEffect(() => {
     }
   }, [tenant]);
 
+  // Add this useEffect to detect if tenant has vacate history
+// Add this useEffect to detect if tenant has vacate history
+useEffect(() => {
+  if (tenant?.id) {
+    const hasVacateHistory = tenant.vacate_records && tenant.vacate_records.length > 0;
+    const hasActiveAssignment = !!tenant.current_assignment;
+    const hasVacated = hasVacateHistory && !hasActiveAssignment;
+    
+    // ✅ LOG THE DETECTION
+    console.log('🔍 Reassignment detection in form:', {
+      tenantId: tenant.id,
+      hasVacateHistory,
+      hasActiveAssignment,
+      hasVacated,
+      is_couple_booking: tenant.is_couple_booking,
+      is_primary_tenant: tenant.is_primary_tenant
+    });
+    
+    if (hasVacateHistory && hasActiveAssignment) {
+      // Reassigned tenant - checkbox should be checked and disabled
+      setIsReassignment(true);
+      setIsReassignmentDisabled(true);
+      setReassignmentTooltip("This tenant has previous vacate history. Reassignment is automatically enabled.");
+      
+      // ✅ IMPORTANT: Also store in formData
+      handleInputChange("is_reassignment", true);
+    } else if (hasVacateHistory && !hasActiveAssignment) {
+      // Vacated tenant - can be reassigned
+      setIsReassignment(true);
+      setIsReassignmentDisabled(false);
+      setReassignmentTooltip("This tenant was vacated. Check this box if this is a reassignment.");
+      
+      // ✅ IMPORTANT: Also store in formData
+      handleInputChange("is_reassignment", true);
+    } else {
+      // New or never vacated tenant
+      setIsReassignment(false);
+      setIsReassignmentDisabled(false);
+      setReassignmentTooltip("Check this box if this tenant is being reassigned after a previous vacate.");
+      
+      handleInputChange("is_reassignment", false);
+    }
+  }
+}, [tenant]);
+
 
   useEffect(() => {
     if (formData.gender && formData.preferred_property_id) loadAvailableRooms();
@@ -607,11 +658,54 @@ const handleCheckInDateChange = async (newDate: string) => {
   const isReassigned = hasVacateRecord && hasActiveAssignment;
 
   if (isReassigned) {
-    handleInputChange("check_in_date", newDate);
-    toast.info(
-      "Check-in date updated for reassigned tenant. New rent records will start from this date. Previous payment history is preserved.",
-      { duration: 4000 }
-    );
+    // ✅ For reassigned tenants, validate with backend first
+    try {
+      // Create a FormData with the new check-in date
+      const testFormData = new FormData();
+      testFormData.append("check_in_date", newDate);
+      testFormData.append("is_reassignment", "true");
+      testFormData.append("check_in_date_changed", "true");
+      
+      // Also send other required fields from the current form data
+      Object.keys(formData).forEach((key) => {
+        const value = formData[key];
+        if (value !== undefined && value !== null && value !== "") {
+          testFormData.append(key, String(value));
+        }
+      });
+      
+      // Make an API call to check if the date change is allowed
+      const result = await updateTenant(tenant.id, testFormData);
+      
+      if (!result.success) {
+        // ✅ Show the error from backend
+        toast.error(result.message || "Cannot change check-in date", { duration: 5000 });
+        
+        // ✅ If there are affected months, show them
+        if (result.data?.affected_months) {
+          const monthList = result.data.affected_months
+            .map((m: any) => `${m.month} ${m.year} (₹${m.paid.toLocaleString()})`)
+            .join(', ');
+          toast.error(
+            `Affected months: ${monthList}. Total paid: ₹${result.data.total_paid.toLocaleString()}. Please delete these payments first or choose a different date.`,
+            { duration: 7000 }
+          );
+        }
+        return;
+      }
+      
+      // ✅ Only update if successful
+      handleInputChange("check_in_date", newDate);
+      toast.info(
+        "Check-in date updated for reassigned tenant. New rent records will start from this date. Previous payment history is preserved.",
+        { duration: 4000 }
+      );
+      
+    } catch (error: any) {
+      console.error("Failed to validate check-in date change:", error);
+      toast.error(error.message || "Failed to update check-in date");
+    }
+    
     return;
   }
 
@@ -1090,11 +1184,12 @@ if (showPartnerDetails && partnerDetails.full_name && partnerDetails.full_name.t
   // In tenant-form.tsx - Update handleSubmit
 
 const handleSubmit = async (e: React.FormEvent) => {
-  // console.log("Submitting form with data:", formData);
   e.preventDefault();
 
+  if (submittingRef.current) return;
   if (!validateForm()) return;
 
+  submittingRef.current = true;
   setLoading(true);
   setUploadProgress(0);
 
@@ -1111,15 +1206,18 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const formDataToSend = new FormData();
     
-
-    // Append tenant data
+    // ✅ Append tenant data - SKIP is_reassignment AND check_in_date
+    // Append tenant data - SKIP is_reassignment AND check_in_date
 Object.keys(formData).forEach((key) => {
+  // ✅ Skip is_reassignment and check_in_date - handled explicitly below
+  if (key === "is_reassignment" || key === "check_in_date") return;
+  
   const value = formData[key as keyof typeof formData];
   if (value !== undefined && value !== null && value !== "") {
     // Special handling for is_active - convert to 1 or 0
     if (key === "is_active") {
-      formDataToSend.append(key, value === true || value === "true"  ||  value === 1 || value === "1"? "1" : "0");
-    } else if ((key === "check_in_date" || key === "date_of_birth") && value) {
+      formDataToSend.append(key, value === true || value === "true" || value === 1 || value === "1" ? "1" : "0");
+    } else if (key === "date_of_birth" && value) {
       const dateValue = new Date(String(value));
       if (!isNaN(dateValue.getTime())) {
         formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
@@ -1153,20 +1251,44 @@ Object.keys(formData).forEach((key) => {
       );
     }
 
+    // ✅ SINGLE SOURCE OF TRUTH for is_reassignment and check_in_date
+if (tenant?.id) {
+  const isReassignmentValue = isReassignment || false;
+  
+  console.log('📤 Sending is_reassignment:', {
+    isReassignment,
+    isReassignmentValue,
+    willSend: isReassignmentValue ? 'true' : 'false'
+  });
+  
+  formDataToSend.append("is_reassignment", isReassignmentValue ? "true" : "false");
+  
+  // ✅ Send check_in_date ONLY ONCE here
+  const newCheckInDate = formData.check_in_date;
+  if (newCheckInDate) {
+    formDataToSend.append("check_in_date", newCheckInDate);
+    console.log('📤 Sending check_in_date (single value):', newCheckInDate);
+  }
+  
+  // Also send the check-in date change flag
+  const originalCheckInDate = tenant.check_in_date;
+  if (originalCheckInDate !== newCheckInDate) {
+    formDataToSend.append("check_in_date_changed", "true");
+    formDataToSend.append("old_check_in_date", originalCheckInDate || "");
+    formDataToSend.append("new_check_in_date", newCheckInDate || "");
+  }
+}
+
     // Append main document files
     if (idProofFile) formDataToSend.append("id_proof_url", idProofFile);
-    if (addressProofFile)
-      formDataToSend.append("address_proof_url", addressProofFile);
+    if (addressProofFile) formDataToSend.append("address_proof_url", addressProofFile);
     if (photoFile) formDataToSend.append("photo_url", photoFile);
     if (aadharNumber) formDataToSend.append("aadhar_number", aadharNumber);
     if (panNumber) formDataToSend.append("pan_number", panNumber);
     if (idProofType) formDataToSend.append("id_proof_type", idProofType);
-    if (addressProofType)
-      formDataToSend.append("address_proof_type", addressProofType);
-    if (idProofNumber)
-      formDataToSend.append("id_proof_number", idProofNumber);
-    if (addressProofNumber)
-      formDataToSend.append("address_proof_number", addressProofNumber);
+    if (addressProofType) formDataToSend.append("address_proof_type", addressProofType);
+    if (idProofNumber) formDataToSend.append("id_proof_number", idProofNumber);
+    if (addressProofNumber) formDataToSend.append("address_proof_number", addressProofNumber);
 
     // Append additional files
     additionalFiles.forEach((file) => {
@@ -1182,65 +1304,65 @@ Object.keys(formData).forEach((key) => {
       formDataToSend.append("other_tenant_id", String(otherTenantId));
     }
 
-// Append Partner Details if they exist
-if (partnerDetails.full_name) {
-  // Personal Info
-  if (partnerDetails.salutation) formDataToSend.append("partner_salutation", partnerDetails.salutation);
-  formDataToSend.append("partner_full_name", partnerDetails.full_name);
-  if (partnerDetails.phone) formDataToSend.append("partner_phone", partnerDetails.phone);
-  if (partnerDetails.country_code) formDataToSend.append("partner_country_code", partnerDetails.country_code);
-  if (partnerDetails.email) formDataToSend.append("partner_email", partnerDetails.email);
-  if (partnerDetails.gender) formDataToSend.append("partner_gender", partnerDetails.gender);
-  if (partnerDetails.date_of_birth) formDataToSend.append("partner_date_of_birth", partnerDetails.date_of_birth);
-  if (partnerDetails.relationship) formDataToSend.append("partner_relationship", partnerDetails.relationship);
+    // Append Partner Details if they exist
+    if (partnerDetails.full_name) {
+      // Personal Info
+      if (partnerDetails.salutation) formDataToSend.append("partner_salutation", partnerDetails.salutation);
+      formDataToSend.append("partner_full_name", partnerDetails.full_name);
+      if (partnerDetails.phone) formDataToSend.append("partner_phone", partnerDetails.phone);
+      if (partnerDetails.country_code) formDataToSend.append("partner_country_code", partnerDetails.country_code);
+      if (partnerDetails.email) formDataToSend.append("partner_email", partnerDetails.email);
+      if (partnerDetails.gender) formDataToSend.append("partner_gender", partnerDetails.gender);
+      if (partnerDetails.date_of_birth) formDataToSend.append("partner_date_of_birth", partnerDetails.date_of_birth);
+      if (partnerDetails.relationship) formDataToSend.append("partner_relationship", partnerDetails.relationship);
+      
+      // Emergency Contact
+      if (partnerDetails.emergency_contact_name) formDataToSend.append("partner_emergency_contact_name", partnerDetails.emergency_contact_name);
+      if (partnerDetails.emergency_contact_phone) formDataToSend.append("partner_emergency_contact_phone", partnerDetails.emergency_contact_phone);
+      if (partnerDetails.emergency_contact_relation) formDataToSend.append("partner_emergency_contact_relation", partnerDetails.emergency_contact_relation);
+      if (partnerDetails.emergency_contact_email) formDataToSend.append("partner_emergency_contact_email", partnerDetails.emergency_contact_email);
+      
+      // Address
+      if (partnerDetails.address) formDataToSend.append("partner_address", partnerDetails.address);
+      if (partnerDetails.city) formDataToSend.append("partner_city", partnerDetails.city);
+      if (partnerDetails.state) formDataToSend.append("partner_state", partnerDetails.state);
+      if (partnerDetails.pincode) formDataToSend.append("partner_pincode", partnerDetails.pincode);
+      
+      // Occupation
+      if (partnerDetails.occupation_category) formDataToSend.append("partner_occupation_category", partnerDetails.occupation_category);
+      if (partnerDetails.exact_occupation) formDataToSend.append("partner_exact_occupation", partnerDetails.exact_occupation);
+      if (partnerDetails.occupation) formDataToSend.append("partner_occupation", partnerDetails.occupation);
+      if (partnerDetails.organization) formDataToSend.append("partner_organization", partnerDetails.organization);
+      if (partnerDetails.years_of_experience) formDataToSend.append("partner_years_of_experience", partnerDetails.years_of_experience);
+      if (partnerDetails.monthly_income) formDataToSend.append("partner_monthly_income", partnerDetails.monthly_income);
+      if (partnerDetails.course_duration) formDataToSend.append("partner_course_duration", partnerDetails.course_duration);
+      if (partnerDetails.student_id) formDataToSend.append("partner_student_id", partnerDetails.student_id);
+      if (partnerDetails.employee_id) formDataToSend.append("partner_employee_id", partnerDetails.employee_id);
+      if (partnerDetails.portfolio_url) formDataToSend.append("partner_portfolio_url", partnerDetails.portfolio_url);
+      if (partnerDetails.work_mode) formDataToSend.append("partner_work_mode", partnerDetails.work_mode);
+      if (partnerDetails.shift_timing) formDataToSend.append("partner_shift_timing", partnerDetails.shift_timing);
+      
+      // Documents
+      if (partnerDetails.id_proof_type) formDataToSend.append("partner_id_proof_type", partnerDetails.id_proof_type);
+      if (partnerDetails.id_proof_number) formDataToSend.append("partner_id_proof_number", partnerDetails.id_proof_number);
+      if (partnerDetails.id_proof_url instanceof File) formDataToSend.append("partner_id_proof_url", partnerDetails.id_proof_url);
+      if (partnerDetails.address_proof_type) formDataToSend.append("partner_address_proof_type", partnerDetails.address_proof_type);
+      if (partnerDetails.address_proof_number) formDataToSend.append("partner_address_proof_number", partnerDetails.address_proof_number);
+      if (partnerDetails.address_proof_url instanceof File) formDataToSend.append("partner_address_proof_url", partnerDetails.address_proof_url);
+      if (partnerDetails.photo_url instanceof File) formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
+      partnerAdditionalFiles.forEach((file) => {
+        formDataToSend.append("partner_additional_documents[]", file);
+      });
+      
+      // Send existing partner additional documents as JSON
+      if (partnerAdditionalDocuments && partnerAdditionalDocuments.length > 0) {
+        formDataToSend.append(
+          "partner_additional_documents",
+          JSON.stringify(partnerAdditionalDocuments),
+        );
+      }
+    }
   
-  // Emergency Contact
-  if (partnerDetails.emergency_contact_name) formDataToSend.append("partner_emergency_contact_name", partnerDetails.emergency_contact_name);
-  if (partnerDetails.emergency_contact_phone) formDataToSend.append("partner_emergency_contact_phone", partnerDetails.emergency_contact_phone);
-  if (partnerDetails.emergency_contact_relation) formDataToSend.append("partner_emergency_contact_relation", partnerDetails.emergency_contact_relation);
-  if (partnerDetails.emergency_contact_email) formDataToSend.append("partner_emergency_contact_email", partnerDetails.emergency_contact_email);
-  
-  // Address
-  if (partnerDetails.address) formDataToSend.append("partner_address", partnerDetails.address);
-  if (partnerDetails.city) formDataToSend.append("partner_city", partnerDetails.city);
-  if (partnerDetails.state) formDataToSend.append("partner_state", partnerDetails.state);
-  if (partnerDetails.pincode) formDataToSend.append("partner_pincode", partnerDetails.pincode);
-  
-  // Occupation
-  if (partnerDetails.occupation_category) formDataToSend.append("partner_occupation_category", partnerDetails.occupation_category);
-  if (partnerDetails.exact_occupation) formDataToSend.append("partner_exact_occupation", partnerDetails.exact_occupation);
-  if (partnerDetails.occupation) formDataToSend.append("partner_occupation", partnerDetails.occupation);
-  if (partnerDetails.organization) formDataToSend.append("partner_organization", partnerDetails.organization);
-  if (partnerDetails.years_of_experience) formDataToSend.append("partner_years_of_experience", partnerDetails.years_of_experience);
-  if (partnerDetails.monthly_income) formDataToSend.append("partner_monthly_income", partnerDetails.monthly_income);
-  if (partnerDetails.course_duration) formDataToSend.append("partner_course_duration", partnerDetails.course_duration);
-  if (partnerDetails.student_id) formDataToSend.append("partner_student_id", partnerDetails.student_id);
-  if (partnerDetails.employee_id) formDataToSend.append("partner_employee_id", partnerDetails.employee_id);
-  if (partnerDetails.portfolio_url) formDataToSend.append("partner_portfolio_url", partnerDetails.portfolio_url);
-  if (partnerDetails.work_mode) formDataToSend.append("partner_work_mode", partnerDetails.work_mode);
-  if (partnerDetails.shift_timing) formDataToSend.append("partner_shift_timing", partnerDetails.shift_timing);
-  
-  // Documents
-  if (partnerDetails.id_proof_type) formDataToSend.append("partner_id_proof_type", partnerDetails.id_proof_type);
-  if (partnerDetails.id_proof_number) formDataToSend.append("partner_id_proof_number", partnerDetails.id_proof_number);
-  if (partnerDetails.id_proof_url instanceof File) formDataToSend.append("partner_id_proof_url", partnerDetails.id_proof_url);
-  if (partnerDetails.address_proof_type) formDataToSend.append("partner_address_proof_type", partnerDetails.address_proof_type);
-  if (partnerDetails.address_proof_number) formDataToSend.append("partner_address_proof_number", partnerDetails.address_proof_number);
-  if (partnerDetails.address_proof_url instanceof File) formDataToSend.append("partner_address_proof_url", partnerDetails.address_proof_url);
-  if (partnerDetails.photo_url instanceof File) formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
-  partnerAdditionalFiles.forEach((file) => {
-    formDataToSend.append("partner_additional_documents[]", file);
-  });
-  
-  // Send existing partner additional documents as JSON
-  if (partnerAdditionalDocuments && partnerAdditionalDocuments.length > 0) {
-    formDataToSend.append(
-      "partner_additional_documents",
-      JSON.stringify(partnerAdditionalDocuments),
-    );
-  }
-}
-    
     let result: any;
     if (tenant?.id) {
       const actualTenantId = tenant.requested_tenant_id || tenant.id;
@@ -1253,8 +1375,7 @@ if (partnerDetails.full_name) {
     setUploadProgress(100);
 
     if (result.success) {
- // Call onSuccess immediately with the returned tenant data
-      // Check if it was a restored tenant
+      // Call onSuccess immediately with the returned tenant data
       if (result.restored) {
         toast.success("Existing deleted tenant restored and updated successfully");
       } else {
@@ -1288,6 +1409,17 @@ if (partnerDetails.full_name) {
       }
     } else {
       toast.error(result.message || "Operation failed");
+      
+      // If there are affected months, show them in a detailed toast
+      if (result.data?.affected_months && result.data.affected_months.length > 0) {
+        const monthList = result.data.affected_months
+          .map((m: any) => `${m.month} ${m.year} (₹${m.paid.toLocaleString()})`)
+          .join(', ');
+        toast.error(
+          `Affected months: ${monthList}. Total paid: ₹${result.data.total_paid.toLocaleString()}. Please delete these payments first or choose a different date.`,
+          { duration: 7000 }
+        );
+      }
     }
   } catch (err: any) {
     console.error("Failed to save tenant", err);
@@ -1295,6 +1427,7 @@ if (partnerDetails.full_name) {
   } finally {
     setLoading(false);
     setUploadProgress(0);
+    submittingRef.current = false;
   }
 };
 
@@ -2853,6 +2986,63 @@ if (partnerDetails.full_name) {
         </span>
       )}
     </p>
+  )}
+</div>
+
+{/* Reassignment Checkbox - Add this after the Check-in Date field */}
+<div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+  <div className="flex items-center gap-3">
+    <Switch
+      id="isReassignment"
+      checked={isReassignment}
+      onCheckedChange={(checked) => {
+        if (!isReassignmentDisabled) {
+          setIsReassignment(checked);
+          // Store in formData
+          handleInputChange("is_reassignment", checked);
+        }
+      }}
+      disabled={isReassignmentDisabled}
+    />
+    <div>
+      <Label htmlFor="isReassignment" className="text-sm font-medium text-blue-800 flex items-center gap-2">
+        <RefreshCw className="h-3.5 w-3.5" />
+        This is a Reassignment
+      </Label>
+      <p className="text-xs text-blue-600 mt-0.5">{reassignmentTooltip}</p>
+      {isReassignmentDisabled && (
+        <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          Auto-detected from vacate history
+        </p>
+      )}
+    </div>
+  </div>
+  
+  {/* Warning message based on state */}
+  {isReassignment && (
+    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+      <p className="text-xs text-amber-700 flex items-start gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+        <span>
+          <strong>Reassignment Mode:</strong> Existing rent records will be preserved.
+          New records will be created from the check-in date.
+          Months without records will remain as gaps.
+        </span>
+      </p>
+    </div>
+  )}
+  
+  {!isReassignment && !isReassignmentDisabled && tenant?.id && (
+    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+      <p className="text-xs text-blue-700 flex items-start gap-1.5">
+        <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+        <span>
+          <strong>Regular Update Mode:</strong> All rent records will be deleted and recreated
+          from the check-in date. Paid amounts will be redistributed using FIFO.
+        </span>
+      </p>
+    </div>
   )}
 </div>
 <div>

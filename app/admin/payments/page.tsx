@@ -2692,7 +2692,6 @@ return {
   // Rent Summary Table Component
 
   // In RentSummaryTable component
-// Rent Summary Table Component - UPDATED to show both stays
 const RentSummaryTable = ({ formData }: { formData: any }) => {
   if (!formData) return null;
 
@@ -2831,24 +2830,12 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 sticky top-0">
               <tr>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Month
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Rent
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Paid
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Discount
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Pending
-                </th>
-                <th className="text-center p-2 text-xs font-medium text-slate-600">
-                  Status
-                </th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
               </tr>
             </thead>
             <tbody>

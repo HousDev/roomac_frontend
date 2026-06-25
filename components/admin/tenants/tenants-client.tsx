@@ -3385,26 +3385,33 @@ const totals = useMemo(() => {
 })();
             // ── CHECK-IN DATE ──
             // For CHECK-IN DATE column in Vacated Tenants tab
+// In the checkInDate calculation:
 const checkInDate = (() => {
   // ✅ For Vacated Tenants tab, show check-in date from vacate record
   if (activeTab === 'vacated') {
     const vacateRecord = tenant.vacate_records?.[0];
     if (vacateRecord?.stay_check_in_date) {
-      return new Date(vacateRecord.stay_check_in_date).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      // ✅ Don't use new Date() - display the string directly or use localeDateString
+      const dateStr = vacateRecord.stay_check_in_date;
+      // If it's a string like "2025-12-15", split and display
+      if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${parseInt(parts[2])} ${monthNames[parseInt(parts[1]) - 1]} ${parts[0]}`;
+      }
+      return dateStr;
     }
   }
   
   // For All Tenants tab, show current check-in date
   if (tenant.check_in_date) {
-    return new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const dateStr = tenant.check_in_date;
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${parseInt(parts[2])} ${monthNames[parseInt(parts[1]) - 1]} ${parts[0]}`;
+    }
+    return dateStr;
   }
   
   return "—";
