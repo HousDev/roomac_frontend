@@ -57,7 +57,8 @@ import PermissionsPage from "../app/admin/permissions/page";
 import EmailHistoryPage from "../components/admin/communications/EmailHistory/page";
 import WhatsAppHistory from "../components/admin/communications/whatsapp-history/page";
 import SMSHistory from "../components/admin/communications/sms-history/page";
-
+import PrivacyPage from "../app/privacy/page";
+import TermsPage from "../app/terms/page";
 /* ================= TENANT ================= */
 import TenantLoginPage from "../app/tenant/login/page";
 import TenantPortalPage from "../app/tenant/portal/page";
@@ -122,9 +123,14 @@ function App() {
           <Route path="how-it-works" element={<HowItWorksPage />} />
           <Route path="partner" element={<PartnerPage />} />
           <Route path="portal" element={<PortalPage />} />
+          
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/:slug" element={<PropertySlugPage />} />
         </Route>
+
+        <Route path="/privacy" element={<PrivacyPage />} />
+<Route path="/terms" element={<TermsPage />} />
+
 
         {/* 🔐 ADMIN ROUTES */}
         <Route path="/admin" element={<AdminLayout />}>

@@ -73,11 +73,27 @@ const PRIORITY_OPTS = [
 ];
 
 const HIDDEN_VARS    = ["document_number","logo_url","document_title"];
-const GROUP_SYSTEM   = ["document_type","date"];
-const GROUP_TENANT   = ["tenant_name","tenant_phone","tenant_email","aadhaar_number","pan_number","emergency_contact_name","emergency_phone"];
-const GROUP_PROPERTY = ["property_name","room_number","bed_number","move_in_date","rent_amount","security_deposit","payment_mode"];
-const GROUP_COMPANY  = ["company_name","company_address"];
-const ALL_GROUPED    = [...GROUP_SYSTEM, ...GROUP_TENANT, ...GROUP_PROPERTY, ...GROUP_COMPANY];
+const KNOWN_GROUPS: Record<string, string[]> = {
+  "System Info":       ["document_type", "date", "issue_date", "valid_until"],
+  "Tenant Info":       ["tenant_name", "tenant_phone", "tenant_email", "aadhaar_number", "pan_number",
+                        "date_of_birth", "gender", "nationality", "occupation", "employer_name",
+                        "monthly_income", "father_name", "permanent_address", "current_address",
+                        "bank_account_number", "bank_name", "ifsc_code",
+                        "emergency_contact_name", "emergency_phone", "emergency_relation",
+                        "passport_number", "voter_id", "driving_license"],
+  "Property Details":  ["property_name", "property_address", "property_type", "room_number", "bed_number",
+                        "floor_number", "move_in_date", "move_out_date", "notice_date",
+                        "rent_amount", "security_deposit", "advance_amount", "payment_mode",
+                        "payment_due_date", "parking_slot", "locker_number"],
+  "Company Info":      ["company_name", "company_address", "company_phone", "company_email",
+                        "company_gstin", "manager_name", "manager_phone",
+                        "witness_name", "witness_phone", "authorized_signatory"],
+};
+// const GROUP_SYSTEM   = ["document_type","date"];
+// const GROUP_TENANT   = ["tenant_name","tenant_phone","tenant_email","aadhaar_number","pan_number","emergency_contact_name","emergency_phone"];
+// const GROUP_PROPERTY = ["property_name","room_number","bed_number","move_in_date","rent_amount","security_deposit","payment_mode"];
+// const GROUP_COMPANY  = ["company_name","company_address"];
+// const ALL_GROUPED    = [...GROUP_SYSTEM, ...GROUP_TENANT, ...GROUP_PROPERTY, ...GROUP_COMPANY];
 
 const safeNum = (v: any) => { const n = parseFloat(String(v ?? "")); return isNaN(n) ? 0 : n; };
 const money   = (v: any) => `₹${safeNum(v).toLocaleString("en-IN")}`;
@@ -108,10 +124,16 @@ const renderHtml = (html: string, data: Record<string, string>, logoSrc?: string
   out = logoSrc
     ? out.replace(/\{\{logo_url\}\}/g, `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`)
     : out.replace(/\{\{logo_url\}\}/g, "");
+  
+  // Sabhi variables replace karo — empty ho toh bhi
   Object.entries(data).forEach(([k, v]) => {
-    out = out.replace(new RegExp(`\\{\\{${escRe(k)}\\}\\}`, "g"), v || "");
+    out = out.replace(new RegExp(`\\{\\{${escRe(k)}\\}\\}`, "g"), v ?? "");
   });
-  return out.replace(/\{\{[\w_]+\}\}/g, "—");
+  
+  // Baaki bache {{variables}} ko empty string se replace karo
+  out = out.replace(/\{\{[\w_]+\}\}/g, "");
+  
+  return out;
 };
 
 // ── Derive floor from room number (first digit of numeric part) ────────────────
@@ -133,28 +155,41 @@ function FieldInput({ variable, formData, setFormData, required = false }: {
   setFormData: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   required?: boolean;
 }) {
-  const raw    = formData[variable];
-  const strVal = raw != null ? String(raw) : "";
-  const filled = !!strVal.trim();
+  const raw     = formData[variable];
+  const strVal  = raw != null ? String(raw) : "";
+  const filled  = !!strVal.trim();
+  const isAddr  = variable.includes("address");
+
+  const cls = `w-full px-2.5 text-[11px] border rounded-md transition-all font-medium outline-none
+    ${filled
+      ? "border-green-300 bg-green-50/40 focus:border-green-400 focus:ring-1 focus:ring-green-100"
+      : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100"}`;
+
   return (
     <div>
       <label className={L}>
         {getFieldLabel(variable)}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
-      <input
-        type={getFieldType(variable)}
-        value={strVal}
-        onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
-        placeholder={getFieldLabel(variable)}
-        className={`w-full h-8 px-2.5 text-[11px] border rounded-md transition-all font-medium outline-none
-          ${filled
-            ? "border-green-300 bg-green-50/40 focus:border-green-400 focus:ring-1 focus:ring-green-100"
-            : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100"}`}
-      />
+      {isAddr ? (
+        <textarea
+          rows={2}
+          value={strVal}
+          onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
+          placeholder={getFieldLabel(variable)}
+          className={`${cls} py-1.5 resize-none`}
+        />
+      ) : (
+        <input
+          type={getFieldType(variable)}
+          value={strVal}
+          onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
+          placeholder={getFieldLabel(variable)}
+          className={`${cls} h-8`}
+        />
+      )}
     </div>
   );
 }
-
 // ── Bulk progress modal ───────────────────────────────────────────────────────
 function BulkProgressModal({
   total, done, current, errors, onClose,
@@ -554,26 +589,62 @@ export function DocumentCreate() {
         } catch {}
       }
 
-      const mapped: Record<string, string> = {
-        date: todayStr(), document_type: selTemplate!.category,
-        tenant_name:            d.full_name               || t.full_name || "",
-        tenant_phone:           d.phone                   || t.phone     || "",
-        tenant_email:           d.email                   || t.email     || "",
-        aadhaar_number: d.aadhar_number || d.aadhaar_number || "",
-pan_number:     d.pan_number    || "",
-        emergency_contact_name: d.emergency_contact_name  || "",
-        emergency_phone:        d.emergency_contact_phone || "",
-        property_name:          d.property_name           || "",
-        room_number:            d.room_number             || "",
-        bed_number:             d.bed_number != null      ? String(d.bed_number) : "",
-        move_in_date:           toInputDate(d.check_in_date) || toInputDate(d.move_in_date) || "",
-        rent_amount:            d.monthly_rent != null    ? String(safeNum(d.monthly_rent))
-                                : d.rent_per_bed != null  ? String(safeNum(d.rent_per_bed)) : "",
-        security_deposit:       secDeposit > 0            ? String(secDeposit) : "",
-        payment_mode:           "UPI / Bank Transfer",
-        company_name:           "",
-        company_address:        "",
-      };
+    const mapped: Record<string, string> = {
+  date: todayStr(), document_type: selTemplate!.category,
+  tenant_name:            d.full_name               || t.full_name || "",
+  tenant_phone:           d.phone                   || t.phone     || "",
+  tenant_email:           d.email                   || t.email     || "",
+  aadhaar_number: (
+  d.aadhar_number ??
+  (d.id_proof_type === "Aadhar Card" ? d.id_proof_number : null) ??
+  (d.address_proof_type === "Aadhar Card" ? d.address_proof_number : null) ??
+  ""
+),
+pan_number: (
+  d.pan_number ??
+  (d.id_proof_type === "PAN Card" ? d.id_proof_number : null) ??
+  (d.address_proof_type === "PAN Card" ? d.address_proof_number : null) ??
+  ""
+),
+  emergency_contact_name: d.emergency_contact_name  || "",
+  emergency_phone:        d.emergency_contact_phone || "",
+  property_name:          d.property_name           || "",
+  room_number:            d.room_number             || "",
+  bed_number:             d.bed_number != null      ? String(d.bed_number) : "",
+  move_in_date:           toInputDate(d.check_in_date) || toInputDate(d.move_in_date) || "",
+  move_out_date: (() => {
+  const vr = (d.vacate_records ?? [])[0];
+  if (!vr) return "";
+  return toInputDate(vr.requested_vacate_date) || toInputDate(vr.final_vacate_date) || "";
+})(),
+  rent_amount:            d.monthly_rent != null    ? String(safeNum(d.monthly_rent))
+                          : d.rent_per_bed != null  ? String(safeNum(d.rent_per_bed)) : "",
+  security_deposit:       secDeposit > 0            ? String(secDeposit) : "",
+  payment_mode:           "UPI / Bank Transfer",
+  company_name:           "",
+  company_address:        "",
+
+  // ── NEW: ye fields TenantProfile mein already maujood hain, ab map karo ──
+  date_of_birth:          toInputDate(d.date_of_birth) || "",
+  gender:                 d.gender                  || "",
+  occupation:             d.exact_occupation         || d.occupation || "",
+  father_name:            d.father_name              || "",          // ⚠️ neeche note dekho
+  permanent_address: [d.address, d.city, d.state, d.pincode].filter(Boolean).join(", "),
+current_address:   [d.address, d.city, d.state, d.pincode].filter(Boolean).join(", "),      // tumhare paas alag "current" field nahi hai abhi
+  emergency_relation:     d.emergency_contact_relation || "",
+  passport_number:        d.passport_number          || "",            // ⚠️ note dekho
+  voter_id:               d.voter_id                  || "",            // ⚠️ note dekho
+  driving_license:        d.driving_license           || "",           // ⚠️ note dekho
+  nationality:            d.nationality                || "Indian",
+  employer_name:          d.organization               || "",
+  monthly_income:         d.monthly_income != null     ? String(safeNum(d.monthly_income)) : "",
+  bank_account_number:    d.bank_account_number        || "",
+  bank_name:              d.bank_name                  || "",
+  ifsc_code:               d.ifsc_code                  || "",
+  property_address:      d.property_address           || "",
+  property_type:          d.room_type                  || "",
+  floor_number:           d.floor                       || "",
+};
       (selTemplate!.variables || []).forEach(v => { if (!(v in mapped)) mapped[v] = ""; });
       return mapped;
     } catch {
@@ -697,17 +768,23 @@ pan_number:     d.pan_number    || "",
   };
 
   // ── Preview ─────────────────────────────────────────────────────────────────
-  const generatePreview = () => {
-    if (!selTemplate?.html_content) return;
-    const logo = selTemplate.logo_url
-      ? (selTemplate.logo_url.startsWith("http") ? selTemplate.logo_url : `${API_BASE}${selTemplate.logo_url}`)
-      : "";
-    const now = new Date();
-    const previewNum = "DOC-" + now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + "-"
-      + String(Math.floor(Math.random()*999)+1).padStart(6,"0");
-    setPreviewHtml(renderHtml(selTemplate.html_content, { ...formData, document_number: previewNum }, logo));
-    setShowPreview(true);
+const generatePreview = () => {
+  if (!selTemplate?.html_content) return;
+  const logo = selTemplate.logo_url
+    ? (selTemplate.logo_url.startsWith("http") ? selTemplate.logo_url : `${API_BASE}${selTemplate.logo_url}`)
+    : "";
+  const now = new Date();
+  const previewNum = "DOC-" + now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + "-"
+    + String(Math.floor(Math.random()*999)+1).padStart(6,"0");
+  
+  const dataWithDocNum = { 
+    ...formData, 
+    document_number: previewNum,
   };
+  
+  setPreviewHtml(renderHtml(selTemplate.html_content, dataWithDocNum, logo));
+  setShowPreview(true);
+};
 
   const handlePrint = () => {
     const w = window.open("","_blank");
@@ -813,6 +890,23 @@ pan_number:     d.pan_number    || "",
   const visibleVars = useMemo(() =>
     (selTemplate?.variables || []).filter(v => !HIDDEN_VARS.includes(v)),
     [selTemplate]);
+
+    const dynamicGroups = useMemo(() => {
+  if (!selTemplate?.variables?.length) return {};
+  const templateVars = selTemplate.variables.filter(v => !HIDDEN_VARS.includes(v));
+  const assigned = new Set<string>();
+  const result: Record<string, string[]> = {};
+  Object.entries(KNOWN_GROUPS).forEach(([groupName, knownVars]) => {
+    const matched = knownVars.filter(v => templateVars.includes(v));
+    if (matched.length) {
+      result[groupName] = matched;
+      matched.forEach(v => assigned.add(v));
+    }
+  });
+  const others = templateVars.filter(v => !assigned.has(v));
+  if (others.length) result["Other Fields"] = others;
+  return result;
+}, [selTemplate]);
 
   const isMulti      = tenantQueue.length > 1;
   const currentTenant = tenantQueue[queueIndex] || null;
@@ -1239,71 +1333,43 @@ pan_number:     d.pan_number    || "",
 
          
 
-          <div className="p-3" style={{ maxHeight:"calc(100vh - 350px)", overflowY:"auto" }}>
-            {GROUP_SYSTEM.some(v => visibleVars.includes(v)) && (
-              <div className="mb-4">
-                <SH icon={<FileText className="h-3 w-3" />} title="Document Info" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-                  {GROUP_SYSTEM.filter(v => visibleVars.includes(v)).map(v => (
-                    <FieldInput key={v} variable={v} formData={formData} setFormData={setFormData} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {GROUP_TENANT.some(v => visibleVars.includes(v)) && (
-              <div className="mb-4">
-                <SH icon={<User className="h-3 w-3" />} title="Tenant Information" color="text-green-600" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-                  {GROUP_TENANT.filter(v => visibleVars.includes(v)).map(v => (
-                    <FieldInput key={v} variable={v} formData={formData} setFormData={setFormData}
-                      required={["tenant_name","tenant_phone"].includes(v)} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {GROUP_PROPERTY.some(v => visibleVars.includes(v)) && (
-              <div className="mb-4">
-                <SH icon={<Building2 className="h-3 w-3" />} title="Property Details" color="text-indigo-600" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-                  {GROUP_PROPERTY.filter(v => visibleVars.includes(v)).map(v => (
-                    <FieldInput key={v} variable={v} formData={formData} setFormData={setFormData} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {GROUP_COMPANY.some(v => visibleVars.includes(v)) && (
-              <div className="mb-4">
-                <SH icon={<Building2 className="h-3 w-3" />} title="Company / Manager Info" color="text-orange-600" />
-                <p className="text-[10px] text-orange-500 mb-2">Fill your company name and address manually</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-                  {GROUP_COMPANY.filter(v => visibleVars.includes(v)).map(v => (
-                    <FieldInput key={v} variable={v} formData={formData} setFormData={setFormData} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {(() => {
-              const rest = visibleVars.filter(v => !ALL_GROUPED.includes(v));
-              if (!rest.length) return null;
-              return (
-                <div className="mb-4">
-                  <SH icon={<Hash className="h-3 w-3" />} title="Other Fields" color="text-gray-500" />
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-                    {rest.map(v => <FieldInput key={v} variable={v} formData={formData} setFormData={setFormData} />)}
-                  </div>
-                </div>
-              );
-            })()}
-            {currentTenant?.id && (
-              <div className="mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-                <Zap className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] text-blue-700">
-                  Fields in <span className="font-bold text-green-600">green</span> are auto-filled from tenant's profile.
-                  {isMulti && " Each tenant's details are filled separately."}
-                </p>
-              </div>
-            )}
-          </div>
+         {/* ══ STEP 3 body ══ */}
+<div className="p-3" style={{ maxHeight:"calc(100vh - 350px)", overflowY:"auto" }}>
+  {Object.entries(dynamicGroups).map(([groupName, vars]) => (
+    <div key={groupName} className="mb-4">
+      <SH
+        icon={<FileText className="h-3 w-3" />}
+        title={groupName}
+        color={
+          groupName === "Tenant Info" ? "text-green-600" :
+          groupName === "Property Details" ? "text-indigo-600" :
+          groupName === "Company Info" ? "text-orange-600" : "text-blue-600"
+        }
+      />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {vars.map(v => (
+          <FieldInput
+            key={v}
+            variable={v}
+            formData={formData}
+            setFormData={setFormData}
+            required={["tenant_name","tenant_phone"].includes(v)}
+          />
+        ))}
+      </div>
+    </div>
+  ))}
+
+  {currentTenant?.id && (
+    <div className="mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+      <Zap className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+      <p className="text-[10px] text-blue-700">
+        Fields in <span className="font-bold text-green-600">green</span> are auto-filled from tenant's profile.
+        {isMulti && " Each tenant's details are filled separately."}
+      </p>
+    </div>
+  )}
+</div>
 
           <div className="px-3 py-2.5 border-t bg-gray-50 rounded-b-lg flex items-center justify-between">
             <button onClick={handleStep3Back}

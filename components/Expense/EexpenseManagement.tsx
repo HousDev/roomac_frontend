@@ -3435,8 +3435,38 @@ onClick={() => openReceiptPreview(viewItem)}
             <tr key={t.id || idx} className="hover:bg-slate-50">
               <td className="border border-slate-300 px-2 py-1 text-slate-600">{fmtDate(t.transaction_date?.split('T')[0] || t.created_at?.split('T')[0])}</td>
               <td className="border border-slate-300 px-2 py-1 text-slate-600">{t.payment_mode}</td>
-              <td className="border border-slate-300 px-2 py-1 text-slate-500">{t.reference_no || t.transaction_id || t.cheque_no || t.upi_id || t.card_ref || '—'}</td>
-              <td className="border border-slate-300 px-2 py-1 text-right font-medium text-emerald-700">₹{Number(t.paid_amount).toLocaleString()}</td>
+<td className="border border-slate-300 px-2 py-1 text-slate-500 text-[10px]">
+  {(() => {
+    const mode = t.payment_mode;
+    if (mode === 'UPI' && t.upi_id) return `UPI: ${t.upi_id}`;
+    if (mode === 'Cheque') {
+      const parts = [];
+      if (t.cheque_no) parts.push(`Chq: ${t.cheque_no}`);
+      if (t.cheque_bank) parts.push(`Bank: ${t.cheque_bank}`);
+      return parts.join(' | ') || t.reference_no || '—';
+    }
+    if (mode === 'Bank Transfer') {
+      const parts = [];
+      if (t.bank_name) parts.push(`Bank: ${t.bank_name}`);
+      if (t.transaction_id) parts.push(`Txn: ${t.transaction_id}`);
+      return parts.join(' | ') || t.reference_no || '—';
+    }
+    if (mode === 'Card' && t.card_ref) return `Card: ${t.card_ref}`;
+    if (mode === 'Online Payment Gateway') {
+      const parts = [];
+      if (t.bank_name) parts.push(`Gateway: ${t.bank_name}`);
+      if (t.transaction_id) parts.push(`Txn: ${t.transaction_id}`);
+      return parts.join(' | ') || t.reference_no || '—';
+    }
+    if (mode === 'Wallet') {
+      const parts = [];
+      if (t.bank_name) parts.push(`Wallet: ${t.bank_name}`);
+      if (t.transaction_id) parts.push(`Ref: ${t.transaction_id}`);
+      return parts.join(' | ') || t.reference_no || '—';
+    }
+    return t.reference_no || '—';
+  })()}
+</td>              <td className="border border-slate-300 px-2 py-1 text-right font-medium text-emerald-700">₹{Number(t.paid_amount).toLocaleString()}</td>
             </tr>
           ))}
         </tbody>
