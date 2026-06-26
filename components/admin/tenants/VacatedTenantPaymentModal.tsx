@@ -277,6 +277,7 @@ interface VacatedTenantPaymentModalProps {
   amount: number;
   type: "refund" | "payment";
   onSuccess: () => void;
+  vacateRecordId?: number | null;
 }
 
 export function VacatedTenantPaymentModal({
@@ -286,6 +287,7 @@ export function VacatedTenantPaymentModal({
   amount,
   type,
   onSuccess,
+  vacateRecordId,
 }: VacatedTenantPaymentModalProps) {
   const [loading, setLoading] = useState(false);
   const [paymentMode, setPaymentMode] = useState<string>(type === "refund" ? "bank_transfer" : "online");
@@ -377,6 +379,7 @@ export function VacatedTenantPaymentModal({
         transaction_id: transactionId || undefined,
         payment_date: transactionDate,
         remark: remark || undefined,
+        ...(type === "refund" && vacateRecordId && { vacate_record_id: vacateRecordId }), 
       };
 
       let response;

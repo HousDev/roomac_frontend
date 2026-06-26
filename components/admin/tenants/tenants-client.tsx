@@ -147,6 +147,7 @@ import { FaMale, FaFemale } from "react-icons/fa";
     const [credentialLoading, setCredentialLoading] = useState(false);
     const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);
     const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
+    const [vacateRecordId, setVacateRecordId] = useState<number | null>(null);
 
     const [shareModalTenant, setShareModalTenant] = useState<Tenant | null>(null);
 const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -1386,17 +1387,42 @@ const clearSidebarFilters = useCallback(() => {
       return filtered;
   }, [tenants, columnSearch, pendingDeposit, pendingRent, coupleFilter, checkInDateFrom, checkInDateTo, vacatedDateFrom, vacatedDateTo, refundStatus]);
 
+  // ── Flatten vacate records into individual rows for Vacated/Deleted tabs ──
+const flattenedRows = useMemo(() => {
+  if (activeTab !== "vacated" && activeTab !== "deleted") {
+    return filteredTenants;
+  }
+  const rows: Tenant[] = [];
+  filteredTenants.forEach((tenant) => {
+    const records = tenant.vacate_records && tenant.vacate_records.length > 0
+      ? tenant.vacate_records
+      : [undefined]; // tenant with no records still shows once
+
+    records.forEach((vr, idx) => {
+      rows.push({
+        ...tenant,
+        // Each row gets a unique key + carries its OWN vacate record at index 0
+        id: idx === 0 ? tenant.id : `${tenant.id}-vr-${vr?.id ?? idx}`,
+        original_id: tenant.id, // preserve real tenant id for links/actions
+        vacate_records: vr ? [vr] : [], // ← critical: row's "[0]" now points to THIS record
+      });
+    });
+  });
+  return rows;
+}, [filteredTenants, activeTab]);
+
     const paginatedTenants = useMemo(() => {
-      const start = (currentPage - 1) * pageSize;
-      return filteredTenants.slice(start, start + pageSize);
-    }, [filteredTenants, currentPage, pageSize]);
+  const start = (currentPage - 1) * pageSize;
+  return flattenedRows.slice(start, start + pageSize);
+}, [flattenedRows, currentPage, pageSize]);
 
     // Add handlers
     const handleVacatedTenantRefund = useCallback(
-      (tenant: Tenant, refundAmount: number) => {
+      (tenant: Tenant, refundAmount: number, vacateRecordId?: number) => {
         setSelectedVacatedTenant(tenant);
         setPaymentModalAmount(refundAmount);
         setPaymentModalType("refund");
+        setVacateRecordId(vacateRecordId || null);
         setPaymentModalOpen(true);
       },
       [],
@@ -1465,20 +1491,10 @@ const clearSidebarFilters = useCallback(() => {
 
     // Helper to get the correct tenant ID for viewing
     const getViewTenantId = (tenant: Tenant): string | number => {
-      // If this is a partner tenant (is_primary_tenant === false)
-      // and has its own ID, use that
-      if (tenant.is_primary_tenant === false && tenant.id) {
-        return tenant.id;
-      }
-
-      // If the tenant has an original_id (from the backend transformation)
-      if (tenant.original_id) {
-        return tenant.original_id;
-      }
-
-      // Otherwise use the regular id
-      return tenant.id;
-    };
+  if (tenant.original_id) return tenant.original_id;
+  if (tenant.is_primary_tenant === false && tenant.id) return tenant.id;
+  return tenant.id;
+};
 
     const handleRestoreVacatedTenant = useCallback(
       async (tenant: Tenant) => {
@@ -1527,7 +1543,7 @@ const clearSidebarFilters = useCallback(() => {
     );
 
     // ── PAGINATION LOGIC ──
-    const totalTenants = filteredTenants?.length ?? tenants.length;
+   const totalTenants = flattenedRows?.length ?? tenants.length;
     const totalPages = Math.max(1, Math.ceil(totalTenants / pageSize));
 
     useEffect(() => {
@@ -3423,14 +3439,36 @@ const checkInDate = (() => {
               (tenant.is_primary_tenant as any) === 0
             );
             const payments = tenant.payments || [];
-            // Include both 'deposit_refund' and 'refund' payment types
-            const totalRefunded = payments
-              .filter((p) => {
-                const type = ((p as any).payment_type || '').toLowerCase();
-                return (type === 'deposit_refund' || type === 'refund') &&
-                       (p.status === 'approved' || p.status === 'paid' || p.status === 'refund' || p.status === 'completed');
-              })
-              .reduce((sum, p) => sum + (p.amount || 0), 0);
+const cycleVacateDate = vacateRecord?.requested_vacate_date
+  ? new Date(vacateRecord.requested_vacate_date)
+  : null;
+const cycleCheckInDate = vacateRecord?.stay_check_in_date
+  ? new Date(vacateRecord.stay_check_in_date)
+  : null;
+
+const totalRefunded = payments
+  .filter((p) => {
+    const type = ((p as any).payment_type || '').toLowerCase();
+    const isRefundType = (type === 'deposit_refund' || type === 'refund') &&
+      (p.status === 'approved' || p.status === 'paid' || p.status === 'refund' || p.status === 'completed');
+    if (!isRefundType) return false;
+    if (!p.payment_date) return true; // fallback: can't scope, include it (old behavior)
+
+    const pDate = new Date(p.payment_date);
+    // Must be on/after this cycle's check-in AND on/around this cycle's vacate date
+    if (cycleCheckInDate && pDate < cycleCheckInDate) return false;
+    if (cycleVacateDate) {
+      // allow a little buffer after vacate date for late refund processing
+      const cutoff = new Date(cycleVacateDate);
+      cutoff.setDate(cutoff.getDate() + 60); // 60-day grace window, adjust as needed
+      if (pDate > cutoff && payments.some(other => {
+        // if a LATER cycle exists whose window better matches this payment, exclude it
+        return false; // simplified — see note below
+      })) return false;
+    }
+    return true;
+  })
+  .reduce((sum, p) => sum + (p.amount || 0), 0);
             const totalDepositPaid = payments
               .filter(p => (p as any).payment_type === 'security_deposit' && (p.status === 'approved' || p.status === 'paid'))
               .reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -3736,78 +3774,84 @@ const checkInDate = (() => {
                 )}
 
                 {/* ── Payments (includes refund info and pending deposit badge) ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
-                  <div className="flex items-center gap-1 whitespace-nowrap">
-                    <span className="text-[10px] font-semibold text-green-600">
-                      ₹{totalPaid.toLocaleString()}
-                    </span>
-                    <span className="text-[9px] text-gray-400">
-                      ({relevantPayments.length} txn)
-                    </span>
-                    {(activeTab === "vacated" || activeTab === "deleted") &&
-                      totalRefunded > 0 && (
-                        <span className="text-[9px] text-blue-600">
-                          Refunded: ₹{totalRefunded.toLocaleString()}
-                        </span>
-                      )}
-                    {(() => {
-                      const isVacated = tenant.has_vacated === true;
-                      const refundableAmount = vacateRecord?.refundable_amount || 0;
-                      const remainingRefund = refundableAmount - totalRefunded;
-                      const needsRefund = isVacated && remainingRefund > 0;
+<td className="px-2 py-2 border-r border-gray-200">
+  {isPartner ? (
+    <div className="text-[10px] text-gray-400 italic whitespace-nowrap">
+      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
+    </div>
+  ) : (
+    <div className="flex items-center gap-1 whitespace-nowrap">
+      <span className="text-[10px] font-semibold text-green-600">
+        ₹{totalPaid.toLocaleString()}
+      </span>
+      <span className="text-[9px] text-gray-400">
+        ({relevantPayments.length} txn)
+      </span>
+      {(activeTab === "vacated" || activeTab === "deleted") &&
+        totalRefunded > 0 && (
+          <span className="text-[9px] text-blue-600">
+            Refunded: ₹{totalRefunded.toLocaleString()}
+          </span>
+        )}
+      {(() => {
+        const isVacated = tenant.has_vacated === true;
+        const refundableAmount = vacateRecord?.refundable_amount || 0;
+        const remainingRefund = refundableAmount - totalRefunded;
+        const needsRefund = isVacated && remainingRefund > 0;
 
-                      if (needsRefund) {
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-5 px-2 text-[9px] bg-green-100 text-green-700 border-green-200 hover:bg-green-400 whitespace-nowrap rounded-md"
-                            onClick={() =>
-                              handleVacatedTenantRefund(tenant, remainingRefund)
-                            }
-                          >
-                            <Shield className="w-2.5 h-2.5 mr-1 flex-shrink-0" />
-                            Pay ₹{remainingRefund.toLocaleString()}
-                          </Button>
-                        );
-                      }
-                      return null;
-                    })()}
-                    {(activeTab === "vacated" || activeTab === "deleted") &&
-                      (() => {
-                        const isVacated = tenant.has_vacated === true;
-                        const refundableAmount = vacateRecord?.refundable_amount || 0;
-                        const isFullyRefunded =
-                          isVacated &&
-                          refundableAmount > 0 &&
-                          totalRefunded >= refundableAmount;
-                        const isSettledNoRefund =
-                          isVacated && refundableAmount === 0;
+        if (needsRefund) {
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-5 px-2 text-[9px] bg-green-100 text-green-700 border-green-200 hover:bg-green-400 whitespace-nowrap rounded-md"
+              onClick={() =>
+                handleVacatedTenantRefund(tenant, remainingRefund, vacateRecord?.id)
+              }
+            >
+              <Shield className="w-2.5 h-2.5 mr-1 flex-shrink-0" />
+              Pay ₹{remainingRefund.toLocaleString()}
+            </Button>
+          );
+        }
+        return null;
+      })()}
+      {(activeTab === "vacated" || activeTab === "deleted") &&
+        (() => {
+          const isVacated = tenant.has_vacated === true;
+          const refundableAmount = vacateRecord?.refundable_amount || 0;
+          const isFullyRefunded =
+            isVacated &&
+            refundableAmount > 0 &&
+            totalRefunded >= refundableAmount;
+          const isSettledNoRefund =
+            isVacated && refundableAmount === 0;
 
-                        if (isFullyRefunded) {
-                          return (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-green-200 whitespace-nowrap"
-                            >
-                              Settled
-                            </Badge>
-                          );
-                        }
-                        if (isSettledNoRefund) {
-                          return (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 bg-gray-100 text-gray-500 whitespace-nowrap"
-                            >
-                              No Refund
-                            </Badge>
-                          );
-                        }
-                        return null;
-                      })()}
-                  </div>
-                </td>
+          if (isFullyRefunded) {
+            return (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-green-200 whitespace-nowrap"
+              >
+                Settled
+              </Badge>
+            );
+          }
+          if (isSettledNoRefund) {
+            return (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1.5 py-0 h-4 bg-gray-100 text-gray-500 whitespace-nowrap"
+              >
+                No Refund
+              </Badge>
+            );
+          }
+          return null;
+        })()}
+    </div>
+  )}
+</td>
 
                 {/* ── Location ── */}
                 <td className="px-2 py-2 border-r border-gray-200">
@@ -4875,6 +4919,7 @@ const checkInDate = (() => {
               amount={paymentModalAmount}
               type={paymentModalType}
               onSuccess={handlePaymentModalSuccess}
+              vacateRecordId={vacateRecordId}
               className="max-h-[300px]"
             />
           )}
