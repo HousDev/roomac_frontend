@@ -1357,7 +1357,6 @@ const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
 
   // Function to refresh room data
 const refreshRoomData = useCallback(async () => {
-  
   try {
     setLoading(true);
     
@@ -1373,8 +1372,6 @@ const refreshRoomData = useCallback(async () => {
       roomData = room; // fallback to prop
     }
 
-
-
     let beds: BedAssignment[] = roomData?.bed_assignments || room.bed_assignments || [];
 
     // ✅ FIX: Safely get property_id from roomData or room
@@ -1382,54 +1379,27 @@ const refreshRoomData = useCallback(async () => {
     
     // ✅ If no property_id, try to find it from the room data or fetch again
     if (!propertyId && roomData?.id) {
-      
-      // Try to fetch room details again with more data
       try {
         const fullRoom = await getRoomById(roomData.id.toString());
-        
         let fullRoomData: any = null;
         if (fullRoom && (fullRoom as any).success && (fullRoom as any).data) {
           fullRoomData = (fullRoom as any).data;
         } else if (fullRoom && (fullRoom as any).id) {
           fullRoomData = fullRoom;
         }
-        
         if (fullRoomData?.property_id) {
           roomData.property_id = fullRoomData.property_id;
           propertyId = fullRoomData.property_id;
-        } else {
-          console.error("❌ [DEBUG] Still no property_id in full fetch:", fullRoomData);
         }
       } catch (e) {
         console.error("❌ [DEBUG] Could not fetch property_id:", e);
       }
     }
     
-    // ✅ If still no property_id, try to find it from roomData's property_name or other fields
-    if (!propertyId) {
-      
-      // Try to find property_id from roomData if it has property object
-      if (roomData?.property?.id) {
-        propertyId = roomData.property.id;
-      }
-      
-      // Try to find from rooms list (if available via props)
-      if (!propertyId && room?.id) {
-        // @ts-ignore - rooms might be passed via closure
-        const foundInList = rooms?.find((r: any) => r.id === room.id);
-        if (foundInList?.property_id) {
-          propertyId = foundInList.property_id;
-        }
-      }
-    }
-    
-    // ✅ Only fetch vacate requests if we have a valid property_id
+    // ✅ Fetch vacate requests if we have a valid property_id
     if (propertyId) {
-      
       try {
         const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-       
-        
         const vacateUrl = `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`;
         
         const vacateRes = await fetch(vacateUrl, {
@@ -1442,37 +1412,54 @@ const refreshRoomData = useCallback(async () => {
         const vacateData = await vacateRes.json();
 
         if (vacateData.success && Array.isArray(vacateData.data)) {
-          
-          const vacateDateMap: Record<number, string> = {};
+          // ✅ Create a map of bed_id -> vacate info
+          const vacateMap: Record<number, { date: string; status: string; tenantName: string }> = {};
           
           vacateData.data.forEach((req: any) => {
             const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
+            const isApproved = req.vacate_status === 'approved';
             
-            if (req.bed_id && req.expected_vacate_date && !isCompleted) {
-              vacateDateMap[req.bed_id] = req.expected_vacate_date;
+            // ✅ Only include if not completed/cancelled
+            if (!isCompleted && req.bed_id && req.expected_vacate_date) {
+              // ✅ Use the existing vacate_date or expected_vacate_date
+              const vacateDate = req.expected_vacate_date || req.vacate_date;
+              
+              // ✅ Store the most recent request for each bed
+              if (!vacateMap[req.bed_id]) {
+                vacateMap[req.bed_id] = {
+                  date: vacateDate,
+                  status: req.vacate_status || 'pending',
+                  tenantName: req.tenant_name || 'Unknown',
+                };
+              }
             }
           });
 
-          const beforeBeds = beds.map(b => ({ id: b.id, expected_vacate_date: b.expected_vacate_date }));
-
-          beds = beds.map((bed) => ({
-            ...bed,
-            expected_vacate_date: vacateDateMap[bed.id] || null,
-          }));
-          
-          const afterBeds = beds.map(b => ({ id: b.id, expected_vacate_date: b.expected_vacate_date }));
-          
-        } else {
-          console.warn("⚠️ [DEBUG] No vacate requests found or invalid response:", vacateData);
+          // ✅ Update beds with vacate info
+          beds = beds.map((bed) => {
+            const vacateInfo = vacateMap[bed.id];
+            if (vacateInfo) {
+              // ✅ Set both expected_vacate_date and vacate_status
+              return {
+                ...bed,
+                expected_vacate_date: vacateInfo.date,
+                vacate_status: vacateInfo.status,
+                // ✅ Also store the tenant name for display
+                vacating_tenant_name: vacateInfo.tenantName,
+              };
+            }
+            // ✅ Clear vacate info if no request exists
+            return {
+              ...bed,
+              expected_vacate_date: null,
+              vacate_status: null,
+              vacating_tenant_name: null,
+            };
+          });
         }
       } catch (vacateErr) {
         console.error("❌ [DEBUG] Could not fetch vacate dates:", vacateErr);
       }
-    } else {
-      console.error("❌ [DEBUG] No property_id found for room:", room.id);
-      console.error("❌ [DEBUG] roomData:", roomData);
-      console.error("❌ [DEBUG] room:", room);
-      // Continue without vacate dates - don't break the dialog
     }
 
     // Fetch pre-assignment data
@@ -1500,20 +1487,14 @@ const refreshRoomData = useCallback(async () => {
           };
         });
 
-        const beforePreAssign = beds.map(b => ({ id: b.id, pre_assigned_tenant_id: b.pre_assigned_tenant_id }));
-
         beds = beds.map((bed) => ({
           ...bed,
           ...(preAssignMap[bed.id] ?? {}),
         }));
-        
-        const afterPreAssign = beds.map(b => ({ id: b.id, pre_assigned_tenant_id: b.pre_assigned_tenant_id }));
       }
     } catch (preErr) {
       console.error("❌ [DEBUG] Could not fetch pre-assignment data:", preErr);
     }
-
-
 
     setBedAssignments(beds);
     if (onRoomUpdate) {
@@ -1523,10 +1504,6 @@ const refreshRoomData = useCallback(async () => {
     setLoading(false);
   } catch (error) {
     console.error("❌ [DEBUG] Error refreshing room:", error);
-    console.error("❌ [DEBUG] Error details:", {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
     setLoading(false);
   }
 }, [room.id, room.property_id, onRoomUpdate]);
@@ -1890,14 +1867,19 @@ const getBedStatus = useCallback((bedNumber: number) => {
   // ✅ Only show "vacating_soon" if:
   // 1. Bed has a future vacate date
   // 2. Bed is occupied
-  // 3. There's an active vacate request (not completed)
+  // 3. Vacate status is not completed or cancelled
   if (hasVacateDate && hasTenant && !isAvailable) {
-    // Check if vacate date is in the future
+    // Check if vacate date is in the future or today
     const vacateDate = new Date(assignment.expected_vacate_date);
     const today = new Date();
     
     // ✅ If vacate date is in the past, don't show vacating_soon
     if (vacateDate < today) {
+      return { status: "occupied", assignment };
+    }
+    
+    // ✅ Check if vacate status is completed or cancelled
+    if (assignment.vacate_status === 'completed' || assignment.vacate_status === 'cancelled') {
       return { status: "occupied", assignment };
     }
     
