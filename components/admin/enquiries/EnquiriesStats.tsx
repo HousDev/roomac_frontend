@@ -42,7 +42,7 @@ const EnquiriesStats = ({ stats }: EnquiriesStatsProps) => {
           Mobile  : 3 cols × 2 rows  (grid-cols-3)
           Desktop : 6 cols × 1 row   (md:grid-cols-6)
       ────────────────────────────────────────────────────────────────── */}
- <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+ <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 ">
 
   {/* Total */}
   <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-2 py-0.5 md:px-3 md:py-2 min-h-[48px] md:min-h-0">

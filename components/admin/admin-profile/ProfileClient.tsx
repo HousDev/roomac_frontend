@@ -7,6 +7,7 @@ import Sidebar from "./Sidebar";
 import ProfileTab from "./ProfileTab";
 import SecurityTab from "./SecurityTab";
 import NotificationsTab from "./NotificationsTab";
+import { request } from "@/lib/api";
 import {
   ProfileUpdateData,
   PasswordChangeData,
@@ -148,6 +149,7 @@ const [profileData, setProfileData] = useState<ProfileData>({
         phone_country_code: profileData.phone_country_code,
         address: profileData.address,
         bio: profileData.bio,
+        avatar_url: profileData.avatar_url,
       };
 
       const result = await updateProfile(updateData);
@@ -266,6 +268,19 @@ const [profileData, setProfileData] = useState<ProfileData>({
       setAvatarUploading(false);
     }
   }, [updateUser]);
+const handleAvatarRemove = useCallback(async () => {
+  const toastId = toast.loading("Removing profile picture...");
+  try {
+    const result = await request('/api/profile/avatar', { method: 'DELETE' });
+    toast.dismiss(toastId);
+    toast.success("Profile picture removed");
+    updateUser({ photo_url: '' });
+    setProfileData(prev => ({ ...prev, avatar_url: '' }));
+  } catch (e: any) {
+    toast.dismiss(toastId);
+    toast.error(e.message || "Failed to remove photo");
+  }
+}, [updateUser]);
 
   const handleCancelProfileChanges = useCallback(() => {
     fetchProfile();
@@ -310,6 +325,8 @@ const [profileData, setProfileData] = useState<ProfileData>({
                     profileData={profileData}
                     onProfileDataChange={setProfileData}
                     onAvatarUpload={handleAvatarUpload}
+                      onAvatarRemove={handleAvatarRemove}
+
                     onSave={handleProfileUpdate}
                     onCancel={handleCancelProfileChanges}
                     loading={loading}

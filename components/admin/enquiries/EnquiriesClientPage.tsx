@@ -11,8 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Eye, Phone, Mail, Calendar, Trash2, Edit, BarChart, Search, Save, RefreshCw, Filter, X, UserPlus } from "lucide-react";
+import { Plus, Eye, Phone, Mail, Calendar, Trash2, Edit, BarChart, Search, Save, RefreshCw, Filter, X, UserPlus, UserCheck, ArrowRightLeft, Repeat, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from 'xlsx';
+import { getAllStaff, type StaffMember } from "@/lib/staffApi";
+
 import {
   getEnquiries,
   createEnquiry,
@@ -55,6 +58,11 @@ interface EnquiriesClientPageProps {
   onRegisterStats?: (stats: any) => void;
   onRegisterBulkDelete?: (fn: () => void) => void;
   onRegisterSelectedCount?: (count: number) => void;
+  onRegisterOpenFilterSidebar?: (fn: () => void) => void;
+ onRegisterExport?: (fn: () => void) => void;          
+  onRegisterImport?: (fn: (file: File | null) => void) => void;
+  onRegisterOpenBulkAssign?: (fn: () => void) => void; 
+
 }
 
 export default function EnquiriesClientPage({
@@ -66,6 +74,10 @@ export default function EnquiriesClientPage({
   onRegisterStats,
   onRegisterBulkDelete,
   onRegisterSelectedCount,
+  onRegisterOpenFilterSidebar,
+   onRegisterExport,
+  onRegisterImport,
+  onRegisterOpenBulkAssign,   
 }: EnquiriesClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,21 +98,32 @@ export default function EnquiriesClientPage({
   const initialLoadDone = useRef(false);
   const [scheduleVisitEnquiry, setScheduleVisitEnquiry] = useState<Enquiry | null>(null);
   const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number | "All">(10);
   // Add these state variables
-    const { can } = useAuth(); // ← ADD THIS
+    const { can } = useAuth(); 
+    const [staffList, setStaffList] = useState<any[]>([]);
+const [assignStaffId, setAssignStaffId] = useState("");
 
 const [selectedRows, setSelectedRows] = useState<string[]>([]);
 const [selectAll, setSelectAll] = useState(false);
+const [showImportDialog, setShowImportDialog] = useState(false);
+const [importFile, setImportFile] = useState<File | null>(null);
+const [importPreview, setImportPreview] = useState<any[]>([]);
+const [importing, setImporting] = useState(false);
+
+
+const fileRef = useRef<HTMLInputElement>(null);
+
 
   // Column search states
-  const [columnFilters, setColumnFilters] = useState({
-    name: "",
-    contact: "",
-    property: "",
-    moveInDate: "",
-    status: "",
-    created: ""
-  });
+const [columnFilters, setColumnFilters] = useState({
+  name: "", phone: "", email: "",   
+  contact: "",                       
+  property: "", moveInDate: "",
+  status: "", created: "", assignedTo: ""
+});
+
   const [dateFilters, setDateFilters] = useState({
   moveInFrom: "",
   moveInTo: "",
@@ -208,6 +231,9 @@ const [selectAll, setSelectAll] = useState(false);
     }
   }, []);
 
+useEffect(() => {
+  onRegisterOpenBulkAssign?.(() => setShowBulkAssignDialog(true));
+}, [onRegisterOpenBulkAssign]);
 
   useEffect(() => {
   onRegisterRefresh?.(() => loadData(true));
@@ -221,11 +247,15 @@ useEffect(() => {
   onRegisterStats?.(stats);
 }, [stats]);
 
-
+useEffect(() => {
+  onRegisterOpenFilterSidebar?.(() => setShowFilterSidebar(true));
+}, []);
 useEffect(() => {
   onRegisterSelectedCount?.(selectedRows.length);
 }, [selectedRows.length]);
 
+
+useEffect(() => { setCurrentPage(1); }, [columnFilters, statusFilter, searchTerm, dateFilters]);
   // Load properties once on mount
   useEffect(() => {
     if (hasFetchedOnMount.current) return;
@@ -241,6 +271,7 @@ useEffect(() => {
         console.error("Error loading properties:", error);
       }
     };
+    
 
     loadProperties();
 
@@ -249,6 +280,17 @@ useEffect(() => {
     }
   }, []);
 
+  useEffect(() => {
+  const loadStaff = async () => {
+    try {
+      const staff = await getAllStaff();
+      setStaffList(staff);
+    } catch (error) {
+      console.error("Error loading staff:", error);
+    }
+  };
+  loadStaff();
+}, []);
   useEffect(() => {
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== "all") params.set('status', statusFilter);
@@ -269,18 +311,40 @@ useEffect(() => {
     return () => clearTimeout(timeoutId);
   }, [statusFilter, searchTerm, loadData]);
 
+   const formatDateForDisplay = useCallback((dateString: string) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "-";
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error("Error formatting date for display:", error);
+      return "-";
+    }
+  }, []);
   // Filter enquiries based on column filters
   const filteredEnquiries = useMemo(() => {
     return enquiries.filter(enquiry => {
       const nameMatch = enquiry.tenant_name?.toLowerCase().includes(columnFilters.name.toLowerCase()) ?? true;
-      const contactMatch = 
-        (enquiry.phone?.toLowerCase().includes(columnFilters.contact.toLowerCase()) ?? false) ||
-        (enquiry.email?.toLowerCase().includes(columnFilters.contact.toLowerCase()) ?? false);
+      const phoneMatch = enquiry.phone?.toLowerCase().includes(columnFilters.phone.toLowerCase()) ?? true;
+      const emailMatch = enquiry.email?.toLowerCase().includes(columnFilters.email.toLowerCase()) ?? true;
+      const contactMatch = phoneMatch && emailMatch;
       const propertyMatch = (enquiry.property_full_name || enquiry.property_name || "")?.toLowerCase().includes(columnFilters.property.toLowerCase()) ?? true;
-      const moveInDateMatch = (enquiry.preferred_move_in_date || "")?.toLowerCase().includes(columnFilters.moveInDate.toLowerCase()) ?? true;
       const statusMatch = (enquiry.status || "")?.toLowerCase().includes(columnFilters.status.toLowerCase()) ?? true;
-      const createdMatch = (enquiry.created_at || "")?.toLowerCase().includes(columnFilters.created.toLowerCase()) ?? true;
+const moveInDateMatch = columnFilters.moveInDate
+  ? formatDateForDisplay(enquiry.preferred_move_in_date || "").toLowerCase().includes(columnFilters.moveInDate.toLowerCase())
+  : true;
+const createdMatch = columnFilters.created
+  ? formatDateForDisplay(enquiry.created_at || "").toLowerCase().includes(columnFilters.created.toLowerCase())
+  : true;
 
+  const assignedToMatch = columnFilters.assignedTo
+  ? (enquiry.assigned_staff_name || "Unassigned").toLowerCase().includes(columnFilters.assignedTo.toLowerCase())
+  : true;
 // Date range filters
       let moveInRangeMatch = true;
       if (!dateFilters.ignoreDateFilters) {
@@ -293,11 +357,21 @@ useEffect(() => {
         if (dateFilters.createdFrom && created) createdRangeMatch = created >= new Date(dateFilters.createdFrom);
         if (dateFilters.createdTo && created) createdRangeMatch = createdRangeMatch && created <= new Date(dateFilters.createdTo);
 
-        return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch && moveInRangeMatch && createdRangeMatch;
+return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch && moveInRangeMatch && createdRangeMatch && assignedToMatch;
       }
 
       return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch;    });
   }, [enquiries, columnFilters]);
+  const paginatedEnquiries = useMemo(() => {
+  if (itemsPerPage === "All") return filteredEnquiries;
+  const start = (currentPage - 1) * (itemsPerPage as number);
+  return filteredEnquiries.slice(start, start + (itemsPerPage as number));
+}, [filteredEnquiries, currentPage, itemsPerPage]);
+
+const totalPages = useMemo(() => {
+  if (itemsPerPage === "All") return 1;
+  return Math.ceil(filteredEnquiries.length / (itemsPerPage as number));
+}, [filteredEnquiries, itemsPerPage]);
 
   // Function to open view dialog with fresh data
   const openViewDialog = useCallback(async (enquiry: Enquiry) => {
@@ -320,6 +394,10 @@ useEffect(() => {
       toast.error("Name and phone are required");
       return;
     }
+    if (newEnquiry.phone.length !== 10) {
+  toast.error("Phone number must be exactly 10 digits");
+  return;
+}
 
     if (!newEnquiry.property_id) {
       toast.error("Please select a property");
@@ -402,6 +480,11 @@ useEffect(() => {
       return;
     }
 
+    if (editEnquiryData.phone.length !== 10) {
+  toast.error("Phone number must be exactly 10 digits");
+  return;
+}
+
     try {
       let propertyName = selectedEnquiry.property_name;
       if (editEnquiryData.property_id && editEnquiryData.property_id !== selectedEnquiry.property_id) {
@@ -462,6 +545,20 @@ const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     toast.error("Failed to update status");
   }
 }, [selectedEnquiry, enquiries]);
+
+const [assignEnquiry, setAssignEnquiry] = useState<Enquiry | null>(null);
+
+const handleAssignToStaff = useCallback(async (enquiryId: string, staffId: string) => {
+  try {
+    await updateEnquiry(enquiryId, { assigned_to: staffId } as any);
+    toast.success("Enquiry assigned");
+    setAssignEnquiry(null);
+    await loadData(true);
+  } catch (error: any) {
+    console.error("Error assigning enquiry:", error);
+    toast.error(error.message || "Failed to assign enquiry");
+  }
+}, [loadData]);
 
   const handleAddFollowup = useCallback(async () => {
     if (!followupText.trim()) {
@@ -540,21 +637,7 @@ const handleDeleteEnquiry = useCallback(async (id: string) => {
 }, [enquiries, loadData]);
 
   // Format date for display
-  const formatDateForDisplay = useCallback((dateString: string) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "-";
-      return date.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      });
-    } catch (error) {
-      console.error("Error formatting date for display:", error);
-      return "-";
-    }
-  }, []);
+ 
 
   // Handle schedule visit
   const handleScheduleVisit = (enquiry: Enquiry) => {
@@ -653,6 +736,175 @@ const handleBulkDelete = async () => {
   }
 };
 
+const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
+const [bulkAssignStaffId, setBulkAssignStaffId] = useState("");
+
+const handleBulkAssign = async () => {
+  if (selectedRows.length === 0 || !bulkAssignStaffId) {
+    toast.error("Select staff and at least one enquiry");
+    return;
+  }
+  try {
+    await Promise.all(
+      selectedRows.map(id => updateEnquiry(id, { assigned_to: bulkAssignStaffId } as any))
+    );
+    toast.success(`Assigned ${selectedRows.length} enquiries`);
+    setSelectedRows([]);
+    setSelectAll(false);
+    setShowBulkAssignDialog(false);
+    setBulkAssignStaffId("");
+    await loadData(true);
+  } catch (error: any) {
+    toast.error(error.message || "Failed to assign enquiries");
+  }
+};
+
+const handleExportEnquiries = useCallback(() => {
+  if (filteredEnquiries.length === 0) {
+    toast.error("No enquiries to export");
+    return;
+  }
+  const exportData = filteredEnquiries.map(e => ({
+    Name: e.tenant_name,
+    Phone: e.phone,
+    Email: e.email,
+    Property: e.property_full_name || e.property_name || "",
+    "Move-in Date": formatDateForDisplay(e.preferred_move_in_date),
+    Status: e.status,
+    Created: formatDateForDisplay(e.created_at || ""),
+  }));
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Enquiries");
+  XLSX.writeFile(wb, `enquiries_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast.success("Export started");
+}, [filteredEnquiries, formatDateForDisplay]);
+
+// Step 1: read file & build preview, open modal
+const handleImportEnquiries = useCallback(async (file: File | null) => {
+  if (!file) {
+    setShowImportDialog(true);  // <-- ADD THIS
+    return;
+  }
+  try {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+
+    if (rows.length === 0) {
+      toast.error("No rows found in the file");
+      return;
+    }
+
+    setImportFile(file);
+    setImportPreview(rows);
+        console.log("[IMPORT] about to open modal, rows:", rows.length);
+
+    setShowImportDialog(true);
+  } catch (error) {
+    console.error("Import error:", error);
+    toast.error("Failed to read the import file");
+  }
+}, []);
+
+const handleDownloadTemplate = useCallback(() => {
+  const templateData = [
+    { Name: "Rahul Sharma", Phone: "9876543210", Email: "rahul@example.com", Property: "Roomac Co-Living", "Move-in Date": "2026-07-01", "Budget Range": "8000-10000" },
+    { Name: "Priya Patel", Phone: "9123456780", Email: "priya@example.com", Property: "Roomac Co-Living", "Move-in Date": "2026-07-15", "Budget Range": "6000-8000" },
+    { Name: "Amit Kumar", Phone: "9988776655", Email: "amit@example.com", Property: "Roomac Co-Living", "Move-in Date": "2026-08-01", "Budget Range": "10000-12000" },
+    { Name: "Sneha Joshi", Phone: "9765432100", Email: "sneha@example.com", Property: "Roomac Co-Living", "Move-in Date": "2026-08-10", "Budget Range": "7000-9000" },
+  ]
+  const ws = XLSX.utils.json_to_sheet(templateData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Template");
+  XLSX.writeFile(wb, "enquiries_import_template.xlsx");
+}, []);
+
+const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0] ?? null;
+  if (file) {
+    handleImportEnquiries(file);
+  }
+  e.target.value = "";
+}, [handleImportEnquiries]);
+
+
+
+// Step 2: user confirms in modal, actually create the rows
+const handleImportConfirm = useCallback(async () => {
+  if (importPreview.length === 0) return;
+  setImporting(true);
+
+  let successCount = 0;
+  let failCount = 0;
+  const failedRows: string[] = [];
+
+  for (const row of importPreview) {
+    const matchedProperty = properties.find(
+      (p) => p.name?.toLowerCase().trim() === String(row.Property || row.property_name || "").toLowerCase().trim()
+    );
+
+    if (!matchedProperty) {
+      failCount++;
+      failedRows.push(row.Name || row.tenant_name || "Unknown");
+      continue;
+    }
+
+    try {
+      const result: any = await createEnquiry({
+        tenant_name: row.Name || row.tenant_name || "",
+        phone: String(row.Phone || row.phone || ""),
+        email: row.Email || row.email || "",
+        property_id: matchedProperty.id,
+        property_name: matchedProperty.name,
+        preferred_move_in_date: row["Move-in Date"] || "",
+budget_range: row["Budget Range"] || row.budget_range || "Not Specified",
+        message: row.message || "",
+        source: "import",
+        status: "new",
+        occupation: row.occupation || "",
+        occupation_category: row.occupation_category || "",
+        remark: row.remark || "",
+      });
+
+      if (result?.success === false) {
+        failCount++;
+        failedRows.push(row.Name || row.tenant_name || "Unknown");
+      } else {
+        successCount++;
+      }
+    } catch (rowError) {
+      failCount++;
+      failedRows.push(row.Name || row.tenant_name || "Unknown");
+    }
+  }
+
+  setImporting(false);
+
+  if (successCount > 0) {
+    toast.success(`Imported ${successCount} of ${importPreview.length} enquiries`);
+  }
+  if (failCount > 0) {
+    toast.error(
+      `Failed to import ${failCount} row(s): ${failedRows.slice(0, 3).join(", ")}${failedRows.length > 3 ? "..." : ""}`
+    );
+  }
+
+  setShowImportDialog(false);
+  setImportFile(null);
+  setImportPreview([]);
+  await loadData(true);
+}, [importPreview, properties, loadData]);
+
+useEffect(() => {
+  onRegisterExport?.(handleExportEnquiries);
+}, [onRegisterExport, handleExportEnquiries]);
+
+useEffect(() => {
+  onRegisterImport?.(handleImportEnquiries);
+}, [onRegisterImport, handleImportEnquiries]);
+
 // Register the bulk delete function with parent
 useEffect(() => {
   onRegisterBulkDelete?.(handleBulkDelete);
@@ -665,98 +917,120 @@ useEffect(() => {
   <div className="w-full bg-gray-50 flex flex-col h-[calc(100vh-160px)]">
     <div className="p-0 sm:p-0 md:p-0 lg:p-0 flex flex-col flex-1 min-h-0">
         {/* Header */}
-<div className="flex flex-col gap-4 mb-4 sticky top-24 z-10 lg:hidden">
-          <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
-            <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto">
-              {/* Refresh Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={loading}
-                className="text-sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
+<div className="flex flex-col gap-4 mb-4 mt-2 lg:hidden">
+  <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
+    <div className="flex flex-wrap items-end justify-end gap-2 w-full sm:w-auto">
+      {/* Refresh Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleManualRefresh}
+        disabled={loading}
+        className="text-sm"
+      >
+        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <span className="hidden sm:inline">Refresh</span>
+      </Button>
 
-              {/* Statistics Button */}
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-sm">
-                    <BarChart className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Detailed Stats</span>
-                    <span className="sm:hidden">Stats</span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Enquiry Statistics</DialogTitle>
-                  </DialogHeader>
-                  {stats && <EnquiriesStats stats={stats} />}
-                </DialogContent>
-              </Dialog>
+        <Button variant="outline" size="sm" onClick={() => handleImportEnquiries(null)} className="text-sm">
+    <Upload className="h-4 w-4" />
+  </Button>
 
-              {/* Bulk Delete Button */}
-{selectedRows.length > 0 && can('delete_enquiries') && (
+  {/* Export Button - Mobile only icon */}
+  <Button variant="outline" size="sm" onClick={handleExportEnquiries} className="text-sm">
+    <Download className="h-4 w-4" />
+  </Button>
+
+
+      {/* Filter Button – NEW */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowFilterSidebar(true)}
+        className="text-sm"
+      >
+        <Filter className="h-4 w-4 mr-2" />
+        <span className="hidden sm:inline">Filter</span>
+      </Button>
+
+      {/* Bulk Delete Button */}
+      {selectedRows.length > 0 && can('delete_enquiries') && (
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleBulkDelete}
+          className="text-sm"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete Selected ({selectedRows.length})
+        </Button>
+      )}
+      {selectedRows.length > 0 && can('edit_enquiries') && (
   <Button
-    variant="destructive"
+    variant="outline"
     size="sm"
-    onClick={handleBulkDelete}
+    onClick={() => setShowBulkAssignDialog(true)}
     className="text-sm"
   >
-    <Trash2 className="h-4 w-4 mr-2" />
-    Delete Selected ({selectedRows.length})
+    <UserCheck className="h-4 w-4 mr-2" />
+    Assign ({selectedRows.length})
   </Button>
 )}
 
-              {/* Add Enquiry Button */}
-              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                <DialogTrigger asChild>
-                  {can('create_enquiries') && (
-
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-sm whitespace-nowrap py-1 px-2 sm:py-0 sm:px-2"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">Add Enquiry</span>
-                    <span className="sm:hidden sm:py-2">Add</span>
-                  </Button>
-                  )}
-                </DialogTrigger>
-                
-                <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-                  {/* Gradient Header */}
-                  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 md:px-6 md:py-4 flex items-center justify-between rounded-t-lg">
-                    <div>
-                      <h2 className="text-base md:text-lg font-semibold">Add New Enquiry</h2>
-                      <p className="text-xs md:text-sm text-blue-100">Fill in the details below to add a new enquiry</p>
-                    </div>
-                    <DialogClose asChild>
-                      <button className="p-1.5 md:p-2 rounded-full hover:bg-white/20 transition">
-                        <X className="h-4 w-4 md:h-5 md:w-5" />
-                      </button>
-                    </DialogClose>
-                  </div>
-                  {/* Body */}
-                  <div className="p-4 md:p-6 overflow-y-auto max-h-[75vh]">
-                    <EnquiryForm
-                      formData={newEnquiry}
-                      setFormData={setNewEnquiry}
-                      properties={properties}
-                      onSubmit={handleAddEnquiry}
-                      submitLabel="Add Enquiry"
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+      {/* Add Enquiry Button */}
+     {/* Add Enquiry Button */}
+<Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+  <DialogTrigger asChild>
+    {can('create_enquiries') && (
+      <Button
+        className="bg-blue-600 hover:bg-blue-700 text-sm whitespace-nowrap py-0 px-2 sm:py-0 sm:px-2 h-[35px]"
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        <span className="hidden sm:inline">Add Enquiry</span>
+        <span className="sm:hidden sm:py-2">Add</span>
+      </Button>
+    )}
+  </DialogTrigger>
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+    <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+      <div>
+        <h2 className="text-base font-semibold">Add Enquiry</h2>
+        <p className="text-sm text-blue-100">Fill in the details to create a new enquiry</p>
+      </div>
+      <DialogClose asChild>
+        <button className="p-2 rounded-full hover:bg-white/20 transition">
+          <X className="h-5 w-5" />
+        </button>
+      </DialogClose>
+    </div>
+    <div className="p-4 overflow-y-auto max-h-[75vh]">
+      <div className="grid gap-4 py-0">
+        <EnquiryForm
+          formData={newEnquiry}
+          setFormData={setNewEnquiry}
+          properties={properties}
+          isEdit={false}
+        />
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={() => setShowAddDialog(false)} className="w-full sm:w-auto">
+            Cancel
+          </Button>
+          <Button onClick={handleAddEnquiry} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Enquiry
+          </Button>
         </div>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+    </div>
+  </div>
+</div>
 
         {/* Stats */}
         {stats && (
-          <div className="mb-9 mt-0 sticky top-36 z-10">
+          <div className="sm:mb-6  mb-10 sm:mt-4  ">
             <div className="enquiries-stats-compact">
               <EnquiriesStats stats={stats} />
             </div>
@@ -774,342 +1048,264 @@ useEffect(() => {
         </div>
 
         {/* Enquiries Table */}
-<Card className="border rounded-lg flex flex-col flex-1 min-h-0  -mt-10 md:-mt-16 overflow-hidden">
-          <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 shadow-md flex-shrink-0">
-  {/* Desktop header row */}
-  <div className="hidden sm:flex items-center gap-2 px-4 py-2.5">
-    <div className="flex items-center gap-2 flex-1 min-w-0">
-      <CardTitle className="text-sm font-semibold text-white whitespace-nowrap">
-        All Enquiries ({filteredEnquiries.length})
-      </CardTitle>
-      <span className="text-xs text-blue-200">
-        Showing {filteredEnquiries.length} of {enquiries.length}
-      </span>
-    </div>
-    <div className="flex items-center gap-2 flex-shrink-0">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search enquiries..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white/20 text-white placeholder-blue-200 border border-white/30 focus:outline-none focus:ring-1 focus:ring-white/50 w-48"
-        />
-      </div>
-      {/* Status Filter */}
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="h-7 text-xs rounded-lg bg-white/20 text-white border border-white/30 px-2 focus:outline-none focus:ring-1 focus:ring-white/50"
-      >
-        <option value="" className="text-gray-800">All Status</option>
-        {["new","contacted","interested","not_interested","converted","closed"].map(s => (
-          <option key={s} value={s} className="text-gray-800">{s.replace("_"," ")}</option>
-        ))}
-      </select>
-      {/* Filter button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowFilterSidebar(true)}
-        className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
-      >
-        <Filter className="w-3.5 h-3.5 mr-1" />
-        Filters
-        {hasActiveColumnFilters && (
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-400 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-            !
-          </span>
-        )}
-      </Button>
-      {hasActiveColumnFilters && (
-        <Button variant="ghost" size="sm" onClick={clearColumnFilters}
-          className="h-7 px-2 text-xs text-orange-300 hover:text-orange-200 hover:bg-white/10">
-          Clear
-        </Button>
-      )}
-    </div>
-  </div>
+<Card className="border rounded-lg shadow-sm -mt-10 md:-mt-16">          
 
-  {/* Mobile header row */}
-  <div className="flex sm:hidden items-center gap-1.5 px-3 py-2">
-    <CardTitle className="text-xs font-semibold text-white flex-1">
-      Enquiries ({filteredEnquiries.length})
-    </CardTitle>
-    <div className="relative">
-      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
-      <input
-        type="text"
-        placeholder="Search..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="pl-6 pr-2 py-1 text-[10px] rounded-md bg-white/20 text-white placeholder-blue-200 border border-white/30 focus:outline-none w-28"
-      />
-    </div>
-    <Button
-      variant="ghost" size="sm"
-      onClick={() => setShowFilterSidebar(true)}
-      className="h-6 w-6 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
-    >
-      <Filter className="w-3 h-3" />
-      {hasActiveColumnFilters && (
-        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-400 text-white text-[7px] font-bold rounded-full flex items-center justify-center">!</span>
-      )}
-    </Button>
-  </div>
-</CardHeader>
-
-         <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-  {/* Single overflow-x wrapper for BOTH header + body */}
-  <div className="overflow-x-auto h-full flex flex-col">
-    <div className="min-w-[1200px] lg:min-w-full flex flex-col h-full">
-
-      {/* STICKY HEADER TABLE - flex-shrink-0 so it never scrolls away */}
-      <table className="w-full border-collapse table-fixed flex-shrink-0">
-     <TableHeader className="bg-gray-50">
-  <TableRow className="h-8">
-    <TableHead className="py-0 px-2 sm:px-4 w-10">
-      <input
-        type="checkbox"
-        checked={selectAll}
-        onChange={handleSelectAll}
-        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-      />
-    </TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[130px]">Name</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[180px]">Contact</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[160px]">Property</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[110px]">Move-in Date</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[100px]">Status</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[110px]">Created</TableHead>
-    <TableHead className="py-0 px-2 sm:px-4 text-xs text-right">Actions</TableHead>
-  </TableRow>
-
-  {/* Filter Row */}
-  <TableRow className="h-8 bg-gray-50/50">
-    <TableCell className="px-2 sm:px-4 py-0 w-10" />
-    {[
-      { key: "name",       placeholder: "Filter name...",     width: "w-[130px]" },
-      { key: "contact",    placeholder: "Filter contact...",  width: "w-[180px]" },
-      { key: "property",   placeholder: "Filter property...", width: "w-[160px]" },
-      { key: "moveInDate", placeholder: "Filter date...",     width: "w-[110px]" },
-      { key: "status",     placeholder: "Filter status...",   width: "w-[100px]" },
-      { key: "created",    placeholder: "Filter created...",  width: "w-[110px]" },
-    ].map((field) => (
-      <TableCell key={field.key} className={`px-2 sm:px-4 py-0 ${field.width}`}>
-        <Input
-          placeholder={field.placeholder}
-          value={columnFilters[field.key]}
-          onChange={(e) =>
-            setColumnFilters((prev) => ({ ...prev, [field.key]: e.target.value }))
-          }
-          className="h-6 text-xs px-2"
-        />
-      </TableCell>
-    ))}
-    <TableCell className="px-2 sm:px-4 py-0" />
-  </TableRow>
-</TableHeader>
-</table>
-
-
-<div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 410px)" }}>
-  <table className="w-full border-collapse table-fixed">
+<CardContent className="p-0 flex flex-col rounded-lg">
+<div className="flex flex-col h-[320px] sm:h-[455px]">
+<div className="overflow-auto flex-1 min-h-0 rounded-lg">
+  <table
+    className="border-collapse text-[11px] font-sans "
+    style={{ tableLayout: "fixed", minWidth: "1300px", width: "100%" }}
+  >
     <colgroup>
-      <col className="w-10" />
-      <col className="w-[130px]" />
-      <col className="w-[180px]" />
-      <col className="w-[160px]" />
-      <col className="w-[110px]" />
-      <col className="w-[100px]" />
-      <col className="w-[110px]" />
-      <col />
+      <col style={{ width: "36px" }} />   {/* Checkbox */}
+            <col style={{ width: "160px" }} />  {/* Actions */}
+
+      <col style={{ width: "130px" }} />  {/* Name */}
+      <col style={{ width: "110px" }} />  {/* Phone */}
+      <col style={{ width: "160px" }} />  {/* Email */}
+      <col style={{ width: "150px" }} />  {/* Property */}
+      <col style={{ width: "100px" }} />  {/* Move-in */}
+      <col style={{ width: "90px" }} />   {/* Status */}
+      <col style={{ width: "100px" }} />  {/* Created */}
+      <col style={{ width: "110px" }} />  {/* Assigned To */}
+
     </colgroup>
 
-                  <TableBody>
-                    {filteredEnquiries.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 sm:py-12 text-gray-500 text-xs sm:text-sm">
-                          No enquiries found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredEnquiries.map((enquiry) => (
-  <TableRow key={enquiry.id} className="hover:bg-gray-50">
-    {/* Checkbox */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-      <input
-        type="checkbox"
-        checked={selectedRows.includes(enquiry.id)}
-        onChange={() => handleSelectRow(enquiry.id)}
-        onClick={(e) => e.stopPropagation()}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-      />
-    </TableCell>
-    
-    {/* Name */}
-    <TableCell 
-      className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-      onClick={() => openViewDialog(enquiry)}
-    >
-      {enquiry.tenant_name}
-    </TableCell>
+    <thead className="sticky top-0 z-10">
+      {/* Title Row */}
+      <tr className="bg-gray-200 border-b border-gray-300">
+        <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+          <input type="checkbox" checked={selectAll} onChange={handleSelectAll}
+            className="w-3.5 h-3.5 cursor-pointer" />
+        </th>
+       {[
+  "Actions","Name","Phone","Email","Property","Move-in","Status","Created","Assigned To"
+].map((h, i) => (
+  <th key={h} className={`px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 ${i === 8 ? "border-r-0" : ""}`}>
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">{h}</span>
+          </th>
+        ))}
+      </tr>
 
-    {/* Contact */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-      <div className="flex flex-col gap-0.5 min-w-[120px]">
-        <div className="flex items-center gap-1 text-xs sm:text-sm">
-          <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">{enquiry.phone}</span>
-        </div>
-        {enquiry.email && (
-          <div className="flex items-center gap-1 text-[10px] sm:text-sm text-gray-600">
-            <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span className="truncate">{enquiry.email}</span>
-          </div>
-        )}
-      </div>
-    </TableCell>
+      {/* Search Row */}
+      <tr className="bg-white border-b border-gray-300">
+                <td className="p-1" />
 
-    {/* Property */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm max-w-[160px] sm:max-w-[200px]">
-      <span className="line-clamp-2">
-        {enquiry.property_full_name || enquiry.property_name || "-"}
-      </span>
-    </TableCell>
+        <td className="p-1 border-r border-gray-200 bg-white" />
+      {[
+  { key: "name", placeholder: "Search..." },
+  { key: "phone", placeholder: "Search..." },
+  { key: "email", placeholder: "Search..." },
+  { key: "property", placeholder: "Search..." },
+  { key: "moveInDate", placeholder: "Search..." },
+  { key: "status", placeholder: "Search..." },
+  { key: "created", placeholder: "Search..." },
+  { key: "assignedTo", placeholder: "Search..." },
+].map((field, i) => (
+  <td key={field.key} className={`p-1 border-r border-gray-200 ${i === 7 ? "border-r-0" : ""}`}>
+            <input
+              value={columnFilters[field.key] || ""}
+              onChange={(e) => setColumnFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+              placeholder={field.placeholder}
+              className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400"
+            />
+          </td>
+        ))}
+      </tr>
+    </thead>
 
-    {/* Move-in */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
-      {formatDateForDisplay(enquiry.preferred_move_in_date)}
-    </TableCell>
+    <tbody>
+      {loading ? (
+        <tr><td colSpan={10} className="py-16 text-center text-slate-500 text-xs">Loading...</td></tr>
+      ) : paginatedEnquiries.length === 0 ? (
+        <tr><td colSpan={10} className="py-12 text-center text-slate-500 text-xs">No enquiries found</td></tr>
+      ) : (
+        paginatedEnquiries.map((enquiry) => (
+          <tr key={enquiry.id} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+            <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
+              <input type="checkbox" checked={selectedRows.includes(enquiry.id)}
+                onChange={() => handleSelectRow(enquiry.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-3.5 h-3.5 cursor-pointer" />
+            </td>
+             <td className="px-1.5 py-1.5 border-r border-slate-100">
+              <div className="flex items-center gap-0.5 flex-nowrap">
+                {can('schedule_visit') && (
+                  <button onClick={(e) => { e.stopPropagation(); handleScheduleVisit(enquiry); }}
+                    title="Schedule Visit"
+                    className="w-6 h-6 rounded-lg text-purple-600 hover:bg-purple-50 flex items-center justify-center">
+                    <Calendar className="h-3 w-3" />
+                  </button>
+                )}
+                {can('view_enquiries') && (
+                  <button onClick={() => openViewDialog(enquiry)} title="View"
+                    className="w-6 h-6 rounded-lg text-blue-600 hover:bg-blue-50 flex items-center justify-center">
+                    <Eye className="h-3 w-3" />
+                  </button>
+                )}
+                {can('edit_enquiries') && (
+                  <button onClick={() => handleOpenEditDialog(enquiry)} title="Edit"
+                    className="w-6 h-6 rounded-lg text-green-600 hover:bg-green-50 flex items-center justify-center">
+                    <Edit className="h-3 w-3" />
+                  </button>
+                )}
+                {enquiry.status !== 'converted' && can('convert_to_tenant') && (
+                  <button onClick={(e) => { e.stopPropagation(); handleConvertToTenant(enquiry); }}
+                    title="Convert to Tenant"
+                    className="w-6 h-6 rounded-lg text-emerald-600 hover:bg-emerald-50 flex items-center justify-center">
+    <Repeat className="h-3 w-3" />
+                  </button>
+                )}
 
-    {/* Status */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-      {getStatusBadge(enquiry.status || "new")}
-    </TableCell>
-
-    {/* Created */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
-      {formatDateForDisplay(enquiry.created_at || "")}
-    </TableCell>
-
-    {/* Actions */}
-    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
-        {/* Schedule Visit Button */}
-            {can('schedule_visit') && (
-
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleScheduleVisit(enquiry);
-          }}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-          title="Schedule Visit"
-        >
-          <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </Button>
-            )}
-
-        {/* View Details Button */}
-            {can('view_enquiries') && (
-
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => openViewDialog(enquiry)}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-          title="View Details"
-        >
-          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </Button>
-            )}
-
-        {/* Edit Button */}
-            {can('edit_enquiries') && (
-
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => handleOpenEditDialog(enquiry)}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-          title="Edit Enquiry"
-        >
-          <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </Button>
-            )}
-
-        {/* Convert to Tenant Button (only if not converted) */}
-    {enquiry.status !== 'converted' && can('convert_to_tenant') && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleConvertToTenant(enquiry);
-            }}
-            className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            title="Convert to Tenant"
-          >
-            <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </Button>
-        )}
-
-        {/* Status Dropdown */}
-        <Select
-          value={enquiry.status || "new"}
-          onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
-        >
-          <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {["new", "contacted", "interested", "not_interested", "closed"].map((status) => (
-              <SelectItem key={status} value={status} className="text-[10px] sm:text-xs">
-                {status.replace("_", " ")}
-              </SelectItem>
-            ))}
-            <SelectItem 
-              value="converted" 
-              className="text-[10px] sm:text-xs text-purple-600 font-medium border-t border-gray-200 mt-1 pt-1"
-            >
-              ⚡ Convert to Tenant
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Delete Button */}
-            {can('delete_enquiries') && (
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleDeleteEnquiry(enquiry.id)}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-          title="Delete Enquiry"
-        >
-          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </Button>
-            )}
-      </div>
-    </TableCell>
-  </TableRow>
-))
-                    )}
-                 </TableBody>
-                </table>
+                <button onClick={(e) => { e.stopPropagation(); setAssignEnquiry(enquiry); }}
+  title="Assign to Staff"
+  className="w-6 h-6 rounded-lg text-indigo-600 hover:bg-indigo-50 flex items-center justify-center">
+  <UserPlus className="h-3 w-3" />
+</button>
+                <Select value={enquiry.status || "new"} onValueChange={(v) => handleUpdateStatus(enquiry.id, v)}>
+                  <SelectTrigger className="h-6 w-20 text-[9px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["new","contacted","interested","not_interested","closed"].map(s => (
+                      <SelectItem key={s} value={s} className="text-[10px]">{s.replace("_"," ")}</SelectItem>
+                    ))}
+                    <SelectItem value="converted" className="text-[10px] text-purple-600 font-medium">Convert To Tenant</SelectItem>
+                  </SelectContent>
+                </Select>
+                {can('delete_enquiries') && (
+                  <button onClick={() => handleDeleteEnquiry(enquiry.id)} title="Delete"
+                    className="w-6 h-6 rounded-lg text-red-600 hover:bg-red-50 flex items-center justify-center">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-              {/* end scrollable body */}
+            </td>
+            <td className="px-1.5 py-1.5 text-[11px] font-medium text-slate-800 border-r border-slate-100 cursor-pointer hover:text-blue-600 truncate"
+              onClick={() => openViewDialog(enquiry)}>
+              {enquiry.tenant_name}
+            </td>
+            <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+              <div className="flex items-center gap-1">
+                <Phone className="h-3 w-3 flex-shrink-0 text-slate-400" />
+                {enquiry.phone || "—"}
+              </div>
+            </td>
+            <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+              {enquiry.email ? (
+                <div className="flex items-center gap-1">
+                  <Mail className="h-3 w-3 flex-shrink-0 text-slate-400" />
+                  <span className="truncate">{enquiry.email}</span>
+                </div>
+              ) : <span className="text-slate-400">—</span>}
+            </td>
+            <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
+              {enquiry.property_full_name || enquiry.property_name || "—"}
+            </td>
+            <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100 whitespace-nowrap">
+              {formatDateForDisplay(enquiry.preferred_move_in_date)}
+            </td>
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+              {getStatusBadge(enquiry.status || "new")}
+            </td>
+            <td className="px-1.5 py-1.5 text-[10px] text-slate-400 border-r border-slate-100 whitespace-nowrap">
+              {formatDateForDisplay(enquiry.created_at || "")}
+            </td>
+           <td className="px-1.5 py-1.5 text-[11px] text-slate-600 truncate">
+  {enquiry.assigned_staff_name ? (
+    <span className="inline-flex items-center gap-1 text-indigo-700">
+      <UserCheck className="h-3 w-3 text-indigo-400 flex-shrink-0" />
+      {enquiry.assigned_staff_name}
+    </span>
+  ) : (
+    <span className="text-slate-400">Unassigned</span>
+  )}
+</td>
+          </tr>
+        ))
+      )}
+    </tbody>
+  </table>
+  </div>
+</div>
+<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-t border-slate-200 rounded-b-lg">
+  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-[11px] sm:text-xs text-slate-500">
+    <span>Show</span>
+    <select
+      value={itemsPerPage}
+      onChange={(e) => {
+        const v = e.target.value;
+        setItemsPerPage(v === "All" ? "All" : Number(v));
+        setCurrentPage(1);
+      }}
+      className="px-2 py-1 border border-gray-300 rounded text-[11px] bg-white outline-none cursor-pointer"
+    >
+      <option value={10}>10</option>
+      <option value={25}>25</option>
+      <option value={50}>50</option>
+      <option value={100}>100</option>
+      <option value="All">All</option>
+    </select>
+    <span>
+      entries · Showing {paginatedEnquiries.length} of {filteredEnquiries.length}
+    </span>
+  </div>
 
-            </div>
-            {/* end min-w wrapper */}
-          </div>
-          {/* end overflow-x wrapper */}
+  {itemsPerPage !== "All" &&
+    filteredEnquiries.length > 0 &&
+    totalPages > 1 && (
+      <div className="flex items-center justify-center gap-1 w-full sm:w-auto">
+        <button
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-[11px] border border-gray-300 rounded bg-white disabled:opacity-40"
+        >
+          Previous
+        </button>
+
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          let p = i + 1;
+
+          if (totalPages > 5) {
+            if (currentPage <= 3) p = i + 1;
+            else if (currentPage >= totalPages - 2)
+              p = totalPages - 4 + i;
+            else p = currentPage - 2 + i;
+          }
+
+          return (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className={`h-7 w-7 text-[11px] border rounded ${
+                currentPage === p
+                  ? "bg-blue-600 border-blue-600 text-white font-bold"
+                  : "bg-white border-gray-300 text-slate-700"
+              }`}
+            >
+              {p}
+            </button>
+          );
+        })}
+
+        <button
+          onClick={() =>
+            setCurrentPage((p) => Math.min(totalPages, p + 1))
+          }
+          disabled={currentPage === totalPages}
+          className="h-7 px-2 text-[11px] border border-gray-300 rounded bg-white disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    )}
+
+  <span className="hidden sm:block text-[11px] text-slate-500 text-center">
+  Total: <strong>{filteredEnquiries.length}</strong> enquiries
+</span>
+</div>
+
         </CardContent>
+
         </Card>
       </div>
 
@@ -1141,9 +1337,9 @@ useEffect(() => {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
           {/* Gradient Header */}
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
-              <h2 className="text-lg font-semibold">Edit Enquiry</h2>
+              <h2 className="text-base font-semibold">Edit Enquiry</h2>
               <p className="text-sm text-blue-100">Update enquiry details for {selectedEnquiry?.tenant_name}</p>
             </div>
             <DialogClose asChild>
@@ -1155,8 +1351,8 @@ useEffect(() => {
 
           {/* Body */}
           {selectedEnquiry && (
-            <div className="p-6 overflow-y-auto max-h-[75vh]">
-              <div className="grid gap-4 py-2">
+            <div className="p-2 overflow-y-auto max-h-[75vh]">
+              <div className="grid gap-4 py-0">
                 <EnquiryForm
                   formData={editEnquiryData}
                   setFormData={setEditEnquiryData}
@@ -1177,7 +1373,7 @@ useEffect(() => {
                     </Button>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 z-10 ">
                     <Button variant="outline" onClick={() => setShowEditDialog(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
@@ -1211,7 +1407,6 @@ useEffect(() => {
           setScheduleVisitEnquiry(null);
         }}
       />
-
 <ConvertToTenantDialog
   enquiryId={convertEnquiry?.id || ""}
   tenantName={convertEnquiry?.tenant_name || ""}
@@ -1230,7 +1425,211 @@ useEffect(() => {
     toast.success("Enquiry converted to tenant successfully");
   }}
 />
-{/* Filter Sidebar */}
+
+{/* Assign to Staff Dialog (single) */}
+<Dialog open={!!assignEnquiry} onOpenChange={(open) => { if (!open) { setAssignEnquiry(null); setAssignStaffId(""); } }}>
+  <DialogContent className="max-w-md p-0 overflow-hidden">
+    <div className="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white px-6 py-4">
+      <h2 className="text-lg font-semibold">Assign to Staff</h2>
+      <p className="text-sm text-indigo-100">
+        Assign "{assignEnquiry?.tenant_name}" to a staff member
+      </p>
+    </div>
+    <div className="p-6 space-y-4">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-gray-600">Select Staff</Label>
+        <Select value={assignStaffId} onValueChange={setAssignStaffId}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Choose a staff member" />
+          </SelectTrigger>
+          <SelectContent>
+            {staffList.map((staff: any) => (
+              <SelectItem key={staff.id} value={String(staff.id)}>
+                {staff.name} {staff.role_name ? `(${staff.role_name})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={() => { setAssignEnquiry(null); setAssignStaffId(""); }}>
+          Cancel
+        </Button>
+        <Button
+          className="bg-indigo-600 hover:bg-indigo-700"
+          disabled={!assignStaffId}
+          onClick={() => assignEnquiry && handleAssignToStaff(assignEnquiry.id, assignStaffId)}
+        >
+          <UserCheck className="h-4 w-4 mr-2" />
+          Assign
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Bulk Assign to Staff Dialog */}
+<Dialog open={showBulkAssignDialog} onOpenChange={(open) => { if (!open) { setShowBulkAssignDialog(false); setBulkAssignStaffId(""); } }}>
+  <DialogContent className="max-w-md p-0 overflow-hidden">
+    <div className="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white px-6 py-4">
+      <h2 className="text-lg font-semibold">Bulk Assign to Staff</h2>
+      <p className="text-sm text-indigo-100">
+        Assign {selectedRows.length} selected enquiry(s) to a staff member
+      </p>
+    </div>
+    <div className="p-6 space-y-4">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-gray-600">Select Staff</Label>
+        <Select value={bulkAssignStaffId} onValueChange={setBulkAssignStaffId}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Choose a staff member" />
+          </SelectTrigger>
+          <SelectContent>
+            {staffList.map((staff: any) => (
+              <SelectItem key={staff.id} value={String(staff.id)}>
+                {staff.name} {staff.role_name ? `(${staff.role_name})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={() => { setShowBulkAssignDialog(false); setBulkAssignStaffId(""); }}>
+          Cancel
+        </Button>
+        <Button
+          className="bg-indigo-600 hover:bg-indigo-700"
+          disabled={!bulkAssignStaffId}
+          onClick={handleBulkAssign}
+        >
+          <UserCheck className="h-4 w-4 mr-2" />
+          Assign {selectedRows.length}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+
+{/* Import Enquiries Dialog */}
+{showImportDialog && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+      <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-blue-700 to-blue-600">
+        <h2 className="text-sm font-bold text-white">📥 Import Enquiries</h2>
+        <button
+          onClick={() => { setShowImportDialog(false); setImportPreview([]); setImportFile(null); }}
+          className="text-white/70 hover:text-white text-lg"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        {/* Step 1: Download Template */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-xs font-semibold text-blue-700 mb-2">Step 1: Download Template</p>
+          <p className="text-xs text-blue-600 mb-2">
+            Template has columns: Name, Phone, Email, Property, Move-in Date. Property must match an existing property name exactly.
+          </p>
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-50"
+          >
+            <Download size={12} /> Download Template
+          </button>
+        </div>
+
+        {/* Step 2: Upload Filled Excel */}
+        <div>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Step 2: Upload Filled Excel</p>
+          <div
+            onClick={() => fileRef.current?.click()}
+            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+              importFile ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300"
+            }`}
+          >
+            <Upload size={20} className={`mx-auto mb-2 ${importFile ? "text-blue-500" : "text-gray-400"}`} />
+            <p className="text-xs font-medium text-gray-600">
+              {importFile ? importFile.name : "Click to upload Excel file"}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">.xlsx or .xls files only</p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
+        </div>
+
+        {/* Step 3: Preview */}
+        {importPreview.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Step 3: Preview ({importPreview.length} row{importPreview.length !== 1 ? "s" : ""} found)
+            </p>
+            <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 bg-gray-50">
+                  <tr className="border-b">
+                    <th className="text-left p-2 font-semibold text-gray-600">Name</th>
+                    <th className="text-left p-2 font-semibold text-gray-600">Phone</th>
+                    <th className="text-left p-2 font-semibold text-gray-600">Email</th>
+                    <th className="text-left p-2 font-semibold text-gray-600">Property</th>
+                    <th className="text-left p-2 font-semibold text-gray-600">Move-in</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importPreview.map((row, i) => {
+                    const matched = properties.some(
+                      (p) => p.name?.toLowerCase().trim() === String(row.Property || row.property_name || "").toLowerCase().trim()
+                    );
+                    return (
+                      <tr key={i} className={`border-b hover:bg-gray-50 ${!matched ? "bg-red-50" : ""}`}>
+                        <td className="p-2 font-medium text-gray-800">{row.Name || row.tenant_name || "—"}</td>
+                        <td className="p-2 text-gray-600">{row.Phone || row.phone || "—"}</td>
+                        <td className="p-2 text-gray-600">{row.Email || row.email || "—"}</td>
+                        <td className={`p-2 ${!matched ? "text-red-600 font-medium" : "text-gray-600"}`}>
+                          {row.Property || row.property_name || "—"}{!matched ? " (not found)" : ""}
+                        </td>
+                        <td className="p-2 text-gray-600">{row["Move-in Date"] || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded">
+              ⚠️ Rows with property names highlighted in red will be skipped during import.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t flex gap-3">
+        <button
+          onClick={() => { setShowImportDialog(false); setImportPreview([]); setImportFile(null); }}
+          className="flex-1 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleImportConfirm}
+          disabled={importing || importPreview.length === 0}
+          className="flex-1 py-2 bg-gradient-to-r from-blue-700 to-blue-600 text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {importing ? (
+            <><span className="animate-spin">⟳</span> Importing...</>
+          ) : (
+            <>✓ Import {importPreview.length > 0 ? `(${importPreview.length} rows)` : ""}</>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {/* Filter Sidebar */}
 <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
   <SheetContent

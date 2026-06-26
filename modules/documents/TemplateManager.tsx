@@ -7,6 +7,8 @@ import {
   Check, AlertCircle, Clock, Printer,
   ChevronLeft,
   ChevronRight,
+  Edit2,
+  Edit,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,435 +57,364 @@ const DEFAULT_HTML = `<!DOCTYPE html>
   <style>
     @page {
       size: A4;
-      margin: 2cm;
+      margin: 2.2cm 2.2cm 2cm;
     }
-    
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Times New Roman', Georgia, serif;
       background: white;
-      padding: 0;
-      line-height: 1.5;
-      color: #111827;
+      color: #1a1a1a;
+      line-height: 1.6;
       width: 210mm;
       min-height: 297mm;
       margin: 0 auto;
     }
-    
-    .document-wrapper {
+    .document {
       max-width: 100%;
-      background: white;
-      box-shadow: none;
+      padding: 0.1cm; /* internal padding handled by @page margin */
     }
-    
-    .document-content {
-      padding: 2cm;
-    }
-    
-    /* Header Styles */
+    /* ── HEADER ── */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 35px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #e5e7eb;
+      border-bottom: 2px solid #333;
+      padding-bottom: 10px;
+      margin-bottom: 22px;
     }
-    
-    .logo-container {
-      max-width: 160px;
-    }
-    
-    .logo-container img {
+    .logo img {
       max-height: 60px;
-      width: auto;
+      max-width: 150px;
       object-fit: contain;
     }
-    
     .company-details {
       text-align: right;
     }
-    
     .company-name {
       font-size: 18px;
       font-weight: 700;
-      color: #1f2937;
-      margin-bottom: 4px;
+      color: #111;
+      letter-spacing: 0.3px;
     }
-    
     .company-address {
       font-size: 12px;
-      color: #6b7280;
+      color: #444;
       line-height: 1.4;
     }
-    
-    /* Title Section */
-    .title-section {
+    /* ── TITLE ── */
+    .title {
       text-align: center;
-      margin-bottom: 35px;
+      margin: 25px 0 18px;
     }
-    
-    .document-title {
+    .title h1 {
       font-size: 26px;
       font-weight: 800;
-      color: #1e3a8a;
-      letter-spacing: -0.02em;
-      margin-bottom: 8px;
+      color: #111;
       text-transform: uppercase;
+      letter-spacing: 2px;
+      border-bottom: 1px solid #888;
+      display: inline-block;
+      padding-bottom: 6px;
     }
-    
-    .document-meta {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
+    .sub-title {
+      font-size: 14px;
+      color: #333;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .meta {
+      text-align: center;
       font-size: 13px;
-      color: #4b5563;
-      background: #f9fafb;
-      padding: 10px 20px;
-      border-radius: 40px;
-      display: inline-flex;
-      margin: 0 auto;
+      color: #444;
+      margin: 10px 0 25px;
+      background: #f5f5f5;
+      padding: 6px 18px;
+      display: inline-block;
+      border-radius: 30px;
+      width: auto;
     }
-    
-    /* Section Styles */
+    .meta-wrap {
+      text-align: center;
+    }
+    /* ── SECTIONS ── */
     .section {
-      margin-bottom: 30px;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      overflow: hidden;
+      margin-bottom: 20px;
     }
-    
-    .section-header {
-      background: #f8fafc;
-      padding: 14px 20px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .section-header h2 {
-      font-size: 15px;
+    .section-title {
+      font-size: 16px;
       font-weight: 700;
-      color: #1e3a8a;
+      color: #111;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      border-bottom: 1px solid #bbb;
+      padding-bottom: 2px;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
     }
-    
-    .section-body {
-      padding: 20px;
-      background: white;
+    .clause {
+      margin-bottom: 6px;
+      font-size: 14px;
     }
-    
-    /* Grid Layouts */
+    .clause-number {
+      font-weight: 700;
+      margin-right: 6px;
+    }
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 14px 30px;
+      margin: 8px 0;
     }
-    
-    .grid-3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 20px;
-    }
-    
-    /* Field Styles */
-    .field-group {
-      margin-bottom: 16px;
-    }
-    
-    .field-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+    .field {
       margin-bottom: 4px;
-      display: block;
     }
-    
-    .field-value {
-      font-size: 14px;
-      color: #111827;
-      font-weight: 500;
-      padding: 8px 12px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      min-height: 38px;
-    }
-    
-    /* Table Styles */
-    .terms-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    
-    .terms-table td {
-      padding: 12px;
-      border: 1px solid #e5e7eb;
-    }
-    
-    .terms-table td:first-child {
-      background: #f9fafb;
+    .field-label {
       font-weight: 600;
-      width: 40%;
+      color: #222;
+      font-size: 13px;
     }
-    
-    /* Signature Section */
-    .signature-section {
+    .field-value {
+      font-weight: 500;
+      color: #111;
+      font-size: 14px;
+    }
+    .money {
+      font-weight: 700;
+      color: #2d5a27; /* dark green for money – keeps it real */
+    }
+    ul {
+      margin: 4px 0 4px 22px;
+      list-style: disc;
+    }
+    ul li {
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    .signature-block {
       display: flex;
       justify-content: space-between;
-      margin-top: 40px;
-      padding-top: 30px;
-      border-top: 2px solid #e5e7eb;
+      margin-top: 32px;
+      padding-top: 25px;
+      border-top: 1px solid #999;
     }
-    
-    .signature-block {
-      flex: 1;
-      max-width: 250px;
+    .signature-box {
+      width: 45%;
     }
-    
     .signature-line {
       width: 100%;
-      height: 1px;
-      background: #1f2937;
-      margin: 8px 0 4px;
+      border-bottom: 1px solid #222;
+      margin: 30px 0 4px;
     }
-    
     .signature-label {
       font-size: 11px;
-      color: #6b7280;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-    
-    .signature-name {
-      font-size: 14px;
+      color: #444;
       font-weight: 600;
-      color: #111827;
+      letter-spacing: 0.5px;
+    }
+    .signature-name {
+      font-weight: 700;
+      font-size: 14px;
+      margin-top: 2px;
+      color: #111;
+    }
+    .signature-date {
+      font-size: 12px;
+      color: #555;
       margin-top: 4px;
     }
-    
-    /* Footer */
     .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px dashed #d1d5db;
+      margin-top: 30px;
+      padding-top: 12px;
+      border-top: 1px dashed #aaa;
       text-align: center;
       font-size: 10px;
-      color: #9ca3af;
+      color: #666;
     }
-    
-    /* Highlight for important fields */
-    .highlight {
-      background: #fef3c7;
-      border-color: #fbbf24;
+    .footer strong {
+      color: #222;
     }
-    
-    /* Money values */
-    .money-value {
-      font-weight: 700;
-      color: #059669;
-    }
-    
-    /* Status badges */
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    
-    .badge-success {
-      background: #d1fae5;
-      color: #065f46;
-    }
-    
-    .badge-warning {
-      background: #fed7aa;
-      color: #92400e;
-    }
-      
-    
     @media print {
-      body {
-        background: white;
-        padding: 0;
-        margin: 0;
-      }
-      .document-content {
-        padding: 1.5cm;
-      }
+      body { margin: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="document-wrapper">
-    <div class="document-content">
-      
-      <!-- HEADER -->
-      <div class="header">
-        <div class="logo-container">
-          {{logo_url}}
-        </div>
-        <div class="company-details">
-          <div class="company-name">{{company_name}}</div>
-          <div class="company-address">{{company_address}}</div>
-        </div>
-      </div>
+<div class="document">
 
-      <!-- TITLE -->
-      <div class="title-section">
-        <h1 class="document-title">{{document_title}}</h1>
-        <div class="document-meta">
-          <span>{{document_type}} No: <strong>{{document_number}}</strong></span>
-          <span>Date: <strong>{{date}}</strong></span>
-        </div>
-      </div>
-
-      <!-- PARTIES SECTION -->
-      <div class="section">
-        <div class="section-header">
-          <h2>🏢 PARTIES TO THE AGREEMENT</h2>
-        </div>
-        <div class="section-body">
-          <p style="margin-bottom: 15px; font-size: 14px; color: #374151;">
-            THIS AGREEMENT is made and entered into on this <strong>{{date}}</strong> by and between:
-          </p>
-          <div class="grid-2" style="margin-top: 20px;">
-            <div class="field-group">
-              <span class="field-label">LESSOR / PROVIDER</span>
-              <div class="field-value">{{company_name}}<br>
-              <span style="font-size: 12px; color: #6b7280;">Represented by: Authorized Signatory</span></div>
-            </div>
-            <div class="field-group">
-  <span class="field-label">LESSEE / RECIPIENT</span>
-  <div class="field-value">{{tenant_name}}<br>
-  <span style="font-size: 12px; color: #6b7280;">S/o, D/o {{emergency_contact_name}}</span></div>
-</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PROPERTY DETAILS -->
-      <div class="section">
-        <div class="section-header">
-          <h2>📍 PROPERTY DETAILS</h2>
-        </div>
-        <div class="section-body">
-          <div class="grid-2">
-           <div class="field-group">
-              <span class="field-label">PROPERTY NAME</span>
-              <div class="field-value">{{property_name}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">ROOM / BED NUMBER</span>
-              <div class="field-value">{{room_number}} / {{bed_number}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">MOVE-IN DATE</span>
-              <div class="field-value">{{move_in_date}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">SECURITY DEPOSIT</span>
-              <div class="field-value money-value">₹ {{security_deposit}}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TENANT INFORMATION -->
-<div class="section">
-  <div class="section-header">
-    <h2>👤 RECIPIENT INFORMATION</h2>
-  </div>
-  <div class="section-body">
-    <div class="grid-3">
-      <div class="field-group">
-        <span class="field-label">FULL NAME</span>
-        <div class="field-value">{{tenant_name}}</div> 
-      </div>
-      <div class="field-group">
-        <span class="field-label">PHONE NUMBER</span>
-        <div class="field-value">{{tenant_phone}}</div>
-      </div>
-      <div class="field-group">
-        <span class="field-label">EMAIL</span>
-        <div class="field-value">{{tenant_email}}</div>
-      </div>
-      <div class="field-group">
-        <span class="field-label">AADHAAR NUMBER</span>
-        <div class="field-value">{{aadhaar_number}}</div>
-      </div>
-      <div class="field-group">
-        <span class="field-label">PAN NUMBER</span>
-        <div class="field-value">{{pan_number}}</div>
-      </div>
-      <div class="field-group">
-        <span class="field-label">EMERGENCY CONTACT</span>
-        <div class="field-value">{{emergency_contact_name}} ({{emergency_phone}})</div>
-      </div>
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">{{logo_url}}</div>
+    <div class="company-details">
+      <div class="company-name">{{company_name}}</div>
+      <div class="company-address">{{company_address}}</div>
     </div>
   </div>
-</div>
-      <!-- TERMS & CONDITIONS -->
-      <div class="section">
-        <div class="section-header">
-          <h2>💰 TERMS & CONDITIONS</h2>
-        </div>
-        <div class="section-body">
-          <table class="terms-table">
-            <tr>
-             <td>Monthly Rent / Fee</td>
-              <td class="money-value">₹ {{rent_amount}}/-</td>
-            </tr>
-            <tr>
-              <td>Payment Mode</td>
-              <td>{{payment_mode}}</td>
-            </tr>
-            <tr>
-              <td>Due Date</td>
-              <td>5th of Every Month</td>
-            </tr>
-          </table>
-        </div>
-      </div>
 
-      <!-- SIGNATURES -->
-      <div class="signature-section">
-        <div class="signature-block">
-          <div class="signature-line"></div>
-          <div class="signature-label">RECIPIENT'S SIGNATURE</div>
-          <div class="signature-name">{{tenant_name}}</div>
-        </div>
-        <div class="signature-block">
-          <div class="signature-line"></div>
-          <div class="signature-label">PROVIDER'S SIGNATURE</div>
-          <div class="signature-name">{{company_name}}</div>
-        </div>
-        <div class="signature-block">
-          <div class="signature-line"></div>
-          <div class="signature-label">WITNESS</div>
-          <div class="signature-name">_________________</div>
-        </div>
-      </div>
-
-      <!-- FOOTER -->
-      <div class="footer">
-        <p>This is a computer-generated document and does not require a physical signature.</p>
-        <p style="margin-top: 8px;">Document No: {{document_number}} | Generated on: {{date}}</p>
-      </div>
-      
+  <!-- TITLE -->
+  <div class="title">
+    <h1>RENTAL AGREEMENT</h1>
+    <div class="sub-title">(Residential Premises)</div>
+  </div>
+  <div class="meta-wrap">
+    <div class="meta">
+      Agreement No: <strong>{{document_number}}</strong> &nbsp;|&nbsp; Date: <strong>{{date}}</strong>
     </div>
   </div>
+
+  <!-- 1. PARTIES -->
+  <div class="section">
+    <div class="section-title">1. Parties</div>
+    <p style="font-size:14px; margin-bottom:6px;">
+      This Rental Agreement (hereinafter “Agreement”) is made on this <strong>{{date}}</strong> by and between:
+    </p>
+    <div class="grid-2">
+      <div>
+        <div class="field">
+          <span class="field-label">LESSOR (Provider):</span>
+          <span class="field-value">{{company_name}}</span>
+        </div>
+        <div style="font-size:12px; color:#444;">(Represented by its Authorized Signatory)</div>
+      </div>
+      <div>
+        <div class="field">
+          <span class="field-label">LESSEE (Recipient):</span>
+          <span class="field-value">{{tenant_name}}</span>
+        </div>
+        <div style="font-size:12px; color:#444;">S/o, D/o {{emergency_contact_name}}</div>
+      </div>
+    </div>
+    <p style="font-size:13px; color:#333; margin-top:4px;">
+      (Hereinafter individually referred to as “Party” and collectively as “Parties”)
+    </p>
+  </div>
+
+  <!-- 2. RECITALS -->
+  <div class="section">
+    <div class="section-title">2. Recitals</div>
+    <div class="clause">
+      <span class="clause-number">WHEREAS</span> the Lessor is the lawful owner of the property known as <strong>{{property_name}}</strong> situated at <strong>{{company_address}}</strong>;
+    </div>
+    <div class="clause">
+      <span class="clause-number">WHEREAS</span> the Lessee desires to take on lease the said premises for residential purposes on the terms and conditions herein contained;
+    </div>
+    <div class="clause">
+      <span class="clause-number">NOW THEREFORE</span> the Parties agree as follows:
+    </div>
+  </div>
+
+  <!-- 3. PREMISES -->
+  <div class="section">
+    <div class="section-title">3. Premises</div>
+    <p style="font-size:14px;">The Lessor hereby leases to the Lessee the following premises:</p>
+    <ul>
+      <li><strong>Property Name:</strong> {{property_name}}</li>
+      <li><strong>Room No.:</strong> {{room_number}} &nbsp;|&nbsp; <strong>Bed No.:</strong> {{bed_number}}</li>
+      <li><strong>Address:</strong> {{company_address}}</li>
+    </ul>
+  </div>
+
+  <!-- 4. TERM -->
+  <div class="section">
+    <div class="section-title">4. Term</div>
+    <p style="font-size:14px;">
+      The lease shall commence on <strong>{{move_in_date}}</strong> and shall continue on a month‑to‑month basis until terminated by either Party with a <strong>30 days’</strong> prior written notice.
+    </p>
+  </div>
+
+  <!-- 5. RENT & DEPOSIT -->
+  <div class="section">
+    <div class="section-title">5. Rent &amp; Security Deposit</div>
+    <div class="grid-2">
+      <div>
+        <div class="field">
+          <span class="field-label">Monthly Rent:</span>
+          <span class="field-value money">₹ {{rent_amount}}/-</span>
+        </div>
+        <div style="font-size:12px; color:#555;">Payable on or before the 5th day of each month</div>
+      </div>
+      <div>
+        <div class="field">
+          <span class="field-label">Security Deposit:</span>
+          <span class="field-value money">₹ {{security_deposit}}/-</span>
+        </div>
+        <div style="font-size:12px; color:#555;">Refundable at the end of tenancy (subject to deductions)</div>
+      </div>
+    </div>
+    <p style="font-size:14px; margin-top:6px;">
+      <strong>Payment Mode:</strong> {{payment_mode}}
+    </p>
+    <p style="font-size:13px; color:#333;">
+      <strong>Late Fee:</strong> A late fee of ₹ 100 per day shall be charged for any delay beyond the due date.
+    </p>
+  </div>
+
+  <!-- 6. UTILITIES & MAINTENANCE -->
+  <div class="section">
+    <div class="section-title">6. Utilities &amp; Maintenance</div>
+    <ul>
+      <li>Electricity and water charges shall be borne by the Lessee as per actual consumption.</li>
+      <li>Common area maintenance charges shall be shared equally among all occupants.</li>
+      <li>The Lessor shall be responsible for major structural repairs (e.g., plumbing, electrical wiring).</li>
+      <li>Minor repairs (e.g., bulbs, faucets) shall be attended to by the Lessee.</li>
+    </ul>
+  </div>
+
+  <!-- 7. RULES & RESTRICTIONS -->
+  <div class="section">
+    <div class="section-title">7. Rules &amp; Restrictions</div>
+    <ul>
+      <li>The Lessee shall not sublet, assign, or part with possession of the premises without prior written consent of the Lessor.</li>
+      <li>No commercial activity shall be carried out on the premises.</li>
+      <li>The Lessee shall maintain the premises and furniture in a clean and hygienic condition.</li>
+      <li>Pets are allowed only with prior approval and subject to additional terms.</li>
+      <li>Parking shall be as per availability and allocation by the Lessor.</li>
+    </ul>
+  </div>
+
+  <!-- 8. TERMINATION -->
+  <div class="section">
+    <div class="section-title">8. Termination</div>
+    <p style="font-size:14px;">
+      Either Party may terminate this Agreement by providing <strong>30 days’</strong> prior written notice. In case of early termination by the Lessee without valid cause, the security deposit shall be forfeited. The Lessor may terminate the Agreement immediately in case of breach of any material term.
+    </p>
+  </div>
+
+  <!-- 9. GOVERNING LAW -->
+  <div class="section">
+    <div class="section-title">9. Governing Law &amp; Jurisdiction</div>
+    <p style="font-size:14px;">
+      This Agreement shall be governed by and construed in accordance with the laws of India. Any dispute arising out of or in connection with this Agreement shall be subject to the exclusive jurisdiction of the courts in Pune, Maharashtra.
+    </p>
+  </div>
+
+  <!-- SIGNATURES -->
+  <div class="signature-block">
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div class="signature-label">LESSEE (Recipient)</div>
+      <div class="signature-name">{{tenant_name}}</div>
+      <div class="signature-date">Date: __________</div>
+    </div>
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div class="signature-label">LESSOR (Provider)</div>
+      <div class="signature-name">{{company_name}}</div>
+      <div class="signature-date">Date: __________</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <p>This document is generated electronically and is legally binding. No physical signature required.</p>
+    <p>Document No: {{document_number}} &nbsp;|&nbsp; Generated on: {{date}}</p>
+    <p style="margin-top:4px;">Powered by {{company_name}}</p>
+  </div>
+
+</div>
 </body>
 </html>`;
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -494,26 +425,68 @@ const CATEGORIES = [
 ];
 
 const COMMON_VARS = [
-  { name: "date", label: "Current Date", example: "2024-03-14", category: "System" },
-  { name: "document_number", label: "Document Number", example: "DOC-202403-0001", category: "System" },
-  { name: "document_title", label: "Document Title", example: "RENTAL AGREEMENT", category: "System" },
-  { name: "document_type", label: "Document Type", example: "Agreement", category: "System" },
-  { name: "tenant_name", label: "Recipient Name", example: "Rahul Sharma", category: "Tenant" },
-  { name: "tenant_phone", label: "Recipient Phone", example: "+91 98765 43210", category: "Tenant" },
-  { name: "tenant_email", label: "Recipient Email", example: "rahul.sharma@email.com", category: "Tenant" },
-  { name: "property_name", label: "Property Name", example: "Sunrise Executive PG", category: "Property" },
-  { name: "room_number", label: "Room Number", example: "A-204", category: "Property" },
-  { name: "bed_number", label: "Bed Number", example: "2", category: "Property" },
-  { name: "move_in_date", label: "Move-in Date", example: "15 Mar 2024", category: "Property" },
-  { name: "rent_amount", label: "Monthly Amount", example: "12,500", category: "Property" },
-  { name: "security_deposit", label: "Security Deposit", example: "25,000", category: "Property" },
-  { name: "company_name", label: "Company Name", example: "StayEasy Management Pvt Ltd", category: "Company" },
-  { name: "company_address", label: "Company Address", example: "456, Brigade Road, Bangalore", category: "Company" },
-  { name: "aadhaar_number", label: "Aadhaar Number", example: "XXXX-XXXX-1234", category: "Tenant" },
-  { name: "pan_number", label: "PAN Number", example: "ABCDE1234F", category: "Tenant" },
-  { name: "emergency_contact_name", label: "Emergency Contact", example: "Priya Sharma", category: "Tenant" },
-  { name: "emergency_phone", label: "Emergency Phone", example: "+91 98765 43211", category: "Tenant" },
-  { name: "payment_mode", label: "Payment Mode", example: "UPI / Bank Transfer", category: "Property" },
+  // System
+  { name: "date",              label: "Current Date",       example: "15 June 2024",           category: "System" },
+  { name: "document_number",   label: "Document Number",    example: "DOC-202403-0001",         category: "System" },
+  { name: "document_title",    label: "Document Title",     example: "RENTAL AGREEMENT",        category: "System" },
+  { name: "document_type",     label: "Document Type",      example: "Agreement",               category: "System" },
+  { name: "issue_date",        label: "Issue Date",         example: "15 June 2024",            category: "System" },
+  { name: "valid_until",       label: "Valid Until",        example: "15 June 2025",            category: "System" },
+
+  // Tenant
+  { name: "tenant_name",             label: "Tenant Name",            example: "Rahul Sharma",          category: "Tenant" },
+  { name: "tenant_phone",            label: "Tenant Phone",           example: "+91 98765 43210",        category: "Tenant" },
+  { name: "tenant_email",            label: "Tenant Email",           example: "rahul@email.com",        category: "Tenant" },
+  { name: "aadhaar_number",          label: "Aadhaar Number",         example: "XXXX-XXXX-1234",         category: "Tenant" },
+  { name: "pan_number",              label: "PAN Number",             example: "ABCDE1234F",             category: "Tenant" },
+  { name: "passport_number",         label: "Passport Number",        example: "P1234567",               category: "Tenant" },
+  { name: "voter_id",                label: "Voter ID",               example: "ABC1234567",             category: "Tenant" },
+  { name: "driving_license",         label: "Driving License",        example: "MH0120210012345",        category: "Tenant" },
+  { name: "date_of_birth",           label: "Date of Birth",          example: "01 Jan 1995",            category: "Tenant" },
+  { name: "gender",                  label: "Gender",                 example: "Male",                   category: "Tenant" },
+  { name: "nationality",             label: "Nationality",            example: "Indian",                 category: "Tenant" },
+  { name: "occupation",              label: "Occupation",             example: "Software Engineer",      category: "Tenant" },
+  { name: "employer_name",           label: "Employer Name",          example: "Tech Corp Pvt Ltd",      category: "Tenant" },
+  { name: "monthly_income",          label: "Monthly Income",         example: "50,000",                 category: "Tenant" },
+  { name: "emergency_contact_name",  label: "Emergency Contact",      example: "Priya Sharma",           category: "Tenant" },
+  { name: "emergency_phone",         label: "Emergency Phone",        example: "+91 98765 43211",        category: "Tenant" },
+  { name: "emergency_relation",      label: "Emergency Relation",     example: "Father",                 category: "Tenant" },
+  { name: "permanent_address",       label: "Permanent Address",      example: "123, MG Road, Mumbai",   category: "Tenant" },
+  { name: "current_address",         label: "Current Address",        example: "456, Wakad, Pune",       category: "Tenant" },
+  { name: "father_name",             label: "Father Name",            example: "Rajesh Sharma",          category: "Tenant" },
+  { name: "bank_account_number",     label: "Bank Account Number",    example: "1234567890123",          category: "Tenant" },
+  { name: "bank_name",               label: "Bank Name",              example: "HDFC Bank",              category: "Tenant" },
+  { name: "ifsc_code",               label: "IFSC Code",              example: "HDFC0001234",            category: "Tenant" },
+
+  // Property
+  { name: "property_name",       label: "Property Name",       example: "Roomac Wakad",          category: "Property" },
+  { name: "property_address",    label: "Property Address",    example: "Wakad, Pune 411057",    category: "Property" },
+  { name: "property_type",       label: "Property Type",       example: "PG / Co-living",        category: "Property" },
+  { name: "room_number",         label: "Room Number",         example: "A-204",                 category: "Property" },
+  { name: "bed_number",          label: "Bed Number",          example: "2",                     category: "Property" },
+  { name: "floor_number",        label: "Floor Number",        example: "2",                     category: "Property" },
+  { name: "move_in_date",        label: "Move-in Date",        example: "15 Mar 2024",           category: "Property" },
+  { name: "move_out_date",       label: "Move-out Date",       example: "14 Mar 2025",           category: "Property" },
+  { name: "notice_date",         label: "Notice Date",         example: "14 Feb 2025",           category: "Property" },
+  { name: "rent_amount",         label: "Monthly Rent",        example: "12,500",                category: "Property" },
+  { name: "security_deposit",    label: "Security Deposit",    example: "25,000",                category: "Property" },
+  { name: "advance_amount",      label: "Advance Amount",      example: "12,500",                category: "Property" },
+  { name: "payment_mode",        label: "Payment Mode",        example: "UPI / Bank Transfer",   category: "Property" },
+  { name: "payment_due_date",    label: "Payment Due Date",    example: "5th of every month",    category: "Property" },
+  { name: "parking_slot",        label: "Parking Slot",        example: "P-12",                  category: "Property" },
+  { name: "locker_number",       label: "Locker Number",       example: "L-05",                  category: "Property" },
+
+  // Company
+  { name: "company_name",          label: "Company Name",        example: "Roomac Pvt Ltd",         category: "Company" },
+  { name: "company_address",       label: "Company Address",     example: "Wakad, Pune 411057",     category: "Company" },
+  { name: "company_phone",         label: "Company Phone",       example: "+91 98765 00000",        category: "Company" },
+  { name: "company_email",         label: "Company Email",       example: "hello@roomac.in",        category: "Company" },
+  { name: "company_gstin",         label: "Company GSTIN",       example: "27AABCR1234A1Z5",        category: "Company" },
+  { name: "manager_name",          label: "Manager Name",        example: "Rajesh Kumar",           category: "Company" },
+  { name: "manager_phone",         label: "Manager Phone",       example: "+91 98765 11111",        category: "Company" },
+  { name: "witness_name",          label: "Witness Name",        example: "Suresh Patel",           category: "Company" },
+  { name: "witness_phone",         label: "Witness Phone",       example: "+91 98765 22222",        category: "Company" },
+  { name: "authorized_signatory",  label: "Authorized Signatory",example: "CEO / Director",         category: "Company" },
 ];
 
 const VARIABLE_CATEGORIES = ["All", "System", "Tenant", "Property", "Company"];
@@ -551,30 +524,7 @@ const getDocumentType = (category: string): string => {
   return types[category] || "Document";
 };
 
-// ─── Sample Data for Preview ─────────────────────────────────────────────────
-const SAMPLE_DATA = {
-  date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }),
-  document_number: `DOC-${Date.now().toString().slice(-6)}`,
-  document_title: "RENTAL AGREEMENT",
-  document_type: "Agreement",
-  tenant_name: "Amit Sharma",
-  tenant_phone: "+91 98765 43210",
-  tenant_email: "amit.sharma@email.com",
-  property_name: "Roomac Co-living Wakad",
-  room_number: "A-204",
-  bed_number: "2",
-  move_in_date: "15 Mar 2024",
-  rent_amount: "12,500",
-  security_deposit: "25,000",
-  company_name: "Roomac Co-living",
-  company_address: "Wakad, Pune - 411057",
-  aadhaar_number: "XXXX-XXXX-1234",
-  pan_number: "ABCDE1234F",
-  emergency_contact_name: "Priya Sharma",
-  emergency_phone: "+91 98765 43211",
-  payment_mode: "UPI (Auto-debit)",
-  logo_url: "",
-};
+
 
 const SH = ({
   icon, title, color = "text-blue-600",
@@ -637,8 +587,8 @@ const visualIframeRef = useRef<HTMLIFrameElement>(null);
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState<number | "All">(25);
-const [totalItems, setTotalItems] = useState(0);
-const [totalPages, setTotalPages] = useState(1);
+// const [totalItems, setTotalItems] = useState(0);
+// const [totalPages, setTotalPages] = useState(1);
   // ── Logo ───────────────────────────────────────────────────────────────────
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -653,6 +603,10 @@ const [totalPages, setTotalPages] = useState(1);
   // ── Filters ────────────────────────────────────────────────────────────────
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Cursor position track karne ke liye ref add karo (component ke andar, state declarations ke paas)
+const codeEditorRef = useRef<HTMLTextAreaElement>(null);
+const [cursorPos, setCursorPos] = useState<number | null>(null);
 
   // ── Column search ──────────────────────────────────────────────────────────
   const [col, setCol] = useState({
@@ -710,29 +664,23 @@ const [totalPages, setTotalPages] = useState(1);
   // ══════════════════════════════════════════════════════════════════════════
   // DATA LOADERS
   // ══════════════════════════════════════════════════════════════════════════
-
- const loadTemplates = useCallback(async (page = currentPage) => {
+const loadTemplates = useCallback(async () => {
   setLoading(true);
   try {
-    const limit = pageSize === "All" ? 999999 : pageSize;
     const res = await listTemplates({
       category: catFilter !== "all" ? catFilter : undefined,
       is_active: statusFilter !== "all" ? statusFilter : undefined,
-      page,
-      limit,
+      // no page/limit → get all
     });
     setTemplates(res.data || []);
-    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
-    setTotalPages(res.pagination?.totalPages ?? 1);
-    setCurrentPage(page);
   } catch (err: any) {
     toast.error(err.message || "Failed to load templates");
   } finally {
     setLoading(false);
   }
-}, [catFilter, statusFilter, pageSize]);
+}, [catFilter, statusFilter]);
 
-useEffect(() => { loadTemplates(1); }, [loadTemplates]);
+useEffect(() => { loadTemplates(); }, [loadTemplates]);
   // ══════════════════════════════════════════════════════════════════════════
   // DERIVED / FILTERED DATA
   // ══════════════════════════════════════════════════════════════════════════
@@ -755,6 +703,21 @@ useEffect(() => { loadTemplates(1); }, [loadTemplates]);
     const matchesCategory = varCategory === "All" || v.category === varCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const totalPages = useMemo(() => {
+  if (pageSize === "All") return 1;
+  return Math.ceil(filteredRows.length / (pageSize as number));
+}, [filteredRows, pageSize]);
+
+const paginatedRows = useMemo(() => {
+  if (pageSize === "All") return filteredRows;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredRows.slice(start, start + (pageSize as number));
+}, [filteredRows, currentPage, pageSize]);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [col, catFilter, statusFilter]);
 
   const groupedVars = useMemo(() => {
     const groups: Record<string, typeof COMMON_VARS> = {};
@@ -806,177 +769,88 @@ useEffect(() => { loadTemplates(1); }, [loadTemplates]);
 const toggleVariable = (name: string) => {
   const varTag = `{{${name}}}`;
   const currentContent = form.html_content;
+
+  // Check if variable already exists
   const varRegex = new RegExp(escapeRegExp(varTag), 'g');
-  
-  // For tenant_name: check presence ONLY in FULL NAME field, not globally
-  let isPresent: boolean;
-  if (name === 'tenant_name') {
-    const fullNameFieldMatch = currentContent.match(
-      /<span class="field-label">FULL NAME<\/span>\s*<div class="field-value[^"]*">\{\{tenant_name\}\}/
-    );
-    isPresent = !!fullNameFieldMatch;
-  } else {
-    isPresent = varRegex.test(currentContent);
-  }
+  const isPresent = varRegex.test(currentContent);
 
   if (isPresent) {
-    // Remove only from specific known locations, not ALL instances
-    // For tenant_name: remove from FULL NAME field only, keep LESSEE and signature
-    if (name === 'tenant_name') {
-      // Only remove from FULL NAME field-value div
-      let newHtml = currentContent;
-      // Remove from FULL NAME field only
-      newHtml = newHtml.replace(
-        /(<span class="field-label">FULL NAME<\/span>\s*<div class="field-value[^"]*">)\{\{tenant_name\}\}/,
-        '$1'
-      );
-      setForm(p => ({ ...p, html_content: newHtml }));
-      toast.success(`Removed {{tenant_name}} from Full Name field`);
-      return;
-    }
-    // For all others: remove all instances
-    const newHtml = currentContent.replace(varRegex, '');
+    const newHtml = currentContent.replace(new RegExp(escapeRegExp(varTag), 'g'), '');
     setForm(p => ({ ...p, html_content: newHtml }));
     toast.success(`Removed {{${name}}}`);
     return;
   }
-  // Always work from form.html_content (not textarea.value which can be stale)
-  const fullHtml = currentContent;
 
-  const variableLocations: Record<string, { field: string, format?: string }> = {
-    'date': { field: 'Date' },
-    'document_number': { field: 'Document No' },
-    'document_title': { field: 'document-title' },
-    'document_type': { field: 'document_type' },
-    'company_name': { field: 'LESSOR / PROVIDER' },
-    'company_address': { field: 'LESSOR / PROVIDER' },
-    'logo_url': { field: 'logo' },
-    'tenant_name': { field: 'FULL NAME' },
-    'tenant_phone': { field: 'PHONE NUMBER' },
-    'tenant_email': { field: 'EMAIL' },
-    'aadhaar_number': { field: 'AADHAAR NUMBER' },
-    'pan_number': { field: 'PAN NUMBER' },
-    'emergency_contact_name': { field: 'EMERGENCY CONTACT' },
-    'emergency_phone': { field: 'EMERGENCY CONTACT', format: ' ({value})' },
-    'property_name': { field: 'PROPERTY NAME' },
-    'room_number': { field: 'ROOM / BED NUMBER' },
-    'bed_number': { field: 'ROOM / BED NUMBER' },
-    'move_in_date': { field: 'MOVE-IN DATE' },
-    'security_deposit': { field: 'SECURITY DEPOSIT', format: '₹ {value}' },
-    'rent_amount': { field: 'Monthly Rent / Fee', format: '₹ {value}/-' },
-    'payment_mode': { field: 'Payment Mode' },
-  };
+  // ── Visual view: insert at DOM cursor position ──
+// ── Visual view: insert at DOM cursor position ──
+if (!isCodeView) {
+  const savedRange = (window as any).__templateEditorRange;
+  if (savedRange) {
+    try {
+      let insertPos: number | null = null;
 
-  const location = variableLocations[name];
-  let insertPosition = -1;
-  let finalTag = varTag;
+      // Cursor jis node mein hai, uske nearest pichhle variable-span se position nikaalo
+      const container = savedRange.startContainer;
+      const offsetInNode = savedRange.startOffset;
 
-  if (location?.format) {
-    finalTag = location.format.replace('{value}', varTag);
-  }
+      // Find the editable root
+      const root = (container.nodeType === 1 ? container as Element : container.parentElement)
+        ?.closest('[data-template-editable]');
 
-  if (location) {
-    // Try field-label spans
-    const fieldLabelRegex = /<span class="field-label">(.*?)<\/span>/g;
-    let labelMatch;
-    while ((labelMatch = fieldLabelRegex.exec(fullHtml)) !== null) {
-      const labelText = labelMatch[1].trim();
-      if (labelText === location.field) {
-        const afterLabelPos = labelMatch.index + labelMatch[0].length;
-        const afterLabel = fullHtml.substring(afterLabelPos);
-        const divMatch = afterLabel.match(/<div class="field-value[^>]*>/);
-        if (divMatch) {
-          const divStart = afterLabelPos + afterLabel.indexOf(divMatch[0]) + divMatch[0].length;
-          const divContent = fullHtml.substring(divStart, fullHtml.indexOf('</div>', divStart));
+      if (root) {
+        // Walk all nodes before cursor to find nearest preceding {{var}} span
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null);
+        let lastVarSpan: HTMLElement | null = null;
+        let found = false;
 
-          if (location.field === 'ROOM / BED NUMBER') {
-            if (name === 'room_number') {
-              insertPosition = divStart;
-            } else if (name === 'bed_number') {
-              if (divContent.includes('{{room_number}}')) {
-                const rp = divContent.indexOf('{{room_number}}');
-                insertPosition = divStart + rp + '{{room_number}}'.length + 3;
-              } else {
-                insertPosition = divStart;
-              }
-            }
-          } else if (location.field === 'EMERGENCY CONTACT') {
-            if (name === 'emergency_contact_name') {
-              insertPosition = divStart;
-            } else if (name === 'emergency_phone') {
-              if (divContent.includes('{{emergency_contact_name}}')) {
-                const np = divContent.indexOf('{{emergency_contact_name}}');
-                insertPosition = divStart + np + '{{emergency_contact_name}}'.length;
-              } else {
-                insertPosition = divStart;
-              }
-            }
-          } else if (location.field === 'SECURITY DEPOSIT') {
-            if (divContent.includes('₹')) {
-              const rp = divContent.indexOf('₹');
-              insertPosition = divStart + rp + '₹'.length + 1;
-            } else {
-              insertPosition = divStart;
-            }
-          } else {
-            insertPosition = divStart;
-          }
-          break;
-        }
-      }
-    }
-
-    // Try terms table
-    if (insertPosition === -1 && (name === 'rent_amount' || name === 'payment_mode')) {
-      const tableMatch = fullHtml.match(/<table class="terms-table">[\s\S]*?<\/table>/);
-      if (tableMatch) {
-        const tableStart = fullHtml.indexOf(tableMatch[0]);
-        const rows = tableMatch[0].match(/<tr>[\s\S]*?<\/tr>/g) || [];
-        for (const row of rows) {
-          if (row.includes(location.field)) {
-            const rowStart = tableStart + tableMatch[0].indexOf(row);
-            const tds = row.match(/<td[^>]*>[\s\S]*?<\/td>/g);
-            if (tds && tds.length >= 2) {
-              const secondTd = tds[1];
-              const tdPos = rowStart + row.indexOf(secondTd);
-              insertPosition = tdPos + secondTd.indexOf('>') + 1;
-            }
-            break;
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (node === container) { found = true; break; }
+          if (node.nodeType === 1 && (node as HTMLElement).hasAttribute('data-var-pos')) {
+            lastVarSpan = node as HTMLElement;
           }
         }
-      }
-    }
 
-    // Try meta section for date/document_number
-    if (insertPosition === -1 && name === 'date') {
-      const dateSpan = fullHtml.match(/<span>Date: <strong>[^<]*<\/strong><\/span>/);
-      if (dateSpan) {
-        const spanPos = fullHtml.indexOf(dateSpan[0]);
-        insertPosition = spanPos + dateSpan[0].indexOf('<strong>') + '<strong>'.length;
+        if (lastVarSpan) {
+          const pos = parseInt(lastVarSpan.getAttribute('data-var-pos') || '0', 10);
+          const len = parseInt(lastVarSpan.getAttribute('data-var-len') || '0', 10);
+          insertPos = pos + len; // insert right after that variable's source position
+        } else {
+          insertPos = 0; // cursor is before any variable — insert at top
+        }
       }
-    }
-    if (insertPosition === -1 && name === 'document_number') {
-      const docSpan = fullHtml.match(/<span>{{document_type}} No: <strong>[^<]*<\/strong><\/span>/);
-      if (docSpan) {
-        const spanPos = fullHtml.indexOf(docSpan[0]);
-        insertPosition = spanPos + docSpan[0].indexOf('<strong>') + '<strong>'.length;
+
+      if (insertPos !== null) {
+        const newHtml =
+          currentContent.substring(0, insertPos) +
+          varTag +
+          currentContent.substring(insertPos);
+        setForm(p => ({ ...p, html_content: newHtml }));
+        setCursorPos(insertPos + varTag.length);
+        toast.success(`Inserted ${varTag}`);
+        return;
       }
+    } catch (e) {
+      // Fall through to code view logic
     }
   }
+}
 
-  // If still not found, insert before </body>
-  if (insertPosition === -1) {
-    const bodyClose = fullHtml.lastIndexOf('</body>');
-    insertPosition = bodyClose !== -1 ? bodyClose : fullHtml.length;
+  // ── Code view: insert at cursor position ──
+  let insertPos = cursorPos;
+  if (insertPos === null || insertPos === undefined) {
+    const bodyClose = currentContent.lastIndexOf('</body>');
+    insertPos = bodyClose !== -1 ? bodyClose : currentContent.length;
   }
 
   const newHtml =
-    fullHtml.substring(0, insertPosition) +
-    finalTag +
-    fullHtml.substring(insertPosition);
+    currentContent.substring(0, insertPos) +
+    varTag +
+    currentContent.substring(insertPos);
 
   setForm(p => ({ ...p, html_content: newHtml }));
-  toast.success(`Inserted ${finalTag}`);
+  setCursorPos(insertPos + varTag.length);
+  toast.success(`Inserted ${varTag}`);
 };
 
 // Helper function to escape regex special characters
@@ -1135,53 +1009,28 @@ const extractVars = (html?: string) => {
  const buildPreview = (html: string, logoSrc?: string): string => {
   if (!html) return `<!DOCTYPE html><html><body></body></html>`;
   
-  // Ensure we have a clean complete HTML document
   let c = html.trim();
   if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) {
     c = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${c}</body></html>`;
-    
   }
 
-
-
-  // Replace logo_url with actual logo
+  // Logo replace
   if (logoSrc) {
-    c = c.replace(
-      /\{\{logo_url\}\}/g,
-      `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`
-    );
+    c = c.replace(/\{\{logo_url\}\}/g, `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`);
   } else {
-    c = c.replace(
-      /\{\{logo_url\}\}/g,
-      `<div style="font-size:12px;color:#666;padding:4px;border:1px dashed #ccc;border-radius:4px;">Company Logo</div>`
-    );
+    c = c.replace(/\{\{logo_url\}\}/g, `<div style="font-size:12px;color:#666;padding:4px;border:1px dashed #ccc;border-radius:4px;">Company Logo</div>`);
   }
 
-  // FORCE REPLACE tenant_name manually (bypass regex issues)
-  c = c.replace(/\{\{tenant_name\}\}/g, SAMPLE_DATA.tenant_name);
-  c = c.replace(/\{\{tenant_phone\}\}/g, SAMPLE_DATA.tenant_phone);
-  c = c.replace(/\{\{tenant_email\}\}/g, SAMPLE_DATA.tenant_email);
-  c = c.replace(/\{\{property_name\}\}/g, SAMPLE_DATA.property_name);
-  c = c.replace(/\{\{room_number\}\}/g, SAMPLE_DATA.room_number);
-  c = c.replace(/\{\{bed_number\}\}/g, SAMPLE_DATA.bed_number);
-  c = c.replace(/\{\{move_in_date\}\}/g, SAMPLE_DATA.move_in_date);
-  c = c.replace(/\{\{rent_amount\}\}/g, SAMPLE_DATA.rent_amount);
-  c = c.replace(/\{\{security_deposit\}\}/g, SAMPLE_DATA.security_deposit);
-  c = c.replace(/\{\{company_name\}\}/g, SAMPLE_DATA.company_name);
-  c = c.replace(/\{\{company_address\}\}/g, SAMPLE_DATA.company_address);
-  c = c.replace(/\{\{aadhaar_number\}\}/g, SAMPLE_DATA.aadhaar_number);
-  c = c.replace(/\{\{pan_number\}\}/g, SAMPLE_DATA.pan_number);
-  c = c.replace(/\{\{emergency_contact_name\}\}/g, SAMPLE_DATA.emergency_contact_name);
-  c = c.replace(/\{\{emergency_phone\}\}/g, SAMPLE_DATA.emergency_phone);
-  c = c.replace(/\{\{payment_mode\}\}/g, SAMPLE_DATA.payment_mode);
-  c = c.replace(/\{\{date\}\}/g, SAMPLE_DATA.date);
-  c = c.replace(/\{\{document_number\}\}/g, SAMPLE_DATA.document_number);
-  c = c.replace(/\{\{document_title\}\}/g, SAMPLE_DATA.document_title);
-  c = c.replace(/\{\{document_type\}\}/g, SAMPLE_DATA.document_type);
+  // Sabhi {{variable}} ko yellow badge style mein dikhao — sample data NAHI
+  // c = c.replace(/\{\{([\w_]+)\}\}/g,
+  //   '<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{$1}}</span>'
+  // );
 
-  // Remove any remaining variables
-// Remove any remaining variables
-c = c.replace(/\{\{[\w_]+\}\}/g, "");
+  // Sabhi {{variable}} ko yellow badge style mein dikhao + source position tag karo
+c = c.replace(/\{\{([\w_]+)\}\}/g, (match, varName, offset) => {
+  return `<span data-var-pos="${offset}" data-var-len="${match.length}" contenteditable="false" style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{${varName}}}</span>`;
+});
+
   return c;
 };
 
@@ -1613,162 +1462,262 @@ const handleExport = () => {
        
       </div>
 
-      {/* ── TABLE ──────────────────────────────────────────────────────── */}
-      <div className="relative">
-        <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-            <span className="text-sm font-semibold text-gray-700">
-              Document Templates ({filteredRows.length})
-            </span>
-            {hasCol && (
-              <button onClick={clearCol} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>
-            )}
-          </div>
+     {/* ── TABLE ──────────────────────────────────────────────────────── */}<div className="relative">
+  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    
 
-          <div className="overflow-auto overflow-y-auto max-h-[360px] md:max-h-[430px]">
-            <div className="min-w-[950px]">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                  <TableRow>
-                    <TableHead className="py-2 px-3 w-10">
-                      <Checkbox checked={allSelected} onCheckedChange={toggleAll} className="h-3.5 w-3.5" />
-                    </TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Template Name</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Category</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Description</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Variables</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Version</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                    <TableHead className="py-2 px-3 text-xs">Updated</TableHead>
-                    <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                  </TableRow>
+    <div className="flex flex-col h-[310px] sm:h-[450px]">
+      <div className="overflow-auto flex-1 min-h-0">
+        <table
+          className="border-collapse text-[11px] font-sans"
+          style={{ tableLayout: "fixed", minWidth: "900px", width: "100%" }}
+        >
+          <colgroup>
+            <col style={{ width: "36px" }} />   {/* Checkbox */}
+            <col style={{ width: "80px" }} />   {/* Actions */}
+            <col style={{ width: "180px" }} />  {/* Name */}
+            <col style={{ width: "120px" }} />  {/* Category */}
+            <col style={{ width: "160px" }} />  {/* Description */}
+            <col style={{ width: "60px" }} />   {/* Variables */}
+            <col style={{ width: "55px" }} />   {/* Version */}
+            <col style={{ width: "70px" }} />   {/* Status */}
+            <col style={{ width: "90px" }} />   {/* Updated */}
+          </colgroup>
 
-                  {/* Column search row */}
-                  <TableRow className="bg-gray-50/80">
-                    <TableCell className="py-1 px-3" />
-                    {[
-                      { k: "name",        ph: "Search name…" },
-                      { k: "category",    ph: "Category…" },
-                      { k: "description", ph: "Desc…" },
-                      { k: null,          ph: "" },
-                      { k: "version",     ph: "Ver…" },
-                      { k: "status",      ph: "active/inactive" },
-                      { k: null,          ph: "" },
-                      { k: null,          ph: "" },
-                    ].map((c, i) => (
-                      <TableCell key={i} className="py-1 px-2">
-                        {c.k
-                          ? <Input placeholder={c.ph}
-                              value={col[c.k as keyof typeof col]}
-                              onChange={e => setCol(p => ({ ...p, [c.k!]: e.target.value }))}
-                              className="h-6 text-[10px]" />
-                          : <div />}
-                      </TableCell>
-                    ))}
-                    <TableCell />
-                  </TableRow>
-                </TableHeader>
+          {/* ── STICKY THEAD ── */}
+          <thead className="sticky top-0 z-10">
+            {/* Title Row */}
+            <tr className="bg-gray-200 border-b border-gray-300">
+              <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+              <input
+  type="checkbox"
+  checked={allSelected}
+  onChange={toggleAll}   
+  className="w-3.5 h-3.5 cursor-pointer"
+/>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Template Name</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Category</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Description</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vars</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Ver</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Updated</span>
+              </th>
+            </tr>
 
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12">
-                        <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                        <p className="text-xs text-gray-500">Loading…</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12">
-                        <LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-500">No templates found</p>
-                        <p className="text-xs text-gray-400 mt-1">Create one to get started</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRows.map(t => (
-                    <TableRow key={t.id} className={`hover:bg-gray-50 ${selectedIds.has(t.id) ? "bg-blue-50/40" : ""}`}>
-                      <TableCell className="py-2 px-3">
-                        <Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleOne(t.id)} className="h-3.5 w-3.5" />
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          {t.logo_url && (
-                            <img 
-                              src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`}
-                              alt="" 
-                              className="h-5 w-5 rounded object-contain border border-gray-200"
-                              onError={(e) => (e.currentTarget.style.display = "none")}
-                            />
-                          )}
-                          <span className="text-xs font-semibold text-gray-800">{t.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2 py-0">
-                          {t.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-500 max-w-[160px] truncate">
-                        {t.description || "—"}
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex items-center gap-1">
-                          <Code className="h-3 w-3 text-blue-500" />
-                          <span className="text-[11px] font-bold text-blue-600">{t.variables?.length || 0}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
-                          v{t.version}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <Badge className={`text-[10px] px-2 py-0 ${t.is_active
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : "bg-gray-100 text-gray-500 border border-gray-200"}`}>
-                          {t.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-3 text-[10px] text-gray-500">
-                        {new Date(t.updated_at).toLocaleDateString("en-IN", {
-                          day: "2-digit", month: "short", year: "numeric",
-                        })}
-                      </TableCell>
-                     <TableCell className="py-2 px-3">
-  <div className="flex justify-end gap-0.5">
-    {[
-      { icon: <Eye className="h-3 w-3" />,     fn: () => openPreviewForRow(t),                        cls: "text-blue-500 hover:bg-blue-50",     title: "Preview" },
-      { icon: <Pencil className="h-3 w-3" />,  fn: () => openEdit(t),                                 cls: "text-green-500 hover:bg-green-50",   title: "Edit" },
-      { icon: <Copy className="h-3 w-3" />,    fn: () => openDuplicate(t),                            cls: "text-purple-500 hover:bg-purple-50", title: "Duplicate" },
-      { icon: <History className="h-3 w-3" />, fn: () => { setHistoryTpl(t); setShowHistory(true); }, cls: "text-orange-500 hover:bg-orange-50", title: "History" },
-      { icon: <Trash2 className="h-3 w-3" />,  fn: () => handleDelete(t.id, t.name),                  cls: "text-red-500 hover:bg-red-50",       title: "Delete" },
-    ].map((btn, i) => (
-      <button
-        key={i}
-        onClick={btn.fn}
-        title={btn.title}
-        className={`p-1.5 rounded-md transition-colors ${btn.cls}`}
-      >
-        {btn.icon}
-      </button>
-    ))}
-  </div>
-</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+            {/* Search Row */}
+            <tr className="bg-white border-b border-gray-300">
+              <td className="p-1 border-r border-gray-200 bg-white" />
+              <td className="p-1 border-r border-gray-200 bg-white" />
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Search name…"
+                  value={col.name}
+                  onChange={e => setCol(p => ({ ...p, name: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Category…"
+                  value={col.category}
+                  onChange={e => setCol(p => ({ ...p, category: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="Desc…"
+                  value={col.description}
+                  onChange={e => setCol(p => ({ ...p, description: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="v…"
+                  value={col.version}
+                  onChange={e => setCol(p => ({ ...p, version: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <Input
+                  placeholder="active…"
+                  value={col.status}
+                  onChange={e => setCol(p => ({ ...p, status: e.target.value }))}
+                  className="h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 w-full"
+                />
+              </td>
+              <td className="p-1" />
+            </tr>
+          </thead>
 
+          {/* ── TBODY ── */}
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                  Loading…
+                </td>
+              </tr>
+) : paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-12 text-center text-slate-500 text-xs">
+                  <LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-500">No templates found</p>
+                  <p className="text-xs text-gray-400 mt-1">Create one to get started</p>
+                </td>
+              </tr>
+) : paginatedRows.map(t => (              <tr
+                key={t.id}
+                className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${selectedIds.has(t.id) ? "bg-blue-50/40" : ""}`}
+              >
+                {/* Checkbox */}
+                <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
+                 <input
+  type="checkbox"
+  checked={selectedIds.has(t.id)}
+  onChange={() => toggleOne(t.id)}
+  className="w-3.5 h-3.5 cursor-pointer"
+/>
+                </td>
 
-          {/* ── Pagination Bar ── */}
-{!loading && templates.length > 0 && (
-  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-    <div className="flex items-center gap-3 text-gray-500">
-      <span className="text-[11px]">
-        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
-        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} templates
+                {/* Actions */}
+                <td className="px-1 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-[1px] flex-nowrap">
+                    <button
+                      onClick={() => openPreviewForRow(t)}
+                      title="Preview"
+                      className="w-6 h-6 rounded-lg text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => openEdit(t)}
+                      title="Edit"
+                      className="w-6 h-6 rounded-lg text-green-500 hover:bg-green-50 flex items-center justify-center transition-colors"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => openDuplicate(t)}
+                      title="Duplicate"
+                      className="w-6 h-6 rounded-lg text-purple-500 hover:bg-purple-50 flex items-center justify-center transition-colors"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => { setHistoryTpl(t); setShowHistory(true); }}
+                      title="History"
+                      className="w-6 h-6 rounded-lg text-orange-500 hover:bg-orange-50 flex items-center justify-center transition-colors"
+                    >
+                      <History className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(t.id, t.name)}
+                      title="Delete"
+                      className="w-6 h-6 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </td>
+
+                {/* Name */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {t.logo_url && (
+                      <img
+                        src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`}
+                        alt=""
+                        className="h-4 w-4 rounded object-contain border border-gray-200 flex-shrink-0"
+                        onError={e => (e.currentTarget.style.display = "none")}
+                      />
+                    )}
+                    <span className="text-[11px] font-semibold text-slate-800 truncate">{t.name}</span>
+                  </div>
+                </td>
+
+                {/* Category */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 truncate max-w-full">
+                    {t.category}
+                  </span>
+                </td>
+
+                {/* Description */}
+                <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100 truncate">
+                  {t.description || "—"}
+                </td>
+
+                {/* Variables */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <div className="flex items-center gap-1">
+                    <Code className="h-3 w-3 text-blue-500" />
+                    <span className="text-[11px] font-bold text-blue-600">{t.variables?.length || 0}</span>
+                  </div>
+                </td>
+
+                {/* Version */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
+                    v{t.version}
+                  </span>
+                </td>
+
+                {/* Status */}
+                <td className="px-1.5 py-1.5 border-r border-slate-100">
+                  <span
+                    className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                    style={{
+                      background: t.is_active ? "#DCFCE7" : "#F3F4F6",
+                      color: t.is_active ? "#166534" : "#6B7280",
+                    }}
+                  >
+                    {t.is_active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+
+                {/* Updated */}
+                <td className="px-1.5 py-1.5 text-[10px] text-slate-400">
+                  {new Date(t.updated_at).toLocaleDateString("en-IN", {
+                    day: "2-digit", month: "short", year: "numeric",
+                  })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ── Pagination Bar ── */}
+   {!loading && templates.length > 0 && (
+  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span>
+        Showing {paginatedRows.length === 0 ? 0 : ((currentPage - 1) * (pageSize === "All" ? filteredRows.length : pageSize as number)) + 1}–
+        {Math.min(currentPage * (pageSize === "All" ? filteredRows.length : pageSize as number), filteredRows.length)} of {filteredRows.length} templates
       </span>
       <div className="flex items-center gap-1">
         <span className="text-gray-400 text-[10px]">Rows:</span>
@@ -1778,14 +1727,13 @@ const handleExport = () => {
             const newSize = val === "All" ? "All" : Number(val);
             setPageSize(newSize);
             setCurrentPage(1);
-            loadTemplates(1);
           }}
         >
-          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+          <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
             <SelectValue>{pageSize}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
+            {PAGE_SIZE_OPTIONS.map(size => (
               <SelectItem key={String(size)} value={String(size)} className="text-xs">
                 {size}
               </SelectItem>
@@ -1797,137 +1745,151 @@ const handleExport = () => {
 
     {totalPages > 1 && (
       <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadTemplates(currentPage - 1)}
+        <button
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
           disabled={currentPage === 1}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
+          Previous
+        </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          const page = i + 1;
+          let pageNum = i + 1;
+          if (totalPages > 5) {
+            if (currentPage <= 3) pageNum = i + 1;
+            else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+            else pageNum = currentPage - 2 + i;
+          }
           return (
-            <Button
-              key={page}
-              size="sm"
-              variant={currentPage === page ? "default" : "outline"}
-              onClick={() => loadTemplates(page)}
-              className={`h-6 w-6 p-0 text-[10px] ${
-                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            <button
+              key={pageNum}
+              onClick={() => setCurrentPage(pageNum)}
+              className={`h-7 w-7 text-xs border rounded ${
+                currentPage === pageNum
+                  ? "bg-blue-600 border-blue-600 text-white font-bold"
+                  : "bg-white border-gray-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {page}
-            </Button>
+              {pageNum}
+            </button>
           );
         })}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadTemplates(currentPage + 1)}
+        <button
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
+          Next
+        </button>
       </div>
     )}
+
+    <div className="text-[11px] text-slate-500">
+      {paginatedRows.length} of {filteredRows.length} shown
+    </div>
   </div>
 )}
-        </Card>
+  </div>
 
-        {/* ── FILTER SIDEBAR ─────────────────────────────────────────── */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
-            onClick={() => setSidebarOpen(false)} />
+  {/* ── FILTER SIDEBAR ── */}
+  {sidebarOpen && (
+    <div
+      className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
+      onClick={() => setSidebarOpen(false)}
+    />
+  )}
+  <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
+    transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+
+    <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-white" />
+        <span className="text-sm font-semibold text-white">Filters</span>
+        {hasFilters && (
+          <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+            {filterCount} active
+          </span>
         )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
-
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {filterCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            {/* Category */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <LayoutTemplate className="h-3 w-3 text-blue-500" /> Category
-              </p>
-              <div className="space-y-1">
-                {["all", ...CATEGORIES].map(c => (
-                  <label key={c}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                      ${catFilter === c ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="cat" checked={catFilter === c} onChange={() => setCatFilter(c)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${catFilter === c ? "bg-blue-500" : "bg-gray-300"}`} />
-                    <span className="text-[12px] font-medium">{c === "all" ? "All Categories" : c}</span>
-                    {catFilter === c && (
-                      <svg className="ml-auto h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100" />
-
-            {/* Status */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <CheckCircle className="h-3 w-3 text-green-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {[
-                  { val: "all",   label: "All",      dot: "bg-gray-400" },
-                  { val: "true",  label: "Active",   dot: "bg-green-500" },
-                  { val: "false", label: "Inactive", dot: "bg-gray-400" },
-                ].map(o => (
-                  <label key={o.val}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                      ${statusFilter === o.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="status" checked={statusFilter === o.val} onChange={() => setStatusFilter(o.val)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${o.dot}`} />
-                    <span className="text-[12px] font-medium">{o.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
       </div>
+      <div className="flex items-center gap-2">
+        {hasFilters && (
+          <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+            Clear all
+          </button>
+        )}
+        <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
+    <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <LayoutTemplate className="h-3 w-3 text-blue-500" /> Category
+        </p>
+        <div className="space-y-1">
+          {["all", ...CATEGORIES].map(c => (
+            <label
+              key={c}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                ${catFilter === c ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+            >
+              <input type="radio" name="cat" checked={catFilter === c} onChange={() => setCatFilter(c)} className="sr-only" />
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${catFilter === c ? "bg-blue-500" : "bg-gray-300"}`} />
+              <span className="text-[12px] font-medium">{c === "all" ? "All Categories" : c}</span>
+              {catFilter === c && (
+                <svg className="ml-auto h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100" />
+
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <CheckCircle className="h-3 w-3 text-green-500" /> Status
+        </p>
+        <div className="space-y-1">
+          {[
+            { val: "all",   label: "All",      dot: "bg-gray-400" },
+            { val: "true",  label: "Active",   dot: "bg-green-500" },
+            { val: "false", label: "Inactive", dot: "bg-gray-400" },
+          ].map(o => (
+            <label
+              key={o.val}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                ${statusFilter === o.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+            >
+              <input type="radio" name="status" checked={statusFilter === o.val} onChange={() => setStatusFilter(o.val)} className="sr-only" />
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${o.dot}`} />
+              <span className="text-[12px] font-medium">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+      <button
+        onClick={clearFilters}
+        disabled={!hasFilters}
+        className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Clear All
+      </button>
+      <button
+        onClick={() => setSidebarOpen(false)}
+        className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold"
+      >
+        Apply & Close
+      </button>
+    </div>
+  </aside>
+</div>
 
       {/* ══ CREATE / EDIT MODAL ═════════════════════════════════════════════ */}
       {showForm && (
@@ -1950,7 +1912,7 @@ const handleExport = () => {
     >
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-700 to-indigo-600 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-5 py-2 flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-base font-semibold flex items-center gap-2">
             {editingTpl ? (
@@ -2345,27 +2307,30 @@ const handleExport = () => {
 
 {/* ── Editor Area ── */}
 {isCodeView ? (
-  /* Code view — raw HTML textarea */
-                    <Editor
-                      value={form.html_content}
-                      onValueChange={(code) =>
-                        setForm({ ...form, html_content: code })
-                      }
-                      highlight={(code) =>
-                        Prism.highlight(code, Prism.languages.html, "html")
-                      }
-                      padding={12}
-                      style={{
-                        background: "#1e1e2e",
-                        color: "#cdd6f4",
-                        fontFamily: "Fira Code, monospace",
-                        fontSize: 13,
-                        minHeight: "400px",
-                        borderRadius: "8px",
-                      }}
-                    />
+                   <Editor
+  value={form.html_content}
+  onValueChange={(code) => setForm({ ...form, html_content: code })}
+  highlight={(code) => Prism.highlight(code, Prism.languages.html, "html")}
+  padding={12}
+  onKeyUp={(e) => {
+    const ta = e.currentTarget.querySelector('textarea');
+    if (ta) setCursorPos(ta.selectionStart);
+  }}
+  onClick={(e) => {
+    const ta = (e.currentTarget as HTMLElement).querySelector('textarea');
+    if (ta) setCursorPos(ta.selectionStart);
+  }}
+  style={{
+    background: "#1e1e2e",
+    color: "#cdd6f4",
+    fontFamily: "Fira Code, monospace",
+    fontSize: 13,
+    minHeight: "400px",
+    borderRadius: "8px",
+  }}
+/>
 ) : (
-  /* Visual Print Preview — Shows actual page breaks as they appear in print */
+  /* Visual Preview with click-to-place cursor */
   <div 
     className="bg-[#e8eaed]" 
     style={{ height: "500px", overflowY: "auto" }}
@@ -2377,73 +2342,69 @@ const handleExport = () => {
       padding: "24px 16px",
       gap: "24px",
     }}>
-      {/* Render each page separately with proper page breaks */}
-      {(() => {
-        // Create a temporary iframe to measure page breaks
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = buildPreview(form.html_content, logoPreview);
+     <div 
+          style={{
+            width: "210mm",
+            minHeight: "297mm",
+            backgroundColor: "white",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+            borderRadius: "4px",
+            overflow: "hidden",
+            position: "relative",
+            marginBottom: "24px",
+            padding: "2.2cm 2.2cm 2cm",
+          }}
+          className="w-full sm:w-[210mm] max-w-full"
+        >
+        {/* Page number */}
+        <div style={{
+          position: "absolute",
+          bottom: "12px",
+          right: "12px",
+          fontSize: "10px",
+          color: "#9ca3af",
+          backgroundColor: "white",
+          padding: "2px 6px",
+          borderRadius: "12px",
+          border: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}>
+          Page 1
+        </div>
         
-        // Get all pages by splitting at page breaks
-        const fullHtml = buildPreview(form.html_content, logoPreview);
-        
-        // Function to split HTML into pages based on @page break
-        const splitIntoPages = (html: string) => {
-          // Create a temporary container to parse the HTML
-          const container = document.createElement('div');
-          container.innerHTML = html;
-          
-          // This is a simplified approach - in real implementation,
-          // you'd need to calculate actual page breaks
-          // For now, we'll render the full document and let CSS page-break handle it
-          return [html];
-        };
-        
-        const pages = splitIntoPages(fullHtml);
-        
-        return pages.map((pageContent, pageIndex) => (
-          <div 
-  key={pageIndex}
-  style={{
-    width: "210mm",
-    minHeight: "297mm",
-    backgroundColor: "white",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-    borderRadius: "4px",
-    overflow: "hidden",
-    position: "relative",
-    marginBottom: "24px",
-  }}
-  className="w-full sm:w-[210mm] max-w-full"
->
-            {/* Page number indicator */}
-            <div style={{
-  position: "absolute",
-  bottom: "12px",
-  right: "12px",
-  fontSize: "10px",
-  color: "#9ca3af",
-  backgroundColor: "white",
-  padding: "2px 6px",
-  borderRadius: "12px",
-  border: "1px solid #e5e7eb",
-  zIndex: 10,
-}}
-className="text-[8px] sm:text-[10px] bottom-2 sm:bottom-3 right-2 sm:right-3">
-  Page {pageIndex + 1}
-</div>
-            
-            {/* Actual page content */}
-           <div 
-  dangerouslySetInnerHTML={{ __html: pageContent }}
-  style={{
-    width: "100%",
-    height: "100%",
-  }}
-  className="overflow-x-auto"
-/>
-          </div>
-        ));
-      })()}
+        {/* EDITABLE content area */}
+        <div
+          contentEditable
+          suppressContentEditableWarning
+           data-template-editable="true"
+          onInput={(e) => {
+            // HTML sync back to form — get innerHTML
+            const el = e.currentTarget;
+            // We don't sync back — only track cursor for variable insertion
+          }}
+          onKeyUp={(e) => {
+            // Save cursor position (character offset) — but we use Selection API
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              // Store selection range for variable insertion
+              (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
+            }
+          }}
+          onClick={(e) => {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
+            }
+          }}
+          dangerouslySetInnerHTML={{ __html: buildPreview(form.html_content, logoPreview) }}
+          style={{
+            width: "100%",
+            minHeight: "297mm",
+            outline: "none",
+            padding: "0",
+          }}
+        />
+      </div>
     </div>
   </div>
 )}
@@ -2739,7 +2700,7 @@ className="text-[8px] sm:text-[10px] bottom-2 sm:bottom-3 right-2 sm:right-3">
             boxShadow: "0 25px 60px -12px rgba(0,0,0,0.5)",
           }}>
             {/* Header */}
-            <div style={{ background: "linear-gradient(to right, #7c3aed, #db2777)", color: "#fff", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600"   style={{  color: "#fff", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
               <div className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 <span className="text-base font-semibold">Template Preview (A4 Size)</span>

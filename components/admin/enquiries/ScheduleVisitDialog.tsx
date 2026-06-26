@@ -68,7 +68,7 @@ const ScheduleVisitDialog = ({
         <DialogTitle className="sr-only">Schedule Visit</DialogTitle>
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-5 py-4 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-2 py-3 flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
@@ -150,7 +150,7 @@ const ScheduleVisitDialog = ({
             <Button
               onClick={handleSubmit}
               disabled={!visitData.scheduled_date || isSubmitting}
-              className="flex-1 bg-blue-900 hover:bg-blue-600 text-sm"
+              className="flex-1 bg-blue-600 hover:bg-blue-800 text-sm"
             >
               {isSubmitting ? "Scheduling..." : "Schedule Visit"}
             </Button>
