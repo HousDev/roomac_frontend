@@ -1241,6 +1241,7 @@ export async function processVacatedTenantRefund(
     transaction_id?: string;
     payment_date?: string;
     remark?: string;
+    vacate_record_id?: number; 
   }
 ): Promise<ApiResult<any>> {
   return enhancedFetch<ApiResult<any>>(`/api/payments/vacated-tenant/${tenantId}/refund`, {
