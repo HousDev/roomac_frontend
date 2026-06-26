@@ -1,4 +1,4 @@
-  // components/admin/tenants/tenants-client.tsx
+ // components/admin/tenants/tenants-client.tsx
   "use client";
   import { useCallback, useEffect, useMemo, useState, useRef } from "react";
   import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -458,49 +458,95 @@ const [pendingRefundStatus, setPendingRefundStatus] = useState("");
     );
 
     // 2. Update handleTabChange to save to sessionStorage:
-    const handleTabChange = useCallback(
-      (tab: "all" | "vacated" | "deleted") => {
-        setActiveTab(tab);
-        sessionStorage.setItem("tenants_active_tab", tab); // ← ADD THIS
-        setColumnSearch({
-          name: "",
-          contact: "",
-          occupation: "",
-          property: "",
-          payments: "",
-          status: "",
-          location: "",
-          checkInDate: "",
-          monthlyRent: "",
-          securityDeposit: "",
-          vacatedDate: "",
-        });
+    // const handleTabChange = useCallback(
+    //   (tab: "all" | "vacated" | "deleted") => {
+    //     setActiveTab(tab);
+    //     sessionStorage.setItem("tenants_active_tab", tab); // ← ADD THIS
+    //     setColumnSearch({
+    //       name: "",
+    //       contact: "",
+    //       occupation: "",
+    //       property: "",
+    //       payments: "",
+    //       status: "",
+    //       location: "",
+    //       checkInDate: "",
+    //       monthlyRent: "",
+    //       securityDeposit: "",
+    //       vacatedDate: "",
+    //     });
 
-        let filters;
-        if (tab === "all") {
-          filters = {
-            vacate_status: "non_vacated",
-            include_deleted: false,
-            pageSize: 1000,
-          };
-        } else if (tab === "vacated") {
-          filters = {
-            vacate_status: "vacated",
-            include_deleted: false,
-            pageSize: 1000,
-          };
-        } else {
-          filters = {
-            vacate_status: "vacated",
-            include_deleted: true,
-            pageSize: 1000,
-          };
-        }
+    //     let filters;
+    //     if (tab === "all") {
+    //       filters = {
+    //         vacate_status: "non_vacated",
+    //         include_deleted: false,
+    //         pageSize: 1000,
+    //       };
+    //     } else if (tab === "vacated") {
+    //       filters = {
+    //         vacate_status: "vacated",
+    //         include_deleted: false,
+    //         pageSize: 1000,
+    //       };
+    //     } else {
+    //       filters = {
+    //         vacate_status: "vacated",
+    //         include_deleted: true,
+    //         pageSize: 1000,
+    //       };
+    //     }
 
-        handleFilterChange(filters);
-      },
-      [handleFilterChange],
-    );
+    //     handleFilterChange(filters);
+    //   },
+    //   [handleFilterChange],
+    // );
+
+    // Update handleTabChange for 'vacated' tab:
+const handleTabChange = useCallback(
+  (tab: "all" | "vacated" | "deleted") => {
+    setActiveTab(tab);
+    sessionStorage.setItem("tenants_active_tab", tab);
+    setColumnSearch({
+      name: "",
+      contact: "",
+      occupation: "",
+      property: "",
+      payments: "",
+      status: "",
+      location: "",
+      checkInDate: "",
+      monthlyRent: "",
+      securityDeposit: "",
+      vacatedDate: "",
+    });
+
+    let filters;
+    if (tab === "all") {
+      filters = {
+        vacate_status: "non_vacated",
+        include_deleted: false,
+        pageSize: 1000,
+      };
+    } else if (tab === "vacated") {
+      // ✅ Changed from 'vacated' to 'vacate_history' to show ALL tenants who have ever vacated
+      filters = {
+        vacate_status: "vacate_history",  // ← THIS IS THE KEY CHANGE
+        include_deleted: false,
+        pageSize: 1000,
+      };
+    } else {
+      filters = {
+        vacate_status: "vacated",
+        include_deleted: true,
+        pageSize: 1000,
+      };
+    }
+
+    handleFilterChange(filters);
+  },
+  [handleFilterChange],
+);
 
     const handleClearAll = useCallback(() => {
       setActiveTab("all");
@@ -1637,7 +1683,14 @@ const clearSidebarFilters = useCallback(() => {
           key: "payments",
           label: "Payments",
           render: (tenant: Tenant) => {
-            const payments = tenant.payments || [];
+           const allPayments = tenant.payments || [];
+            // For reassigned tenants in All Tenants tab, only show payments after last vacate date
+            const lastVacateDate = tenant.has_vacated && tenant.is_vacated === false && tenant.vacated_date
+              ? new Date(tenant.vacated_date)
+              : null;
+            const payments = lastVacateDate
+              ? allPayments.filter((p) => p.payment_date && new Date(p.payment_date) > lastVacateDate)
+              : allPayments;
             const paid = payments
               .filter((p) => p.status === "paid" || p.status === "approved")
               .reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -3281,37 +3334,88 @@ const totals = useMemo(() => {
             const rowBg = "bg-white";
 
             // ── MONTHLY RENT ──
-            const monthlyRent = vacateRecord?.rent_amount
-              ? Number(vacateRecord.rent_amount)
-              : tenant.current_assignment?.tenant_rent
-                ? Number(tenant.current_assignment.tenant_rent)
-                : tenant.current_assignment?.rent_per_bed
-                  ? Number(tenant.current_assignment.rent_per_bed)
-                  : (tenant as any).monthly_rent
-                    ? Number((tenant as any).monthly_rent)
-                    : (tenant as any).rent_per_bed
-                      ? Number((tenant as any).rent_per_bed)
-                      : 0;
+            // For reassigned tenants (has_vacated=true but is_vacated=false): use CURRENT assignment
+            // For purely vacated tenants (is_vacated=true): use vacate record
+            const monthlyRent = (() => {
+  const vacateRecord = tenant.vacate_records?.[0];
+  
+  // ✅ For Vacated Tenants tab (activeTab === 'vacated'), ALWAYS show vacate record data
+  if (activeTab === 'vacated' && vacateRecord?.rent_amount) {
+    return Number(vacateRecord.rent_amount);
+  }
+  
+  // ✅ For All Tenants tab, show current assignment rent
+  if (tenant.current_assignment?.tenant_rent) {
+    return Number(tenant.current_assignment.tenant_rent);
+  }
+  
+  // Fallback
+  return (tenant as any).monthly_rent || 0;
+})();
 
             // ── SECURITY DEPOSIT ──
-            const securityDeposit = vacateRecord?.security_deposit_amount
-              ? Number(vacateRecord.security_deposit_amount)
-              : tenant.current_assignment?.security_deposit
-                ? Number(tenant.current_assignment.security_deposit)
-                : (tenant as any).security_deposit
-                  ? Number((tenant as any).security_deposit)
-                  : 0;
+            // ── SECURITY DEPOSIT ──
+            // For reassigned tenants: use current assignment's deposit
+            // For purely vacated tenants: use vacate record
+            const securityDeposit = (() => {
+  const vacateRecord = tenant.vacate_records?.[0];
+  
+  // ✅ For Vacated Tenants tab, show vacate record deposit
+  if (activeTab === 'vacated' && vacateRecord?.security_deposit_amount) {
+    return Number(vacateRecord.security_deposit_amount);
+  }
+  
+  // ✅ For All Tenants tab, show current assignment deposit
+  if (tenant.current_assignment?.security_deposit) {
+    return Number(tenant.current_assignment.security_deposit);
+  }
+  
+  return (tenant as any).security_deposit || 0;
+})();
 
             // ── REFUND AMOUNT (vacated only) ──
-            const refundableAmount = Number(vacateRecord?.refundable_amount || 0);
+           const refundableAmount = (() => {
+  const vacateRecord = tenant.vacate_records?.[0];
+  
+  // ✅ Always show vacate record refundable amount
+  if (vacateRecord?.refundable_amount) {
+    return Number(vacateRecord.refundable_amount);
+  }
+  return 0;
+})();
             // ── CHECK-IN DATE ──
-            const checkInDate = tenant.check_in_date
-              ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })
-              : "—";
+            // For CHECK-IN DATE column in Vacated Tenants tab
+// In the checkInDate calculation:
+const checkInDate = (() => {
+  // ✅ For Vacated Tenants tab, show check-in date from vacate record
+  if (activeTab === 'vacated') {
+    const vacateRecord = tenant.vacate_records?.[0];
+    if (vacateRecord?.stay_check_in_date) {
+      // ✅ Don't use new Date() - display the string directly or use localeDateString
+      const dateStr = vacateRecord.stay_check_in_date;
+      // If it's a string like "2025-12-15", split and display
+      if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${parseInt(parts[2])} ${monthNames[parseInt(parts[1]) - 1]} ${parts[0]}`;
+      }
+      return dateStr;
+    }
+  }
+  
+  // For All Tenants tab, show current check-in date
+  if (tenant.check_in_date) {
+    const dateStr = tenant.check_in_date;
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${parseInt(parts[2])} ${monthNames[parseInt(parts[1]) - 1]} ${parts[0]}`;
+    }
+    return dateStr;
+  }
+  
+  return "—";
+})();
 
             const isCouple = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
             const isPartner = isCouple && (
@@ -3331,7 +3435,14 @@ const totals = useMemo(() => {
               .filter(p => (p as any).payment_type === 'security_deposit' && (p.status === 'approved' || p.status === 'paid'))
               .reduce((sum, p) => sum + (p.amount || 0), 0);
             const isDepositPending = securityDeposit > 0 && totalDepositPaid < securityDeposit;
-            const totalPaid = payments
+            // For reassigned tenants, only count payments after their last vacate date
+            const lastVacateDate = (tenant.has_vacated && !tenant.is_vacated && tenant.vacated_date)
+              ? new Date(tenant.vacated_date)
+              : null;
+            const relevantPayments = lastVacateDate
+              ? (tenant.payments || []).filter(p => p.payment_date && new Date(p.payment_date) > lastVacateDate)
+              : (tenant.payments || []);
+            const totalPaid = relevantPayments
               .filter(p => p.status === 'approved' || p.status === 'paid')
               .reduce((sum, p) => sum + (p.amount || 0), 0);
 
@@ -3512,7 +3623,7 @@ const totals = useMemo(() => {
                 {/* ── Vacated Date ── */}
                 {(activeTab === "vacated" || activeTab === "deleted") && (
                   <td className="px-2 py-2 text-[10px] text-gray-600 whitespace-nowrap border-r border-gray-200">
-                    {tenant.has_vacated && vacateRecord?.requested_vacate_date ? (
+                   {(tenant.has_vacated || tenant.is_vacated) && vacateRecord?.requested_vacate_date ? (
                       new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -3524,19 +3635,40 @@ const totals = useMemo(() => {
 
                 {/* ── Property & Room ── */}
                 <td className="px-2 py-2 border-r border-gray-200">
-                  {tenant.current_assignment || tenant.assigned_room_id ? (
-                    <div className="text-[10px] text-gray-800 flex items-center gap-1 whitespace-nowrap">
-                      <span className="truncate max-w-[110px] font-medium">
-                        {tenant.current_assignment?.property_name || tenant.assigned_property_name || "Unknown"}
-                      </span>
-                      <span className="text-gray-400">·</span>
-                      <span>
-                        Room {tenant.current_assignment?.room_number || tenant.assigned_room_number || "N/A"} · Bed {tenant.current_assignment?.bed_number || tenant.assigned_bed_number || "N/A"}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-gray-400 whitespace-nowrap">No assignment</span>
-                  )}
+                  {(() => {
+                    // For vacated tab: show OLD room from vacate record
+                    // For all tenants tab: show current assignment
+                    const vr0 = tenant.vacate_records?.[0];
+                    const showOldRoom = (activeTab === "vacated" || activeTab === "deleted") 
+                      && tenant.has_vacated 
+                      && vr0?.room_number;
+                    
+                    const propName = showOldRoom 
+                      ? vr0?.property_name 
+                      : (tenant.current_assignment?.property_name || tenant.assigned_property_name);
+                    const roomNum = showOldRoom 
+                      ? vr0?.room_number 
+                      : (tenant.current_assignment?.room_number || tenant.assigned_room_number);
+                    const bedNum = showOldRoom 
+                      ? vr0?.bed_number 
+                      : (tenant.current_assignment?.bed_number || tenant.assigned_bed_number);
+                    
+                    if (propName || roomNum) {
+                      return (
+                        <div className="text-[10px] text-gray-800 flex items-center gap-1 whitespace-nowrap">
+                          <span className="truncate max-w-[110px] font-medium">
+                            {propName || "Unknown"}
+                          </span>
+                          <span className="text-gray-400">·</span>
+                          <span>Room {roomNum || "N/A"} · Bed {bedNum || "N/A"}</span>
+                          {showOldRoom && !(tenant as any).is_vacated && (
+                            <Badge className="text-[7px] px-1 py-0 h-3 bg-blue-50 text-blue-600 border-blue-200 border ml-1">Reassigned</Badge>
+                          )}
+                        </div>
+                      );
+                    }
+                    return <span className="text-[10px] text-gray-400 whitespace-nowrap">No assignment</span>;
+                  })()}
                 </td>
 
                 {/* ── Monthly Rent ── */}
@@ -3610,7 +3742,7 @@ const totals = useMemo(() => {
                       ₹{totalPaid.toLocaleString()}
                     </span>
                     <span className="text-[9px] text-gray-400">
-                      ({payments.length} txn)
+                      ({relevantPayments.length} txn)
                     </span>
                     {(activeTab === "vacated" || activeTab === "deleted") &&
                       totalRefunded > 0 && (
