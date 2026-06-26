@@ -486,7 +486,12 @@ const COMMON_VARS = [
   { name: "manager_phone",         label: "Manager Phone",       example: "+91 98765 11111",        category: "Company" },
   { name: "witness_name",          label: "Witness Name",        example: "Suresh Patel",           category: "Company" },
   { name: "witness_phone",         label: "Witness Phone",       example: "+91 98765 22222",        category: "Company" },
-  { name: "authorized_signatory",  label: "Authorized Signatory",example: "CEO / Director",         category: "Company" },
+{ name: "authorized_signatory",  label: "Authorized Signatory",example: "CEO / Director",         category: "Company" },
+
+  // Images
+  { name: "tenant_photo",      label: "Tenant Photo",      example: "[Tenant Photo]",      category: "Tenant" },
+  { name: "tenant_signature",  label: "Tenant Signature",  example: "[Tenant Signature]",  category: "Tenant" },
+  { name: "witness_signature", label: "Witness Signature", example: "[Witness Signature]", category: "Company" },
 ];
 
 const VARIABLE_CATEGORIES = ["All", "System", "Tenant", "Property", "Company"];
@@ -582,7 +587,8 @@ const visualIframeRef = useRef<HTMLIFrameElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
 
-
+const visualEditorRef = useRef<HTMLDivElement>(null);
+const lastSyncedHtmlRef = useRef<string>("");
   // ── Pagination state ──
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 const [currentPage, setCurrentPage] = useState(1);
@@ -681,6 +687,16 @@ const loadTemplates = useCallback(async () => {
 }, [catFilter, statusFilter]);
 
 useEffect(() => { loadTemplates(); }, [loadTemplates]);
+
+
+useEffect(() => {
+  if (!isCodeView && visualEditorRef.current) {
+    if (lastSyncedHtmlRef.current !== form.html_content) {
+      visualEditorRef.current.innerHTML = buildPreview(form.html_content, logoPreview);
+      lastSyncedHtmlRef.current = form.html_content;
+    }
+  }
+}, [isCodeView, form.html_content, logoPreview]);
   // ══════════════════════════════════════════════════════════════════════════
   // DERIVED / FILTERED DATA
   // ══════════════════════════════════════════════════════════════════════════
@@ -770,87 +786,70 @@ const toggleVariable = (name: string) => {
   const varTag = `{{${name}}}`;
   const currentContent = form.html_content;
 
-  // Check if variable already exists
-  const varRegex = new RegExp(escapeRegExp(varTag), 'g');
-  const isPresent = varRegex.test(currentContent);
-
-  if (isPresent) {
-    const newHtml = currentContent.replace(new RegExp(escapeRegExp(varTag), 'g'), '');
-    setForm(p => ({ ...p, html_content: newHtml }));
+  // Remove if already present
+  if (new RegExp(escapeRegExp(varTag), 'g').test(currentContent)) {
+    setForm(p => ({ ...p, html_content: p.html_content.replace(new RegExp(escapeRegExp(varTag), 'g'), '') }));
     toast.success(`Removed {{${name}}}`);
     return;
   }
 
-  // ── Visual view: insert at DOM cursor position ──
-// ── Visual view: insert at DOM cursor position ──
-if (!isCodeView) {
-  const savedRange = (window as any).__templateEditorRange;
-  if (savedRange) {
-    try {
-      let insertPos: number | null = null;
+  // ── Code view: cursor position se insert karo ──
+  if (isCodeView) {
+    let insertPos = cursorPos;
+    if (insertPos === null || insertPos === undefined) {
+      const bodyClose = currentContent.lastIndexOf('</body>');
+      insertPos = bodyClose !== -1 ? bodyClose : currentContent.length;
+    }
+    const newHtml = currentContent.substring(0, insertPos) + varTag + currentContent.substring(insertPos);
+    setForm(p => ({ ...p, html_content: newHtml }));
+    setCursorPos(insertPos + varTag.length);
+    toast.success(`Inserted ${varTag}`);
+    return;
+  }
 
-      // Cursor jis node mein hai, uske nearest pichhle variable-span se position nikaalo
-      const container = savedRange.startContainer;
-      const offsetInNode = savedRange.startOffset;
+  // ── Visual view: </body> ke pehle insert karo (safe fallback) ──
+  // contentEditable DOM se source position reliable nahi hota
+ // ── Visual view: DOM selection se position nikalo ──
+const savedRange = (window as any).__templateEditorRange;
 
-      // Find the editable root
-      const root = (container.nodeType === 1 ? container as Element : container.parentElement)
-        ?.closest('[data-template-editable]');
-
-      if (root) {
-        // Walk all nodes before cursor to find nearest preceding {{var}} span
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null);
-        let lastVarSpan: HTMLElement | null = null;
-        let found = false;
-
-        while (walker.nextNode()) {
-          const node = walker.currentNode;
-          if (node === container) { found = true; break; }
-          if (node.nodeType === 1 && (node as HTMLElement).hasAttribute('data-var-pos')) {
-            lastVarSpan = node as HTMLElement;
-          }
-        }
-
-        if (lastVarSpan) {
-          const pos = parseInt(lastVarSpan.getAttribute('data-var-pos') || '0', 10);
-          const len = parseInt(lastVarSpan.getAttribute('data-var-len') || '0', 10);
-          insertPos = pos + len; // insert right after that variable's source position
-        } else {
-          insertPos = 0; // cursor is before any variable — insert at top
-        }
-      }
-
-      if (insertPos !== null) {
-        const newHtml =
-          currentContent.substring(0, insertPos) +
-          varTag +
-          currentContent.substring(insertPos);
-        setForm(p => ({ ...p, html_content: newHtml }));
-        setCursorPos(insertPos + varTag.length);
-        toast.success(`Inserted ${varTag}`);
-        return;
-      }
-    } catch (e) {
-      // Fall through to code view logic
+if (savedRange) {
+  // Find the data-var-pos from nearest span, OR use a different approach
+  // contentEditable ka innerHTML → source HTML sync nahi hota reliably
+  // So best approach: insert at cursor using execCommand
+  const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+  if (editorEl) {
+    editorEl.focus();
+    const sel = window.getSelection();
+    if (sel && savedRange) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+      
+      document.execCommand('insertHTML', false, 
+        `<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{${name}}}</span>`
+      );
+      // Now sync innerHTML back to form state
+      const newContent = editorEl.innerHTML;
+      // Strip the yellow spans to get clean {{var}} tags
+      const cleanHtml = newContent.replace(
+        /<span[^>]*data-var-pos[^>]*>{{([\w_]+)}}<\/span>/g,
+        '{{$1}}'
+      ).replace(
+        /<span[^>]*style="background:#fef3c7[^"]*">{{([\w_]+)}}<\/span>/g,
+        '{{$1}}'
+      );
+      setForm(p => ({ ...p, html_content: cleanHtml }));
+      toast.success(`Inserted ${varTag} at cursor`);
+      return;
     }
   }
 }
 
-  // ── Code view: insert at cursor position ──
-  let insertPos = cursorPos;
-  if (insertPos === null || insertPos === undefined) {
-    const bodyClose = currentContent.lastIndexOf('</body>');
-    insertPos = bodyClose !== -1 ? bodyClose : currentContent.length;
-  }
-
-  const newHtml =
-    currentContent.substring(0, insertPos) +
-    varTag +
-    currentContent.substring(insertPos);
-
-  setForm(p => ({ ...p, html_content: newHtml }));
-  setCursorPos(insertPos + varTag.length);
-  toast.success(`Inserted ${varTag}`);
+// Fallback
+const bodyClose = currentContent.lastIndexOf('</body>');
+const insertPos = bodyClose !== -1 ? bodyClose : currentContent.length;
+const newHtml = currentContent.substring(0, insertPos) + varTag + currentContent.substring(insertPos);
+setForm(p => ({ ...p, html_content: newHtml }));
+toast.info(`${varTag} added at end — click in preview first to set position`);
 };
 
 // Helper function to escape regex special characters
@@ -1006,13 +1005,28 @@ const extractVars = (html?: string) => {
   // PREVIEW
   // ══════════════════════════════════════════════════════════════════════════
 
- const buildPreview = (html: string, logoSrc?: string): string => {
-  if (!html) return `<!DOCTYPE html><html><body></body></html>`;
+const buildPreview = (html: string, logoSrc?: string): string => {
+  if (!html) return ``;
   
   let c = html.trim();
   if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) {
     c = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${c}</body></html>`;
   }
+
+  // ── Scope body{} rules so they don't leak to the live page ──
+  c = c.replace(/(^|\}|\s)body(\s*\{)/g, '$1.tpl-preview-scope$2');
+  c = c.replace(/@media\s+print\s*\{\s*\.tpl-preview-scope\s*\{[^}]*\}\s*\}/g, '');
+
+  // ── NEW: extract <style> content and <body> inner content as a clean fragment ──
+  // This avoids relying on the browser to parse a fake nested <html> doc inside a <div>,
+  // which is unreliable for <style> tag application.
+  const styleMatch = c.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+  const styleContent = styleMatch ? styleMatch[1] : "";
+
+  const bodyMatch = c.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyContent = bodyMatch ? bodyMatch[1] : c;
+
+  c = `<style>${styleContent}</style>${bodyContent}`;
 
   // Logo replace
   if (logoSrc) {
@@ -1021,18 +1035,13 @@ const extractVars = (html?: string) => {
     c = c.replace(/\{\{logo_url\}\}/g, `<div style="font-size:12px;color:#666;padding:4px;border:1px dashed #ccc;border-radius:4px;">Company Logo</div>`);
   }
 
-  // Sabhi {{variable}} ko yellow badge style mein dikhao — sample data NAHI
-  // c = c.replace(/\{\{([\w_]+)\}\}/g,
-  //   '<span style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{$1}}</span>'
-  // );
-
-  // Sabhi {{variable}} ko yellow badge style mein dikhao + source position tag karo
-c = c.replace(/\{\{([\w_]+)\}\}/g, (match, varName, offset) => {
-  return `<span data-var-pos="${offset}" data-var-len="${match.length}" contenteditable="false" style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{${varName}}}</span>`;
-});
+  c = c.replace(/\{\{([\w_]+)\}\}/g, (match, varName, offset) => {
+    return `<span data-var-pos="${offset}" data-var-len="${match.length}" contenteditable="false" style="background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;font-weight:600;">{{${varName}}}</span>`;
+  });
 
   return c;
 };
+
 
   const openPreviewForRow = async (t: DocumentTemplate) => {
     let html = t.html_content;
@@ -2092,37 +2101,40 @@ const handleExport = () => {
               {/* B I U S */}
               {/* B I U S */}
 {[
-  { ch: "B", title: "Bold",          cls: "font-bold",    style: "font-weight:bold" },
-  { ch: "I", title: "Italic",        cls: "italic",       style: "font-style:italic" },
-  { ch: "U", title: "Underline",     cls: "underline",    style: "text-decoration:underline" },
-  { ch: "S", title: "Strikethrough", cls: "line-through", style: "text-decoration:line-through" },
+  { ch: "B", title: "Bold",          cls: "font-bold",    cmd: "bold" },
+  { ch: "I", title: "Italic",        cls: "italic",       cmd: "italic" },
+  { ch: "U", title: "Underline",     cls: "underline",    cmd: "underline" },
+  { ch: "S", title: "Strikethrough", cls: "line-through", cmd: "strikeThrough" },
 ].map((b, i) => (
   <button
     key={i}
     title={b.title}
-    className={`h-6 w-6 rounded text-[11px] ${b.cls} hover:bg-gray-200 text-gray-700 transition-colors`}
-    onClick={() => {
-      // Apply style to body tag in the HTML
-      setForm(p => {
-        let html = p.html_content;
-        // Check if style already applied on body
-        const bodyMatch = html.match(/<body([^>]*)>/);
-        if (!bodyMatch) return p;
-        const bodyTag = bodyMatch[0];
-        const bodyAttrs = bodyMatch[1];
-        const styleMatch = bodyAttrs.match(/style="([^"]*)"/);
-        if (styleMatch) {
-          const existingStyle = styleMatch[1];
-          const alreadyApplied = existingStyle.includes(b.style);
-          const newStyle = alreadyApplied
-            ? existingStyle.replace(b.style + ";", "").replace(b.style, "")
-            : existingStyle + ";" + b.style;
-          html = html.replace(bodyTag, `<body${bodyAttrs.replace(styleMatch[0], `style="${newStyle}"`)}>`);
-        } else {
-          html = html.replace(bodyTag, `<body${bodyAttrs} style="${b.style}">`);
-        }
-        return { ...p, html_content: html };
-      });
+    disabled={isCodeView}
+    className={`h-6 w-6 rounded text-[11px] ${b.cls} hover:bg-gray-200 text-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed`}
+    onMouseDown={(e) => {
+      e.preventDefault();
+      const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+      if (!editorEl) return;
+      editorEl.focus();
+      document.execCommand(b.cmd, false);
+      // Selection ko save karo BEFORE re-render
+      const sel = window.getSelection();
+      const rangeAfterCmd = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+      const cleanHtml = editorEl.innerHTML.replace(
+        /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+        '{{$1}}'
+      );
+      setForm(p => ({ ...p, html_content: cleanHtml }));
+      // Re-render ke baad selection restore karo
+      if (rangeAfterCmd) {
+        setTimeout(() => {
+          const sel2 = window.getSelection();
+          if (sel2) {
+            sel2.removeAllRanges();
+            try { sel2.addRange(rangeAfterCmd); } catch {}
+          }
+        }, 0);
+      }
     }}
   >
     {b.ch}
@@ -2132,20 +2144,53 @@ const handleExport = () => {
               <div className="h-4 w-px bg-gray-300 mx-1" />
 
               {/* Font family */}
-{/* Font family */}
 <select
   className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600"
+  disabled={isCodeView}
+  onMouseDown={() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
+    }
+  }}
   onChange={e => {
     const font = e.target.value;
-    setForm(p => {
-      // Step 1: strip ALL existing font-family declarations (handles quoted/unquoted)
-      let html = p.html_content;
-      // Remove font-family lines from CSS (inside <style> tag)
-      html = html.replace(/font-family\s*:[^;]+;/g, `font-family: '${font}', sans-serif;`);
-      return { ...p, html_content: html };
-    });
+    if (!font) return;
+    const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+    if (!editorEl) return;
+
+    editorEl.focus();
+    const savedRange = (window as any).__templateEditorRange;
+    const sel = window.getSelection();
+    if (sel && savedRange) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+
+    document.execCommand('fontName', false, font);
+
+    // Apply ke baad ka selection bhi save karo
+    const rangeAfterCmd = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+    const cleanHtml = editorEl.innerHTML.replace(
+      /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+      '{{$1}}'
+    );
+    setForm(p => ({ ...p, html_content: cleanHtml }));
+    e.target.value = "";
+
+    if (rangeAfterCmd) {
+      setTimeout(() => {
+        const sel2 = window.getSelection();
+        if (sel2) {
+          sel2.removeAllRanges();
+          try { sel2.addRange(rangeAfterCmd); } catch {}
+        }
+      }, 0);
+    }
   }}
 >
+  <option value="" disabled>Font</option>
   <option value="Inter">Inter</option>
   <option value="Arial">Arial</option>
   <option value="Times New Roman">Times New Roman</option>
@@ -2155,29 +2200,105 @@ const handleExport = () => {
 </select>
 
               {/* Font size */}
-              <select className="h-6 w-[52px] text-[10px] border border-gray-200 rounded bg-white px-1 text-gray-600 ml-1">
-                {[8,9,10,11,12,14,16,18,20,24,28,32].map(s => (
-                  <option key={s}>{s} pt</option>
-                ))}
-              </select>
+<select
+  className="h-6 w-[52px] text-[10px] border border-gray-200 rounded bg-white px-1 text-gray-600 ml-1"
+  disabled={isCodeView}
+  onMouseDown={() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
+    }
+  }}
+  onChange={e => {
+    const size = e.target.value.replace(' pt', '');
+    const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+    if (!editorEl) return;
+
+    editorEl.focus();
+    const savedRange = (window as any).__templateEditorRange;
+    const sel = window.getSelection();
+    if (sel && savedRange) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+
+    document.execCommand('fontSize', false, '7');
+    editorEl.querySelectorAll('font[size="7"]').forEach(el => {
+      const span = document.createElement('span');
+      span.style.fontSize = `${size}px`;
+      span.innerHTML = el.innerHTML;
+      el.replaceWith(span);
+    });
+
+    const rangeAfterCmd = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+    const cleanHtml = editorEl.innerHTML.replace(
+      /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+      '{{$1}}'
+    );
+    setForm(p => ({ ...p, html_content: cleanHtml }));
+
+    if (rangeAfterCmd) {
+      setTimeout(() => {
+        const sel2 = window.getSelection();
+        if (sel2) {
+          sel2.removeAllRanges();
+          try { sel2.addRange(rangeAfterCmd); } catch {}
+        }
+      }, 0);
+    }
+  }}
+>
+  {[8,9,10,11,12,14,16,18,20,24,28,32].map(s => (
+    <option key={s} value={`${s} pt`}>{s} pt</option>
+  ))}
+</select>
 
               <div className="h-4 w-px bg-gray-300 mx-1" />
 
               {/* Alignment */}
-              {[
-                { title: "Align Left",   d: "M3 5h14M3 9h9M3 13h14M3 17h9" },
-                { title: "Align Center", d: "M3 5h14M6 9h8M3 13h14M6 17h8" },
-                { title: "Align Right",  d: "M3 5h14M9 9h9M3 13h14M9 17h9" },
-                { title: "Justify",      d: "M3 5h14M3 9h14M3 13h14M3 17h14" },
-              ].map((b, i) => (
-                <button key={i} title={b.title}
-                  className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors">
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
-                    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d={b.d} />
-                  </svg>
-                </button>
-              ))}
+           {/* Alignment */}
+{[
+  { title: "Align Left",   d: "M3 5h14M3 9h9M3 13h14M3 17h9",  cmd: "justifyLeft" },
+  { title: "Align Center", d: "M3 5h14M6 9h8M3 13h14M6 17h8",  cmd: "justifyCenter" },
+  { title: "Align Right",  d: "M3 5h14M9 9h9M3 13h14M9 17h9",  cmd: "justifyRight" },
+  { title: "Justify",      d: "M3 5h14M3 9h14M3 13h14M3 17h14", cmd: "justifyFull" },
+].map((b, i) => (
+  <button
+    key={i}
+    title={b.title}
+    disabled={isCodeView}
+    className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+    onMouseDown={(e) => {
+      e.preventDefault();
+      const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+      if (!editorEl) return;
+      editorEl.focus();
+      document.execCommand(b.cmd, false);
+      const sel = window.getSelection();
+      const rangeAfterCmd = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+      const cleanHtml = editorEl.innerHTML.replace(
+        /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+        '{{$1}}'
+      );
+      setForm(p => ({ ...p, html_content: cleanHtml }));
+      if (rangeAfterCmd) {
+        setTimeout(() => {
+          const sel2 = window.getSelection();
+          if (sel2) {
+            sel2.removeAllRanges();
+            try { sel2.addRange(rangeAfterCmd); } catch {}
+          }
+        }, 0);
+      }
+    }}
+  >
+    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d={b.d} />
+    </svg>
+  </button>
+))}
 
               <div className="h-4 w-px bg-gray-300 mx-1" />
 
@@ -2218,22 +2339,53 @@ const handleExport = () => {
               <div className="h-4 w-px bg-gray-300 mx-1" />
 
               {/* Undo */}
-              <button title="Undo" className="p-1 rounded hover:bg-gray-200 text-gray-500">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
-                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <path d="M4 8H13a4 4 0 010 8H8"/>
-                  <path d="M4 8L7 5M4 8L7 11"/>
-                </svg>
-              </button>
+              {/* Undo */}
+<button
+  title="Undo"
+  disabled={isCodeView}
+  className="p-1 rounded hover:bg-gray-200 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed"
+  onMouseDown={(e) => {
+    e.preventDefault();
+    const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+    if (!editorEl) return;
+    editorEl.focus();
+    document.execCommand('undo', false);
+    const cleanHtml = editorEl.innerHTML.replace(
+      /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+      '{{$1}}'
+    );
+    setForm(p => ({ ...p, html_content: cleanHtml }));
+  }}
+>
+  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M4 8H13a4 4 0 010 8H8"/>
+    <path d="M4 8L7 5M4 8L7 11"/>
+  </svg>
+</button>
 
-              {/* Redo */}
-              <button title="Redo" className="p-1 rounded hover:bg-gray-200 text-gray-500">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
-                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <path d="M16 8H7a4 4 0 000 8h5"/>
-                  <path d="M16 8L13 5M16 8L13 11"/>
-                </svg>
-              </button>
+{/* Redo */}
+<button
+  title="Redo"
+  disabled={isCodeView}
+  className="p-1 rounded hover:bg-gray-200 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed"
+  onMouseDown={(e) => {
+    e.preventDefault();
+    const editorEl = document.querySelector('[data-template-editable="true"]') as HTMLElement;
+    if (!editorEl) return;
+    editorEl.focus();
+    document.execCommand('redo', false);
+    const cleanHtml = editorEl.innerHTML.replace(
+      /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+      '{{$1}}'
+    );
+    setForm(p => ({ ...p, html_content: cleanHtml }));
+  }}
+>
+  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M16 8H7a4 4 0 000 8h5"/>
+    <path d="M16 8L13 5M16 8L13 11"/>
+  </svg>
+</button>
             </div>
 
             {/* ── Toolbar Row 2: print / <> toggle / variable insert ── */}
@@ -2309,7 +2461,9 @@ const handleExport = () => {
 {isCodeView ? (
                    <Editor
   value={form.html_content}
-  onValueChange={(code) => setForm({ ...form, html_content: code })}
+  onValueChange={(code) => {
+    setForm({ ...form, html_content: code });
+  }}
   highlight={(code) => Prism.highlight(code, Prism.languages.html, "html")}
   padding={12}
   onKeyUp={(e) => {
@@ -2319,6 +2473,19 @@ const handleExport = () => {
   onClick={(e) => {
     const ta = (e.currentTarget as HTMLElement).querySelector('textarea');
     if (ta) setCursorPos(ta.selectionStart);
+  }}
+  onKeyDown={(e) => {
+    const ta = e.currentTarget.querySelector('textarea');
+    if (!ta) return;
+    // Ctrl+Z / Cmd+Z — Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      // Browser default textarea undo kaam karega
+      return;
+    }
+    // Ctrl+Y / Ctrl+Shift+Z — Redo
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      return;
+    }
   }}
   style={{
     background: "#1e1e2e",
@@ -2373,15 +2540,21 @@ const handleExport = () => {
         </div>
         
         {/* EDITABLE content area */}
+       {/* EDITABLE content area */}
         <div
           contentEditable
           suppressContentEditableWarning
-           data-template-editable="true"
-          onInput={(e) => {
-            // HTML sync back to form — get innerHTML
-            const el = e.currentTarget;
-            // We don't sync back — only track cursor for variable insertion
-          }}
+          data-template-editable="true"
+          className="tpl-preview-scope"
+        onInput={(e) => {
+  const el = e.currentTarget;
+  const cleanHtml = el.innerHTML.replace(
+    /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
+    '{{$1}}'
+  );
+  lastSyncedHtmlRef.current = cleanHtml;
+  setForm(p => ({ ...p, html_content: cleanHtml }));
+}}
           onKeyUp={(e) => {
             // Save cursor position (character offset) — but we use Selection API
             const sel = window.getSelection();
@@ -2396,7 +2569,7 @@ const handleExport = () => {
               (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
             }
           }}
-          dangerouslySetInnerHTML={{ __html: buildPreview(form.html_content, logoPreview) }}
+ref={visualEditorRef}
           style={{
             width: "100%",
             minHeight: "297mm",

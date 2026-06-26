@@ -159,10 +159,9 @@ interface PartnerDetails {
 additional_documents?: Array<{ filename: string; url: string; uploaded_at?: string }>;
 }
 
-
- 
 export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }: TenantFormProps) {
-   const submittingRef = useRef(false);
+    const submittingRef = useRef(false);
+
   const [activeTab, setActiveTab] = useState(initialTab);
     const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
