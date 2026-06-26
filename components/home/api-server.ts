@@ -28,7 +28,7 @@ export async function fetchCities() {
 
 export async function fetchProperties() {
   try {
-    const res = await fetchWithTimeout(`${API_URL}/api/properties`, {
+const res = await fetchWithTimeout(`${API_URL}/api/properties?is_active=true`, {
       cache: 'no-store',
       timeout: FETCH_TIMEOUT_MS
     });

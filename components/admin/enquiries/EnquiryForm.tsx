@@ -113,7 +113,7 @@ const EnquiryForm = ({
     setFormData((p: any) => ({ ...p, [key]: val }));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
 
       {/* ══ SECTION 1 — Basic Info ══════════════════════════════════════════ */}
       <div>

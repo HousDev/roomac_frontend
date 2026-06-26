@@ -54,7 +54,7 @@ export default function PropertiesPage() {
     
     (async () => {
       try {
-        const res = await listProperties({ page: 1, pageSize: 100 });
+const res = await listProperties({ page: 1, pageSize: 100, is_active: true });
         if (cancelled) return;
         
         if (!res?.success || !Array.isArray(res.data)) {
