@@ -56,9 +56,12 @@ useEffect(() => {
 
   // Filter properties
   useEffect(() => {
-    const filtered = properties.filter((property) => {
-      // City filter
-      if (selectedCity && property.city) {
+   const filtered = properties.filter((property) => {
+  // Active only
+  if (!property.is_active) return false;
+
+  // City filter
+  if (selectedCity && property.city) {
         if (!property.city.toLowerCase().includes(selectedCity.toLowerCase())) {
           return false;
         }

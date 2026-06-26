@@ -103,6 +103,7 @@ interface TenantFormProps {
   tenant?: Tenant;
   onSuccess: () => void;
   onCancel: () => void;
+  initialTab?: string;
 }
 // Add this interface for Partner Details
 // Update the PartnerDetails interface
@@ -156,12 +157,12 @@ interface PartnerDetails {
 additional_documents?: Array<{ filename: string; url: string; uploaded_at?: string }>;
 }
 
-export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
-  const [loading, setLoading] = useState(false);
+export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }: TenantFormProps) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+    const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [properties, setProperties] = useState<OptionType[]>([]);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("basic");
   const [commonMasters, setCommonMasters] = useState<
     Record<string, MasterValue[]>
   >({});
@@ -191,6 +192,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [selectedPropertyDetails, setSelectedPropertyDetails] =
     useState<Property | null>(null);
   const [useCustomTerms, setUseCustomTerms] = useState(false);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [availableSubCategories, setAvailableSubCategories] = useState<

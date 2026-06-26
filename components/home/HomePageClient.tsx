@@ -69,7 +69,7 @@ export default function HomePageClient({ initialCities, initialProperties, initi
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [searchArea, setSearchArea] = useState('');
-  const [selectedCity, setSelectedCity] = useState('pune');
+  const [selectedCity, setSelectedCity] = useState('all');
   const [selectedAmenity, setSelectedAmenity] = useState('');
   const [selectedPriceKey, setSelectedPriceKey] = useState('Any Price');
 
@@ -99,9 +99,9 @@ export default function HomePageClient({ initialCities, initialProperties, initi
   const filteredProperties = useMemo(() => {
     return properties.filter((property) => {
       const cityName = (property.city?.name || property.city_name || '').toLowerCase();
-      if (selectedCity && selectedCity !== 'all' && !cityName.includes(selectedCity.toLowerCase())) {
-        if (cityName) return false;
-      }
+if (selectedCity && selectedCity !== 'all') {
+  if (!cityName.includes(selectedCity.toLowerCase())) return false;
+}
 
       if (searchArea.trim()) {
         const q = searchArea.toLowerCase();
@@ -166,7 +166,7 @@ export default function HomePageClient({ initialCities, initialProperties, initi
       />
 
       <PropertiesSection
-        properties={filteredProperties}
+properties={filteredProperties.slice(0, 3)}
         allCount={properties.length}
         loading={false}
         likedProperties={likedProperties}
@@ -483,7 +483,13 @@ function FiltersSection({
                   <SelectValue placeholder="City" />
                 </SelectTrigger>
                 <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                  {cities.map((city: any) => (
+  <SelectItem value="all" className="cursor-pointer hover:bg-blue-50 text-[11px]">
+    <div className="flex items-center gap-2">
+      <MapPin className="h-3 w-3 text-blue-500" />
+      All Cities
+    </div>
+  </SelectItem>
+  {cities.map((city: any) => (
                     <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 text-[11px]">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3 w-3 text-blue-500" />

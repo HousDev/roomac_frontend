@@ -216,146 +216,144 @@ const EditField = ({ label, value, onChange, type = "text", required = false }: 
 // ════════════════════════════════════════════════════════════════════════════
 // Template Edit Popup (for editing document template)
 // ════════════════════════════════════════════════════════════════════════════
+// ── Known groups (same as DocumentCreate) ────────────────────────────────
+const EDIT_KNOWN_GROUPS: Record<string, string[]> = {
+  "System Info":       ["document_type", "date", "issue_date", "valid_until"],
+  "Tenant Info":       ["tenant_name", "tenant_phone", "tenant_email", "aadhaar_number", "pan_number",
+                        "date_of_birth", "gender", "nationality", "occupation", "employer_name",
+                        "monthly_income", "father_name", "permanent_address", "current_address",
+                        "bank_account_number", "bank_name", "ifsc_code",
+                        "emergency_contact_name", "emergency_phone", "emergency_relation",
+                        "passport_number", "voter_id", "driving_license"],
+  "Property Details":  ["property_name", "property_address", "property_type", "room_number", "bed_number",
+                        "floor_number", "move_in_date", "move_out_date", "notice_date",
+                        "rent_amount", "security_deposit", "advance_amount", "payment_mode",
+                        "payment_due_date", "parking_slot", "locker_number"],
+  "Company Info":      ["company_name", "company_address", "company_phone", "company_email",
+                        "company_gstin", "manager_name", "manager_phone",
+                        "witness_name", "witness_phone", "authorized_signatory"],
+};
+const EDIT_HIDDEN_VARS = ["document_number", "logo_url", "document_title"];
+
+const getEditFieldType = (k: string) => {
+  if (k.includes("date"))  return "date";
+  if (k.includes("email")) return "email";
+  if (k.includes("phone")) return "tel";
+  if (["amount","deposit","rent","income"].some(x => k.includes(x))) return "number";
+  return "text";
+};
+
+const getEditFieldLabel = (k: string) =>
+  k.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
 function TemplateEditPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
-  const [saving, setSaving]       = useState(false);
-  const [activeTab, setActiveTab] = useState<"edit"|"preview">("edit");
+  const [saving, setSaving]           = useState(false);
+  const [activeTab, setActiveTab]     = useState<"edit"|"preview">("edit");
   const [previewHtml, setPreviewHtml] = useState("");
 
-  const dj = (doc.data_json || {}) as Record<string, any>;
+  const dj = useMemo(() => (doc.data_json || {}) as Record<string, any>, [doc.data_json]);
 
-  const [formData, setFormData] = useState({
-    documentType:         dj.document_type          || doc.document_type          || "",
-    date:                 dj.date                   || "",
-    tenantName:           doc.tenant_name            || "",
-    tenantPhone:          doc.tenant_phone           || "",
-    tenantEmail:          doc.tenant_email           || "",
-    aadhaarNumber:        dj.aadhaar_number          || doc.aadhaar_number         || "",
-    panNumber:            dj.pan_number              || doc.pan_number             || "",
-    emergencyContactName: dj.emergency_contact_name  || doc.emergency_contact_name || "",
-    emergencyPhone:       dj.emergency_phone         || doc.emergency_phone        || "",
-    propertyName:         dj.property_name           || doc.property_name          || "",
-    roomNumber:           dj.room_number != null ? String(dj.room_number) : doc.room_number != null ? String(doc.room_number) : "",
-bedNumber:            dj.bed_number  != null ? String(dj.bed_number)  : doc.bed_number  != null ? String(doc.bed_number)  : "",
-    moveInDate:           dj.move_in_date            || doc.move_in_date           || "",
-    rentAmount:           dj.rent_amount             ? String(dj.rent_amount)      : doc.rent_amount  ? String(doc.rent_amount)  : "",
-    securityDeposit:      dj.security_deposit        ? String(dj.security_deposit) : doc.security_deposit ? String(doc.security_deposit) : "",
-    paymentMode:          dj.payment_mode            || doc.payment_mode           || "",
-    companyName:          dj.company_name            || doc.company_name           || "",
-    companyAddress:       dj.company_address         || doc.company_address        || "",
-    notes:                doc.notes                  || "",
+  // ── Extract vars: data_json keys jo KNOWN_GROUPS mein hain ──────────────
+  // data_json mein saare fields hote hain, but sirf woh dikhao
+  // jo kisi bhi KNOWN_GROUPS mein listed hain (template-agnostic whitelist)
+  const ALL_KNOWN_VARS = useMemo(() => {
+    const s = new Set<string>();
+    Object.values(EDIT_KNOWN_GROUPS).forEach(arr => arr.forEach(v => s.add(v)));
+    return s;
+  }, []);
+
+  const allVars = useMemo(() => {
+    const djKeys = Object.keys(dj).filter(v =>
+      !EDIT_HIDDEN_VARS.includes(v) &&
+      // Sirf woh fields dikhao jo non-empty hain YA known groups mein hain
+      // aur jo data_json mein actually filled hain (value non-empty)
+      (ALL_KNOWN_VARS.has(v) && String(dj[v] ?? "").trim() !== "")
+    );
+
+    // Fallback: html se extract karo
+    if (djKeys.length === 0) {
+      const html = doc.html_content || "";
+      const matches = html.match(/\{\{(\w+)\}\}/g) || [];
+      const unique = [...new Set(matches.map((m: string) => m.replace(/[{}]/g, "")))];
+      return unique.filter((v: string) => !EDIT_HIDDEN_VARS.includes(v));
+    }
+
+    return djKeys;
+  }, [dj, doc.html_content, ALL_KNOWN_VARS]);
+
+  // ── Initial formData: data_json values + doc top-level fallback ──────────
+  const [formData, setFormData] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    allVars.forEach(v => {
+      const djVal  = dj[v];
+      const docVal = (doc as any)[v];
+      init[v] = djVal != null ? String(djVal)
+              : docVal != null ? String(docVal)
+              : "";
+    });
+    // Always ensure these are present
+    if (!init["tenant_name"])  init["tenant_name"]  = doc.tenant_name  || "";
+    if (!init["tenant_phone"]) init["tenant_phone"] = doc.tenant_phone || "";
+    return init;
   });
 
   const set = useCallback((k: string, v: string) =>
     setFormData(p => ({ ...p, [k]: v })), []);
 
-  // Build preview by replacing placeholders in html_content
-const buildPreview = useCallback(() => {
-    // Since html_content is already rendered, we do old→new swap using data_json
+  // ── Dynamic groups (same logic as DocumentCreate) ────────────────────────
+  const dynamicGroups = useMemo(() => {
+    const assigned = new Set<string>();
+    const result: Record<string, string[]> = {};
+    Object.entries(EDIT_KNOWN_GROUPS).forEach(([groupName, knownVars]) => {
+      const matched = knownVars.filter(v => allVars.includes(v));
+      if (matched.length) {
+        result[groupName] = matched;
+        matched.forEach(v => assigned.add(v));
+      }
+    });
+    const others = allVars.filter(v => !assigned.has(v));
+    if (others.length) result["Other Fields"] = others;
+    return result;
+  }, [allVars]);
+
+  // ── Preview ──────────────────────────────────────────────────────────────
+  const buildPreview = useCallback(() => {
     let html = doc.html_content || "";
-
-    // Build old→new mapping using current data_json vs form values
-    const swaps: Array<[string, string]> = [
-      [String(dj.tenant_name            || ""), formData.tenantName],
-      [String(dj.tenant_phone           || ""), formData.tenantPhone],
-      [String(dj.tenant_email           || ""), formData.tenantEmail],
-      [String(dj.aadhaar_number         || ""), formData.aadhaarNumber],
-      [String(dj.pan_number             || ""), formData.panNumber],
-      [String(dj.emergency_contact_name || ""), formData.emergencyContactName],
-      [String(dj.emergency_phone        || ""), formData.emergencyPhone],
-      [String(dj.property_name          || ""), formData.propertyName],
-      [dj.room_number  != null ? String(dj.room_number)  : doc.room_number  != null ? String(doc.room_number)  : "", formData.roomNumber],
-[dj.bed_number   != null ? String(dj.bed_number)   : doc.bed_number   != null ? String(doc.bed_number)   : "", formData.bedNumber],
-      [String(dj.move_in_date           || ""), formData.moveInDate],
-      [String(dj.rent_amount            || ""), formData.rentAmount],
-      [String(dj.security_deposit       || ""), formData.securityDeposit],
-      [String(dj.payment_mode           || ""), formData.paymentMode],
-      [String(dj.company_name           || ""), formData.companyName],
-      [String(dj.company_address        || ""), formData.companyAddress],
-      [String(dj.document_type          || ""), formData.documentType],
-    ];
-
-   swaps.forEach(([oldVal, newVal]) => {
-  if (oldVal && oldVal.trim() && oldVal !== newVal) {
-    const escaped = oldVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Use word boundaries to avoid replacing numbers inside CSS/HTML attributes
-    html = html.replace(new RegExp(`(?<![\\w\\-\\.#])${escaped}(?![\\w\\-\\.px%em])`, 'g'), newVal || "");
-  }
-});
-
-    // Also handle {{placeholders}} if any remain
-    const placeholders: Record<string, string> = {
-      tenant_name:            formData.tenantName,
-      tenant_phone:           formData.tenantPhone,
-      tenant_email:           formData.tenantEmail,
-      aadhaar_number:         formData.aadhaarNumber,
-      pan_number:             formData.panNumber,
-      emergency_contact_name: formData.emergencyContactName,
-      emergency_phone:        formData.emergencyPhone,
-      property_name:          formData.propertyName,
-      room_number:            formData.roomNumber,
-      bed_number:             formData.bedNumber,
-      move_in_date:           formData.moveInDate,
-      rent_amount:            formData.rentAmount,
-      security_deposit:       formData.securityDeposit,
-      payment_mode:           formData.paymentMode,
-      company_name:           formData.companyName,
-      company_address:        formData.companyAddress,
-      document_type:          formData.documentType,
-      date:                   formData.date,
-    };
-    Object.entries(placeholders).forEach(([k, v]) => {
+    // Replace all vars with current formData values
+    Object.entries(formData).forEach(([k, v]) => {
       html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), v || "");
     });
-
+    // Replace remaining placeholders
+    html = html.replace(/\{\{[\w_]+\}\}/g, "");
     setPreviewHtml(html);
     setActiveTab("preview");
-  }, [doc.html_content, dj, formData]);
+  }, [doc.html_content, formData]);
 
-  
+  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formData.tenantName.trim())  { toast.error("Tenant Name required");  return; }
-    if (!formData.tenantPhone.trim()) { toast.error("Tenant Phone required"); return; }
+    if (!formData["tenant_name"]?.trim())  { toast.error("Tenant Name required");  return; }
+    if (!formData["tenant_phone"]?.trim()) { toast.error("Tenant Phone required"); return; }
     setSaving(true);
     try {
-      const dataJson = {
-        ...dj,
-        tenant_name:            formData.tenantName,
-        tenant_phone:           formData.tenantPhone,
-        tenant_email:           formData.tenantEmail,
-        aadhaar_number:         formData.aadhaarNumber,
-        pan_number:             formData.panNumber,
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_phone:        formData.emergencyPhone,
-        property_name:          formData.propertyName,
-        room_number:            formData.roomNumber,
-        bed_number:             formData.bedNumber,
-        move_in_date:           formData.moveInDate,
-        rent_amount:            formData.rentAmount,
-        security_deposit:       formData.securityDeposit,
-        payment_mode:           formData.paymentMode,
-        company_name:           formData.companyName,
-        company_address:        formData.companyAddress,
-        document_type:          formData.documentType,
-        date:                   formData.date,
-      };
+      const dataJson = { ...dj, ...formData };
       await updateDocument(doc.id, {
-        tenant_name:            formData.tenantName,
-        tenant_phone:           formData.tenantPhone,
-        tenant_email:           formData.tenantEmail,
-        aadhaar_number:         formData.aadhaarNumber,
-        pan_number:             formData.panNumber,
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_phone:        formData.emergencyPhone,
-        property_name:          formData.propertyName,
-        room_number:            formData.roomNumber,
-        bed_number:             formData.bedNumber,
-        move_in_date:           formData.moveInDate,
-        rent_amount:            formData.rentAmount,
-        security_deposit:       formData.securityDeposit,
-        payment_mode:           formData.paymentMode,
-        company_name:           formData.companyName,
-        company_address:        formData.companyAddress,
-        notes:                  formData.notes,
+        tenant_name:            formData["tenant_name"],
+        tenant_phone:           formData["tenant_phone"],
+        tenant_email:           formData["tenant_email"]           || null,
+        aadhaar_number:         formData["aadhaar_number"]         || null,
+        pan_number:             formData["pan_number"]             || null,
+        emergency_contact_name: formData["emergency_contact_name"] || null,
+        emergency_phone:        formData["emergency_phone"]        || null,
+        property_name:          formData["property_name"]          || null,
+        room_number:            formData["room_number"]            || null,
+        bed_number:             formData["bed_number"]             || null,
+        move_in_date:           formData["move_in_date"]           || null,
+        rent_amount:            formData["rent_amount"]            || null,
+        security_deposit:       formData["security_deposit"]       || null,
+        payment_mode:           formData["payment_mode"]           || null,
+        company_name:           formData["company_name"]           || null,
+        company_address:        formData["company_address"]        || null,
+        notes:                  formData["notes"]                  || null,
         data_json:              dataJson,
       } as any);
       toast.success("Document updated!");
@@ -367,6 +365,14 @@ const buildPreview = useCallback(() => {
     }
   };
 
+  const groupColors: Record<string, string> = {
+    "System Info":       "text-blue-600",
+    "Tenant Info":       "text-green-600",
+    "Property Details":  "text-indigo-600",
+    "Company Info":      "text-orange-600",
+    "Other Fields":      "text-purple-600",
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md"
@@ -375,7 +381,7 @@ const buildPreview = useCallback(() => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3.5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-2 rounded-t-2xl flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center">
               <Edit className="h-4 w-4 text-white" />
@@ -385,7 +391,7 @@ const buildPreview = useCallback(() => {
                 Edit Document
                 <Badge className="bg-white/30 text-white border-0 text-[9px] px-1.5">{doc.document_number}</Badge>
               </h2>
-              <p className="text-[10px] text-white/80">{doc.document_name}</p>
+              <p className="text-[10px] text-white/80">{doc.document_name} · {allVars.length} fields</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-white/20 text-white">
@@ -393,33 +399,12 @@ const buildPreview = useCallback(() => {
           </button>
         </div>
 
-        {/* Info bar */}
-        <div className="bg-gray-50 px-5 py-2 border-b flex gap-4 text-[10px] flex-shrink-0 flex-wrap">
-          <span className="flex items-center gap-1 text-gray-600 font-medium">
-            <User className="h-3 w-3 text-gray-400" />{doc.tenant_name}
-          </span>
-          <span className="flex items-center gap-1 text-gray-600">
-            <Phone className="h-3 w-3 text-gray-400" />{doc.tenant_phone}
-          </span>
-          {doc.property_name && (
-            <span className="flex items-center gap-1 text-gray-600">
-              <Home className="h-3 w-3 text-gray-400" />{doc.property_name}
-            </span>
-          )}
-          <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] font-bold
-            ${doc.status === "Completed" ? "bg-green-100 text-green-700" :
-              doc.status === "Cancelled" ? "bg-red-100 text-red-700" :
-              "bg-blue-100 text-blue-700"}`}>
-            {doc.status}
-          </span>
-        </div>
-
         {/* Tabs */}
         <div className="flex border-b px-5 pt-2 gap-1 flex-shrink-0">
           <button onClick={() => setActiveTab("edit")}
             className={`px-4 py-1.5 text-[11px] font-semibold rounded-t-lg transition-colors flex items-center gap-1
               ${activeTab === "edit" ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}>
-            <Edit className="h-3 w-3" /> Edit Fields
+            <Edit className="h-3 w-3" /> Edit Fields ({allVars.length})
           </button>
           <button onClick={buildPreview}
             className={`px-4 py-1.5 text-[11px] font-semibold rounded-t-lg transition-colors flex items-center gap-1
@@ -432,79 +417,53 @@ const buildPreview = useCallback(() => {
         <div className="flex-1 overflow-y-auto">
           {activeTab === "edit" ? (
             <div className="p-5 space-y-4">
-
-              {/* Document Info */}
-              <div className="border border-blue-100 rounded-xl overflow-hidden">
-                <div className="bg-blue-50 px-4 py-2 border-b border-blue-100">
-                  <h3 className="text-[10px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <FileText className="h-3 w-3" /> Document Info
-                  </h3>
+              {Object.entries(dynamicGroups).map(([groupName, vars]) => (
+                <div key={groupName} className="border rounded-xl overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b">
+                    <h3 className={`text-[10px] font-bold uppercase tracking-wide flex items-center gap-1.5 ${groupColors[groupName] || "text-gray-700"}`}>
+                      <FileText className="h-3 w-3" /> {groupName}
+                    </h3>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {vars.map(v => {
+                      const isAddr = v.includes("address");
+                      const val = formData[v] ?? "";
+                      const filled = !!val.trim();
+                      const cls = `w-full px-2.5 text-[11px] border rounded-md transition-all font-medium outline-none
+                        ${filled
+                          ? "border-green-300 bg-green-50/40 focus:border-green-400 focus:ring-1 focus:ring-green-100"
+                          : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100"}`;
+                      return (
+                        <div key={v} className={isAddr ? "col-span-2 sm:col-span-3" : ""}>
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5 uppercase tracking-wide">
+                            {getEditFieldLabel(v)}
+                            {["tenant_name","tenant_phone"].includes(v) && <span className="text-red-400 ml-0.5">*</span>}
+                          </label>
+                          {isAddr ? (
+                            <textarea
+                              rows={2}
+                              value={val}
+                              onChange={e => set(v, e.target.value)}
+                              placeholder={getEditFieldLabel(v)}
+                              className={`${cls} py-1.5 resize-none`}
+                            />
+                          ) : (
+                            <input
+                              type={getEditFieldType(v)}
+                              value={val}
+                              onChange={e => set(v, e.target.value)}
+                              placeholder={getEditFieldLabel(v)}
+                              className={`${cls} h-8`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="p-4 grid grid-cols-2 gap-3">
-                  <EditField label="Document Type" value={formData.documentType} onChange={v => set("documentType", v)} />
-                  <EditField label="Date"          value={formData.date}         onChange={v => set("date", v)} />
-                </div>
-              </div>
-
-              {/* Tenant Information */}
-              <div className="border border-green-100 rounded-xl overflow-hidden">
-                <div className="bg-green-50 px-4 py-2 border-b border-green-100">
-                  <h3 className="text-[10px] font-bold text-green-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <User className="h-3 w-3" /> Tenant Information
-                  </h3>
-                </div>
-                <div className="p-4 grid grid-cols-3 gap-3">
-                  <EditField label="Tenant Name"           value={formData.tenantName}           onChange={v => set("tenantName", v)}           required />
-                  <EditField label="Phone Number"          value={formData.tenantPhone}          onChange={v => set("tenantPhone", v)}          type="tel" required />
-                  <EditField label="Email"                 value={formData.tenantEmail}          onChange={v => set("tenantEmail", v)}          type="email" />
-                  <EditField label="Aadhaar Number"        value={formData.aadhaarNumber}        onChange={v => set("aadhaarNumber", v)} />
-                  <EditField label="PAN Number"            value={formData.panNumber}            onChange={v => set("panNumber", v)} />
-                  <EditField label="Emergency Contact"     value={formData.emergencyContactName} onChange={v => set("emergencyContactName", v)} />
-                  <EditField label="Emergency Phone"       value={formData.emergencyPhone}       onChange={v => set("emergencyPhone", v)}       type="tel" />
-                </div>
-              </div>
-
-              {/* Property Details */}
-              <div className="border border-indigo-100 rounded-xl overflow-hidden">
-                <div className="bg-indigo-50 px-4 py-2 border-b border-indigo-100">
-                  <h3 className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <Home className="h-3 w-3" /> Property Details
-                  </h3>
-                </div>
-                <div className="p-4 grid grid-cols-3 gap-3">
-                  <EditField label="Property Name"    value={formData.propertyName}    onChange={v => set("propertyName", v)} />
-                  <EditField label="Room Number"      value={formData.roomNumber}      onChange={v => set("roomNumber", v)} />
-                  <EditField label="Bed Number"       value={formData.bedNumber}       onChange={v => set("bedNumber", v)} />
-                  <EditField label="Move In Date"     value={formData.moveInDate}      onChange={v => set("moveInDate", v)}      type="date" />
-                  <EditField label="Rent Amount"      value={formData.rentAmount}      onChange={v => set("rentAmount", v)}      type="number" />
-                  <EditField label="Security Deposit" value={formData.securityDeposit} onChange={v => set("securityDeposit", v)} type="number" />
-                  <EditField label="Payment Mode"     value={formData.paymentMode}     onChange={v => set("paymentMode", v)} />
-                </div>
-              </div>
-
-              {/* Company Info */}
-              <div className="border border-orange-100 rounded-xl overflow-hidden">
-                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                  <h3 className="text-[10px] font-bold text-orange-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <Home className="h-3 w-3" /> Company / Manager Info
-                  </h3>
-                </div>
-                <div className="p-4 grid grid-cols-2 gap-3">
-                  <EditField label="Company Name"    value={formData.companyName}    onChange={v => set("companyName", v)} />
-                  <EditField label="Company Address" value={formData.companyAddress} onChange={v => set("companyAddress", v)} />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Notes</label>
-                <textarea rows={2} value={formData.notes} onChange={e => set("notes", e.target.value)}
-                  className="w-full text-[11px] p-2.5 border border-gray-200 rounded-lg resize-none bg-gray-50 focus:bg-white focus:border-purple-400 outline-none"
-                  placeholder="Any additional notes..." />
-              </div>
+              ))}
             </div>
           ) : (
-            /* Preview Tab */
             <div className="p-4 bg-slate-100 min-h-full">
               <div className="bg-white rounded-lg shadow max-w-[210mm] mx-auto">
                 {previewHtml
@@ -520,19 +479,17 @@ const buildPreview = useCallback(() => {
 
         {/* Footer */}
         <div className="flex-shrink-0 border-t px-5 py-3 bg-gray-50 rounded-b-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={buildPreview}
-              className="h-8 px-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[11px] font-semibold flex items-center gap-1.5">
-              <Eye className="h-3.5 w-3.5" /> Preview
-            </button>
-          </div>
+          <button onClick={buildPreview}
+            className="h-8 px-3 rounded-xl bg-blue-800 text-white text-[11px] font-semibold flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
           <div className="flex gap-2">
             <button onClick={onClose}
               className="h-8 px-4 rounded-xl border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100">
               Cancel
             </button>
             <button onClick={handleSave} disabled={saving}
-              className="h-8 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-60">
+              className="h-8 px-5 rounded-xl bg-blue-700 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-60">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Save Changes
             </button>
@@ -1714,16 +1671,20 @@ const [totalPages, setTotalPages] = useState(1);
 const loadDocs = useCallback(async (page = currentPage) => {
   setLoading(true);
   try {
-    const limit = pageSize === "All" ? 999999 : pageSize;
     const res = await listDocuments({
       status: statusFilter !== "all" ? statusFilter as DocumentStatus : undefined,
       priority: priorityFilter !== "all" ? priorityFilter as any : undefined,
       page,
-      limit,
+      pageSize: pageSize === "All" ? 999999 : pageSize as number,
     });
-    setDocs(res.data || []);
-    setTotalItems(res.pagination?.totalItems ?? res.data?.length ?? 0);
-    setTotalPages(res.pagination?.totalPages ?? 1);
+
+    const allData = res.data || [];
+    const backendTotal = res.total ?? allData.length;
+    const backendTotalPages = res.totalPages ?? Math.ceil(backendTotal / (pageSize === "All" ? backendTotal || 1 : pageSize as number));
+
+    setDocs(allData);
+    setTotalItems(backendTotal);
+    setTotalPages(backendTotalPages);
     setCurrentPage(page);
   } catch (e: any) {
     toast.error(e.message || "Failed to load documents");
@@ -1734,13 +1695,22 @@ const loadDocs = useCallback(async (page = currentPage) => {
 
 useEffect(() => {
   loadDocs(1);
-}, [loadDocs]);
-  const filteredRows = useMemo(() => docs.filter(d => {
-    const nOk = !col.document_number || d.document_number?.toLowerCase().includes(col.document_number.toLowerCase());
-    const tOk = !col.tenant_name     || d.tenant_name?.toLowerCase().includes(col.tenant_name.toLowerCase());
-    const pOk = !col.property_name   || (d.property_name||"").toLowerCase().includes(col.property_name.toLowerCase());
-    return nOk && tOk && pOk;
-  }), [docs, col]);
+}, [statusFilter, priorityFilter, pageSize]);
+const filteredRows = useMemo(() => docs.filter(d => {
+  // ✅ Document search now checks BOTH document_number AND document_name
+  const nOk = !col.document_number ||
+    d.document_number?.toLowerCase().includes(col.document_number.toLowerCase()) ||
+    d.document_name?.toLowerCase().includes(col.document_number.toLowerCase());
+
+  const tOk = !col.tenant_name || d.tenant_name?.toLowerCase().includes(col.tenant_name.toLowerCase());
+
+  // ✅ Property search now checks property_name AND room_number
+  const pOk = !col.property_name ||
+    (d.property_name || "").toLowerCase().includes(col.property_name.toLowerCase()) ||
+    (d.room_number ? String(d.room_number).toLowerCase().includes(col.property_name.toLowerCase()) : false);
+
+  return nOk && tOk && pOk;
+}), [docs, col]);
 
   const toggleAll = () => {
     if (selectAll) { setSelectedIds(new Set()); setSelectAll(false); }
@@ -2020,13 +1990,13 @@ const handleExport = () => {
       {/* TABLE */}
       <div className="relative">
         <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
+          {/* <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
             <span className="text-sm font-semibold text-gray-700">
               All Documents ({filteredRows.length})
               {selectedIds.size > 0 && <span className="ml-2 text-blue-600 text-xs">({selectedIds.size} selected)</span>}
             </span>
             {hasColSearch && <button onClick={() => setCol({document_number:"",tenant_name:"",property_name:""})} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>}
-          </div>
+          </div> */}  
 
           {/* ── MOBILE cards ── */}
           <div className="block lg:hidden divide-y divide-gray-100 overflow-y-auto max-h-[360px] md:max-h-[430px]">
@@ -2075,217 +2045,317 @@ const handleExport = () => {
           </div>
 
           {/* ── DESKTOP table ── */}
-          <div className="hidden lg:block overflow-auto overflow-y-auto max-h-[200px] md:max-h-[430px]" >
-            <div style={{ minWidth:"1060px" }}>
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                  <TableRow>
-                    <TableHead className="py-2 px-3 w-8">
-                      <button onClick={toggleAll} className="p-1 hover:bg-gray-200 rounded">
-                        {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                      </button>
-                    </TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">DOCUMENT</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">PARTIES</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">PROPERTY</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">STATUS & PROGRESS</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">TIMELINE</TableHead>
-                    <TableHead className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right">ACTIONS</TableHead>
-                  </TableRow>
-                  {/* Column search */}
-                  <TableRow className="bg-gray-50/80">
-                    <TableCell className="py-1 px-3" />
-                    <TableCell className="py-1 px-2"><Input placeholder="Doc#…" value={col.document_number} onChange={e=>setCol(p=>({...p,document_number:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell className="py-1 px-2"><Input placeholder="Tenant…" value={col.tenant_name} onChange={e=>setCol(p=>({...p,tenant_name:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell className="py-1 px-2"><Input placeholder="Property…" value={col.property_name} onChange={e=>setCol(p=>({...p,property_name:e.target.value}))} className="h-6 text-[10px]" /></TableCell>
-                    <TableCell /><TableCell /><TableCell />
-                  </TableRow>
-                </TableHeader>
+       <div className="hidden lg:block">
+<div className="overflow-auto h-[310px] sm:h-[450px] rounded-xl">
+    <table
+      className="border-collapse text-[11px] font-sans "
+      style={{ tableLayout: "fixed", minWidth: "1000px", width: "100%" }}
+    >
+      <colgroup>
+        <col style={{ width: "36px" }} />   {/* Checkbox */}
+        <col style={{ width: "110px" }} />  {/* Actions */}
+        <col style={{ width: "100px" }} />  {/* Document */}
+        <col style={{ width: "130px" }} />  {/* Parties */}
+        <col style={{ width: "100px" }} />  {/* Property */}
+        <col style={{ width: "150px" }} />  {/* Status & Progress */}
+        <col style={{ width: "250px" }} />  {/* Timeline */}
+      </colgroup>
 
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">Loading…</p>
-                    </TableCell></TableRow>
-                  ) : filteredRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-12">
-                      <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-gray-500">No documents found</p>
-                    </TableCell></TableRow>
-                  ) : filteredRows.map(d => (
-                    <TableRow key={d.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
-                      <TableCell className="py-2 px-3">
-                        <button onClick={() => toggleOne(d.id)} className="p-1 hover:bg-gray-200 rounded">
-                          {selectedIds.has(d.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                      </TableCell>
+      {/* ── STICKY THEAD ── */}
+      <thead className="sticky top-0 z-10 ">
+        {/* Title Row */}
+        <tr className="bg-gray-200 border-b border-gray-300 ">
+          <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+            <button onClick={toggleAll} className="p-0.5 hover:bg-gray-300 rounded">
+              {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
+            </button>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Document</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Parties</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status &amp; Progress</span>
+          </th>
+          <th className="px-1.5 py-1.5 text-left bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Timeline</span>
+          </th>
+        </tr>
 
-                      {/* Document */}
-                      <TableCell className="py-2 px-3">
-                        <p className="font-mono text-[11px] font-bold text-blue-600">{d.document_number}</p>
-                        <p className="text-[11px] font-semibold text-gray-800 max-w-[150px] truncate">{d.document_name}</p>
-                        <p className="text-[9px] text-gray-400">ID: {d.id} · {d.created_by}</p>
-                        {d.signature_required && <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[9px] px-1 py-0 mt-0.5">Sig. Req.</Badge>}
-                      </TableCell>
+        {/* Search Row */}
+        <tr className="bg-white border-b border-gray-300">
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Doc#…"
+              value={col.document_number}
+              onChange={e => setCol(p => ({ ...p, document_number: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Tenant…"
+              value={col.tenant_name}
+              onChange={e => setCol(p => ({ ...p, tenant_name: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200">
+            <Input
+              placeholder="Property…"
+              value={col.property_name}
+              onChange={e => setCol(p => ({ ...p, property_name: e.target.value }))}
+              className="w-full h-5 px-1.5 text-[10px] border-gray-300"
+            />
+          </td>
+          <td className="p-1 border-r border-gray-200" />
+          <td className="p-1" />
+        </tr>
+      </thead>
 
-                      {/* Parties */}
-                      <TableCell className="py-2 px-3">
-                        <p className="text-[11px] font-semibold text-gray-800">{d.tenant_name}</p>
-                        {d.tenant_phone && <p className="text-[10px] text-gray-500 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{d.tenant_phone}</p>}
-                        {d.tenant_email && <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{d.tenant_email}</p>}
-                      </TableCell>
+      {/* ── TBODY ── */}
+      <tbody>
+        {loading ? (
+          <tr><td colSpan={7} className="text-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 mx-auto mb-2" />
+            <p className="text-xs text-gray-500">Loading…</p>
+          </td></tr>
+        ) : filteredRows.length === 0 ? (
+          <tr><td colSpan={7} className="text-center py-10">
+            <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-500">No documents found</p>
+          </td></tr>
+        ) : filteredRows.map(d => (
+          <tr key={d.id} className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${selectedIds.has(d.id) ? "bg-blue-50/40" : ""}`}>
 
-                      {/* Property */}
-                      <TableCell className="py-2 px-3">
-                        <p className="text-[11px] text-gray-700 max-w-[110px] truncate">{d.property_name || "N/A"}</p>
-                        {d.room_number && <p className="text-[10px] text-gray-500">Room: {d.room_number}</p>}
-                        {d.rent_amount ? <p className="text-[10px] text-green-600 font-medium">₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo</p> : null}
-                      </TableCell>
+            {/* Checkbox */}
+            <td className="px-1.5 py-1.5 text-center border-r border-slate-100">
+              <button onClick={() => toggleOne(d.id)} className="p-0.5 hover:bg-gray-200 rounded">
+                {selectedIds.has(d.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
+              </button>
+            </td>
 
-                      {/* Status & progress */}
-                      <TableCell className="py-2 px-3">
-                        <div className="space-y-1">
-                          <Badge className={`text-[9px] px-1.5 py-0 border ${priorityColor(d.priority)}`}>{d.priority}</Badge>
-                          <div className="w-20">
-                            <div className="flex justify-between mb-0.5">
-                              <span className="text-[9px] text-gray-400">Progress</span>
-                              <span className="text-[9px] font-semibold text-gray-600">
-                                {d.status === "Cancelled" ? "0" : Math.round((stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100)}%
-                              </span>
-                            </div>
-                            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"}`}
-                                style={{ width:`${d.status==="Cancelled" ? 5 : Math.max(5,Math.round((stepIndex(d.status)/(MAIN_STEPS.length-1))*100))}%` }} />
-                            </div>
-                          </div>
-                          <p className="text-[9px] text-gray-400">{fmt(d.created_at)}</p>
-                        </div>
-                      </TableCell>
+            {/* Actions */}
+            <td className="px-1 py-1.5 border-r border-slate-100">
+              <div className="flex items-center gap-[1px] flex-nowrap">
+                {can("view_documents") && (
+                  <button onClick={async () => {
+                    setLoadingView(d.id);
+                    try { const r = await getDocument(d.id); setViewDoc(r.data || d); }
+                    catch { setViewDoc(d); }
+                    finally { setLoadingView(null); }
+                  }} title="View" className="w-6 h-6 rounded-lg text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors">
+                    {loadingView === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye size={12} />}
+                  </button>
+                )}
+                {can("share_documents") && (
+                  <button onClick={() => setPopup({ type: "share", doc: d })} title="Share"
+                    className="w-6 h-6 rounded-lg text-green-600 hover:bg-green-50 flex items-center justify-center transition-colors">
+                    <Share2 size={12} />
+                  </button>
+                )}
+                <button onClick={() => handlePrint(d)} title="Print"
+                  className="w-6 h-6 rounded-lg text-gray-500 hover:bg-gray-100 flex items-center justify-center transition-colors">
+                  <Printer size={12} />
+                </button>
+                {can("export_documents") && (
+                  <button onClick={() => handleDownload(d)} title="Download"
+                    className="w-6 h-6 rounded-lg text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors">
+                    <Download size={12} />
+                  </button>
+                )}
+                {can("edit_documents") && (
+                  <button onClick={() => setPopup({ type: "edit", doc: d })} title="Edit Template"
+                    className="w-6 h-6 rounded-lg text-green-600 hover:bg-green-50 flex items-center justify-center transition-colors">
+                    <Edit size={12} />
+                  </button>
+                )}
+                {can("delete_documents") && (
+                  <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
+                    className="w-6 h-6 rounded-lg text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors">
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            </td>
 
-                      {/* Timeline */}
-                      <TableCell className="py-2 px-3">
-                        <TimelineSteps doc={d} onStepClick={handleStepClick} />
-                      </TableCell>
+            {/* Document — ID then name below */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+              <p className="font-mono text-[10px] font-bold text-blue-600 truncate">{d.document_number}</p>
+              <p className="text-[10px] font-semibold text-gray-800 truncate">{d.document_name}</p>
+              {d.signature_required && (
+                <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[8px] px-1 py-0 mt-0.5">Sig. Req.</Badge>
+              )}
+            </td>
 
-                      {/* Actions */}
-                      <TableCell className="py-2 px-3">
-                        <div className="flex justify-end gap-0.5">
-                              {can("view_documents") && (
+            {/* Parties — name + email only */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+              <p className="text-[10px] font-semibold text-gray-800 truncate">{d.tenant_name}</p>
+              {d.tenant_email && <p className="text-[9px] text-gray-400 truncate">{d.tenant_email}</p>}
+            </td>
 
-                          <button onClick={async () => {
-                            setLoadingView(d.id);
-                            try { const r=await getDocument(d.id); setViewDoc(r.data||d); }
-                            catch { setViewDoc(d); }
-                            finally { setLoadingView(null); }
-                          }} title="View" className="p-1.5 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            {loadingView===d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                          </button>
-                            )}
-                                {can("share_documents") && (
+            {/* Property — line1: property/room, line2: rent on same line as needed */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+  <p className="text-[10px] font-medium text-gray-700 truncate">
+    {d.property_name || "N/A"}
+  </p>
 
-                          <button onClick={() => setPopup({type:"share",doc:d})} title="Share"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"><Share2 className="h-3.5 w-3.5" /></button>
-                                )}
-
-                          <button onClick={() => handlePrint(d)} title="Print"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3.5 w-3.5" /></button>
-                           {can("export_documents") && (
-                          <button onClick={() => handleDownload(d)} title="Download"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3.5 w-3.5" /></button>
-                           )}
-                          {/* Edit button in actions column */}
-                          {can("edit_documents") && (
-                          <button 
-                            onClick={() => setPopup({type:"edit",doc:d})} 
-                            title="Edit Template"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                          )}
-                              {can("delete_documents") && (
-
-                          <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                              )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-       
-       {!loading && docs.length > 0 && (
-  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-    <div className="flex items-center gap-3 text-gray-500">
-      <span className="text-[11px]">
-        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
-        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} documents
+  <div className="flex items-center gap-2 text-[9px]">
+    {d.room_number && (
+      <span className="text-slate-500 whitespace-nowrap">
+        Room {d.room_number}
       </span>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-400 text-[10px]">Rows:</span>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(val) => {
-            const newSize = val === "All" ? "All" : Number(val);
-            setPageSize(newSize);
-            setCurrentPage(1);
-            loadDocs(1);
-          }}
-        >
-          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
-            <SelectValue>{pageSize}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={String(size)} value={String(size)} className="text-xs">
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    )}
+
+    {d.rent_amount && (
+      <span className="text-green-600 font-medium whitespace-nowrap">
+        ₹{Number(d.rent_amount).toLocaleString("en-IN")}/mo
+      </span>
+    )}
+  </div>
+</td>
+
+            {/* Status & Progress — priority + % + bar, one compact line */}
+            <td className="px-1.5 py-1.5 border-r border-slate-100">
+  {/* Priority + Date */}
+  <div className="flex items-center justify-between mb-0.5">
+    <Badge
+      className={`text-[8px] px-1 py-0 border whitespace-nowrap ${priorityColor(
+        d.priority
+      )}`}
+    >
+      {d.priority}
+    </Badge>
+
+    <span className="text-[8px] text-gray-400 whitespace-nowrap">
+      {fmt(d.created_at)}
+    </span>
+  </div>
+
+  {/* Progress Row */}
+  <div className="flex items-center gap-1">
+    <span className="text-[8px] text-gray-500 whitespace-nowrap">
+      Progress
+    </span>
+
+    <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden min-w-[40px]">
+      <div
+        className={`h-full rounded-full ${
+          d.status === "Cancelled" ? "bg-red-400" : "bg-blue-500"
+        }`}
+        style={{
+          width: `${
+            d.status === "Cancelled"
+              ? 5
+              : Math.max(
+                  5,
+                  Math.round(
+                    (stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100
+                  )
+                )
+          }%`,
+        }}
+      />
     </div>
 
-    {totalPages > 1 && (
+    <span className="text-[8px] font-semibold text-gray-600 whitespace-nowrap">
+      {d.status === "Cancelled"
+        ? "0"
+        : Math.round(
+            (stepIndex(d.status) / (MAIN_STEPS.length - 1)) * 100
+          )}
+      %
+    </span>
+  </div>
+</td>
+
+            {/* Timeline */}
+            <td className="px-1.5 py-1.5">
+              <TimelineSteps doc={d} onStepClick={handleStepClick} />
+            </td>
+
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+       
+    {!loading && docs.length > 0 && (
+  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span>Show</span>
+      <select
+        value={pageSize}
+        onChange={(e) => {
+          const val = e.target.value;
+          const newSize = val === "All" ? "All" : Number(val);
+          setPageSize(newSize);
+          setCurrentPage(1);
+          loadDocs(1);
+        }}
+        className="px-2 py-1 border border-gray-300 rounded text-[11px] bg-white outline-none cursor-pointer"
+      >
+        <option value={10}>10</option>
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={100}>100</option>
+        <option value="All">All</option>
+      </select>
+      <span>entries</span>
+    <span className="ml-2">
+  Showing {Math.min(docs.length, totalItems)} of {totalItems} entries
+  {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+</span>
+    </div>
+
+    {pageSize !== "All" && totalPages > 1 && (
       <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadDocs(currentPage - 1)}
+        <button
+          onClick={() => loadDocs(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
+          Previous
+        </button>
         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          const page = i + 1;
+          let pageNum = i + 1;
+          if (totalPages > 5) {
+            if (currentPage <= 3) pageNum = i + 1;
+            else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+            else pageNum = currentPage - 2 + i;
+          }
           return (
-            <Button
-              key={page}
-              size="sm"
-              variant={currentPage === page ? "default" : "outline"}
-              onClick={() => loadDocs(page)}
-              className={`h-6 w-6 p-0 text-[10px] ${
-                currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
+            <button
+              key={pageNum}
+              onClick={() => loadDocs(pageNum)}
+              className={`h-7 w-7 text-xs border rounded ${
+                currentPage === pageNum
+                  ? "bg-blue-600 border-blue-600 text-white font-bold"
+                  : "bg-white border-gray-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {page}
-            </Button>
+              {pageNum}
+            </button>
           );
         })}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => loadDocs(currentPage + 1)}
+        <button
+          onClick={() => loadDocs(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="h-6 w-6 p-0"
+          className="h-7 px-2 text-xs border border-gray-300 rounded bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
         >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
+          Next
+        </button>
       </div>
     )}
   </div>
