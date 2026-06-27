@@ -63,6 +63,7 @@ interface TenantWithSelection {
   gender: string;
   is_primary: boolean;
   selected: boolean;
+  is_checked_disabled?: boolean;
   partner_details?: {
     id: number;
     full_name: string;
@@ -681,119 +682,45 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
     }
   };
 
-  const fetchPartnerDetails = async (tenantId: number) => {
-    try {
-      setLoadingTenants(true);
-      const tenant = await fetchRawTenant(tenantId);
+const fetchPartnerDetails = async (tenantId: number) => {
+  try {
+    setLoadingTenants(true);
+    const tenant = await fetchRawTenant(tenantId);
 
-      if (!tenant) {
-        console.error("Tenant not found");
-        setTenantsToVacate([
-          {
-            id: tenantId,
-            full_name: "Unknown",
-            email: "",
-            phone: "",
-            gender: "",
-            is_primary: false,
-            selected: true,
-          },
-        ]);
-        setIsCoupleBooking(false);
-        return;
-      }
+    if (!tenant) {
+      console.error("Tenant not found");
+      setTenantsToVacate([
+        {
+          id: tenantId,
+          full_name: "Unknown",
+          email: "",
+          phone: "",
+          gender: "",
+          is_primary: false,
+          selected: true,
+        },
+      ]);
+      setIsCoupleBooking(false);
+      return;
+    }
 
-      const partnerTenantId = tenant.partner_tenant_id;
-      const hasPartner = partnerTenantId && partnerTenantId !== tenant.id;
-      const isCurrentlyCoupleBooking =
-        bedAssignment?.is_couple === true ||
-        bedAssignment?.is_couple === 1 ||
-        bedAssignment?.is_couple === "1";
+    const partnerTenantId = tenant.partner_tenant_id;
+    const hasPartner = partnerTenantId && partnerTenantId !== tenant.id;
+    const isCurrentlyCoupleBooking =
+      bedAssignment?.is_couple === true ||
+      bedAssignment?.is_couple === 1 ||
+      bedAssignment?.is_couple === "1";
 
-      setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
+    setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
 
-      if (hasPartner && isCurrentlyCoupleBooking) {
-        const partner = await fetchRawTenant(partnerTenantId);
+    if (hasPartner && isCurrentlyCoupleBooking) {
+      const partner = await fetchRawTenant(partnerTenantId);
 
-        if (partner) {
-          const isCurrentPrimary = tenant.is_primary_tenant === 1;
+      if (partner) {
+        const isCurrentPrimary = tenant.is_primary_tenant === 1;
 
-          if (isCurrentPrimary) {
-            setTenantsToVacate([
-              {
-                id: tenant.id,
-                full_name: tenant.full_name,
-                email: tenant.email || "",
-                phone: tenant.phone || "",
-                gender: tenant.gender || "",
-                is_primary: true,
-                selected: true,
-                partner_details: {
-                  id: partner.id,
-                  full_name: partner.full_name,
-                  email: partner.email || "",
-                  phone: partner.phone || "",
-                  gender: partner.gender || "",
-                  relationship: tenant.partner_relationship || "Spouse",
-                },
-              },
-              {
-                id: partner.id,
-                full_name: partner.full_name,
-                email: partner.email || "",
-                phone: partner.phone || "",
-                gender: partner.gender || "",
-                is_primary: false,
-                selected: false,
-                partner_details: {
-                  id: tenant.id,
-                  full_name: tenant.full_name,
-                  email: tenant.email || "",
-                  phone: tenant.phone || "",
-                  gender: tenant.gender || "",
-                  relationship: partner.partner_relationship || "Spouse",
-                },
-              },
-            ]);
-          } else {
-            setTenantsToVacate([
-              {
-                id: partner.id,
-                full_name: partner.full_name,
-                email: partner.email || "",
-                phone: partner.phone || "",
-                gender: partner.gender || "",
-                is_primary: true,
-                selected: false,
-                partner_details: {
-                  id: tenant.id,
-                  full_name: tenant.full_name,
-                  email: tenant.email || "",
-                  phone: tenant.phone || "",
-                  gender: tenant.gender || "",
-                  relationship: partner.partner_relationship || "Spouse",
-                },
-              },
-              {
-                id: tenant.id,
-                full_name: tenant.full_name,
-                email: tenant.email || "",
-                phone: tenant.phone || "",
-                gender: tenant.gender || "",
-                is_primary: false,
-                selected: true,
-                partner_details: {
-                  id: partner.id,
-                  full_name: partner.full_name,
-                  email: partner.email || "",
-                  phone: partner.phone || "",
-                  gender: partner.gender || "",
-                  relationship: tenant.partner_relationship || "Spouse",
-                },
-              },
-            ]);
-          }
-        } else {
+        if (isCurrentPrimary) {
+          // ✅ Primary tenant is the one with the bed assignment
           setTenantsToVacate([
             {
               id: tenant.id,
@@ -801,12 +728,87 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
               email: tenant.email || "",
               phone: tenant.phone || "",
               gender: tenant.gender || "",
-              is_primary: tenant.is_primary_tenant === 1,
+              is_primary: true,
               selected: true,
+              is_checked_disabled: true,
+              partner_details: {
+                id: partner.id,
+                full_name: partner.full_name,
+                email: partner.email || "",
+                phone: partner.phone || "",
+                gender: partner.gender || "",
+                relationship: tenant.partner_relationship || "Spouse",
+              },
+            },
+            {
+              id: partner.id,
+              full_name: partner.full_name,
+              email: partner.email || "",
+              phone: partner.phone || "",
+              gender: partner.gender || "",
+              is_primary: false,
+              selected: true,
+              is_checked_disabled: true,
+              partner_details: {
+                id: tenant.id,
+                full_name: tenant.full_name,
+                email: tenant.email || "",
+                phone: tenant.phone || "",
+                gender: tenant.gender || "",
+                relationship: partner.partner_relationship || "Spouse",
+              },
+            },
+          ]);
+        } else {
+          // ✅ Partner is primary (has the bed assignment)
+          setTenantsToVacate([
+            {
+              id: partner.id,
+              full_name: partner.full_name,
+              email: partner.email || "",
+              phone: partner.phone || "",
+              gender: partner.gender || "",
+              is_primary: true,
+              selected: true,
+              is_checked_disabled: true,
+              partner_details: {
+                id: tenant.id,
+                full_name: tenant.full_name,
+                email: tenant.email || "",
+                phone: tenant.phone || "",
+                gender: tenant.gender || "",
+                relationship: partner.partner_relationship || "Spouse",
+              },
+            },
+            {
+              id: tenant.id,
+              full_name: tenant.full_name,
+              email: tenant.email || "",
+              phone: tenant.phone || "",
+              gender: tenant.gender || "",
+              is_primary: false,
+              selected: true,
+              is_checked_disabled: true,
+              partner_details: {
+                id: partner.id,
+                full_name: partner.full_name,
+                email: partner.email || "",
+                phone: partner.phone || "",
+                gender: partner.gender || "",
+                relationship: tenant.partner_relationship || "Spouse",
+              },
             },
           ]);
         }
+        
+        // ✅ Update form data to reflect both tenants are selected
+        setFormData((prev) => ({
+          ...prev,
+          isPartialVacate: false,
+        }));
+        
       } else {
+        // Partner not found - treat as single tenant
         setTenantsToVacate([
           {
             id: tenant.id,
@@ -816,27 +818,44 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
             gender: tenant.gender || "",
             is_primary: tenant.is_primary_tenant === 1,
             selected: true,
+            is_checked_disabled: false,
           },
         ]);
       }
-    } catch (error) {
-      console.error("Error fetching partner details:", error);
-      toast.error("Failed to load tenant details");
+    } else {
+      // Not a couple booking - single tenant
       setTenantsToVacate([
         {
-          id: tenantDetails?.id || 0,
-          full_name: tenantDetails?.full_name || "Unknown",
-          email: "",
-          phone: "",
-          gender: "",
-          is_primary: false,
+          id: tenant.id,
+          full_name: tenant.full_name,
+          email: tenant.email || "",
+          phone: tenant.phone || "",
+          gender: tenant.gender || "",
+          is_primary: tenant.is_primary_tenant === 1,
           selected: true,
+          is_checked_disabled: false,
         },
       ]);
-    } finally {
-      setLoadingTenants(false);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching partner details:", error);
+    toast.error("Failed to load tenant details");
+    setTenantsToVacate([
+      {
+        id: tenantDetails?.id || 0,
+        full_name: tenantDetails?.full_name || "Unknown",
+        email: "",
+        phone: "",
+        gender: "",
+        is_primary: false,
+        selected: true,
+        is_checked_disabled: false,
+      },
+    ]);
+  } finally {
+    setLoadingTenants(false);
+  }
+};
 
   useEffect(() => {
     if (open && bedAssignment && tenantDetails) {
@@ -926,11 +945,11 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
         setStep(3); // Lock-in (skipping step 2 for non-couple)
       }
     } else if (step === 2 && isCoupleBooking) {
-      const selectedCount = tenantsToVacate.filter((t) => t.selected).length;
-      if (selectedCount === 0) {
-        toast.error("Please select at least one tenant to vacate");
-        return;
-      }
+      // const selectedCount = tenantsToVacate.filter((t) => t.selected).length;
+      // if (selectedCount === 0) {
+      //   toast.error("Please select at least one tenant to vacate");
+      //   return;
+      // }
       setStep(3);
     } else if (step === 3) {
       // Lock-in
@@ -1507,356 +1526,172 @@ const calculateNoticePeriodStatus = () => {
       return String(dateString);
     }
   };
-
-  const handleSubmit = async () => {
-    try {
-      setLoading(true);
-
-      const selectedTenants = tenantsToVacate.filter((t) => t.selected);
-
-      if (selectedTenants.length === 0) {
-        toast.error("Please select at least one tenant to vacate");
-        setLoading(false);
-        return;
-      }
-
-      const results = [];
-      const errors = [];
-
-      for (const tenant of selectedTenants) {
-        try {
-          // Calculate final amounts based on individual override flags
-          let finalLockinPenaltyAmount = 0;
-          let finalNoticePenaltyAmount = 0;
-          let finalInspectionPenaltyAmount = 0;
-          let finalTotalPenaltyAmount = 0;
-          let finalRefundableAmount = 0;
-          let finalLockinPenaltyApplied = false;
-          let finalNoticePenaltyApplied = false;
-
-          // For partial vacate (only one tenant in couple booking), split the amounts
-          const isPartialVacateSelected =
-            selectedTenants.length === 1 && tenantsToVacate.length === 2;
-
-          finalInspectionPenaltyAmount = isPartialVacateSelected
-            ? Math.floor((inspectionPenalty.total_penalty || 0) / 2)
-            : inspectionPenalty.total_penalty || 0;
-
-                    // ✅ Calculate the actual refundable amount based on whether payment was received
-        let actualRefundableAmount = calculation?.financials?.refundableAmount || 0;
-        
-        // ✅ If payment was received (tenant owed money), set refundable to 0
-        if (paymentReceived && actualRefundableAmount < 0) {
-          actualRefundableAmount = 0;
-        }
-
-
-          if (isAdminOverrideLockin || isAdminOverrideNotice) {
-            // Individual overrides
-            if (isAdminOverrideLockin) {
-              finalLockinPenaltyAmount = 0;
-              finalLockinPenaltyApplied = false;
-            } else {
-              finalLockinPenaltyAmount = isPartialVacateSelected
-                ? Math.floor(
-                    (calculation?.financials?.lockinPenalty ||
-                      formData.finalPenaltyAmount) / 2,
-                  )
-                : calculation?.financials?.lockinPenalty ||
-                  formData.finalPenaltyAmount;
-              finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-            }
-
-            if (isAdminOverrideNotice) {
-              finalNoticePenaltyAmount = 0;
-              finalNoticePenaltyApplied = false;
-            } else {
-              finalNoticePenaltyAmount = isPartialVacateSelected
-                ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-                : calculation?.financials?.noticePenalty || 0;
-              finalNoticePenaltyApplied = formData.noticePenaltyApplied;
-            }
-
-            finalTotalPenaltyAmount =
-              finalLockinPenaltyAmount +
-              finalNoticePenaltyAmount +
-              finalInspectionPenaltyAmount;
-            finalRefundableAmount =
-              (calculation?.financials?.securityDeposit || securityDeposit) -
-              finalTotalPenaltyAmount;
-          } else if (existingVacateRequest) {
-            // Tenant submitted a vacate request - use calculations from the request
-            finalLockinPenaltyAmount = isPartialVacateSelected
-              ? Math.floor(
-                  (calculation?.financials?.lockinPenalty ||
-                    formData.finalPenaltyAmount) / 2,
-                )
-              : calculation?.financials?.lockinPenalty ||
-                formData.finalPenaltyAmount;
-            finalNoticePenaltyAmount = isPartialVacateSelected
-              ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-              : calculation?.financials?.noticePenalty || 0;
-            finalTotalPenaltyAmount =
-              finalLockinPenaltyAmount +
-              finalNoticePenaltyAmount +
-              finalInspectionPenaltyAmount;
-            finalRefundableAmount = isPartialVacateSelected
-              ? Math.floor(
-                  (calculation?.financials?.refundableAmount ||
-                    formData.securityRefundAmount) / 2,
-                )
-              : calculation?.financials?.refundableAmount ||
-                formData.securityRefundAmount;
-            finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-            finalNoticePenaltyApplied = formData.noticePenaltyApplied;
-          } else {
-            // No tenant request, admin is processing manually
-            finalLockinPenaltyAmount = isPartialVacateSelected
-              ? Math.floor(
-                  (calculation?.financials?.lockinPenalty ||
-                    formData.finalPenaltyAmount) / 2,
-                )
-              : calculation?.financials?.lockinPenalty ||
-                formData.finalPenaltyAmount;
-            finalNoticePenaltyAmount = isPartialVacateSelected
-              ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-              : calculation?.financials?.noticePenalty || 0;
-            finalTotalPenaltyAmount =
-              finalLockinPenaltyAmount +
-              finalNoticePenaltyAmount +
-              finalInspectionPenaltyAmount;
-            finalRefundableAmount = isPartialVacateSelected
-              ? Math.floor(
-                  (calculation?.financials?.refundableAmount ||
-                    formData.securityRefundAmount) / 2,
-                )
-              : calculation?.financials?.refundableAmount ||
-                formData.securityRefundAmount;
-            finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-            finalNoticePenaltyApplied = formData.noticePenaltyApplied;
-          }
-
-          // ✅ If payment was received for negative refundable amount, set to 0
-        const safeRefundableAmount = paymentReceived && finalRefundableAmount < 0 
-          ? 0 
-          : Math.max(0, finalRefundableAmount);
-
-          console.log("💰 Submitting with values:", {
-            tenantId: tenant.id,
-            tenantName: tenant.full_name,
-            finalLockinPenaltyAmount,
-            finalNoticePenaltyAmount,
-            finalInspectionPenaltyAmount,
-            finalTotalPenaltyAmount,
-            finalRefundableAmount: safeRefundableAmount,
-            finalLockinPenaltyApplied,
-            finalNoticePenaltyApplied,
-            isAdminOverrideLockin,
-            isAdminOverrideNotice,
-            isPartialVacateSelected,
-          });
-
-          const payload = {
-            bedAssignmentId: bedAssignment.id,
-            tenantId: tenant.id,
-            vacateReasonValue:
-              isAdminOverrideLockin || isAdminOverrideNotice
-                ? `Admin forced vacate - ${formData.vacateReasonValue || tenantVacateReason}`
-                : tenantVacateReason || formData.vacateReasonValue,
-            isNoticeGiven:
-              noticeGivenByTenant || formData.isNoticeGiven || true,
-            noticeGivenDate:
-              tenantRequestDate ||
-              formData.noticeGivenDate ||
-              new Date().toISOString().split("T")[0],
-            requestedVacateDate: formData.requestedVacateDate,
-            tenantAgreed: true,
-            lockinPeriodMonths:
-              initialData?.bedAssignment?.lockin_period_months || 0,
-            lockinPenaltyType:
-              initialData?.bedAssignment?.lockin_penalty_type || "",
-            lockinPenaltyAmount: finalLockinPenaltyAmount,
-            noticePeriodDays:
-              initialData?.bedAssignment?.notice_period_days || 0,
-            noticePenaltyType:
-              initialData?.bedAssignment?.notice_penalty_type || "",
-            noticePenaltyAmount: finalNoticePenaltyAmount,
-            inspectionPenaltyAmount: finalInspectionPenaltyAmount,
-            securityDepositAmount:
-              initialData?.bedAssignment?.security_deposit ||
-              securityDeposit ||
-              0,
-            totalPenaltyAmount: finalTotalPenaltyAmount,
-            refundableAmount: safeRefundableAmount,
-            lockinPenaltyApplied: finalLockinPenaltyApplied,
-            noticePenaltyApplied: finalNoticePenaltyApplied,
-            adminApproved: formData.adminApproved,
-            tenantVacateRequestId: existingVacateRequest?.id,
-            isPartialVacate: isPartialVacateSelected,
-            // ✅ IMPORTANT: Send individual override flags, NOT a single isAdminOverride
-            isLockinAdminOverride: isAdminOverrideLockin,
-            isNoticeAdminOverride: isAdminOverrideNotice,
-             paymentReceived: paymentReceived,  
-          };
-
-          const response = await vacateApi.submitVacateRequest(payload);
-
-          if (response && response.success) {
-            results.push({
-              tenant_id: tenant.id,
-              tenant_name: tenant.full_name,
-              success: true,
-              message: response.message,
-              financials: response.data?.financials,
-            });
-          } else {
-            errors.push({
-              tenant_id: tenant.id,
-              tenant_name: tenant.full_name,
-              error: response?.message || "Failed to submit vacate request",
-            });
-          }
-        } catch (error) {
-          console.error(`Error vacating tenant ${tenant.id}:`, error);
-          errors.push({
-            tenant_id: tenant.id,
-            tenant_name: tenant.full_name,
-            error: error.message,
-          });
-        }
-      }
-
-      if (results.length > 0) {
-        const successMessage = results.map((r) => r.tenant_name).join(", ");
-        toast.success(`Successfully vacated: ${successMessage}`);
-
-        // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
-        const allTenantsVacated =
-          selectedTenants.length === tenantsToVacate.length;
-
-        const originalBedRent =
-          bedAssignment?.tenant_rent ||
-          initialData?.bedAssignment?.tenant_rent ||
-          initialData?.bedAssignment?.rent_per_bed ||
-          bedAssignment?.rent_per_bed ||
-          0;
-
-        const originalSecurityDeposit =
-          initialData?.bedAssignment?.security_deposit ||
-          initialData?.bedAssignment?.rent_per_bed ||
-          bedAssignment?.security_deposit ||
-          securityDeposit ||
-          0;
-
-        console.log("💰 Original bed rent to preserve:", originalBedRent);
-        console.log(
-          "💰 Original security deposit to preserve:",
-          originalSecurityDeposit,
-        );
-
-if (allTenantsVacated) {
-  // ✅ CHECK if bed was reassigned to a pre-assigned tenant
-  let hasPreAssignment = false;
-  let currentTenantId = null;
-  let bedIsOccupied = false;
-  
+const handleSubmit = async () => {
   try {
-    const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-    const checkRes = await fetch(
-      `/api/rooms/bed-assignments?bed_id=${bedAssignment.id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    const checkData = await checkRes.json();
-    
-    if (checkData.success && checkData.data && checkData.data.length > 0) {
-      const bedData = checkData.data[0];
-      currentTenantId = bedData.tenant_id;
-      bedIsOccupied = bedData.is_available === 0 || bedData.is_available === false;
-      // If tenant_id is not null, a pre-assigned tenant was swapped in
-      if (currentTenantId) {
-        hasPreAssignment = true;
-        console.log(`✅ Bed ${bedAssignment.id} already has tenant ${currentTenantId} (pre-assigned swap)`);
-      }
-    }
-  } catch (err) {
-    console.warn('Could not check bed state:', err);
-  }
+    setLoading(true);
 
-  // ✅ Check if the tenant on the bed is the pre-assigned one (or any tenant)
-  // We should NOT mark as available if the bed has a tenant (pre-assigned swap happened)
-  if (hasPreAssignment || bedIsOccupied) {
-    // ✅ Bed already has a new (pre-assigned) tenant — don't touch it
-    console.log("✅ Skipping updateBedAssignment - bed already has tenant (pre-assigned swap or occupied)");
-    // ✅ Just update the room occupancy count via the refresh
-    // No need to call updateBedAssignment
-  } else {
-    // ✅ No pre-assignment happened — proceed with normal clear
-    await updateBedAssignment(bedAssignment.id.toString(), {
-      tenant_id: null,
-      tenant_gender: null,
-      is_available: true,
-      tenant_rent: originalBedRent,
-      is_couple: false,
-      security_deposit: null,
-      vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
-    });
-    console.log(
-      "✅ Both tenants vacated - Bed marked as available with rent preserved:",
-      originalBedRent,
-    );
-  }
-} else {
-          // Only one tenant vacated - update bed to remaining tenant
-          const remainingTenant = tenantsToVacate.find((t) => !t.selected);
-          if (remainingTenant) {
-            const remainingTenantDetails = await fetchRawTenant(
-              remainingTenant.id,
-            );
+    const selectedTenants = tenantsToVacate.filter((t) => t.selected);
 
-            await updateBedAssignment(bedAssignment.id.toString(), {
-              tenant_id: remainingTenant.id,
-              tenant_gender: remainingTenantDetails?.gender || null,
-              is_available: false,
-              is_couple: false,
-              tenant_rent: originalBedRent,
-              security_deposit: originalSecurityDeposit,
-              vacate_reason: `Partial vacate - ${remainingTenant.full_name} remains. Bed rent preserved: ${originalBedRent}`,
-            });
-            console.log(
-              `✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name} with rent preserved: ${originalBedRent}`,
-            );
-          }
-        }
-
-        if (onVacateComplete) {
-          onVacateComplete();
-        }
-
-        setStep(7);
-        setTimeout(() => {
-          onOpenChange(false);
-          resetWizard();
-        }, 2000);
-      }
-
-      if (errors.length > 0) {
-        const errorMessage = errors
-          .map((e) => `${e.tenant_name}: ${e.error}`)
-          .join("; ");
-        toast.error(`Failed to vacate: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error("❌ Error submitting vacate request:", error);
-      toast.error(error.message || "Failed to submit vacate request.");
-    } finally {
+    if (selectedTenants.length === 0) {
+      toast.error("Please select at least one tenant to vacate");
       setLoading(false);
+      return;
     }
-  };
+
+    // ✅ Get all tenant IDs
+    const tenantIds = selectedTenants.map(t => t.id);
+    const isPartialVacate = selectedTenants.length < tenantsToVacate.length;
+
+    console.log("📢 Vacating tenants:", {
+      tenantIds,
+      isPartialVacate,
+      totalTenants: tenantsToVacate.length,
+      selectedCount: selectedTenants.length
+    });
+
+    // Calculate final amounts
+    let finalLockinPenaltyAmount = 0;
+    let finalNoticePenaltyAmount = 0;
+    let finalInspectionPenaltyAmount = 0;
+    let finalTotalPenaltyAmount = 0;
+    let finalRefundableAmount = 0;
+    let finalLockinPenaltyApplied = false;
+    let finalNoticePenaltyApplied = false;
+
+    // For partial vacate (only one tenant in couple booking), split the amounts
+    const isPartialVacateSelected = selectedTenants.length === 1 && tenantsToVacate.length === 2;
+
+    finalInspectionPenaltyAmount = isPartialVacateSelected
+      ? Math.floor((inspectionPenalty.total_penalty || 0) / 2)
+      : inspectionPenalty.total_penalty || 0;
+
+    // ✅ Calculate the actual refundable amount based on whether payment was received
+    let actualRefundableAmount = calculation?.financials?.refundableAmount || 0;
+    
+    // ✅ If payment was received (tenant owed money), set refundable to 0
+    if (paymentReceived && actualRefundableAmount < 0) {
+      actualRefundableAmount = 0;
+    }
+
+    if (isAdminOverrideLockin || isAdminOverrideNotice) {
+      // Individual overrides
+      if (isAdminOverrideLockin) {
+        finalLockinPenaltyAmount = 0;
+        finalLockinPenaltyApplied = false;
+      } else {
+        finalLockinPenaltyAmount = isPartialVacateSelected
+          ? Math.floor((calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount) / 2)
+          : calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount;
+        finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
+      }
+
+      if (isAdminOverrideNotice) {
+        finalNoticePenaltyAmount = 0;
+        finalNoticePenaltyApplied = false;
+      } else {
+        finalNoticePenaltyAmount = isPartialVacateSelected
+          ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
+          : calculation?.financials?.noticePenalty || 0;
+        finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+      }
+
+      finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
+      finalRefundableAmount = (calculation?.financials?.securityDeposit || securityDeposit) - finalTotalPenaltyAmount;
+      
+    } else {
+      // No admin override - use calculated values
+      finalLockinPenaltyAmount = isPartialVacateSelected
+        ? Math.floor((calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount) / 2)
+        : calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount;
+        
+      finalNoticePenaltyAmount = isPartialVacateSelected
+        ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
+        : calculation?.financials?.noticePenalty || 0;
+        
+      finalInspectionPenaltyAmount = isPartialVacateSelected
+        ? Math.floor(inspectionPenalty.total_penalty / 2)
+        : inspectionPenalty.total_penalty || 0;
+        
+      finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
+      finalRefundableAmount = (calculation?.financials?.securityDeposit || securityDeposit) - finalTotalPenaltyAmount;
+      finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
+      finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+    }
+
+    // ✅ If payment was received for negative refundable amount, set to 0
+    const safeRefundableAmount = paymentReceived && finalRefundableAmount < 0 
+      ? 0 
+      : Math.max(0, finalRefundableAmount);
+
+    // ✅ Build payload with tenantIds array
+    const payload = {
+      bedAssignmentId: bedAssignment.id,
+      tenantIds: tenantIds, // ✅ Send ALL tenant IDs in one array
+      vacateReasonValue: isAdminOverrideLockin || isAdminOverrideNotice
+        ? `Admin forced vacate - ${formData.vacateReasonValue || tenantVacateReason}`
+        : tenantVacateReason || formData.vacateReasonValue,
+      isNoticeGiven: noticeGivenByTenant || formData.isNoticeGiven || true,
+      noticeGivenDate: tenantRequestDate || formData.noticeGivenDate || new Date().toISOString().split("T")[0],
+      requestedVacateDate: formData.requestedVacateDate,
+      tenantAgreed: true,
+      lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
+      lockinPenaltyType: initialData?.bedAssignment?.lockin_penalty_type || "",
+      lockinPenaltyAmount: finalLockinPenaltyAmount,
+      noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
+      noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || "",
+      noticePenaltyAmount: finalNoticePenaltyAmount,
+      inspectionPenaltyAmount: finalInspectionPenaltyAmount,
+      securityDepositAmount: initialData?.bedAssignment?.security_deposit || securityDeposit || 0,
+      totalPenaltyAmount: finalTotalPenaltyAmount,
+      refundableAmount: safeRefundableAmount,
+      lockinPenaltyApplied: finalLockinPenaltyApplied,
+      noticePenaltyApplied: finalNoticePenaltyApplied,
+      adminApproved: formData.adminApproved || isAdminOverrideLockin || isAdminOverrideNotice,
+      tenantVacateRequestId: existingVacateRequest?.id,
+      isPartialVacate: isPartialVacate,
+      isLockinAdminOverride: isAdminOverrideLockin,
+      isNoticeAdminOverride: isAdminOverrideNotice,
+      paymentReceived: paymentReceived,
+    };
+
+    console.log("📤 Submitting vacate request with payload:", {
+      tenantIds: payload.tenantIds,
+      isPartialVacate: payload.isPartialVacate,
+      refundableAmount: payload.refundableAmount,
+    });
+
+    // ✅ SINGLE API CALL
+    const response = await vacateApi.submitVacateRequest(payload);
+
+    if (response && response.success) {
+      const successMessage = tenantIds.length === 1 
+        ? `Successfully vacated ${selectedTenants[0].full_name}`
+        : `Successfully vacated ${tenantIds.length} tenants`;
+      
+      toast.success(successMessage);
+
+      // ✅ Refresh data and close
+      if (onVacateComplete) {
+        onVacateComplete();
+      }
+
+      setStep(7);
+      setTimeout(() => {
+        onOpenChange(false);
+        resetWizard();
+      }, 2000);
+      
+    } else {
+      toast.error(response?.message || "Failed to vacate tenants");
+    }
+    
+  } catch (error) {
+    console.error("❌ Error submitting vacate request:", error);
+    toast.error(error.message || "Failed to submit vacate request.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const resetWizard = () => {
     setStep(1);
@@ -2210,174 +2045,154 @@ if (allTenantsVacated) {
               </div>
             )}
 
-            {/* STEP 2: SELECT TENANTS (Only for Couple Bookings) */}
-            {step === 2 && isCoupleBooking && (
-              <div className="space-y-4 p-2">
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <h3 className="font-medium text-purple-800 mb-1 text-sm">
-                    Select Tenants to Vacate
-                  </h3>
-                  <p className="text-xs text-purple-700">
-                    Select which tenants you want to vacate from this bed.
-                    {tenantsToVacate.length > 1 &&
-                      " Since this is a couple booking, you can vacate one or both tenants."}
-                  </p>
-                </div>
+{/* STEP 2: SELECT TENANTS (Only for Couple Bookings) */}
+{step === 2 && isCoupleBooking && (
+  <div className="space-y-4 p-2">
+    <div className="bg-purple-50 p-3 rounded-lg">
+      <h3 className="font-medium text-purple-800 mb-1 text-sm">
+        Select Tenants to Vacate
+      </h3>
+      <p className="text-xs text-purple-700">
+        Both tenants in this couple booking will be vacated together.
+      </p>
+    </div>
 
-                {loadingTenants ? (
-                  <div className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
-                    <p className="text-sm text-gray-500 mt-2">
-                      Loading tenant details...
-                    </p>
-                  </div>
-                ) : (
-                  <Card className="border">
-                    <CardContent className="p-3">
-                      <div className="space-y-3">
-                        <div className="text-sm font-medium mb-2 flex items-center gap-2">
-                          <UsersRound className="h-4 w-4 text-purple-600" />
-                          Tenants on this bed:
-                        </div>
+    {loadingTenants ? (
+      <div className="text-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
+        <p className="text-sm text-gray-500 mt-2">
+          Loading tenant details...
+        </p>
+      </div>
+    ) : (
+      <Card className="border">
+        <CardContent className="p-3">
+          <div className="space-y-3">
+            <div className="text-sm font-medium mb-2 flex items-center gap-2">
+              <UsersRound className="h-4 w-4 text-purple-600" />
+              Tenants on this bed:
+              <Badge className="bg-purple-100 text-purple-700 text-xs ml-2">
+                Both will be vacated
+              </Badge>
+            </div>
 
-                        {tenantsToVacate.map((tenant, idx) => (
-                          <div
-                            key={tenant.id}
-                            className={`p-3 rounded-lg border ${tenant.selected ? "bg-purple-50 border-purple-300" : "bg-gray-50 border-gray-200"}`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                id={`tenant_${tenant.id}`}
-                                checked={tenant.selected}
-                                onChange={(e) => {
-                                  const updated = tenantsToVacate.map((t) =>
-                                    t.id === tenant.id
-                                      ? { ...t, selected: e.target.checked }
-                                      : t,
-                                  );
-                                  setTenantsToVacate(updated);
-                                }}
-                                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 mt-1"
-                              />
-                              <div className="flex-1">
-                                <label
-                                  htmlFor={`tenant_${tenant.id}`}
-                                  className="font-medium text-sm cursor-pointer flex items-center gap-2"
-                                >
-                                  {tenant.full_name}
-                                  {tenant.is_primary &&
-                                    tenantsToVacate.length > 1 && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                                      >
-                                        Primary
-                                      </Badge>
-                                    )}
-                                  {!tenant.is_primary &&
-                                    tenantsToVacate.length > 1 &&
-                                    idx === 1 && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs bg-pink-50 text-pink-700 border-pink-200"
-                                      >
-                                        Partner
-                                      </Badge>
-                                    )}
-                                  {!tenant.is_primary &&
-                                    tenantsToVacate.length > 1 &&
-                                    idx === 0 && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs bg-purple-50 text-purple-700 border-purple-200"
-                                      >
-                                        Partner
-                                      </Badge>
-                                    )}
-                                  {tenantsToVacate.length === 1 &&
-                                    tenant.is_primary && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                                      >
-                                        Primary
-                                      </Badge>
-                                    )}
-                                </label>
+            {tenantsToVacate.map((tenant, idx) => (
+              <div
+                key={tenant.id}
+                className={`p-3 rounded-lg border ${tenant.selected ? "bg-purple-50 border-purple-300" : "bg-gray-50 border-gray-200"}`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id={`tenant_${tenant.id}`}
+                    checked={tenant.selected}
+                    disabled={tenant.is_checked_disabled || false}
+                    onChange={(e) => {
+                      // ✅ Only allow change if not disabled
+                      if (!tenant.is_checked_disabled) {
+                        const updated = tenantsToVacate.map((t) =>
+                          t.id === tenant.id
+                            ? { ...t, selected: e.target.checked }
+                            : t,
+                        );
+                        setTenantsToVacate(updated);
+                      }
+                    }}
+                    className={`h-4 w-4 rounded border-gray-300 ${
+                      tenant.is_checked_disabled 
+                        ? "cursor-not-allowed opacity-60" 
+                        : "text-purple-600 focus:ring-purple-500"
+                    } mt-1`}
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor={`tenant_${tenant.id}`}
+                      className={`font-medium text-sm flex items-center gap-2 ${
+                        tenant.is_checked_disabled ? "cursor-default" : "cursor-pointer"
+                      }`}
+                    >
+                      {tenant.full_name}
+                      {tenant.is_primary && tenantsToVacate.length > 1 && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          Primary
+                        </Badge>
+                      )}
+                      {!tenant.is_primary && tenantsToVacate.length > 1 && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-pink-50 text-pink-700 border-pink-200"
+                        >
+                          Partner
+                        </Badge>
+                      )}
+                      {tenant.is_checked_disabled && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                        >
+                          ✓ Auto-selected
+                        </Badge>
+                      )}
+                    </label>
 
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
-                                  <div className="text-xs text-gray-500">
-                                    <span className="font-medium">Email:</span>{" "}
-                                    {tenant.email || "N/A"}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    <span className="font-medium">Phone:</span>{" "}
-                                    {tenant.phone || "N/A"}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    <span className="font-medium">Gender:</span>{" "}
-                                    {tenant.gender || "N/A"}
-                                  </div>
-                                  {tenant.partner_details && (
-                                    <div className="text-xs text-gray-500">
-                                      <span className="font-medium">
-                                        Partner:
-                                      </span>{" "}
-                                      {tenant.partner_details.full_name}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {tenant.partner_details && (
-                                  <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
-                                    <div className="text-xs text-purple-600 flex items-center gap-1">
-                                      <Heart className="h-3 w-3" />
-                                      <span>
-                                        Partnered with:{" "}
-                                        {tenant.partner_details.full_name}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {tenantsToVacate.filter((t) => t.selected).length ===
-                          0 && (
-                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                            <AlertCircle className="h-4 w-4 inline mr-2" />
-                            Please select at least one tenant to vacate
-                          </div>
-                        )}
-
-                        {tenantsToVacate.length > 1 &&
-                          tenantsToVacate.filter((t) => t.selected).length ===
-                            1 && (
-                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
-                              <AlertTriangle className="h-4 w-4 inline mr-2" />
-                              Only one tenant will be vacated. The other tenant
-                              will remain in the bed.
-                            </div>
-                          )}
-
-                        {tenantsToVacate.length > 1 &&
-                          tenantsToVacate.filter((t) => t.selected).length ===
-                            2 && (
-                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                              <Info className="h-4 w-4 inline mr-2" />
-                              Both tenants will be vacated. The bed will become
-                              available.
-                            </div>
-                          )}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Email:</span>{" "}
+                        {tenant.email || "N/A"}
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Phone:</span>{" "}
+                        {tenant.phone || "N/A"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Gender:</span>{" "}
+                        {tenant.gender || "N/A"}
+                      </div>
+                      {tenant.partner_details && (
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Partner:</span>{" "}
+                          {tenant.partner_details.full_name}
+                        </div>
+                      )}
+                    </div>
+
+                    {tenant.partner_details && (
+                      <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                        <div className="text-xs text-purple-600 flex items-center gap-1">
+                          <Heart className="h-3 w-3" />
+                          <span>
+                            Partnered with: {tenant.partner_details.full_name}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {tenantsToVacate.filter((t) => t.selected).length === 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                <AlertCircle className="h-4 w-4 inline mr-2" />
+                Please select at least one tenant to vacate
               </div>
             )}
+
+            {tenantsToVacate.length > 1 && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+                <Info className="h-4 w-4 inline mr-2" />
+                Both tenants will be vacated together. The bed will become available after both are processed.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+  </div>
+)}
 
             {/* STEP 3: LOCK-IN PERIOD */}
             {step === 3 && (

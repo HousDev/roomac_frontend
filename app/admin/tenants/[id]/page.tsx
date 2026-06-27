@@ -593,7 +593,7 @@ const rentVal = (() => {
                 </p>
                 <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
                   <BadgePill variant={currentStay.isActive ? "green" : "gray"}>{currentStay.isActive ? "Active" : "Inactive"}</BadgePill>
-                  <span className="text-[9px] sm:text-[10px] text-blue-300 font-mono">#{tenant.id}</span>
+                  <span className="text-[9px] sm:text-[10px] text-blue-300 font-mono">{tenant.id}</span>
                 </div>
               </div>
             </div>
@@ -1665,7 +1665,7 @@ function HistoryTab({
               <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
                 {/* Stay header */}
                 <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
-                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>{stay.stayNumber}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       <span className="text-[10px] sm:text-xs font-bold text-gray-900" style={fontStyle}>{stay.property}</span>
@@ -2058,7 +2058,7 @@ const buildCardHTML = () => {
         <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
         <div class="profile-info">
           <div class="name">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</div>
-          <div class="sub">ID <span>#${tenant.id}</span> &nbsp;·&nbsp; <span class="status-dot"></span><span>${stay.isActive ? "Active" : "Inactive"}</span></div>
+          <div class="sub">ID <span>${tenant.id}</span> &nbsp;·&nbsp; <span class="status-dot"></span><span>${stay.isActive ? "Active" : "Inactive"}</span></div>
           <div class="sub" style="margin-top:2px">Room <span>${stay.room}</span> &nbsp;·&nbsp; <span>${stay.property}</span></div>
         </div>
       </div>
@@ -2128,7 +2128,7 @@ const handlePDF = () => {
             <div className="w-7 h-7 rounded-lg bg-[#F5A623] flex items-center justify-center"><IdCardIcon size={13} className="text-white" /></div>
             <div>
               <p className="text-xs font-black text-white" style={fontStyle}>Resident ID Card</p>
-              <p className="text-[9px] text-blue-300" style={fontStyle}>#{tenant.id} · {tenant.full_name}</p>
+              <p className="text-[9px] text-blue-300" style={fontStyle}>{tenant.id} · {tenant.full_name}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold transition-colors">✕</button>
@@ -2154,7 +2154,7 @@ const handlePDF = () => {
                 <p className="text-sm font-black text-white leading-tight" style={fontStyle}>
                   {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
                 </p>
-                <p className="text-[9px] text-slate-400 mt-0.5" style={fontStyle}>ID <span className="font-bold text-slate-300">#{tenant.id}</span> · {stay.room} · {stay.property}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5" style={fontStyle}>ID <span className="font-bold text-slate-300">{tenant.id}</span> · {stay.room} · {stay.property}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${stay.isActive ? "bg-emerald-400" : "bg-slate-500"}`} />
                   <span className="text-[8px] font-bold text-slate-400" style={fontStyle}>{stay.isActive ? "Active" : "Inactive"}</span>
@@ -2262,56 +2262,13 @@ const loadTenant = async () => {
     const r: any = await getTenantById(tid);
     if (r?.success && r.data) {
       let tenantData = r.data;
-      const requestedId = parseInt(tid);
-      const returnedId = tenantData.id;
 
-      // ✅ Handle couple booking partner swap
-      if (tenantData.is_couple_booking && requestedId !== returnedId) {
-        tenantData = {
-          ...tenantData,
-          id: requestedId,
-          salutation: tenantData.partner_salutation,
-          full_name: tenantData.partner_full_name,
-          email: tenantData.partner_email,
-          phone: tenantData.partner_phone,
-          country_code: tenantData.partner_country_code,
-          gender: tenantData.partner_gender,
-          date_of_birth: tenantData.partner_date_of_birth,
-          address: tenantData.partner_address,
-          occupation: tenantData.partner_occupation,
-          organization: tenantData.partner_organization,
-          partner_salutation: tenantData.salutation,
-          partner_full_name: tenantData.full_name,
-          partner_email: tenantData.email,
-          partner_phone: tenantData.phone,
-          partner_country_code: tenantData.country_code,
-          partner_gender: tenantData.gender,
-          partner_date_of_birth: tenantData.date_of_birth,
-          partner_address: tenantData.address,
-          partner_occupation: tenantData.occupation,
-          partner_organization: tenantData.organization,
-          partner_relationship: tenantData.partner_relationship || "Spouse",
-          id_proof_url: tenantData.partner_id_proof_url,
-          address_proof_url: tenantData.partner_address_proof_url,
-          photo_url: tenantData.partner_photo_url,
-          partner_id_proof_url: tenantData.id_proof_url,
-          partner_address_proof_url: tenantData.address_proof_url,
-          partner_photo_url: tenantData.photo_url,
-          additional_documents: tenantData.partner_additional_documents || [],
-          partner_additional_documents: tenantData.additional_documents || [],
-        };
-      }
-
-      // ✅ Get current_assignment from the response
       const assignmentData = tenantData.current_assignment || null;
-      
-      // ✅ Determine if this is a current stay or vacated stay
-      const isVacated = tenantData.is_vacated === true || 
+
+      const isVacated = tenantData.is_vacated === true ||
                         (tenantData.vacate_records && tenantData.vacate_records.length > 0 && !tenantData.is_active);
-      
-      // ✅ For active tenants with assignment, use assignment data
+
       if (tenantData.is_active && assignmentData && !assignmentData.is_vacated) {
-        // ✅ Current stay - use assignment data
         tenantData.assigned_property_name = assignmentData.property?.name || null;
         tenantData.assigned_room_number = assignmentData.room?.room_number || null;
         tenantData.assigned_bed_number = assignmentData.bed_number || null;
@@ -2323,43 +2280,31 @@ const loadTenant = async () => {
         tenantData.property_id = assignmentData.property?.id || null;
         tenantData.room_id = assignmentData.room?.id || null;
       } else if (isVacated && tenantData.vacate_records && tenantData.vacate_records.length > 0) {
-        // ✅ Vacated stay - use latest vacate record
         const latestVacate = tenantData.vacate_records[0];
         tenantData.vacated_date = latestVacate.requested_vacate_date;
         tenantData.vacate_rent_amount = latestVacate.rent_amount || 0;
         tenantData.vacate_security_deposit = latestVacate.security_deposit_amount || 0;
-        // Use the vacate record's property/room info for display
         tenantData.assigned_property_name = latestVacate.property_name || null;
         tenantData.assigned_room_number = latestVacate.room_number || null;
         tenantData.assigned_bed_number = latestVacate.bed_number || null;
       }
 
-      // ✅ Set assignment state
       setAssignment(assignmentData);
 
-      // ✅ Set effective tenant ID for payments
-      let effectiveId = tenantData.id;
-      if (tenantData.is_couple_booking && !assignmentData) {
-        // Try partner's assignment if this tenant doesn't have one
-        if (tenantData.partner_tenant_id) {
-          const partnerAssignment = await getTenantAssignment(tenantData.partner_tenant_id);
-          if (partnerAssignment.success && partnerAssignment.data) {
-            const raw = Array.isArray(partnerAssignment.data) ? partnerAssignment.data[0] : partnerAssignment.data;
-            if (raw?.id) {
-              effectiveId = tenantData.partner_tenant_id;
-            }
-          }
-        }
-      }
-      setEffectiveTenantIdForPayments(effectiveId);
+      // ✅ SIMPLIFIED: Always use the REQUESTED tenant's own ID for payments.
+      // The backend (getTenantPaymentFormData / getVacatedTenantPaymentFormData)
+      // already resolves the partner internally — whether the partner holds
+      // the bed assignment, the payments, or both. No need to pre-guess here;
+      // pre-guessing based on "does THIS tenant have an assignment" is wrong
+      // because assignment ownership and payment ownership can be split
+      // independently between the two partners.
+      setEffectiveTenantIdForPayments(tenantData.id);
 
-      // ✅ Process vacate records for history
       const vacateRecord = tenantData.vacate_records?.[0] ?? null;
       if (vacateRecord?.rent_amount) tenantData.vacate_rent_amount = vacateRecord.rent_amount;
 
       setTenant(tenantData);
 
-      // ✅ Set partner details (unchanged)
       if (tenantData.partner_full_name) {
         setPartnerDetails({
           salutation: tenantData.partner_salutation || "Mr.",
@@ -2393,28 +2338,47 @@ const loadTenant = async () => {
   }
 };
 
-  const loadPayments = async () => {
-    setLoadingPayments(true);
-    try {
-      const paymentTenantId = effectiveTenantIdForPayments || tid;
-      if (!paymentTenantId) { setLoadingPayments(false); return; }
-      const formResult = await paymentApi.getTenantPaymentFormData(paymentTenantId.toString());
-      if (formResult.success && formResult.data) {
-        setPaymentSummary(formResult.data);
-        const paymentsData: any = await request(`/api/payments/tenant/${paymentTenantId}`);
-        if (paymentsData.success) setPayments(paymentsData.data || []);
-        else setPayments([]);
+const loadPayments = async () => {
+  setLoadingPayments(true);
+  try {
+    // ✅ Use the effective tenant ID for payments
+    const paymentTenantId = effectiveTenantIdForPayments || tid;
+    if (!paymentTenantId) { 
+      setLoadingPayments(false); 
+      return; 
+    }
+    
+    console.log(`📊 Loading payments for tenant: ${paymentTenantId}`);
+    
+    const formResult = await paymentApi.getTenantPaymentFormData(paymentTenantId.toString());
+    if (formResult.success && formResult.data) {
+      setPaymentSummary(formResult.data);
+      
+      // ✅ If the payment tenant ID is different from the requested tenant,
+      // the payment summary contains data from the partner
+      if (paymentTenantId !== parseInt(tid)) {
+        console.log(`📊 Using payment data from partner ${paymentTenantId}`);
+      }
+      
+      const paymentsData: any = await request(`/api/payments/tenant/${paymentTenantId}`);
+      if (paymentsData.success) {
+        // ✅ Store payments from the effective tenant
+        setPayments(paymentsData.data || []);
       } else {
-        setPaymentSummary(null);
         setPayments([]);
       }
-    } catch {
+    } else {
       setPaymentSummary(null);
       setPayments([]);
-    } finally {
-      setLoadingPayments(false);
     }
-  };
+  } catch (error) {
+    console.error("Error loading payments:", error);
+    setPaymentSummary(null);
+    setPayments([]);
+  } finally {
+    setLoadingPayments(false);
+  }
+};
 
   const viewDoc = (url: string) => {
     if (!url) { toast.error("Document not available"); return; }
@@ -2546,7 +2510,7 @@ const handleUploadDoc = (docType: string) => {
             <BadgePill variant={tenant.is_active ? "green" : "gray"}>
               {tenant.is_active ? "Active" : "Inactive"}
             </BadgePill>
-            <span className="text-[8px] sm:text-[9px] text-blue-300 font-mono">#{tenant.id}</span>
+            <span className="text-[8px] sm:text-[9px] text-blue-300 font-mono">{tenant.id}</span>
           </div>
         </div>
       </div>

@@ -131,8 +131,35 @@ export const vacateApi = {
     return response;
   },
 
-  // Submit vacate request
-  async submitVacateRequest(data: { bedAssignmentId: any; tenantId: any; vacateReasonValue: string; isNoticeGiven: boolean; noticeGivenDate: string; requestedVacateDate: string; tenantAgreed: boolean; }) {
+  // ✅ UPDATED: Submit vacate request with support for multiple tenants
+  async submitVacateRequest(data: { 
+    bedAssignmentId: any; 
+    tenantId?: any; 
+    tenantIds?: number[];  // ✅ NEW: Support array of tenant IDs
+    vacateReasonValue: string; 
+    isNoticeGiven: boolean; 
+    noticeGivenDate: string; 
+    requestedVacateDate: string; 
+    tenantAgreed: boolean;
+    lockinPeriodMonths?: number;
+    lockinPenaltyType?: string;
+    lockinPenaltyAmount?: number;
+    noticePeriodDays?: number;
+    noticePenaltyType?: string;
+    noticePenaltyAmount?: number;
+    inspectionPenaltyAmount?: number;
+    securityDepositAmount?: number;
+    totalPenaltyAmount?: number;
+    refundableAmount?: number;
+    lockinPenaltyApplied?: boolean;
+    noticePenaltyApplied?: boolean;
+    adminApproved?: boolean;
+    tenantVacateRequestId?: number;
+    isPartialVacate?: boolean;
+    isLockinAdminOverride?: boolean;
+    isNoticeAdminOverride?: boolean;
+    paymentReceived?: boolean;
+  }) {
     const response = await request('/api/vacate/submit', {
       method: 'POST',
       body: JSON.stringify(data),

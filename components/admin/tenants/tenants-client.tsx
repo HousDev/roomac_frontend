@@ -1695,106 +1695,152 @@ const flattenedRows = useMemo(() => {
             );
           },
         },
-        {
-          key: "payments",
-          label: "Payments",
-          render: (tenant: Tenant) => {
-           const allPayments = tenant.payments || [];
-            // For reassigned tenants in All Tenants tab, only show payments after last vacate date
-            const lastVacateDate = tenant.has_vacated && tenant.is_vacated === false && tenant.vacated_date
-              ? new Date(tenant.vacated_date)
-              : null;
-            const payments = lastVacateDate
-              ? allPayments.filter((p) => p.payment_date && new Date(p.payment_date) > lastVacateDate)
-              : allPayments;
-            const paid = payments
-              .filter((p) => p.status === "paid" || p.status === "approved")
-              .reduce((sum, p) => sum + (p.amount || 0), 0);
-            const pending = payments
-              .filter((p) => p.status === "pending")
-              .reduce((sum, p) => sum + (p.amount || 0), 0);
+{
+  key: "payments",
+  label: "Payments",
+  render: (tenant: Tenant) => {
+    // ✅ Check if THIS tenant has the bed assignment
+    const hasBedAssignment = !!(
+      tenant.current_assignment || 
+      tenant.assigned_room_id || 
+      tenant.assigned_bed_number
+    );
 
-            // Check if tenant is vacated and has refundable amount
-            const isVacated = tenant.has_vacated === true;
-            const vacateRecord = tenant.vacate_records?.[0];
-            const refundableAmount = vacateRecord?.refundable_amount || 0;
-            const totalPenalty = vacateRecord?.total_penalty_amount || 0;
-            const securityDeposit = vacateRecord?.security_deposit_amount || 0;
+    // If this tenant does NOT have the bed assignment, show a "shared" message
+    if (!hasBedAssignment) {
+      // Find if they are part of a couple booking
+      const isCouple = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
+      
+      // Check if this tenant is a partner (has a partner_full_name)
+      const isPartner = isCouple && (
+        tenant.is_primary_tenant === false ||
+        (tenant.is_primary_tenant as any) === 0 ||
+        tenant.partner_tenant_id
+      );
+      
+      // Check if they have a partner name
+      const partnerName = tenant.partner_full_name || tenant.full_name || 'partner';
+      
+      return (
+        <div className="space-y-1">
+          <div className="text-[10px] text-gray-400 italic">
+            Payments managed by <span className="font-medium text-gray-600">{partnerName}</span>
+          </div>
+          {isCouple && (
+            <div className="text-[9px] text-gray-400">
+              Shared with {partnerName}
+            </div>
+          )}
+          <div className="text-[9px] text-gray-400">
+            {tenant.payments?.length || 0} transactions
+          </div>
+        </div>
+      );
+    }
 
-            // Determine if we need to show refund/payment button
-            const needsRefund = isVacated && refundableAmount > 0;
-            const needsPayment = isVacated && refundableAmount < 0;
+    // ✅ THIS TENANT HAS THE BED ASSIGNMENT - Show payment buttons
+    const allPayments = tenant.payments || [];
+    
+    // For reassigned tenants, only show payments after last vacate date
+    const lastVacateDate = tenant.has_vacated && tenant.is_vacated === false && tenant.vacated_date
+      ? new Date(tenant.vacated_date)
+      : null;
+    const payments = lastVacateDate
+      ? allPayments.filter((p) => p.payment_date && new Date(p.payment_date) > lastVacateDate)
+      : allPayments;
+    const paid = payments
+      .filter((p) => p.status === "paid" || p.status === "approved")
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    const pending = payments
+      .filter((p) => p.status === "pending")
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            console.log(
-              `🔍 Tenant ${tenant.id}: isVacated=${isVacated}, refundableAmount=${refundableAmount}, needsRefund=${needsRefund}`,
-            );
+    // Check if tenant is vacated and has refundable amount
+    const isVacated = tenant.has_vacated === true;
+    const vacateRecord = tenant.vacate_records?.[0];
+    const refundableAmount = vacateRecord?.refundable_amount || 0;
+    const totalPenalty = vacateRecord?.total_penalty_amount || 0;
+    const securityDeposit = vacateRecord?.security_deposit_amount || 0;
 
-            return (
-              <div className="space-y-1">
-                <div className="text-xs font-semibold text-green-600">
-                  ₹{paid.toLocaleString()}
-                </div>
-                {pending > 0 && (
-                  <div className="text-xs text-red-500">
-                    ₹{pending.toLocaleString()}
-                  </div>
-                )}
-                <div className="text-[9px] text-gray-400">
-                  {payments.length} txn
-                </div>
+    // Determine if we need to show refund/payment button
+    const needsRefund = isVacated && refundableAmount > 0;
+    const needsPayment = isVacated && refundableAmount < 0;
 
-                {/* Show Refund/Payment buttons for vacated tenants */}
-                {isVacated && (
-                  <div className="mt-2">
-                    {needsRefund && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600"
-                        onClick={() =>
-                          handleVacatedTenantRefund(
-                            tenant,
-                            refundableAmount,
-                            vacateRecord?.id,
-                          )
-                        }
-                      >
-                        <Shield className="w-2.5 h-2.5 mr-1" />
-                        Pay Refund ₹{refundableAmount.toLocaleString()}
-                      </Button>
-                    )}
-                    {needsPayment && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-600"
-                        onClick={() =>
-                          handleVacatedTenantPayment(
-                            tenant,
-                            Math.abs(refundableAmount),
-                            vacateRecord?.id,
-                          )
-                        }
-                      >
-                        <IndianRupee className="w-2.5 h-2.5 mr-1" />
-                        Receive Payment ₹
-                        {Math.abs(refundableAmount).toLocaleString()}
-                      </Button>
-                    )}
-                    {!needsRefund && !needsPayment && refundableAmount === 0 && (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500"
-                      >
-                        Settled
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          },
-        },
+    // Check if this tenant is in a couple booking (to display correctly)
+    const isCoupleBooking = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
+    const partnerName = tenant.partner_full_name || '';
+
+    return (
+      <div className="space-y-1">
+        <div className="text-xs font-semibold text-green-600">
+          ₹{paid.toLocaleString()}
+        </div>
+        {pending > 0 && (
+          <div className="text-xs text-red-500">
+            ₹{pending.toLocaleString()}
+          </div>
+        )}
+        <div className="text-[9px] text-gray-400">
+          {payments.length} txn
+          {isCoupleBooking && partnerName && (
+            <span className="ml-1 text-blue-500">
+              (with {partnerName})
+            </span>
+          )}
+        </div>
+
+        {/* Show Refund/Payment buttons ONLY for tenants with bed assignment */}
+        {isVacated && hasBedAssignment && (
+          <div className="mt-2">
+            {needsRefund && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600"
+                onClick={() =>
+                  handleVacatedTenantRefund(
+                    tenant,
+                    refundableAmount,
+                    vacateRecord?.id,
+                  )
+                }
+              >
+                <Shield className="w-2.5 h-2.5 mr-1" />
+                Pay Refund ₹{refundableAmount.toLocaleString()}
+              </Button>
+            )}
+            {needsPayment && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-600"
+                onClick={() =>
+                  handleVacatedTenantPayment(
+                    tenant,
+                    Math.abs(refundableAmount),
+                    vacateRecord?.id,
+                  )
+                }
+              >
+                <IndianRupee className="w-2.5 h-2.5 mr-1" />
+                Receive Payment ₹
+                {Math.abs(refundableAmount).toLocaleString()}
+              </Button>
+            )}
+            {!needsRefund && !needsPayment && refundableAmount === 0 && (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500"
+              >
+                Settled
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  },
+},
         {
           key: "is_active",
           label: "Status",
