@@ -1,4 +1,4 @@
-
+// app/admin/tenants/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -289,7 +289,25 @@ function OverviewTab({
   copiedEmail: boolean; copiedPhone: boolean; payments: any[];
   onCopyEmail: () => void; onCopyPhone: () => void;
 }) {
-  const vacateRecord = tenant.vacate_records?.[0] ?? null;
+  // ✅ FIX: Determine if tenant is actually vacated (not just has vacate history)
+  const hasVacateHistory = tenant.vacate_records?.length > 0;
+  const hasActiveAssignment = assignment !== null && !assignment?.is_vacated;
+  const isActuallyVacated = hasVacateHistory && !hasActiveAssignment && !tenant.is_active;
+  
+  // ✅ Get the latest vacate record (only for display if actually vacated)
+  const vacateRecord = isActuallyVacated ? tenant.vacate_records?.[0] ?? null : null;
+
+  // ✅ Get current stay data from active assignment (PRIORITIZE THIS)
+  const currentStay = {
+    property: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned",
+    room: assignment?.room?.room_number || tenant.assigned_room_number || "—",
+    bed: assignment?.bed_number || tenant.assigned_bed_number || "—",
+    rent: assignment?.tenant_rent || tenant.monthly_rent || 0,
+    checkIn: tenant.check_in_date,
+    checkOut: isActuallyVacated ? (vacateRecord?.requested_vacate_date || null) : null,
+    isActive: tenant.is_active && hasActiveAssignment,
+    securityDeposit: assignment?.security_deposit || tenant.security_deposit || 0,
+  };
 
   const getOccupationIcon = (cat: string) => {
     switch (cat) {
@@ -302,43 +320,92 @@ function OverviewTab({
     }
   };
 
-  const rentVal = (() => {
-    if (vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
-    if (assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
-    if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
-    return "N/A";
-  })();
-
-  // ─── Security Deposit — same lookup order as the tenants table ──────────
- const securityDeposit = (() => {
-  if (vacateRecord?.security_deposit_amount) return Number(vacateRecord.security_deposit_amount);
-  if (assignment?.security_deposit) return Number(assignment.security_deposit);
-  if (tenant.security_deposit) return Number(tenant.security_deposit);
-  if (paymentSummary?.security_deposit_info?.total) return Number(paymentSummary.security_deposit_info.total);
-  if (paymentSummary?.security_deposit_info?.paid) return Number(paymentSummary.security_deposit_info.paid);
-  if (paymentSummary?.vacate_info?.security_deposit) return Number(paymentSummary.vacate_info.security_deposit);
-  // ← ADD THIS: direct payments se fetch karo
-  const sdPayments = (payments || []).filter((p: any) =>
-    p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
-  );
-  if (sdPayments.length > 0) return sdPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-  return 0;
+  // ✅ FIX: Prioritize current assignment over vacate record for rent
+// In OverviewTab, the rentVal is already correct with this logic:
+const rentVal = (() => {
+  // 1. If tenant has active assignment, use that FIRST
+  if (hasActiveAssignment && assignment?.tenant_rent) {
+    return formatINR(assignment.tenant_rent);
+  }
+  // 2. Only use vacate record if actually vacated
+  if (isActuallyVacated && vacateRecord?.rent_amount) {
+    return formatINR(vacateRecord.rent_amount);
+  }
+  // 3. Fallback to tenant.monthly_rent
+  if (tenant.monthly_rent) {
+    return formatINR(tenant.monthly_rent);
+  }
+  return "N/A";
 })();
 
-  // ─── Couple booking — same flag the tenants table uses ──────────────────
+  // ✅ FIX: Prioritize current assignment over vacate record for room/bed
+  const roomVal = (() => {
+    // 1. If tenant has active assignment, use that
+    if (hasActiveAssignment && assignment) {
+      return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
+    }
+    // 2. If tenant is actually vacated, use vacate record
+    if (isActuallyVacated && vacateRecord) {
+      return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
+    }
+    // 3. Fallback to tenant fields
+    if (tenant.bed_number) {
+      return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
+    }
+    return "Not Assigned";
+  })();
+
+  // ─── Security Deposit ──────────────────────────────────────────────────
+  const securityDeposit = (() => {
+    // 1. If tenant has active assignment, use that
+    if (hasActiveAssignment && assignment?.security_deposit) {
+      return Number(assignment.security_deposit);
+    }
+    // 2. If tenant is actually vacated, use vacate record
+    if (isActuallyVacated && vacateRecord?.security_deposit_amount) {
+      return Number(vacateRecord.security_deposit_amount);
+    }
+    // 3. Fallback to tenant.security_deposit
+    if (tenant.security_deposit) {
+      return Number(tenant.security_deposit);
+    }
+    // 4. Check payment summary
+    if (paymentSummary?.security_deposit_info?.total) {
+      return Number(paymentSummary.security_deposit_info.total);
+    }
+    if (paymentSummary?.security_deposit_info?.paid) {
+      return Number(paymentSummary.security_deposit_info.paid);
+    }
+    if (paymentSummary?.vacate_info?.security_deposit) {
+      return Number(paymentSummary.vacate_info.security_deposit);
+    }
+    // 5. Calculate from payments
+    const sdPayments = (payments || []).filter((p: any) =>
+      p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
+    );
+    if (sdPayments.length > 0) {
+      return sdPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    }
+    return 0;
+  })();
+
+  // ─── Couple booking ────────────────────────────────────────────────────
   const isCoupleBooking = tenant.is_couple_booking === true || tenant.is_couple_booking === 1;
 
-  // ─── Profile stat box calculations (Stays / Months / Rent Paid) ──────────
+  // ─── Profile stat box calculations ────────────────────────────────────
   const staysCount = (() => {
-    if (tenant.vacate_records?.length) return tenant.vacate_records.length;
-    return tenant.check_in_date ? 1 : 0;
+    const pastStays = tenant.vacate_records?.length || 0;
+    const hasCurrent = hasActiveAssignment && tenant.is_active;
+    return pastStays + (hasCurrent ? 1 : 0);
   })();
 
   const monthsStayed = (() => {
     if (!tenant.check_in_date) return 0;
     const start = new Date(tenant.check_in_date);
     if (isNaN(start.getTime())) return 0;
-    const end = vacateRecord?.requested_vacate_date ? new Date(vacateRecord.requested_vacate_date) : new Date();
+    const end = isActuallyVacated && vacateRecord?.requested_vacate_date 
+      ? new Date(vacateRecord.requested_vacate_date) 
+      : new Date();
     if (isNaN(end.getTime())) return 0;
     let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
     if (end.getDate() < start.getDate()) months--;
@@ -346,7 +413,7 @@ function OverviewTab({
   })();
 
   const rentPaidTotal = (() => {
-    if (vacateRecord) return paymentSummary?.total_rent_paid ?? 0;
+    if (isActuallyVacated) return paymentSummary?.total_rent_paid ?? 0;
     return paymentSummary?.total_paid ?? 0;
   })();
 
@@ -357,18 +424,29 @@ function OverviewTab({
     return `₹${n}`;
   })();
 
+  // ─── Print / PDF helpers ──────────────────────────────────────────────
+  const buildPrintHTML = () => {
+    const rentValDisplay = (() => {
+      if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
+      if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
+      if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
+      return "N/A";
+    })();
 
-  // ─── Print / PDF helpers for OverviewTab ──────────────────────────────
-const buildPrintHTML = () => {
-  const vacateRecord = tenant.vacate_records?.[0] ?? null;
-  const rentVal = (() => {
-    if (vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
-    if (assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
-    if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
-    return "N/A";
-  })();
+    const roomDisplay = (() => {
+      if (hasActiveAssignment && assignment) {
+        return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
+      }
+      if (isActuallyVacated && vacateRecord) {
+        return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
+      }
+      if (tenant.bed_number) {
+        return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
+      }
+      return "Not Assigned";
+    })();
 
-  return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
+    return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px}
@@ -390,8 +468,8 @@ const buildPrintHTML = () => {
 <div class="header">
   <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
   <div class="header-info">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} <span class="badge badge-green">${tenant.is_active ? "Active" : "Inactive"}</span></h1>
-    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; ${assignment?.property?.name || "—"} · Room ${assignment?.room?.room_number || "—"} · Bed ${assignment?.bed_number || "—"}</div>
+    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} <span class="badge badge-green">${currentStay.isActive ? "Active" : "Inactive"}</span></h1>
+    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; ${currentStay.property || "—"} · ${roomDisplay}</div>
   </div>
 </div>
 <div class="two-col">
@@ -401,9 +479,8 @@ const buildPrintHTML = () => {
     <div class="row"><span class="lbl">Full Name</span><span class="val">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</span></div>
     <div class="row"><span class="lbl">Gender</span><span class="val">${tenant.gender || "—"}</span></div>
     <div class="row"><span class="lbl">Date of Birth</span><span class="val">${tenant.date_of_birth ? new Date(tenant.date_of_birth).toLocaleDateString("en-IN") : "—"} (${calcAge(tenant.date_of_birth)} yrs)</span></div>
-<div class="row"><span class="lbl">Aadhar</span><span class="val" style="font-family:monospace">${tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
+    <div class="row"><span class="lbl">Aadhar</span><span class="val" style="font-family:monospace">${tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
     <div class="row"><span class="lbl">PAN</span><span class="val" style="font-family:monospace">${tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
-
   </div>
   <div class="section">
     <div class="section-title">Contact</div>
@@ -421,13 +498,13 @@ const buildPrintHTML = () => {
 <div>
   <div class="section">
     <div class="section-title">Stay Information</div>
-    <div class="row"><span class="lbl">Property</span><span class="val">${assignment?.property?.name || "—"}</span></div>
-    <div class="row"><span class="lbl">Room / Bed</span><span class="val">Room ${assignment?.room?.room_number || "—"} · Bed ${assignment?.bed_number || "—"}</span></div>
-    <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentVal}</span></div>
-    <div class="row"><span class="lbl">Check-in</span><span class="val">${tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN") : "—"}</span></div>
-    ${vacateRecord ? `<div class="row"><span class="lbl">Vacated On</span><span class="val">${new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN")}</span></div>` : ""}
+    <div class="row"><span class="lbl">Property</span><span class="val">${currentStay.property || "—"}</span></div>
+    <div class="row"><span class="lbl">Room / Bed</span><span class="val">${roomDisplay}</span></div>
+    <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentValDisplay}</span></div>
+    <div class="row"><span class="lbl">Check-in</span><span class="val">${currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN") : "—"}</span></div>
+    ${isActuallyVacated && currentStay.checkOut ? `<div class="row"><span class="lbl">Vacated On</span><span class="val">${new Date(currentStay.checkOut).toLocaleDateString("en-IN")}</span></div>` : ""}
   </div>
-  ${vacateRecord ? `<div class="section">
+  ${isActuallyVacated && vacateRecord ? `<div class="section">
     <div class="section-title">Vacate Details</div>
     <div class="row"><span class="lbl">Penalty</span><span class="val">₹${Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</span></div>
     <div class="row"><span class="lbl">Refund</span><span class="val" style="color:#059669">₹${Number(vacateRecord.refundable_amount || 0).toLocaleString()}</span></div>
@@ -438,33 +515,33 @@ const buildPrintHTML = () => {
 </div>
 <div class="footer"><span>Roomac Co-Living Management System</span><span>Generated ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"})}</span></div>
 </body></html>`;
-};
+  };
 
-const handlePrintProfile = () => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(buildPrintHTML());
-  w.document.close();
-  w.print();
-};
+  const handlePrintProfile = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(buildPrintHTML());
+    w.document.close();
+    w.print();
+  };
 
-const handlePDFProfile = () => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  const html = buildPrintHTML().replace("</style>", `
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  @page { margin: 16mm; size: A4; }
-</style>`);
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => { w.print(); w.close(); }, 400);
-};
+  const handlePDFProfile = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const html = buildPrintHTML().replace("</style>", `
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @page { margin: 16mm; size: A4; }
+  </style>`);
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 400);
+  };
 
   return (
     <div className="space-y-3">
       {/* Action bar */}
-<div className="hidden lg:flex justify-end gap-2 mb-3">
+      <div className="hidden lg:flex justify-end gap-2 mb-3">
         <button
           onClick={onEdit}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
@@ -479,149 +556,148 @@ const handlePDFProfile = () => {
         >
           <IdCardIcon size={12} /> ID Card
         </button>
-        
-         <button
-    onClick={handlePrintProfile}
-    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] border border-gray-200 rounded-lg text-[10px] font-bold text-white hover:bg-gray-50 transition-colors shadow-sm"
-  >
-    <Printer size={12} /> Print
-  </button>
-  <button
-    onClick={handlePDFProfile}
-    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] rounded-lg text-[10px] font-bold text-white hover:bg-[#1B3FA0] transition-colors shadow-sm"
-  >
-    <Download size={12} /> Download PDF
-  </button>
+        <button
+          onClick={handlePrintProfile}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] border border-gray-200 rounded-lg text-[10px] font-bold text-white hover:bg-gray-50 transition-colors shadow-sm"
+        >
+          <Printer size={12} /> Print
+        </button>
+        <button
+          onClick={handlePDFProfile}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] rounded-lg text-[10px] font-bold text-white hover:bg-[#1B3FA0] transition-colors shadow-sm"
+        >
+          <Download size={12} /> Download PDF
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Left Sidebar */}
         <div className="lg:col-span-1 space-y-3">
           {/* Profile card */}
-        <div className="rounded-xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 60%, #0D2567 100%)" }}>
-  <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col items-center text-center gap-1.5 sm:gap-2">
-    <div className="relative">
-      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-400 to-[#1B3FA0] flex items-center justify-center text-white font-black text-base sm:text-xl shadow-lg ring-2 ring-[#F5A623]/40">
-        {tenant.photo_url ? (
-          <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
-            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : (
-          tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"
-        )}
-      </div>
-      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-[#0D2567] ${tenant.is_active ? "bg-emerald-400" : "bg-gray-500"}`} />
-    </div>
-    <div>
-      <p className="text-xs sm:text-sm font-black text-white leading-tight" style={fontStyle}>
-        {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
-      </p>
-      <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
-        <BadgePill variant={tenant.is_active ? "green" : "gray"}>{tenant.is_active ? "Active" : "Inactive"}</BadgePill>
-        <span className="text-[9px] sm:text-[10px] text-blue-300 font-mono">#{tenant.id}</span>
-      </div>
-    </div>
-  </div>
-  {/* Stat boxes: Stays / Months / Rent Paid */}
-  <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
-    {[
-      { label: "Stays", value: staysCount },
-      { label: "Months", value: monthsStayed },
-      { label: "Rent Paid", value: rentPaidDisplay },
-    ].map(({ label, value }) => (
-      <div key={label} className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center">
-        <p className="text-xs sm:text-sm font-black text-white" style={fontStyle}>{value}</p>
-        <p className="text-[7px] sm:text-[8px] font-bold text-blue-300 uppercase tracking-widest mt-0.5" style={fontStyle}>{label}</p>
-      </div>
-    ))}
-  </div>
-</div>
+          <div className="rounded-xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 60%, #0D2567 100%)" }}>
+            <div className="px-3 sm:px-4 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col items-center text-center gap-1.5 sm:gap-2">
+              <div className="relative">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-400 to-[#1B3FA0] flex items-center justify-center text-white font-black text-base sm:text-xl shadow-lg ring-2 ring-[#F5A623]/40">
+                  {tenant.photo_url ? (
+                    <img src={resolveUrl(tenant.photo_url)} alt={tenant.full_name} className="w-full h-full object-cover"
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"
+                  )}
+                </div>
+                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-[#0D2567] ${currentStay.isActive ? "bg-emerald-400" : "bg-gray-500"}`} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-black text-white leading-tight" style={fontStyle}>
+                  {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
+                </p>
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                  <BadgePill variant={currentStay.isActive ? "green" : "gray"}>{currentStay.isActive ? "Active" : "Inactive"}</BadgePill>
+                  <span className="text-[9px] sm:text-[10px] text-blue-300 font-mono">#{tenant.id}</span>
+                </div>
+              </div>
+            </div>
+            {/* Stat boxes: Stays / Months / Rent Paid */}
+            <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
+              {[
+                { label: "Stays", value: staysCount },
+                { label: "Months", value: monthsStayed },
+                { label: "Rent Paid", value: rentPaidDisplay },
+              ].map(({ label, value }) => (
+                <div key={label} className="px-1.5 sm:px-2 py-2 sm:py-2.5 text-center">
+                  <p className="text-xs sm:text-sm font-black text-white" style={fontStyle}>{value}</p>
+                  <p className="text-[7px] sm:text-[8px] font-bold text-blue-300 uppercase tracking-widest mt-0.5" style={fontStyle}>{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Account status */}
-        <Section title="Account" icon={<BadgeCheck size={11} />} accent="bg-slate-600">
-  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-    <div className="flex items-center gap-2 py-1">
-      <span
-        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
-        style={fontStyle}
-      >
-        Status
-      </span>
-      <BadgePill variant={tenant.is_active ? "green" : "gray"}>
-        {tenant.is_active ? "Active" : "Inactive"}
-      </BadgePill>
-    </div>
+          <Section title="Account" icon={<BadgeCheck size={11} />} accent="bg-slate-600">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex items-center gap-2 py-1">
+                <span
+                  className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+                  style={fontStyle}
+                >
+                  Status
+                </span>
+                <BadgePill variant={currentStay.isActive ? "green" : "gray"}>
+                  {currentStay.isActive ? "Active" : "Inactive"}
+                </BadgePill>
+              </div>
 
-    <div className="flex items-center gap-2 py-1">
-      <span
-        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
-        style={fontStyle}
-      >
-        Portal
-      </span>
-      <BadgePill variant={tenant.portal_access_enabled ? "green" : "amber"}>
-        {tenant.portal_access_enabled ? "Enabled" : "Disabled"}
-      </BadgePill>
-    </div>
+              <div className="flex items-center gap-2 py-1">
+                <span
+                  className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+                  style={fontStyle}
+                >
+                  Portal
+                </span>
+                <BadgePill variant={tenant.portal_access_enabled ? "green" : "amber"}>
+                  {tenant.portal_access_enabled ? "Enabled" : "Disabled"}
+                </BadgePill>
+              </div>
 
-    <div className="flex items-center gap-2 py-1">
-      <span
-        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
-        style={fontStyle}
-      >
-        Login
-      </span>
-      <BadgePill variant={tenant.has_credentials ? "blue" : "amber"}>
-        {tenant.has_credentials ? "Configured" : "Not Set"}
-      </BadgePill>
-    </div>
+              <div className="flex items-center gap-2 py-1">
+                <span
+                  className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+                  style={fontStyle}
+                >
+                  Login
+                </span>
+                <BadgePill variant={tenant.has_credentials ? "blue" : "amber"}>
+                  {tenant.has_credentials ? "Configured" : "Not Set"}
+                </BadgePill>
+              </div>
 
-    <div className="flex items-center gap-2 py-1">
-      <span
-        className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
-        style={fontStyle}
-      >
-        Check-in
-      </span>
-      <span className="text-[11px] font-medium text-gray-700">
-        {tenant.check_in_date
-          ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })
-          : "—"}
-      </span>
-    </div>
-  </div>
+              <div className="flex items-center gap-2 py-1">
+                <span
+                  className="w-[55px] text-[10px] font-semibold text-gray-400 uppercase shrink-0"
+                  style={fontStyle}
+                >
+                  Check-in
+                </span>
+                <span className="text-[11px] font-medium text-gray-700">
+                  {tenant.check_in_date
+                    ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </span>
+              </div>
+            </div>
 
-  {tenant.credential_email && (
-    <div className="mt-2 pt-2 border-t border-gray-100">
-      <p
-        className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1"
-        style={fontStyle}
-      >
-        Credential Email
-      </p>
-      <p className="text-[10px] font-mono text-gray-600 break-all">
-        {tenant.credential_email}
-      </p>
-    </div>
-  )}
-</Section>
+            {tenant.credential_email && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p
+                  className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1"
+                  style={fontStyle}
+                >
+                  Credential Email
+                </p>
+                <p className="text-[10px] font-mono text-gray-600 break-all">
+                  {tenant.credential_email}
+                </p>
+              </div>
+            )}
+          </Section>
 
           {/* Emergency contact */}
-        <Section title="Emergency Contact" icon={<Heart size={11} />} accent="bg-rose-500">
-  {tenant.emergency_contact_name ? (
-    <div className="space-y-0">
-      <InfoRow label="Name" value={tenant.emergency_contact_name} />
-      <InfoRow label="Phone" value={tenant.emergency_contact_phone} />
-      <InfoRow label="Relation" value={tenant.emergency_contact_relation} />
-      {tenant.emergency_contact_email && <InfoRow label="Email" value={tenant.emergency_contact_email} />}
-    </div>
-  ) : (
-    <p className="text-[10px] text-gray-400 py-1 text-center italic" style={fontStyle}>No emergency contact on file</p>
-  )}
-</Section>
+          <Section title="Emergency Contact" icon={<Heart size={11} />} accent="bg-rose-500">
+            {tenant.emergency_contact_name ? (
+              <div className="space-y-0">
+                <InfoRow label="Name" value={tenant.emergency_contact_name} />
+                <InfoRow label="Phone" value={tenant.emergency_contact_phone} />
+                <InfoRow label="Relation" value={tenant.emergency_contact_relation} />
+                {tenant.emergency_contact_email && <InfoRow label="Email" value={tenant.emergency_contact_email} />}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400 py-1 text-center italic" style={fontStyle}>No emergency contact on file</p>
+            )}
+          </Section>
         </div>
 
         {/* Right Main */}
@@ -638,21 +714,26 @@ const handlePDFProfile = () => {
                   {isCoupleBooking ? <Heart size={9} /> : <User size={9} />}
                   {isCoupleBooking ? "Couple" : "Single"}
                 </BadgePill>
-                {vacateRecord ? <BadgePill variant="red"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Vacated</BadgePill>
-                  : <BadgePill variant="green"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Active</BadgePill>}
+                {isActuallyVacated ? (
+                  <BadgePill variant="red"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Vacated</BadgePill>
+                ) : currentStay.isActive ? (
+                  <BadgePill variant="green"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Active</BadgePill>
+                ) : (
+                  <BadgePill variant="gray">Inactive</BadgePill>
+                )}
               </div>
             </div>
             <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
               {[
-                { label: "Property", value: assignment?.property?.name || "Not Assigned", wide: true },
-                { label: "Room / Bed", value: assignment ? `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}` : "Not Assigned" },
+                { label: "Property", value: currentStay.property || "Not Assigned", wide: true },
+                { label: "Room / Bed", value: roomVal, wide: false },
                 { label: "Monthly Rent", value: <span className="font-black text-emerald-600">{rentVal}</span> },
-                { label: "Check-in", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
-                { label: vacateRecord ? "Check-out" : "Status", value: vacateRecord ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : <BadgePill variant="green">Active</BadgePill> },
+                { label: "Check-in", value: currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
+                { label: isActuallyVacated ? "Check-out" : "Status", value: isActuallyVacated && currentStay.checkOut ? new Date(currentStay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : <BadgePill variant="green">Active</BadgePill> },
                 { label: "Security Deposit", value: <span className="font-black text-amber-600">{formatINR(securityDeposit)}</span> },
                 { label: "Lock-in", value: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—" },
                 { label: "Notice Period", value: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—" },
-                { label: "Refund", value: vacateRecord ? <span className="font-black text-emerald-600">{formatINR(vacateRecord.refundable_amount || 0)}</span> : "—" },
+                { label: "Refund", value: isActuallyVacated && vacateRecord ? <span className="font-black text-emerald-600">{formatINR(vacateRecord.refundable_amount || 0)}</span> : "—" },
               ].map(({ label, value, wide }: any) => (
                 <div key={label} className={wide ? "col-span-2 sm:col-span-1" : ""}>
                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
@@ -660,7 +741,7 @@ const handlePDFProfile = () => {
                 </div>
               ))}
             </div>
-            {vacateRecord && (
+            {isActuallyVacated && vacateRecord && (
               <div className="mx-4 mb-4 bg-red-50 rounded-lg border border-red-100 px-3 py-2.5">
                 <div className="flex items-center gap-2 mb-1.5">
                   <LogOut size={11} className="text-red-500" />
@@ -684,7 +765,7 @@ const handlePDFProfile = () => {
                 <InfoRow label="Full Name" value={`${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}`} />
                 <InfoRow label="Gender" value={tenant.gender} />
                 <InfoRow label="DOB" value={tenant.date_of_birth ? <span>{new Date(tenant.date_of_birth).toLocaleDateString("en-IN")} <BadgePill>{calcAge(tenant.date_of_birth)} yrs</BadgePill></span> : null} />
- <InfoRow label="Aadhar" value={
+                <InfoRow label="Aadhar" value={
                   tenant.aadhar_number ?? 
                   (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? 
                   (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? 
@@ -733,7 +814,6 @@ const handlePDFProfile = () => {
                   ) : <Briefcase size={11} />}
                 </div>
                 <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Occupation</span>
-              
               </div>
               <div className="px-4 py-3">
                 <div className="space-y-0">
@@ -772,7 +852,11 @@ const handlePDFProfile = () => {
                       ? <BadgePill variant="amber">{tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of rent` : `₹${Number(tenant.notice_penalty_amount).toLocaleString()}`}</BadgePill>
                       : "—"
                   } />
-                  <InfoRow label="Penalty Applied" value={<BadgePill variant="green">{formatINR(vacateRecord?.total_penalty_amount || 0)}</BadgePill>} />
+                  <InfoRow label="Penalty Applied" value={
+                    isActuallyVacated && vacateRecord ? 
+                      <BadgePill variant="green">{formatINR(vacateRecord.total_penalty_amount || 0)}</BadgePill> 
+                      : <BadgePill variant="gray">—</BadgePill>
+                  } />
                 </div>
               </div>
             </div>
@@ -1211,7 +1295,6 @@ function HistoryTab({
   function resolveDocNumber(tenant: any, docType: "Aadhar Card" | "PAN Card"): string | null {
     if (tenant.id_proof_type === docType && tenant.id_proof_number) return tenant.id_proof_number;
     if (tenant.address_proof_type === docType && tenant.address_proof_number) return tenant.address_proof_number;
-    // legacy direct fields as fallback
     if (docType === "Aadhar Card" && tenant.aadhar_number) return tenant.aadhar_number;
     if (docType === "PAN Card" && tenant.pan_number) return tenant.pan_number;
     return null;
@@ -1222,46 +1305,141 @@ function HistoryTab({
  
   const aadharNum = resolveDocNumber(tenant, "Aadhar Card");
   const panNum = resolveDocNumber(tenant, "PAN Card");
- 
-  // ── Build stay list: past stays (vacate_records, oldest first) + current ──
- const pastStays = [...(tenant.vacate_records ?? [])]
-    .sort((a: any, b: any) => new Date(a.requested_vacate_date || 0).getTime() - new Date(b.requested_vacate_date || 0).getTime())
-    .map((vr: any, i: number) => ({
-      id: `vacate-${vr.id ?? i}`,
-      stayNumber: i + 1,
-      aadharNumber: tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null),
-      panNumber: tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null),
-      isCurrent: false,
-      property: vr.property_name || assignment?.property?.name || tenant.assigned_property_name || "Roomac Co-Living",
-      room: vr.room_number || assignment?.room?.room_number || "—",
-      bed: vr.bed_number || "—",
-      stayType: tenant.is_couple_booking ? "Couple" : "Single",
-      monthlyRent: Number(vr.rent_amount || 0),
-      checkIn: vr.stay_start_date || tenant.check_in_date || null,
-      checkOut: vr.requested_vacate_date || null,
-     securityDeposit: Number(vr.security_deposit_amount || paymentSummary?.vacate_info?.security_deposit || 0),
- depositPaid: Number(
-  
-        paymentSummary?.security_deposit_info?.paid ||
-        paymentSummary?.security_deposit_info?.total ||
-        vr.security_deposit_amount || 0
-      ),      refundAmount: Number(vr.refundable_amount || paymentSummary?.vacate_info?.refundable_amount || 0),
-      refundStatus: vr.refund_status || vr.deposit_refund_status || paymentSummary?.vacate_info?.refund_status || vr.status || "N/A",
-      totalPenalty: Number(vr.total_penalty_amount || 0),
-      vacateReason: vr.vacate_reason_value || "—",
-      lockInPeriod: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—",
-      noticePeriod: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—",
-      partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
-      isVacatedRecord: true,
-    }));
- 
-const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) && !(tenant.vacate_records?.length > 0);
+
+  // ── Helper: Get refund status for a specific vacate record ──
+  const getRefundStatusForVacate = (vacateRecordId: number, refundableAmount: number) => {
+    // Find all deposit_refund payments linked to this vacate record
+    const refundPayments = (payments || []).filter(p => 
+      p.payment_type === "deposit_refund" && 
+      p.vacate_record_id === vacateRecordId &&
+      (p.status === "approved" || p.status === "paid" || p.status === "refund" || p.status === "completed")
+    );
+    
+    // Also check for refund payments that might not have vacate_record_id but are for this tenant
+    // This handles older refunds that weren't linked properly
+    const unlinkedRefunds = (payments || []).filter(p => 
+      p.payment_type === "deposit_refund" && 
+      p.tenant_id === tenant.id &&
+      (!p.vacate_record_id || p.vacate_record_id === null) &&
+      (p.status === "approved" || p.status === "paid" || p.status === "refund" || p.status === "completed")
+    );
+    
+    // Combine both sets
+    const allRefunds = [...refundPayments, ...unlinkedRefunds];
+    
+    if (allRefunds.length === 0) {
+      return { 
+        status: "Not Refunded", 
+        amount: 0, 
+        payments: [],
+        isFullyRefunded: false,
+        isPartialRefund: false
+      };
+    }
+    
+    const totalRefunded = allRefunds.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    
+    // Determine status based on refundable amount vs actual refunded
+    let status = "Not Refunded";
+    let isFullyRefunded = false;
+    let isPartialRefund = false;
+    
+    if (refundableAmount > 0 && totalRefunded >= refundableAmount) {
+      status = "Refunded";
+      isFullyRefunded = true;
+    } else if (refundableAmount > 0 && totalRefunded > 0 && totalRefunded < refundableAmount) {
+      status = "Partial Refund";
+      isPartialRefund = true;
+    } else if (refundableAmount > 0 && totalRefunded === 0) {
+      status = "Pending Refund";
+    } else if (refundableAmount === 0 && totalRefunded > 0) {
+      // Edge case: refund given when refundable amount is 0 (maybe penalty refund)
+      status = "Refunded";
+      isFullyRefunded = true;
+    }
+    
+    return { 
+      status, 
+      amount: totalRefunded, 
+      payments: allRefunds,
+      isFullyRefunded,
+      isPartialRefund
+    };
+  };
+
+  // ── Build past stays from vacate_records ──
+  const pastStays = [...(tenant.vacate_records ?? [])]
+    .sort((a: any, b: any) => new Date(a.requested_vacate_date || 0).getTime() - new Date(a.requested_vacate_date || 0).getTime())
+    .map((vr: any, i: number) => {
+      // Get refund status for this vacate record
+      const refundableAmount = Number(vr.refundable_amount || 0);
+      const refundInfo = getRefundStatusForVacate(vr.id, refundableAmount);
+      
+      return {
+        id: `vacate-${vr.id ?? i}`,
+        stayNumber: i + 1,
+        aadharNumber: tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null),
+        panNumber: tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null),
+        isCurrent: false,
+        property: vr.property_name || assignment?.property?.name || tenant.assigned_property_name || "N/A",
+        room: vr.room_number || assignment?.room?.room_number || "—",
+        bed: vr.bed_number || "—",
+        stayType: tenant.is_couple_booking ? "Couple" : "Single",
+        monthlyRent: Number(vr.rent_amount || 0),
+        checkIn: vr.stay_check_in_date || tenant.check_in_date || null,
+        checkOut: vr.requested_vacate_date || null,
+        securityDeposit: Number(vr.security_deposit_amount || 0),
+        depositPaid: Number(
+          (payments || [])
+            .filter((p: any) => 
+              p.payment_type === "security_deposit" && 
+              (p.status === "paid" || p.status === "approved") &&
+              new Date(p.payment_date) <= new Date(vr.requested_vacate_date)
+            )
+            .reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
+        ),
+        refundAmount: refundableAmount,
+        refundStatus: refundInfo.status,
+        refundPayments: refundInfo.payments,
+        totalRefunded: refundInfo.amount,
+        isFullyRefunded: refundInfo.isFullyRefunded,
+        isPartialRefund: refundInfo.isPartialRefund,
+        totalPenalty: Number(vr.total_penalty_amount || 0),
+        lockinPenalty: Number(vr.lockin_penalty_amount || 0),
+        noticePenalty: Number(vr.notice_penalty_amount || 0),
+        inspectionPenalty: Number(vr.inspection_penalty_amount || 0),
+        vacateReason: vr.vacate_reason_value || "—",
+        lockInPeriod: vr.lockin_period_months ? `${vr.lockin_period_months} months` : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
+        lockinPenaltyType: vr.lockin_penalty_type || tenant.lockin_penalty_type || "fixed",
+        lockinPenaltyAmount: Number(vr.lockin_penalty_amount || tenant.lockin_penalty_amount || 0),
+        noticePeriod: vr.notice_period_days ? `${vr.notice_period_days} days` : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
+        noticePenaltyType: vr.notice_penalty_type || tenant.notice_penalty_type || "fixed",
+        noticePenaltyAmount: Number(vr.notice_penalty_amount || tenant.notice_penalty_amount || 0),
+        partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
+        isVacatedRecord: true,
+        vacateRecordId: vr.id,
+        vacateRecord: vr,
+        // Store the check-in date from vacate record for display
+        stayCheckInDate: vr.stay_check_in_date,
+      };
+    });
+
+  // ── Determine if there is a current stay ──
+  const vacateRecords = tenant.vacate_records ?? [];
+  const lastVacateDate = vacateRecords.length > 0
+    ? new Date(vacateRecords[0].requested_vacate_date)
+    : null;
+
+  const hasCurrentStay = tenant.is_active && tenant.check_in_date && 
+    (!lastVacateDate || new Date(tenant.check_in_date) > lastVacateDate);
+
+  // ── Build current stay ──
   const currentStay = hasCurrentStay
     ? {
         id: "current",
         stayNumber: pastStays.length + 1,
         isCurrent: true,
-        property: assignment?.property?.name || tenant.assigned_property_name || "Roomac Co-Living",
+        property: assignment?.property?.name || tenant.assigned_property_name || "N/A",
         room: assignment?.room?.room_number || "—",
         bed: assignment?.bed_number || "—",
         stayType: tenant.is_couple_booking ? "Couple" : "Single",
@@ -1274,33 +1452,39 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
           if (paymentSummary?.security_deposit_info?.total) return Number(paymentSummary.security_deposit_info.total);
           if (paymentSummary?.security_deposit_info?.paid) return Number(paymentSummary.security_deposit_info.paid);
           if (paymentSummary?.vacate_info?.security_deposit) return Number(paymentSummary.vacate_info.security_deposit);
-          const sdP = (paymentSummary?.payments || []).filter((p: any) =>
+          const sdP = (payments || []).filter((p: any) =>
             p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
           );
           if (sdP.length > 0) return sdP.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
           return 0;
         })(),
-       depositPaid: Number(
-  assignment?.security_deposit ||
-  paymentSummary?.security_deposit_info?.paid ||
-  paymentSummary?.security_deposit_info?.total ||
-  // ← ADD THIS:
-  (payments || [])
-    .filter((p: any) => p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved"))
-    .reduce((s: number, p: any) => s + Number(p.amount || 0), 0) ||
-  0
-),
+        depositPaid: Number(
+          (payments || [])
+            .filter((p: any) => p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved"))
+            .reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
+        ),
         refundAmount: 0,
         refundStatus: null,
         totalPenalty: 0,
+        lockinPenalty: 0,
+        noticePenalty: 0,
+        inspectionPenalty: 0,
         vacateReason: null,
         lockInPeriod: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—",
+        lockinPenaltyType: tenant.lockin_penalty_type || "fixed",
+        lockinPenaltyAmount: Number(tenant.lockin_penalty_amount || 0),
         noticePeriod: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—",
+        noticePenaltyType: tenant.notice_penalty_type || "fixed",
+        noticePenaltyAmount: Number(tenant.notice_penalty_amount || 0),
         partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
         isVacatedRecord: false,
+        vacateRecordId: null,
+        vacateRecord: null,
+        stayCheckInDate: tenant.check_in_date,
       }
     : null;
  
+  // ── Combine and sort all stays (most recent first) ──
   const allStays = [...(currentStay ? [currentStay] : []), ...pastStays].sort((a, b) => b.stayNumber - a.stayNumber);
  
   const stayTypeCfg: Record<string, { bg: string; text: string; ring: string; icon: React.ReactNode }> = {
@@ -1372,7 +1556,7 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
   // ── Top stat cards ──
   const totalStays = allStays.length;
   const lifetimeRent =
-    pastStays.reduce((a, s) => a + s.monthlyRent, 0) /* rough — real per-stay rent totals aren't tracked historically */ +
+    pastStays.reduce((a, s) => a + s.monthlyRent, 0) +
     Number(paymentSummary?.total_rent_paid ?? paymentSummary?.total_paid ?? 0);
   const monthsStayed = (() => {
     let total = 0;
@@ -1387,10 +1571,9 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
     }
     return total;
   })();
- const refundReceived = pastStays.reduce((a, s) => a + (
-    ["approved", "completed", "Completed", "refunded", "Refunded"].includes(s.refundStatus ?? "") 
-      ? s.refundAmount : 0
-  ), 0) + Number(paymentSummary?.vacate_info?.refunded_amount || 0); 
+  
+  const refundReceived = pastStays.reduce((a, s) => a + s.totalRefunded, 0);
+  
   if (allStays.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -1400,9 +1583,9 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
     );
   }
  
-    return (
+  return (
     <div className="space-y-3">
-      {/* Top stat cards - already 2 columns on mobile, fine */}
+      {/* Top stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Total Stays", value: totalStays, bg: "bg-[#1B3FA0]", icon: <Layers size={13} /> },
@@ -1430,7 +1613,7 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
         </button>
       </div>
  
-      {/* Timeline */}
+      {/* Timeline - Note: stays are already sorted with most recent first (Stay #3, #2, #1) */}
       <div className="relative space-y-2.5">
         <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-gray-200 hidden lg:block" />
         {allStays.map(stay => {
@@ -1438,7 +1621,7 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
           const isOpen = expandedStay === stay.id;
           const section = sectionMap[stay.id] ?? "payments";
  
-          // Payments shown for this stay: real list for current stay, derived single-row summary for past stays
+          // Payments shown for this stay
           const stayPayments = stay.isCurrent
             ? payments
             : [
@@ -1448,9 +1631,21 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                 ...(stay.totalPenalty > 0
                   ? [{ id: `${stay.id}-penalty`, payment_date: stay.checkOut, amount: stay.totalPenalty, payment_type: "penalty_payment", payment_mode: "—", month: "", year: "", status: "approved" }]
                   : []),
-                ...(stay.refundAmount > 0
-                  ? [{ id: `${stay.id}-refund`, payment_date: stay.checkOut, amount: stay.refundAmount, payment_type: "deposit_refund", payment_mode: "—", month: "", year: "", status: stay.refundStatus }]
-                  : []),
+                ...(stay.refundPayments && stay.refundPayments.length > 0
+                  ? stay.refundPayments.map((rp: any, idx: number) => ({
+                      id: `refund-${rp.id || idx}`,
+                      payment_date: rp.payment_date || stay.checkOut,
+                      amount: rp.amount || 0,
+                      payment_type: "deposit_refund",
+                      payment_mode: rp.payment_mode || "—",
+                      month: rp.month || "",
+                      year: rp.year || "",
+                      status: rp.status || stay.refundStatus,
+                    }))
+                  : (stay.refundAmount > 0 && stay.refundStatus !== "Not Refunded"
+                    ? [{ id: `${stay.id}-refund`, payment_date: stay.checkOut, amount: stay.refundAmount, payment_type: "deposit_refund", payment_mode: "—", month: "", year: "", status: stay.refundStatus }]
+                    : [])
+                ),
               ];
  
           const stayRentPaid = stay.isCurrent
@@ -1468,7 +1663,7 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                 style={{ transform: "translateX(-50%)" }}
               />
               <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
-                {/* Stay header - reduced padding on mobile */}
+                {/* Stay header */}
                 <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
                   <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
                   <div className="flex-1 min-w-0">
@@ -1478,6 +1673,21 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                       {stay.isCurrent && (
                         <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                           <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500" />Current
+                        </span>
+                      )}
+                      {stay.isFullyRefunded && stay.isVacatedRecord && (
+                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-green-50 text-green-700 ring-1 ring-green-200">
+                          <CheckCircle size={10} /> Refunded
+                        </span>
+                      )}
+                      {stay.isPartialRefund && stay.isVacatedRecord && (
+                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200">
+                          <Clock size={10} /> Partial Refund
+                        </span>
+                      )}
+                      {stay.refundStatus === "Pending Refund" && stay.isVacatedRecord && (
+                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                          <Clock size={10} /> Pending Refund
                         </span>
                       )}
                     </div>
@@ -1552,14 +1762,15 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                               <tbody>
                                 {stayPayments.length === 0 ? (
                                   <tr><td colSpan={5} className="text-center py-6 text-gray-400 text-xs" style={fontStyle}>No payment records</td></tr>
-                                ) : stayPayments.map((p: any) => {
+                                ) : stayPayments.map((p: any, idx: number) => {
                                   const approved = p.status === "approved" || p.status === "paid";
                                   const rejected = p.status === "rejected" || p.status === "failed";
+                                  const isRefund = p.payment_type === "deposit_refund";
                                   const typeKey = p.payment_type || "";
                                   return (
-                                    <tr key={p.id} className={`border-t border-gray-50 hover:bg-gray-50/50 ${rejected ? "bg-red-50/20" : ""}`}>
+                                    <tr key={p.id || idx} className={`border-t border-gray-50 hover:bg-gray-50/50 ${rejected ? "bg-red-50/20" : ""} ${isRefund && approved ? "bg-green-50/20" : ""}`}>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">{p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>
-                                      <td className={`px-2 sm:px-3 py-1.5 sm:py-2 font-bold whitespace-nowrap ${rejected ? "text-red-400 line-through" : "text-gray-900"}`}>{formatINR(p.amount || 0)}</td>
+                                      <td className={`px-2 sm:px-3 py-1.5 sm:py-2 font-bold whitespace-nowrap ${rejected ? "text-red-400 line-through" : isRefund ? "text-green-600" : "text-gray-900"}`}>{formatINR(p.amount || 0)}</td>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap"><span className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold ${typeColor[typeKey] ?? "bg-gray-100 text-gray-600"}`}>{typeDisplay[typeKey] || typeKey || "—"}</span></td>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap capitalize">{p.payment_mode || "—"}</td>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
@@ -1579,14 +1790,14 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                               <p className="text-xs sm:text-sm font-black text-emerald-700">{formatINR(stayRentPaid)}</p>
                             </div>
                             <div className="bg-red-50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-center">
-                              <p className="text-[8px] sm:text-[9px] font-bold text-red-500 uppercase tracking-wider" style={fontStyle}>Penalty</p>
+                              <p className="text-[8px] sm:text-[9px] font-bold text-red-500 uppercase tracking-wider" style={fontStyle}>Total Penalty</p>
                               <p className="text-xs sm:text-sm font-black text-red-600">{formatINR(stay.totalPenalty || 0)}</p>
                             </div>
                           </div>
                         </div>
                       )}
  
-                    {section === "documents" && (
+                      {section === "documents" && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
                             { label: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url },
@@ -1607,36 +1818,110 @@ const hasCurrentStay = tenant.is_active && (assignment || tenant.check_in_date) 
                       )}
  
                       {section === "deposit" && (
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            ["Security Deposit", formatINR(stay.securityDeposit), "text-gray-900"],
-                            ["Deposit Paid", formatINR(stay.depositPaid), "text-emerald-600"],
-                            ...(stay.isVacatedRecord ? [
-                              ["Refund Amount", formatINR(stay.refundAmount ?? 0), "text-blue-600"],
-                              ["Refund Status", stay.refundStatus ?? "N/A", "text-amber-600"],
-                            ] : []),
-                          ].map(([k, v, c]) => (
-                            <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
-                              <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
-                              <p className={`text-xs sm:text-sm font-black mt-0.5 ${c}`} style={fontStyle}>{v}</p>
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              ["Security Deposit", formatINR(stay.securityDeposit), "text-gray-900"],
+                              ["Deposit Paid", formatINR(stay.depositPaid), "text-emerald-600"],
+                              ...(stay.isVacatedRecord ? [
+                                ["Refund Amount", formatINR(stay.refundAmount ?? 0), "text-blue-600"],
+                                ["Total Refunded", formatINR(stay.totalRefunded || 0), 
+                                  stay.isFullyRefunded ? "text-green-600" : 
+                                  stay.isPartialRefund ? "text-yellow-600" : 
+                                  stay.refundStatus === "Pending Refund" ? "text-amber-600" : "text-gray-600"
+                                ],
+                                ["Refund Status", stay.refundStatus ?? "N/A", 
+                                  stay.isFullyRefunded ? "text-green-600" : 
+                                  stay.isPartialRefund ? "text-yellow-600" : 
+                                  stay.refundStatus === "Pending Refund" ? "text-amber-600" : "text-gray-600"
+                                ],
+                              ] : []),
+                            ].map(([k, v, c]) => (
+                              <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
+                                <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
+                                <p className={`text-xs sm:text-sm font-black mt-0.5 ${c}`} style={fontStyle}>{v}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Show refund payments if they exist */}
+                          {stay.refundPayments && stay.refundPayments.length > 0 && (
+                            <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                              <p className="text-[9px] font-semibold text-green-700 mb-1">Refund Payments</p>
+                              {stay.refundPayments.map((rp: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-xs text-green-600 py-0.5 border-b border-green-100 last:border-0">
+                                  <span>{rp.payment_date ? new Date(rp.payment_date).toLocaleDateString("en-IN") : "—"}</span>
+                                  <span className="font-medium">₹{Number(rp.amount).toLocaleString()}</span>
+                                  <span>{rp.payment_mode || "—"}</span>
+                                  <span className="text-[8px]">{rp.status || "approved"}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
                       )}
  
                       {section === "terms" && (
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            ["Lock-in", stay.lockInPeriod],
-                            ["Lock-in Penalty", tenant.lockin_penalty_amount ? (tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}%` : formatINR(tenant.lockin_penalty_amount)) : "—"],
-                            ["Notice", stay.noticePeriod],
-                            ["Notice Penalty", tenant.notice_penalty_amount ? (tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}%` : formatINR(tenant.notice_penalty_amount)) : "—"],
-                          ].map(([k, v]) => (
-                            <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
-                              <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
-                              <p className="text-[10px] sm:text-xs font-bold text-gray-800 mt-0.5" style={fontStyle}>{v}</p>
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              ["Lock-in Period", stay.lockInPeriod],
+                              ["Lock-in Penalty", stay.lockinPenaltyAmount > 0 ? (
+                                stay.lockinPenaltyType === "percentage" 
+                                  ? `${stay.lockinPenaltyAmount}% of rent` 
+                                  : formatINR(stay.lockinPenaltyAmount)
+                              ) : "—"],
+                              ["Notice Period", stay.noticePeriod],
+                              ["Notice Penalty", stay.noticePenaltyAmount > 0 ? (
+                                stay.noticePenaltyType === "percentage" 
+                                  ? `${stay.noticePenaltyAmount}% of rent` 
+                                  : formatINR(stay.noticePenaltyAmount)
+                              ) : "—"],
+                            ].map(([k, v]) => (
+                              <div key={k} className="bg-gray-50 rounded-lg p-2 sm:p-2.5">
+                                <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider font-bold" style={fontStyle}>{k}</p>
+                                <p className="text-[10px] sm:text-xs font-bold text-gray-800 mt-0.5" style={fontStyle}>{v}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Show penalty breakdown for vacated stays */}
+                          {stay.isVacatedRecord && (stay.lockinPenalty > 0 || stay.noticePenalty > 0 || stay.inspectionPenalty > 0) && (
+                            <div className="mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                              <p className="text-[9px] font-semibold text-red-700 mb-1">Penalty Breakdown</p>
+                              <div className="space-y-1 text-xs">
+                                {stay.lockinPenalty > 0 && (
+                                  <div className="flex justify-between text-red-600">
+                                    <span>Lock-in Penalty</span>
+                                    <span className="font-medium">₹{stay.lockinPenalty.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {stay.noticePenalty > 0 && (
+                                  <div className="flex justify-between text-red-600">
+                                    <span>Notice Penalty</span>
+                                    <span className="font-medium">₹{stay.noticePenalty.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {stay.inspectionPenalty > 0 && (
+                                  <div className="flex justify-between text-red-600">
+                                    <span>Inspection Penalty</span>
+                                    <span className="font-medium">₹{stay.inspectionPenalty.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {stay.totalPenalty > 0 && (
+                                  <div className="flex justify-between text-red-700 font-bold border-t border-red-200 pt-1 mt-1">
+                                    <span>Total Penalty</span>
+                                    <span>₹{stay.totalPenalty.toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          ))}
+                          )}
+                          {/* Show vacate reason */}
+                          {stay.vacateReason && stay.vacateReason !== "—" && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                              <p className="text-[9px] font-semibold text-gray-600 mb-1">Vacate Reason</p>
+                              <p className="text-xs text-gray-700">{stay.vacateReason}</p>
+                            </div>
+                          )}
                         </div>
                       )}
  
@@ -1971,173 +2256,142 @@ const [editInitialTab, setEditInitialTab] = useState<string>("basic");
   }
 }, [tid, effectiveTenantIdForPayments]);
 
-  const loadTenant = async () => {
-    try {
-      setLoading(true);
-      const r: any = await getTenantById(tid);
-      if (r?.success && r.data) {
-        let tenantData = r.data;
-        const requestedId = parseInt(tid);
-        const returnedId = tenantData.id;
+const loadTenant = async () => {
+  try {
+    setLoading(true);
+    const r: any = await getTenantById(tid);
+    if (r?.success && r.data) {
+      let tenantData = r.data;
+      const requestedId = parseInt(tid);
+      const returnedId = tenantData.id;
 
-        if (tenantData.is_couple_booking && requestedId !== returnedId) {
-          tenantData = {
-            ...tenantData,
-            id: requestedId,
-            salutation: tenantData.partner_salutation,
-            full_name: tenantData.partner_full_name,
-            email: tenantData.partner_email,
-            phone: tenantData.partner_phone,
-            country_code: tenantData.partner_country_code,
-            gender: tenantData.partner_gender,
-            date_of_birth: tenantData.partner_date_of_birth,
-            address: tenantData.partner_address,
-            occupation: tenantData.partner_occupation,
-            organization: tenantData.partner_organization,
-            partner_salutation: tenantData.salutation,
-            partner_full_name: tenantData.full_name,
-            partner_email: tenantData.email,
-            partner_phone: tenantData.phone,
-            partner_country_code: tenantData.country_code,
-            partner_gender: tenantData.gender,
-            partner_date_of_birth: tenantData.date_of_birth,
-            partner_address: tenantData.address,
-            partner_occupation: tenantData.occupation,
-            partner_organization: tenantData.organization,
-            partner_relationship: tenantData.partner_relationship || "Spouse",
-            id_proof_url: tenantData.partner_id_proof_url,
-            address_proof_url: tenantData.partner_address_proof_url,
-            photo_url: tenantData.partner_photo_url,
-            partner_id_proof_url: tenantData.id_proof_url,
-            partner_address_proof_url: tenantData.address_proof_url,
-            partner_photo_url: tenantData.photo_url,
-            additional_documents: tenantData.partner_additional_documents || [],
-            partner_additional_documents: tenantData.additional_documents || [],
-          };
-        }
-
-        const vacateRecord = tenantData.vacate_records?.[0] ?? null;
-        if (vacateRecord?.rent_amount) tenantData.vacate_rent_amount = vacateRecord.rent_amount;
-
-        let assignmentData = null;
-        let effectiveTenantIdForAssignment = tenantData.id;
-        let foundAssignmentTenant = null;
-
-        if (tenantData.is_couple_booking === 1 || tenantData.is_couple_booking === true) {
-          try {
-            let assignmentResult = await getTenantAssignment(tenantData.id);
-            if (assignmentResult.success && assignmentResult.data) {
-              const raw = Array.isArray(assignmentResult.data) ? assignmentResult.data[0] : assignmentResult.data;
-              if (raw?.id) { effectiveTenantIdForAssignment = tenantData.id; foundAssignmentTenant = tenantData.id; }
-            }
-            if (!foundAssignmentTenant && tenantData.partner_tenant_id) {
-              assignmentResult = await getTenantAssignment(tenantData.partner_tenant_id);
-              if (assignmentResult.success && assignmentResult.data) {
-                const raw = Array.isArray(assignmentResult.data) ? assignmentResult.data[0] : assignmentResult.data;
-                if (raw?.id) { effectiveTenantIdForAssignment = tenantData.partner_tenant_id; foundAssignmentTenant = tenantData.partner_tenant_id; }
-              }
-            }
-            if (!foundAssignmentTenant && tenantData.couple_id) {
-              try {
-                const primaryResult = await getPrimaryTenantByCoupleId(tenantData.couple_id);
-                if (primaryResult.success && primaryResult.data) {
-                  const pid = primaryResult.data.id;
-                  assignmentResult = await getTenantAssignment(pid);
-                  if (assignmentResult.success && assignmentResult.data) {
-                    const raw = Array.isArray(assignmentResult.data) ? assignmentResult.data[0] : assignmentResult.data;
-                    if (raw?.id) { effectiveTenantIdForAssignment = pid; foundAssignmentTenant = pid; }
-                  }
-                }
-              } catch {}
-            }
-          } catch {}
-        } else {
-          const assignmentResult = await getTenantAssignment(tenantData.id);
-          if (assignmentResult.success && assignmentResult.data) {
-            const raw = Array.isArray(assignmentResult.data) ? assignmentResult.data[0] : assignmentResult.data;
-            if (raw?.id) { effectiveTenantIdForAssignment = tenantData.id; foundAssignmentTenant = tenantData.id; }
-          }
-        }
-
-        // Payments always use tenant's own ID
-        setEffectiveTenantIdForPayments(tenantData.id);
-
-        if (vacateRecord) {
-          try {
-            const bedRes = await fetch(`/api/rooms/bed-assignments/${vacateRecord.bed_assignment_id}`);
-            const bedResult = await bedRes.json();
-            if (bedResult.success && bedResult.data) {
-              const bedData = bedResult.data;
-              const roomRes = await fetch(`/api/rooms/${bedData.room_id}`);
-              const roomResult = await roomRes.json();
-              if (roomResult.success && roomResult.data) {
-                const roomData = roomResult.data;
-                const propRes = await fetch(`/api/properties/${roomData.property_id}`);
-                const propResult = await propRes.json();
-                assignmentData = {
-                  id: bedData.id, bed_number: bedData.bed_number, bed_type: bedData.bed_type,
-                  tenant_rent: bedData.tenant_rent, security_deposit: raw.security_deposit, is_couple: bedData.is_couple === 1,
-                  is_vacated: true, vacated_date: vacateRecord.requested_vacate_date,
-                  room: { id: roomData.id, room_number: roomData.room_number, floor: roomData.floor, sharing_type: roomData.sharing_type },
-                  property: { id: propResult.data.id, name: propResult.data.name, address: propResult.data.address },
-                };
-              }
-            }
-          } catch {}
-        } else {
-          const assignmentResult = await getTenantAssignment(effectiveTenantIdForAssignment);
-          if (assignmentResult.success && assignmentResult.data) {
-            let raw = assignmentResult.data;
-            if (Array.isArray(raw) && raw.length > 0) raw = raw[0];
-            if (raw?.id) {
-              assignmentData = {
-                id: raw.id, bed_number: raw.bed_number, bed_type: raw.bed_type,
-                tenant_rent: raw.tenant_rent,security_deposit: raw.security_deposit, is_couple: raw.is_couple === 1 || raw.is_couple === true,
-                room: { id: raw.room?.id || raw.room_id, room_number: raw.room?.room_number || raw.room_number, floor: raw.room?.floor || raw.floor, sharing_type: raw.room?.sharing_type || raw.sharing_type },
-                property: { id: raw.property?.id || raw.property_id, name: raw.property?.name || raw.property_name },
-              };
-              if (tenantData.is_primary_tenant === 0 && assignmentData.tenant_rent) {
-                tenantData.monthly_rent = assignmentData.tenant_rent;
-              }
-            }
-          }
-        }
-
-        setAssignment(assignmentData);
-        setTenant(tenantData);
-
-        if (tenantData.partner_full_name) {
-          setPartnerDetails({
-            salutation: tenantData.partner_salutation || "Mr.",
-            full_name: tenantData.partner_full_name || "",
-            country_code: tenantData.partner_country_code || "",
-            phone: tenantData.partner_phone || "",
-            email: tenantData.partner_email || "",
-            gender: tenantData.partner_gender || "",
-            date_of_birth: tenantData.partner_date_of_birth || "",
-            address: tenantData.partner_address || "",
-            occupation: tenantData.partner_occupation || "",
-            organization: tenantData.partner_organization || "",
-            relationship: tenantData.partner_relationship || "Spouse",
-            id_proof_type: tenantData.partner_id_proof_type || "",
-            id_proof_number: tenantData.partner_id_proof_number || "",
-            id_proof_url: tenantData.partner_id_proof_url || null,
-            address_proof_type: tenantData.partner_address_proof_type || "",
-            address_proof_number: tenantData.partner_address_proof_number || "",
-            address_proof_url: tenantData.partner_address_proof_url || null,
-            photo_url: tenantData.partner_photo_url || null,
-          });
-        }
-      } else {
-        setError("Failed to load tenant details");
+      // ✅ Handle couple booking partner swap
+      if (tenantData.is_couple_booking && requestedId !== returnedId) {
+        tenantData = {
+          ...tenantData,
+          id: requestedId,
+          salutation: tenantData.partner_salutation,
+          full_name: tenantData.partner_full_name,
+          email: tenantData.partner_email,
+          phone: tenantData.partner_phone,
+          country_code: tenantData.partner_country_code,
+          gender: tenantData.partner_gender,
+          date_of_birth: tenantData.partner_date_of_birth,
+          address: tenantData.partner_address,
+          occupation: tenantData.partner_occupation,
+          organization: tenantData.partner_organization,
+          partner_salutation: tenantData.salutation,
+          partner_full_name: tenantData.full_name,
+          partner_email: tenantData.email,
+          partner_phone: tenantData.phone,
+          partner_country_code: tenantData.country_code,
+          partner_gender: tenantData.gender,
+          partner_date_of_birth: tenantData.date_of_birth,
+          partner_address: tenantData.address,
+          partner_occupation: tenantData.occupation,
+          partner_organization: tenantData.organization,
+          partner_relationship: tenantData.partner_relationship || "Spouse",
+          id_proof_url: tenantData.partner_id_proof_url,
+          address_proof_url: tenantData.partner_address_proof_url,
+          photo_url: tenantData.partner_photo_url,
+          partner_id_proof_url: tenantData.id_proof_url,
+          partner_address_proof_url: tenantData.address_proof_url,
+          partner_photo_url: tenantData.photo_url,
+          additional_documents: tenantData.partner_additional_documents || [],
+          partner_additional_documents: tenantData.additional_documents || [],
+        };
       }
-    } catch (err) {
-      console.error(err);
-      setError("An error occurred while fetching tenant details");
-    } finally {
-      setLoading(false);
+
+      // ✅ Get current_assignment from the response
+      const assignmentData = tenantData.current_assignment || null;
+      
+      // ✅ Determine if this is a current stay or vacated stay
+      const isVacated = tenantData.is_vacated === true || 
+                        (tenantData.vacate_records && tenantData.vacate_records.length > 0 && !tenantData.is_active);
+      
+      // ✅ For active tenants with assignment, use assignment data
+      if (tenantData.is_active && assignmentData && !assignmentData.is_vacated) {
+        // ✅ Current stay - use assignment data
+        tenantData.assigned_property_name = assignmentData.property?.name || null;
+        tenantData.assigned_room_number = assignmentData.room?.room_number || null;
+        tenantData.assigned_bed_number = assignmentData.bed_number || null;
+        tenantData.monthly_rent = assignmentData.tenant_rent || 0;
+        tenantData.security_deposit = assignmentData.security_deposit || 0;
+        tenantData.room_number = assignmentData.room?.room_number || null;
+        tenantData.bed_number = assignmentData.bed_number || null;
+        tenantData.property_name = assignmentData.property?.name || null;
+        tenantData.property_id = assignmentData.property?.id || null;
+        tenantData.room_id = assignmentData.room?.id || null;
+      } else if (isVacated && tenantData.vacate_records && tenantData.vacate_records.length > 0) {
+        // ✅ Vacated stay - use latest vacate record
+        const latestVacate = tenantData.vacate_records[0];
+        tenantData.vacated_date = latestVacate.requested_vacate_date;
+        tenantData.vacate_rent_amount = latestVacate.rent_amount || 0;
+        tenantData.vacate_security_deposit = latestVacate.security_deposit_amount || 0;
+        // Use the vacate record's property/room info for display
+        tenantData.assigned_property_name = latestVacate.property_name || null;
+        tenantData.assigned_room_number = latestVacate.room_number || null;
+        tenantData.assigned_bed_number = latestVacate.bed_number || null;
+      }
+
+      // ✅ Set assignment state
+      setAssignment(assignmentData);
+
+      // ✅ Set effective tenant ID for payments
+      let effectiveId = tenantData.id;
+      if (tenantData.is_couple_booking && !assignmentData) {
+        // Try partner's assignment if this tenant doesn't have one
+        if (tenantData.partner_tenant_id) {
+          const partnerAssignment = await getTenantAssignment(tenantData.partner_tenant_id);
+          if (partnerAssignment.success && partnerAssignment.data) {
+            const raw = Array.isArray(partnerAssignment.data) ? partnerAssignment.data[0] : partnerAssignment.data;
+            if (raw?.id) {
+              effectiveId = tenantData.partner_tenant_id;
+            }
+          }
+        }
+      }
+      setEffectiveTenantIdForPayments(effectiveId);
+
+      // ✅ Process vacate records for history
+      const vacateRecord = tenantData.vacate_records?.[0] ?? null;
+      if (vacateRecord?.rent_amount) tenantData.vacate_rent_amount = vacateRecord.rent_amount;
+
+      setTenant(tenantData);
+
+      // ✅ Set partner details (unchanged)
+      if (tenantData.partner_full_name) {
+        setPartnerDetails({
+          salutation: tenantData.partner_salutation || "Mr.",
+          full_name: tenantData.partner_full_name || "",
+          country_code: tenantData.partner_country_code || "",
+          phone: tenantData.partner_phone || "",
+          email: tenantData.partner_email || "",
+          gender: tenantData.partner_gender || "",
+          date_of_birth: tenantData.partner_date_of_birth || "",
+          address: tenantData.partner_address || "",
+          occupation: tenantData.partner_occupation || "",
+          organization: tenantData.partner_organization || "",
+          relationship: tenantData.partner_relationship || "Spouse",
+          id_proof_type: tenantData.partner_id_proof_type || "",
+          id_proof_number: tenantData.partner_id_proof_number || "",
+          id_proof_url: tenantData.partner_id_proof_url || null,
+          address_proof_type: tenantData.partner_address_proof_type || "",
+          address_proof_number: tenantData.partner_address_proof_number || "",
+          address_proof_url: tenantData.partner_address_proof_url || null,
+          photo_url: tenantData.partner_photo_url || null,
+        });
+      }
+    } else {
+      setError("Failed to load tenant details");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setError("An error occurred while fetching tenant details");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const loadPayments = async () => {
     setLoadingPayments(true);
@@ -2263,8 +2517,8 @@ const handleUploadDoc = (docType: string) => {
     <div className=" bg-slate-100" style={fontStyle}>
       <div className="max-w-9xl mx-auto px-2 sm:px-2 py-4 space-y-3">
 
-        {/* ── Tenant Header (Roomac brand dark) ── */}
-     <div className="rounded-xl shadow-lg overflow-hidden border border-[#0D2567]/40" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 100%)" }}>
+{/* ── Tenant Header (Roomac brand dark) ── */}
+<div className="rounded-xl shadow-lg overflow-hidden border border-[#0D2567]/40" style={{ background: "linear-gradient(135deg, #0D2567 0%, #1B3FA0 100%)" }}>
   <div className="overflow-x-auto">
     <div className="flex items-stretch min-h-[50px] sm:min-h-[60px] flex-nowrap w-max sm:w-full px-2 sm:px-0 py-2 sm:py-0">
 
@@ -2289,8 +2543,8 @@ const handleUploadDoc = (docType: string) => {
             {tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}
           </span>
           <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
-            <BadgePill variant={tenant.is_active ? "green" : vacateRecord ? "red" : "gray"}>
-              {tenant.is_active ? "Active" : vacateRecord ? "Vacated" : "Inactive"}
+            <BadgePill variant={tenant.is_active ? "green" : "gray"}>
+              {tenant.is_active ? "Active" : "Inactive"}
             </BadgePill>
             <span className="text-[8px] sm:text-[9px] text-blue-300 font-mono">#{tenant.id}</span>
           </div>
@@ -2300,10 +2554,41 @@ const handleUploadDoc = (docType: string) => {
       {/* Centre — stat pills (flex row on mobile, grid on desktop) */}
       <div className="flex-1 flex flex-nowrap sm:grid sm:grid-cols-4 divide-x divide-white/10 min-w-0">
         {[
-          { title: "Member Since", value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A", icon: <CalendarDays size={9} className="sm:size-[11px]" />, color: "text-[#F5A623]" },
-          { title: "Monthly Rent", value: rentVal, icon: <IndianRupee size={9} className="sm:size-[11px]" />, color: "text-emerald-400" },
-          { title: "Room / Bed", value: roomVal, icon: <BedDouble size={9} className="sm:size-[11px]" />, color: "text-violet-300" },
-          { title: "Property", value: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned", icon: <Building2 size={9} className="sm:size-[11px]" />, color: "text-amber-300" },
+          { 
+            title: "Member Since", 
+            value: tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A", 
+            icon: <CalendarDays size={9} className="sm:size-[11px]" />, 
+            color: "text-[#F5A623]" 
+          },
+          { 
+            title: "Monthly Rent", 
+            // ✅ FIX: Use current assignment rent if available
+            value: (() => {
+              if (assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
+              if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
+              return "N/A";
+            })(),
+            icon: <IndianRupee size={9} className="sm:size-[11px]" />, 
+            color: "text-emerald-400" 
+          },
+          { 
+            title: "Room / Bed", 
+            // ✅ FIX: Use current assignment room/bed if available
+            value: (() => {
+              if (assignment) return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
+              if (tenant.bed_number) return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
+              return "Not Assigned";
+            })(),
+            icon: <BedDouble size={9} className="sm:size-[11px]" />, 
+            color: "text-violet-300" 
+          },
+          { 
+            title: "Property", 
+            // ✅ FIX: Use current assignment property if available
+            value: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned", 
+            icon: <Building2 size={9} className="sm:size-[11px]" />, 
+            color: "text-amber-300" 
+          },
         ].map(({ title, value, icon, color }) => (
           <div key={title} className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 hover:bg-white/5 transition-colors min-w-0 flex-shrink-0">
             <span className={`flex-shrink-0 ${color}`}>{icon}</span>
@@ -2315,7 +2600,7 @@ const handleUploadDoc = (docType: string) => {
         ))}
       </div>
 
-      {/* Right — created + vacated */}
+      {/* Right — created + vacated (only show vacated if actually vacated) */}
       <div className="flex flex-col justify-center items-end gap-1 px-2 sm:px-4 py-2 sm:py-3 flex-shrink-0 border-l border-white/10">
         <div className="flex flex-col items-end gap-0.5">
           <p className="text-[8px] sm:text-[9px] font-bold text-blue-300 uppercase tracking-widest">Created</p>
@@ -2324,12 +2609,13 @@ const handleUploadDoc = (docType: string) => {
             {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
           </div>
         </div>
-        {vacateRecord && (
+        {/* ✅ FIX: Only show vacated date if tenant is actually vacated (no active assignment) */}
+        {!tenant.is_active && tenant.vacate_records?.length > 0 && !assignment && (
           <div className="flex flex-col items-end gap-0.5">
             <p className="text-[8px] sm:text-[9px] font-bold text-blue-300 uppercase tracking-widest">Vacated</p>
             <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] font-bold text-red-400">
               <LogOut size={8} className="sm:size-[10px]" />
-              {new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+              {new Date(tenant.vacate_records[0].requested_vacate_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
             </div>
           </div>
         )}

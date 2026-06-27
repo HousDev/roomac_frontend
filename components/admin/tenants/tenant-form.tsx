@@ -1210,27 +1210,49 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const formDataToSend = new FormData();
     
-    // ✅ Append tenant data - SKIP is_reassignment AND check_in_date
-    // Append tenant data - SKIP is_reassignment AND check_in_date
-Object.keys(formData).forEach((key) => {
-  // ✅ Skip is_reassignment and check_in_date - handled explicitly below
-  if (key === "is_reassignment" || key === "check_in_date") return;
-  
-  const value = formData[key as keyof typeof formData];
-  if (value !== undefined && value !== null && value !== "") {
-    // Special handling for is_active - convert to 1 or 0
-    if (key === "is_active") {
-      formDataToSend.append(key, value === true || value === "true" || value === 1 || value === "1" ? "1" : "0");
-    } else if (key === "date_of_birth" && value) {
-      const dateValue = new Date(String(value));
-      if (!isNaN(dateValue.getTime())) {
-        formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
+     // Append tenant data - SKIP is_reassignment AND check_in_date
+    Object.keys(formData).forEach((key) => {
+      // ✅ Skip is_reassignment and check_in_date - handled explicitly below
+      if (key === "is_reassignment" || key === "check_in_date") return;
+      
+      const value = formData[key as keyof typeof formData];
+      if (value !== undefined && value !== null && value !== "") {
+        // Special handling for is_active - convert to 1 or 0
+        if (key === "is_active") {
+          formDataToSend.append(key, value === true || value === "true" || value === 1 || value === "1" ? "1" : "0");
+        } else if (key === "date_of_birth" && value) {
+          const dateValue = new Date(String(value));
+          if (!isNaN(dateValue.getTime())) {
+            formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
+          }
+        } else {
+          formDataToSend.append(key, String(value));
+        }
       }
-    } else {
-      formDataToSend.append(key, String(value));
+    });
+
+    // ✅ FIX: Send check_in_date for BOTH create AND update
+    // Always send check_in_date if it exists in formData
+    const newCheckInDate = formData.check_in_date;
+    if (newCheckInDate) {
+      // Ensure it's in YYYY-MM-DD format
+      try {
+        const date = new Date(newCheckInDate);
+        if (!isNaN(date.getTime())) {
+          const formattedDate = date.toISOString().split('T')[0];
+          formDataToSend.append("check_in_date", formattedDate);
+          console.log('📤 Sending formatted check_in_date (create/update):', formattedDate);
+        } else {
+          // If it's already formatted, send as is
+          formDataToSend.append("check_in_date", newCheckInDate);
+          console.log('📤 Sending check_in_date as-is:', newCheckInDate);
+        }
+      } catch (e) {
+        // Fallback: send as is
+        formDataToSend.append("check_in_date", newCheckInDate);
+        console.log('📤 Sending check_in_date (fallback):', newCheckInDate);
+      }
     }
-  }
-});
 
     // Append credential info
     if (createCredentials) {
@@ -2976,8 +2998,11 @@ if (tenant?.id) {
     <Input
       type="date"
       value={formData.check_in_date}
-     
-      onChange={(e) => handleCheckInDateChange(e.target.value)}
+      onChange={(e) => {
+        const newDate = e.target.value;
+        console.log('📅 Check-in date changed to:', newDate);
+        handleInputChange("check_in_date", newDate);
+      }}
       className={`pl-8 ${F}`}
     />
   </div>
