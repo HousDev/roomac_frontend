@@ -185,8 +185,8 @@ function FieldInput({ variable, formData, setFormData, required = false }: {
 
   const cls = `w-full px-2.5 text-[11px] border rounded-md transition-all font-medium outline-none
     ${filled
-      ? "border-green-300 bg-green-50/40 focus:border-green-400 focus:ring-1 focus:ring-green-100"
-      : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100"}`;
+      ? "border-gray-200 bg-green-50/40 focus:border-green-100 focus:ring-1 focus:ring-green-100"
+      : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-200 focus:ring-1 focus:ring-blue-100"}`;
 
   return (
     <div>
@@ -971,20 +971,7 @@ const generatePreview = () => {
 
       {/* ── STICKY HEADER ── */}
       <div className="sticky top-16 z-10 pb-2">
-        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-          
-            {isMulti && step >= 3 && (
-              <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1.5 shadow-sm text-[11px]">
-                <Users className="h-3 w-3 text-indigo-500 flex-shrink-0" />
-                <span className="font-semibold text-indigo-700">
-                  {queueIndex + 1} / {tenantQueue.length} tenants
-                </span>
-              </div>
-            )}
-          </div>
         
-        </div>
 
         {/* Stats */}
      <div className="grid grid-cols-3 gap-1.5 mb-2">
@@ -1005,330 +992,436 @@ const generatePreview = () => {
       </div>
 
       {/* ══ STEP 1: Templates ══ */}
-      {step === 1 && (
-        <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-            <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-              <LayoutTemplate className="h-4 w-4 text-blue-600" />Choose Template ({filteredTpls.length})
-            </span>
-            {(tplSearch || catFilter !== "All") && (
-              <button onClick={() => { setTplSearch(""); setCatFilter("All"); }} className="text-[10px] text-blue-600 font-semibold">Clear</button>
-            )}
-          </div>
-          <div className="px-3 py-2 border-b bg-gray-50/50 flex gap-2">
-          <div className="w-1/2 relative">
-  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-  <Input placeholder="Search templates…" value={tplSearch} onChange={e => setTplSearch(e.target.value)} className="h-8 pl-8 text-[11px] bg-white border-gray-200 w-full" />
-</div>
-            <Select value={catFilter} onValueChange={setCatFilter}>
-              <SelectTrigger className="h-8 w-[160px] text-[11px] bg-white border-gray-200"><SelectValue /></SelectTrigger>
-              <SelectContent>{TPL_CATS.map(c => <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="p-3" style={{ maxHeight:"calc(100vh - 310px)", overflowY:"auto" }}>
-            {loadingTpls ? (
-              <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
-            ) : filteredTpls.length === 0 ? (
-              <div className="text-center py-12"><LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-2" /><p className="text-sm font-medium text-gray-500">No templates found</p></div>
-            ) : (
-<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">                {filteredTpls.map(t => (
-                  <button key={t.id} onClick={() => handleTemplateSelect(t)}
-                    className="text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all group relative">
-                    {t.is_active && <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-green-500" />}
-                    <div className="flex items-start gap-2 mb-2">
-                      {t.logo_url ? (
-                        <img src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`} alt=""
-                          className="h-7 w-10 object-contain rounded border border-gray-100 bg-gray-50 p-0.5 flex-shrink-0"
-                          onError={e => (e.currentTarget.style.display = "none")} />
-                      ) : (
-                        <div className="h-7 w-7 rounded bg-blue-50 flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-3.5 w-3.5 text-blue-500" />
-                        </div>
-                      )}
-                      <p className="text-[11px] font-black text-gray-800 group-hover:text-blue-700 leading-tight line-clamp-2">{t.name}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0">{t.category}</Badge>
-                      <Badge className="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[9px] px-1.5 py-0">v{t.version}</Badge>
-                      <span className="text-[9px] text-gray-400 ml-auto">{t.variables?.length || 0} vars</span>
-                    </div>
-                    {t.description && <p className="text-[9px] text-gray-400 mt-1.5 line-clamp-1">{t.description}</p>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
+     {step === 1 && (
+  <div className="space-y-3 border rounded-2xl px-2 ">
+    {/* Header + Search/Filter */}
+   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
 
-      {/* ══ STEP 2: Select Tenant(s) ══ */}
-      {step === 2 && selTemplate && (
-        <Card className="border rounded-lg shadow-sm">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                <Users className="h-4 w-4 text-green-600" />Select Tenant(s)
-              </span>
-              {filteredTenantList.length > 0 && (
-                <button onClick={toggleSelectAll}
-                  className={`inline-flex items-center gap-1 h-6 px-2 rounded-md border text-[10px] font-semibold transition-all
-                    ${allSelected ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400 hover:text-indigo-600"}`}>
-                  {allSelected
-                    ? <><CheckSquare className="h-3 w-3" />All ({filteredTenantList.length})</>
-                    : <><Square className="h-3 w-3" />Select All</>
-                  }
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {(fetchingDetail || loadingExclusions) && (
-                <div className="flex items-center gap-1 text-[11px] text-blue-600">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {loadingExclusions ? "Checking docs…" : "Fetching…"}
-                </div>
-              )}
-              <button onClick={skipTenant} className="h-7 px-2.5 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 hover:bg-gray-50">Skip →</button>
-            </div>
-          </div>
+  {/* Left Section */}
+  <div className="flex items-center gap-2">
+    <LayoutTemplate className="h-4 w-4 text-blue-600" />
 
-          {/* ── Filter row ── */}
-       <div className="px-3 py-2 border-b bg-gray-50/50">
-  
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+    <span className="text-sm font-semibold text-gray-700">
+      Choose Template ({filteredTpls.length})
+    </span>
 
-    {/* 🔍 Search (50%) */}
-    <div className="relative w-full">
+    {(tplSearch || catFilter !== "All") && (
+      <button
+        onClick={() => {
+          setTplSearch("");
+          setCatFilter("All");
+        }}
+        className="text-[10px] text-blue-600 font-semibold hover:underline"
+      >
+        Clear
+      </button>
+    )}
+  </div>
+
+  {/* Search + Filter */}
+<div className="flex items-center gap-2 sm:ml-4 mt-2 sm:mt-3">
+      <div className="relative w-52">
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+
       <Input
-        placeholder="Search name, phone, email…"
-        value={tenantSearch}
-        onChange={e => setTenantSearch(e.target.value)}
-        className="h-8 pl-8 text-[11px] bg-white border-gray-200 w-full"
+        placeholder="Search templates..."
+        value={tplSearch}
+        onChange={(e) => setTplSearch(e.target.value)}
+        className="h-8 pl-8 text-[11px] bg-white border-gray-200"
       />
     </div>
 
-    {/* 🎯 Filters (50%) */}
-   <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-hide">
+    <Select value={catFilter} onValueChange={setCatFilter}>
+      <SelectTrigger className="h-8 w-32 text-[11px] bg-white border-gray-200">
+        <SelectValue />
+      </SelectTrigger>
 
-  {/* Status */}
-  <div className="flex rounded-lg border border-gray-200 overflow-hidden bg-white flex-shrink-0">
-    {(["all","active","inactive"] as const).map(s => (
-      <button
-        key={s}
-        onClick={() => setFilterStatus(s)}
-        className={`h-8 px-2.5 text-[10px] font-semibold transition-colors
-          ${filterStatus === s ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-      >
-        {s === "all" ? "All" : s === "active" ? "Active" : "Inactive"}
-      </button>
-    ))}
+      <SelectContent>
+        {TPL_CATS.map((c) => (
+          <SelectItem key={c} value={c} className={SI}>
+            {c}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   </div>
 
-  {/* Property */}
-  <Select
-    value={filterPropertyId}
-    onValueChange={v => {
-      setFilterPropertyId(v);
-      setFilterFloor("all");
-    }}
-  >
-    <SelectTrigger className="h-8 w-[130px] text-[11px] bg-white border-gray-200 flex-shrink-0">
-      <SelectValue placeholder="All Properties" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all" className={SI}>All Properties</SelectItem>
-      {propertyOptions.map(p => (
-        <SelectItem key={p.id} value={p.id} className={SI}>
-          {p.name}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
+</div>
 
-  {/* Floor */}
-  <Select value={filterFloor} onValueChange={setFilterFloor}>
-    <SelectTrigger className="h-8 w-[90px] text-[11px] bg-white border-gray-200 flex-shrink-0">
-      <SelectValue placeholder="Floor" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all" className={SI}>All Floors</SelectItem>
-      {floorOptions.map(f => (
-        <SelectItem key={f} value={f} className={SI}>
-          Floor {f}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-
-  {/* Clear */}
-  {(filterPropertyId !== "all" ||
-    filterFloor !== "all" ||
-    filterStatus !== "active" ||
-    tenantSearch) && (
-    <button
-      onClick={() => {
-        setFilterPropertyId("all");
-        setFilterFloor("all");
-        setFilterStatus("active");
-        setTenantSearch("");
-      }}
-      className="h-8 px-2 rounded-lg border border-gray-200 bg-white text-[10px] font-medium text-gray-500 hover:bg-gray-50 flex-shrink-0"
+    {/* Template Grid */}
+    <div
+      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 px-2 py-4  bg-gray-100"
+      style={{ maxHeight: "calc(100vh - 310px)", overflowY: "auto" }}
     >
-      <X className="h-3 w-3 inline mr-0.5" />
-      Clear
-    </button>
-  )}
-
-</div>
-
-  </div>
-</div>
-
-          {/* Status / exclusion bar */}
-          <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2 text-[10px]">
-            <span className="text-gray-500 flex items-center gap-1.5">
-              {loadingPropData && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
-              Showing <span className="font-semibold text-gray-700">{filteredTenantList.length}</span> of {tenantList.length} tenants
-              {excludedTenantIds.size > 0 && <span className="text-orange-500 ml-1">({excludedTenantIds.size} already have this doc — hidden)</span>}
-            </span>
-            {selectedTenantIds.size > 0 && (
-              <span className="text-indigo-600 font-semibold">{selectedTenantIds.size} selected</span>
+      {loadingTpls ? (
+        <div className="col-span-full flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      ) : filteredTpls.length === 0 ? (
+        <div className="col-span-full text-center py-12">
+          <LayoutTemplate className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm font-medium text-gray-500">No templates found</p>
+        </div>
+      ) : (
+        filteredTpls.map(t => (
+          <button
+            key={t.id}
+            onClick={() => handleTemplateSelect(t)}
+            className="text-left p-2.5 bg-white rounded-xl hover:bg-blue-50 transition-all group relative shadow-sm hover:shadow-md"
+          >
+            {t.is_active && (
+              <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-green-500" />
             )}
-          </div>
-
-          {/* Multi-select action bar */}
-          {selectedTenantIds.size > 0 && (
-            <div className="px-3 py-2 bg-indigo-50 border-b border-indigo-200 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-indigo-600 flex-shrink-0" />
-                <span className="text-[11px] font-semibold text-indigo-700">
-                  {selectedTenantIds.size} selected — fill details for each one by one
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => setSelectedTenantIds(new Set())}
-                  className="h-7 px-2 rounded-md border border-indigo-200 bg-white text-[10px] font-medium text-indigo-600 hover:bg-indigo-50">
-                  Clear
-                </button>
-                <button onClick={handleMultiProceed} disabled={fetchingDetail}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold disabled:opacity-50">
-                  {fetchingDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
-                  Fill Details for {selectedTenantIds.size} →
-                </button>
-              </div>
+            <div className="flex items-start gap-2 mb-1.5">
+              {t.logo_url ? (
+                <img
+                  src={t.logo_url.startsWith("http") ? t.logo_url : `${API_BASE}${t.logo_url}`}
+                  alt=""
+                  className="h-6 w-10 object-contain rounded border border-gray-100 bg-gray-50 p-0.5 flex-shrink-0"
+                  onError={e => (e.currentTarget.style.display = "none")}
+                />
+              ) : (
+                <div className="h-6 w-6 rounded bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-3 w-3 text-blue-500" />
+                </div>
+              )}
+              <p className="text-[11px] font-semibold text-gray-800 group-hover:text-blue-700 leading-tight line-clamp-2">
+                {t.name}
+              </p>
             </div>
-          )}
-
-          {/* Tenant grid */}
-          <div className="p-3" style={{ maxHeight:"calc(100vh - 440px)", overflowY:"auto" }}>
-            {loadingTenants ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-blue-600" /></div>
-            ) : filteredTenantList.length === 0 ? (
-              <div className="text-center py-10">
-                <User className="h-9 w-9 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm font-medium text-gray-500">
-                  {excludedTenantIds.size > 0 ? "All tenants already have this document" : "No tenants found"}
-                </p>
-                <button onClick={() => { setFilterPropertyId("all"); setFilterFloor("all"); setFilterStatus("all"); setTenantSearch(""); }}
-                  className="mt-2 text-[11px] text-blue-600 underline">Clear all filters</button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-1.5">
-                {filteredTenantList.map((t: any) => {
-                  const tid     = Number(t.id);
-                  const checked = selectedTenantIds.has(tid);
-                  const isActive = t.is_active === true || t.is_active === 1;
-                  // Use lookup data (from rooms API) for accurate property/floor/room
-                  const lk           = tenantPropertyLookup[tid];
-                  const displayProp  = lk?.propertyName  || t.property_name || t.assigned_property_name || "";
-                  const displayRoom  = lk?.roomNumber     || t.room_number   || t.assigned_room_number   || "";
-                  const displayFloor = lk?.floor          || getFloorFromRoom(displayRoom);
-                  return (
-                    <div key={t.id}
-                      className={`relative rounded-lg border-2 transition-all group
-                        ${checked
-                          ? "border-indigo-500 bg-indigo-50/60 shadow-sm"
-                          : "border-gray-200 bg-white hover:border-green-400 hover:shadow-md"}`}>
-                      {/* Checkbox */}
-                      <button onClick={e => toggleTenant(tid, e)}
-                        className="absolute top-1.5 left-1.5 z-10 p-0"
-                        title={checked ? "Deselect" : "Add to selection"}>
-                        {checked
-                          ? <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
-                          : <Square className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-500" />
-                        }
-                      </button>
-                      {/* Inactive badge */}
-                      {!isActive && (
-                        <span className="absolute top-2 right-2 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-semibold">Inactive</span>
-                      )}
-                      {/* Card body — single click */}
-                      <button onClick={() => !fetchingDetail && handleSingleTenantSelect(t)}
-                        disabled={fetchingDetail}
-                        className="w-full text-left p-2 pl-7 disabled:opacity-60"
-                        title="Click to create document for this tenant only">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-white font-black text-[11px]
-                            ${isActive ? "bg-gradient-to-br from-blue-500 to-indigo-600" : "bg-gray-400"}`}>
-                            {(t.full_name || "?").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-[10px] font-black truncate leading-tight ${checked ? "text-indigo-700" : "text-gray-800 group-hover:text-green-700"}`}>
-                              {t.full_name}
-                            </p>
-                            {displayProp && (
-                              <p className="text-[8px] text-gray-400 flex items-center gap-0.5 truncate leading-tight">
-                                <Building2 className="h-2 w-2 flex-shrink-0" />
-                                {displayProp}
-                              </p>
-                            )}
-                          </div>
-                          {displayRoom && (
-                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <Badge className={`text-[8px] px-1 py-0 leading-tight ${checked ? "bg-indigo-100 text-indigo-700 border-indigo-200" : "bg-green-50 text-green-700 border-green-200"}`}>
-                                R{displayRoom}
-                              </Badge>
-                              {displayFloor && (
-                                <span className="text-[8px] text-gray-400">F{displayFloor}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-0.5 mt-1">
-                          {t.phone && <p className="text-[9px] text-gray-500 flex items-center gap-0.5"><Phone className="h-2 w-2 text-gray-400 flex-shrink-0" />{t.phone}</p>}
-                          {t.email && <p className="text-[9px] text-gray-400 flex items-center gap-0.5 truncate hidden sm:flex"><Mail className="h-2 w-2 text-gray-400 flex-shrink-0" />{t.email}</p>}
-                          {(t.monthly_rent || t.rent_per_bed) && (
-                            <p className="text-[9px] text-green-600 flex items-center gap-0.5 font-medium">
-                              <IndianRupee className="h-2 w-2 text-green-500 flex-shrink-0" />{money(t.monthly_rent || t.rent_per_bed)}/mo
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-100 text-[9px] px-1.5 py-0 border-0">
+                {t.category}
+              </Badge>
+              <Badge className="bg-indigo-50 text-indigo-600 text-[9px] px-1.5 py-0 border-0">
+                v{t.version}
+              </Badge>
+              <span className="text-[9px] text-gray-400 ml-auto">
+                {t.variables?.length || 0} vars
+              </span>
+            </div>
+            {t.description && (
+              <p className="text-[9px] text-gray-400 mt-1 leading-tight line-clamp-1">
+                {t.description}
+              </p>
             )}
+          </button>
+        ))
+      )}
+    </div>
+  </div>
+)}
+
+      {/* ══ STEP 2: Select Tenant(s) ══ */}
+    {step === 2 && selTemplate && (
+  <div className="bg-gray-100/60 rounded-2xl shadow-sm border">
+    {/* ── Header: Back | Select Tenant(s) | Skip ── */}
+    <div className="bg-white rounded-t-2xl px-4 py-3 flex items-center justify-between gap-3 border">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => { setStep(1); setSelTemplate(null); }}
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 text-[11px] font-medium transition-colors"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
+        </button>
+
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-semibold text-gray-700">
+            Select Tenant(s)
+          </span>
+          {filteredTenantList.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className={`inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-semibold transition-all
+                ${allSelected
+                  ? "bg-indigo-600 text-white"
+                  : "bg-gray-100/70 text-gray-600 hover:bg-gray-200/70"
+                }`}
+            >
+              {allSelected
+                ? <><CheckSquare className="h-3 w-3" />All ({filteredTenantList.length})</>
+                : <><Square className="h-3 w-3" />Select All</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {(fetchingDetail || loadingExclusions) && (
+          <div className="flex items-center gap-1 text-[11px] text-blue-600">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {loadingExclusions ? "Checking docs…" : "Fetching…"}
+          </div>
+        )}
+        <button
+          onClick={skipTenant}
+          className="h-7 px-3 rounded-lg bg-gray-100/80 hover:bg-gray-200/80 text-[11px] font-medium text-gray-600 transition-colors"
+        >
+          Skip →
+        </button>
+      </div>
+    </div>
+
+    {/* ── Filter row ── */}
+    <div className="px-4 pb-3 pt-2 bg-white/80">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+        {/* Search */}
+        <div className="relative w-full">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Input
+            placeholder="Search name, phone, email…"
+            value={tenantSearch}
+            onChange={e => setTenantSearch(e.target.value)}
+            className="h-8 pl-8 text-[11px] bg-white border border-gray-200 rounded-lg w-full"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-hide">
+          <div className="flex rounded-lg bg-gray-100/60 p-0.5 flex-shrink-0">
+            {(["all","active","inactive"] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`h-7 px-2.5 text-[10px] font-semibold rounded-md transition-colors
+                  ${filterStatus === s ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                {s === "all" ? "All" : s === "active" ? "Active" : "Inactive"}
+              </button>
+            ))}
           </div>
 
-          <div className="px-3 py-2 border-t bg-gray-50 rounded-b-lg flex items-center justify-between">
-            <button onClick={() => { setStep(1); setSelTemplate(null); }}
-              className="inline-flex items-center gap-1 h-7 px-3 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 hover:bg-gray-50">
-              <ChevronLeft className="h-3 w-3" />Back
+          <Select value={filterPropertyId} onValueChange={v => { setFilterPropertyId(v); setFilterFloor("all"); }}>
+            <SelectTrigger className="h-7 w-[130px] text-[10px] bg-white border border-gray-200 rounded-lg flex-shrink-0">
+              <SelectValue placeholder="All Properties" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className={SI}>All Properties</SelectItem>
+              {propertyOptions.map(p => (
+                <SelectItem key={p.id} value={p.id} className={SI}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterFloor} onValueChange={setFilterFloor}>
+            <SelectTrigger className="h-7 w-[90px] text-[10px] bg-white border border-gray-200 rounded-lg flex-shrink-0">
+              <SelectValue placeholder="Floor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className={SI}>All Floors</SelectItem>
+              {floorOptions.map(f => (
+                <SelectItem key={f} value={f} className={SI}>Floor {f}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(filterPropertyId !== "all" || filterFloor !== "all" || filterStatus !== "active" || tenantSearch) && (
+            <button
+              onClick={() => {
+                setFilterPropertyId("all");
+                setFilterFloor("all");
+                setFilterStatus("active");
+                setTenantSearch("");
+              }}
+              className="h-7 px-2.5 rounded-lg bg-gray-100/60 text-[10px] font-medium text-gray-500 hover:bg-gray-200/60 flex-shrink-0"
+            >
+              <X className="h-3 w-3 inline mr-0.5" />
+              Clear
             </button>
-            <p className="text-[10px] text-gray-400 hidden sm:block">
-              Click card = single · Checkbox + button = multiple (step-by-step)
-            </p>
-          </div>
-        </Card>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* ── Status bar ── */}
+    <div className="px-4 py-1.5 bg-gray-50/80 flex items-center justify-between gap-2 text-[10px]">
+      <span className="text-gray-500 flex items-center gap-1.5">
+        {loadingPropData && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
+        Showing <span className="font-semibold text-gray-700">{filteredTenantList.length}</span> of {tenantList.length} tenants
+        {excludedTenantIds.size > 0 && (
+          <span className="text-orange-500 ml-1">({excludedTenantIds.size} already have this doc — hidden)</span>
+        )}
+      </span>
+      {selectedTenantIds.size > 0 && (
+        <span className="text-indigo-600 font-semibold">{selectedTenantIds.size} selected</span>
       )}
+    </div>
+
+    {/* ── Multi-select action bar ── */}
+    {selectedTenantIds.size > 0 && (
+      <div className="px-4 py-2 bg-indigo-50/80 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ListChecks className="h-4 w-4 text-indigo-600 flex-shrink-0" />
+          <span className="text-[11px] font-semibold text-indigo-700">
+            {selectedTenantIds.size} selected — fill details for each one by one
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setSelectedTenantIds(new Set())}
+            className="h-7 px-2 rounded-lg bg-white/80 text-[10px] font-medium text-indigo-600 hover:bg-white"
+          >
+            Clear
+          </button>
+          <button
+            onClick={handleMultiProceed}
+            disabled={fetchingDetail}
+            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold disabled:opacity-50"
+          >
+            {fetchingDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+            Fill Details for {selectedTenantIds.size} →
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* ── Tenant grid ── */}
+    <div className="p-3 bg-gray-100" style={{ maxHeight: "calc(100vh - 410px)", overflowY: "auto" }}>
+      {loadingTenants ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
+        </div>
+      ) : filteredTenantList.length === 0 ? (
+        <div className="text-center py-10">
+          <User className="h-9 w-9 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm font-medium text-gray-500">
+            {excludedTenantIds.size > 0 ? "All tenants already have this document" : "No tenants found"}
+          </p>
+          <button
+            onClick={() => {
+              setFilterPropertyId("all");
+              setFilterFloor("all");
+              setFilterStatus("all");
+              setTenantSearch("");
+            }}
+            className="mt-2 text-[11px] text-blue-600 underline"
+          >
+            Clear all filters
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2">
+          {filteredTenantList.map((t: any) => {
+            const tid = Number(t.id);
+            const checked = selectedTenantIds.has(tid);
+            const isActive = t.is_active === true || t.is_active === 1;
+            const lk = tenantPropertyLookup[tid];
+            const displayProp = lk?.propertyName || t.property_name || t.assigned_property_name || "";
+            const displayRoom = lk?.roomNumber || t.room_number || t.assigned_room_number || "";
+            const displayFloor = lk?.floor || getFloorFromRoom(displayRoom);
+
+            return (
+              <div
+                key={t.id}
+                className={`relative rounded-2xl transition-all group bg-white shadow-sm hover:shadow-md
+                  ${checked
+                    ? "ring-2 ring-indigo-400 shadow-md"
+                    : "hover:bg-gray-50/80"
+                  }`}
+              >
+                {/* Checkbox */}
+                <button
+                  onClick={e => toggleTenant(tid, e)}
+                  className="absolute top-2 left-2 z-10 p-0"
+                  title={checked ? "Deselect" : "Add to selection"}
+                >
+                  {checked
+                    ? <CheckSquare className="h-4 w-4 text-indigo-600" />
+                    : <Square className="h-4 w-4 text-gray-300 group-hover:text-gray-500" />
+                  }
+                </button>
+
+                {/* Inactive badge */}
+                {!isActive && (
+                  <span className="absolute top-2 right-2 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-semibold">
+                    Inactive
+                  </span>
+                )}
+
+                {/* Card body */}
+                <button
+                  onClick={() => !fetchingDetail && handleSingleTenantSelect(t)}
+                  disabled={fetchingDetail}
+                  className="w-full text-left p-3 pl-8 disabled:opacity-60"
+                  title="Click to create document for this tenant only"
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white font-black text-[11px]
+                      ${isActive ? "bg-gradient-to-br from-blue-500 to-indigo-600" : "bg-gray-400"}`}>
+                      {(t.full_name || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-[11px] font-semibold truncate leading-tight ${checked ? "text-indigo-700" : "text-gray-800"}`}>
+                        {t.full_name}
+                      </p>
+                      {displayProp && (
+                        <p className="text-[9px] text-gray-400 flex items-center gap-0.5 truncate leading-tight">
+                          <Building2 className="h-2.5 w-2.5 flex-shrink-0" />
+                          {displayProp}
+                        </p>
+                      )}
+                    </div>
+                    {displayRoom && (
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <Badge className={`text-[9px] px-1.5 py-0 leading-tight ${checked ? "bg-indigo-100 text-indigo-700" : "bg-green-50 text-green-700"}`}>
+                          R{displayRoom}
+                        </Badge>
+                        {displayFloor && (
+                          <span className="text-[9px] text-gray-400">F{displayFloor}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-0.5 mt-1">
+                    {t.phone && (
+                      <p className="text-[9px] text-gray-500 flex items-center gap-0.5">
+                        <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                        {t.phone}
+                      </p>
+                    )}
+                    {t.email && (
+                      <p className="text-[9px] text-gray-400 flex items-center gap-0.5 truncate hidden sm:flex">
+                        <Mail className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                        {t.email}
+                      </p>
+                    )}
+                    {(t.monthly_rent || t.rent_per_bed) && (
+                      <p className="text-[9px] text-green-600 flex items-center gap-0.5 font-medium">
+                        <IndianRupee className="h-2.5 w-2.5 text-green-500 flex-shrink-0" />
+                        {money(t.monthly_rent || t.rent_per_bed)}/mo
+                      </p>
+                    )}
+                  </div>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+
+    {/* ── Footer hint ── */}
+    <div className="bg-white/80 rounded-b-2xl px-4 py-2 flex justify-center">
+      <p className="text-[10px] text-gray-400 text-center">
+        Click card = single · Checkbox + button = multiple (step-by-step)
+      </p>
+    </div>
+  </div>
+)}
 
       {/* ══ STEP 3: Fill Details (one tenant at a time) ══ */}
       {step === 3 && selTemplate && (
         <Card className="border rounded-lg shadow-sm">
           <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg flex-wrap gap-1">
             <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+               <button onClick={handleStep3Back}
+              className="inline-flex items-center gap-1 h-7 px-3 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 hover:bg-gray-50">
+              <ChevronLeft className="h-3 w-3" />
+              {queueIndex > 0 ? `Back to ${tenantQueue[queueIndex-1]?.full_name?.split(" ")[0] || "Previous"}` : "Back"}
+            </button>
               <FileText className="h-4 w-4 text-blue-600" />Document Details
               {isMulti && (
                 <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 border border-indigo-200 rounded-md px-1.5 py-0.5">
@@ -1384,7 +1477,7 @@ const generatePreview = () => {
           groupName === "Company Info" ? "text-orange-600" : "text-blue-600"
         }
       />
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {vars.map(v => (
           <FieldInput
             key={v}
@@ -1399,7 +1492,7 @@ const generatePreview = () => {
   ))}
 
   {currentTenant?.id && (
-    <div className="mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+    <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2">
       <Zap className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
       <p className="text-[10px] text-blue-700">
         Fields in <span className="font-bold text-green-600">green</span> are auto-filled from tenant's profile.
@@ -1409,12 +1502,8 @@ const generatePreview = () => {
   )}
 </div>
 
-          <div className="px-3 py-2.5 border-t bg-gray-50 rounded-b-lg flex items-center justify-between">
-            <button onClick={handleStep3Back}
-              className="inline-flex items-center gap-1 h-7 px-3 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 hover:bg-gray-50">
-              <ChevronLeft className="h-3 w-3" />
-              {queueIndex > 0 ? `Back to ${tenantQueue[queueIndex-1]?.full_name?.split(" ")[0] || "Previous"}` : "Back"}
-            </button>
+          <div className="px-3 py-2.5 border-t bg-gray-50 rounded-b-lg flex items-end justify-end">
+           
             <div className="flex gap-2">
               <button onClick={generatePreview}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-[11px] font-semibold hover:shadow-md">

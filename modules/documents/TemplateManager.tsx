@@ -579,6 +579,8 @@ export function TemplateManager() {
   const [historyTpl, setHistoryTpl] = useState<DocumentTemplate | null>(null);
   const [previewHtml, setPreviewHtml] = useState("");
   const [saving, setSaving] = useState(false);
+  const fontSelectRef = useRef<HTMLSelectElement>(null);
+  const [selectedFont, setSelectedFont] = useState<string>("");
 // Add this with your other useState declarations
 const [showVariables, setShowVariables] = useState(false);
   // ── Sidebar / selection ────────────────────────────────────────────────────
@@ -688,15 +690,84 @@ const loadTemplates = useCallback(async () => {
 
 useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
+const getFontFamilyFromSelection = (): string => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return "";
+
+  const node = sel.getRangeAt(0).commonAncestorContainer;
+  if (!node) return "";
+
+  // Helper to get font from element
+  const getFontFromElement = (el: HTMLElement | null): string => {
+    if (!el) return "";
+
+    // Check inline style font-family
+    const styleFont = el.style.fontFamily;
+    if (styleFont) {
+      const firstFont = styleFont.split(',')[0].trim().replace(/['"]/g, '');
+      const optionValues = ["Inter", "Arial", "Times New Roman", "Courier New", "Georgia", "Verdana"];
+      const matched = optionValues.find(v => v.toLowerCase() === firstFont.toLowerCase());
+      if (matched) return matched;
+      return firstFont;
+    }
+
+    // Check <font face="..."> attribute
+    if (el.tagName === 'FONT') {
+      const face = el.getAttribute('face');
+      if (face) {
+        const firstFont = face.split(',')[0].trim().replace(/['"]/g, '');
+        const optionValues = ["Inter", "Arial", "Times New Roman", "Courier New", "Georgia", "Verdana"];
+        const matched = optionValues.find(v => v.toLowerCase() === firstFont.toLowerCase());
+        if (matched) return matched;
+        return firstFont;
+      }
+    }
+
+    // Recursively check parent
+    return getFontFromElement(el.parentElement);
+  };
+
+  let el = node.nodeType === Node.ELEMENT_NODE ? node as HTMLElement : node.parentElement;
+  return getFontFromElement(el);
+};
+
 
 useEffect(() => {
-  if (!isCodeView && visualEditorRef.current) {
-    if (lastSyncedHtmlRef.current !== form.html_content) {
-      visualEditorRef.current.innerHTML = buildPreview(form.html_content, logoPreview);
-      lastSyncedHtmlRef.current = form.html_content;
+  if (!showForm || isCodeView) return;
+
+  const handleSelectionChange = () => {
+    const font = getFontFamilyFromSelection();
+    const optionValues = ["Inter", "Arial", "Times New Roman", "Courier New", "Georgia", "Verdana"];
+    if (font && optionValues.some(v => v.toLowerCase() === font.toLowerCase())) {
+      setSelectedFont(font);
+    } else {
+      setSelectedFont("");
     }
-  }
-}, [isCodeView, form.html_content, logoPreview]);
+  };
+
+  document.addEventListener("selectionchange", handleSelectionChange);
+  return () => document.removeEventListener("selectionchange", handleSelectionChange);
+}, [showForm, isCodeView]);
+// ~line 213 — ye wala useEffect replace karo
+useEffect(() => {
+  if (isCodeView) return;
+
+  const setContent = () => {
+    if (!visualEditorRef.current) return;
+    
+    // ── KEY FIX: agar editor abhi focused hai, innerHTML mat overwrite karo ──
+    // Ye selection destroy hone se bachata hai jab toolbar buttons click hote hain
+    if (document.activeElement === visualEditorRef.current) return;
+    
+    const preview = buildPreview(form.html_content, logoPreview);
+    visualEditorRef.current.innerHTML = preview;
+    lastSyncedHtmlRef.current = form.html_content;
+  };
+
+  setContent();
+  const t = setTimeout(setContent, 50);
+  return () => clearTimeout(t);
+}, [isCodeView, form.html_content, logoPreview, showForm]);
   // ══════════════════════════════════════════════════════════════════════════
   // DERIVED / FILTERED DATA
   // ══════════════════════════════════════════════════════════════════════════
@@ -1800,104 +1871,96 @@ const handleExport = () => {
   </div>
 
   {/* ── FILTER SIDEBAR ── */}
-  {sidebarOpen && (
-    <div
-      className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
-      onClick={() => setSidebarOpen(false)}
-    />
-  )}
-  <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-    transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+ {sidebarOpen && (
+  <div
+    className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
+    onClick={() => setSidebarOpen(false)}
+  />
+)}
+<aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
+  transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
 
-    <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-white" />
-        <span className="text-sm font-semibold text-white">Filters</span>
-        {hasFilters && (
-          <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-            {filterCount} active
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        {hasFilters && (
-          <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-            Clear all
-          </button>
-        )}
-        <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-          <X className="h-4 w-4" />
+  {/* Header */}
+  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {hasFilters && (
+        <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+          {filterCount} active
+        </span>
+      )}
+    </div>
+    <div className="flex items-center gap-2">
+      {hasFilters && (
+        <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+          Clear all
         </button>
-      </div>
-    </div>
-
-    <div className="flex-1 overflow-y-auto p-4 space-y-5">
-      <div>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-          <LayoutTemplate className="h-3 w-3 text-blue-500" /> Category
-        </p>
-        <div className="space-y-1">
-          {["all", ...CATEGORIES].map(c => (
-            <label
-              key={c}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                ${catFilter === c ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
-            >
-              <input type="radio" name="cat" checked={catFilter === c} onChange={() => setCatFilter(c)} className="sr-only" />
-              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${catFilter === c ? "bg-blue-500" : "bg-gray-300"}`} />
-              <span className="text-[12px] font-medium">{c === "all" ? "All Categories" : c}</span>
-              {catFilter === c && (
-                <svg className="ml-auto h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100" />
-
-      <div>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-          <CheckCircle className="h-3 w-3 text-green-500" /> Status
-        </p>
-        <div className="space-y-1">
-          {[
-            { val: "all",   label: "All",      dot: "bg-gray-400" },
-            { val: "true",  label: "Active",   dot: "bg-green-500" },
-            { val: "false", label: "Inactive", dot: "bg-gray-400" },
-          ].map(o => (
-            <label
-              key={o.val}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                ${statusFilter === o.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
-            >
-              <input type="radio" name="status" checked={statusFilter === o.val} onChange={() => setStatusFilter(o.val)} className="sr-only" />
-              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${o.dot}`} />
-              <span className="text-[12px] font-medium">{o.label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
-
-    <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-      <button
-        onClick={clearFilters}
-        disabled={!hasFilters}
-        className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Clear All
-      </button>
-      <button
-        onClick={() => setSidebarOpen(false)}
-        className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold"
-      >
-        Apply & Close
+      )}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+        <X className="h-4 w-4" />
       </button>
     </div>
-  </aside>
+  </div>
+
+  {/* Scrollable content */}
+  <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+    {/* Category dropdown */}
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        {/* <LayoutTemplate className="h-3 w-3 text-blue-500" /> */}
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
+      </div>
+      <select
+        value={catFilter}
+        onChange={(e) => setCatFilter(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-[12px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      >
+        <option value="all">All Categories</option>
+        {CATEGORIES.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="border-t border-gray-100" />
+
+    {/* Status dropdown */}
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        {/* <CheckCircle className="h-3 w-3 text-green-500" /> */}
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
+      </div>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-[12px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      >
+        <option value="all">All</option>
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+    </div>
+  </div>
+
+  {/* Footer buttons */}
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button
+      onClick={clearFilters}
+      disabled={!hasFilters}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      Clear All
+    </button>
+    <button
+      onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold"
+    >
+      Apply & Close
+    </button>
+  </div>
+</aside>
 </div>
 
       {/* ══ CREATE / EDIT MODAL ═════════════════════════════════════════════ */}
@@ -1909,7 +1972,7 @@ const handleExport = () => {
   >
     <div
       style={{
-        width: "min(1200px, 95vw)",
+        width: "min(1080px, 95vw)",
         height: "min(90vh, 850px)",
         display: "flex",
         flexDirection: "column",
@@ -1921,32 +1984,42 @@ const handleExport = () => {
     >
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-5 py-2 flex items-center justify-between flex-shrink-0">
-        <div>
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            {editingTpl ? (
-              <>
-                <Pencil className="h-4 w-4" />
-                Edit Template: {editingTpl.name}
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                Create New Template
-              </>
-            )}
-          </h2>
-          <p className="text-xs text-blue-100 mt-1">
-            {editingTpl 
-              ? `Current version: v${editingTpl.version} → New version: v${editingTpl.version + 1}`
-              : "Design your professional A4 document template"
-            }
-          </p>
-        </div>
-        <button onClick={() => setShowForm(false)} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 sm:px-5 py-2 flex items-center justify-between gap-2 flex-shrink-0">
+
+  {/* Left */}
+  <div className="min-w-0 flex-1">
+    <h2 className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-semibold truncate">
+      {editingTpl ? (
+        <>
+          <Pencil className="h-4 w-4 flex-shrink-0" />
+          <span className="truncate">
+            Edit Template: {editingTpl.name}
+          </span>
+        </>
+      ) : (
+        <>
+          <Plus className="h-4 w-4 flex-shrink-0" />
+          <span>Create New Template</span>
+        </>
+      )}
+    </h2>
+
+    <p className="hidden sm:block text-[11px] text-blue-100 mt-0.5 truncate">
+      {editingTpl
+        ? `Current version: v${editingTpl.version} → New version: v${editingTpl.version + 1}`
+        : "Design your professional A4 document template"}
+    </p>
+  </div>
+
+  {/* Close */}
+  <button
+    onClick={() => setShowForm(false)}
+    className="flex-shrink-0 p-1.5 rounded-md hover:bg-white/20 transition-colors"
+  >
+    <X className="h-4 w-4 sm:h-5 sm:w-5" />
+  </button>
+
+</div>
 
       {/* Body: Split Layout */}
       <div 
@@ -1959,19 +2032,22 @@ const handleExport = () => {
           style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "20px" }} 
           className="space-y-5"
         >
-          {/* Template Info */}
          {/* Template Info + Logo combined - compact */}
-<div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 sm:p-3 rounded-lg border border-blue-100">
-  <SH icon={<FileText className="h-3 w-3" />} title="Template Information" color="text-blue-700" />
-  
-  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-    
+<div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 rounded-lg border border-blue-100">
+  <SH
+    icon={<FileText className="h-3 w-3" />}
+    title="Template Information"
+    color="text-blue-700"
+  />
+
+  <div className="flex gap-2 items-start">
+
     {/* Logo */}
-    <div className="sm:w-28 md:w-32 flex-shrink-0">
-      <label className={`${L} text-[11px] sm:text-xs`}>Logo</label>
-      
+    <div className="w-20 sm:w-24 flex-shrink-0">
+      <label className={`${L} text-[10px]`}>Logo</label>
+
       <div
-        className="relative cursor-pointer w-full"
+        className="relative cursor-pointer mt-1"
         onClick={() => logoInputRef.current?.click()}
       >
         {logoPreview ? (
@@ -1979,24 +2055,26 @@ const handleExport = () => {
             <img
               src={logoPreview}
               alt="Logo"
-              className="w-full h-16 sm:h-24 object-contain border-2 border-blue-200 rounded-lg bg-white p-1.5 shadow-sm"
+              className="w-full h-16 sm:h-20 object-contain rounded-md border border-blue-200 bg-white p-1"
             />
+
             <button
-              onClick={e => { e.stopPropagation(); removeLogo(); }}
-              className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeLogo();
+              }}
+              className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center"
             >
               <X className="h-2.5 w-2.5" />
             </button>
           </>
         ) : (
-          <div className="w-full h-16 sm:h-24 border-2 border-dashed border-blue-300 rounded-lg flex flex-col items-center justify-center bg-white hover:bg-blue-50 transition-colors gap-1">
-            <ImageIcon className="h-5 w-5 text-blue-300" />
-            <span className="text-[10px] text-blue-400 font-medium text-center">
-              Click to upload
-            </span>
+          <div className="w-full h-16 sm:h-20 rounded-md border border-dashed border-blue-300 bg-white flex flex-col items-center justify-center">
+            <ImageIcon className="h-4 w-4 text-blue-300" />
+            <span className="text-[9px] text-blue-400">Upload</span>
           </div>
         )}
-        
+
         <input
           ref={logoInputRef}
           type="file"
@@ -2007,66 +2085,81 @@ const handleExport = () => {
       </div>
     </div>
 
-    {/* Right side */}
+    {/* Right */}
     <div className="flex-1">
-      
-      {/* Name + Category */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+
         <div>
-          <label className={`${L} text-[11px] sm:text-xs`}>
-            <span className="text-red-400">*</span> Template Name
+          <label className={`${L} text-[10px]`}>
+            <span className="text-red-500">*</span> Template Name
           </label>
+
           <Input
             ref={nameInputRef}
-            className={`${F} h-8 sm:h-9 text-sm`}
-            placeholder="e.g., Rental Agreement"
+            className={`${F} h-8 text-xs`}
+            placeholder="Rental Agreement"
             value={form.name}
-            onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, name: e.target.value }))
+            }
           />
         </div>
-        
+
         <div>
-          <label className={`${L} text-[11px] sm:text-xs`}>Category</label>
-          <Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}>
-            <SelectTrigger className={`${F} h-8 sm:h-9 text-sm`}>
+          <label className={`${L} text-[10px]`}>Category</label>
+
+          <Select
+            value={form.category}
+            onValueChange={(v) =>
+              setForm((p) => ({ ...p, category: v }))
+            }
+          >
+            <SelectTrigger className={`${F} h-8 text-xs`}>
               <SelectValue />
             </SelectTrigger>
+
             <SelectContent>
-              {CATEGORIES.map(c => (
-                <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c} className={SI}>
+                  {c}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
       </div>
 
-      {/* Description */}
-      <div className="mt-1.5 sm:mt-2">
-        <label className={`${L} text-[11px] sm:text-xs`}>Description</label>
+      <div className="mt-2">
+        <label className={`${L} text-[10px]`}>Description</label>
+
         <Input
-          className={`${F} h-8 sm:h-9 text-sm`}
-          placeholder="Brief description of this template"
+          className={`${F} h-8 text-xs`}
+          placeholder="Brief description..."
           value={form.description}
-          onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+          onChange={(e) =>
+            setForm((p) => ({
+              ...p,
+              description: e.target.value,
+            }))
+          }
         />
       </div>
     </div>
   </div>
 
-  {/* Change Notes */}
   {editingTpl && (
-    <div className="mt-1.5 sm:mt-2">
-      <label className={`${L} text-[11px] sm:text-xs`}>
+    <div className="mt-2">
+      <label className={`${L} text-[10px]`}>
         Change Notes
-        <span className="text-gray-400 font-normal ml-1">(optional)</span>
+        <span className="ml-1 text-gray-400 font-normal">(optional)</span>
       </label>
+
       <Input
-        className={`${F} h-8 sm:h-9 text-sm`}
-        placeholder="What changed in this version?"
+        className={`${F} h-8 text-xs`}
+        placeholder="Describe changes..."
         value={changeNotes}
-        onChange={e => setChangeNotes(e.target.value)}
+        onChange={(e) => setChangeNotes(e.target.value)}
       />
     </div>
   )}
@@ -2145,14 +2238,7 @@ const handleExport = () => {
 
               {/* Font family */}
 <select
-  className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600"
-  disabled={isCodeView}
-  onMouseDown={() => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
-    }
-  }}
+  value={selectedFont}
   onChange={e => {
     const font = e.target.value;
     if (!font) return;
@@ -2169,15 +2255,18 @@ const handleExport = () => {
 
     document.execCommand('fontName', false, font);
 
-    // Apply ke baad ka selection bhi save karo
+    // Save selection after command
     const rangeAfterCmd = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
 
+    // Clean innerHTML: preserve font tags but strip our variable markers
     const cleanHtml = editorEl.innerHTML.replace(
       /<span[^>]*style="background:#fef3c7[^"]*">\{\{([\w_]+)\}\}<\/span>/g,
       '{{$1}}'
     );
     setForm(p => ({ ...p, html_content: cleanHtml }));
-    e.target.value = "";
+
+    // ✅ Update the dropdown to show the applied font
+    setSelectedFont(font);
 
     if (rangeAfterCmd) {
       setTimeout(() => {
@@ -2187,6 +2276,14 @@ const handleExport = () => {
           try { sel2.addRange(rangeAfterCmd); } catch {}
         }
       }, 0);
+    }
+  }}
+  className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600"
+  disabled={isCodeView}
+  onMouseDown={() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      (window as any).__templateEditorRange = sel.getRangeAt(0).cloneRange();
     }
   }}
 >
@@ -2546,6 +2643,7 @@ const handleExport = () => {
           suppressContentEditableWarning
           data-template-editable="true"
           className="tpl-preview-scope"
+           key={editingTpl?.id ?? "new"} 
         onInput={(e) => {
   const el = e.currentTarget;
   const cleanHtml = el.innerHTML.replace(
@@ -2873,67 +2971,107 @@ ref={visualEditorRef}
             boxShadow: "0 25px 60px -12px rgba(0,0,0,0.5)",
           }}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600"   style={{  color: "#fff", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-              <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4" />
-                <span className="text-base font-semibold">Template Preview (A4 Size)</span>
-                <Badge className="bg-white/20 text-white border-0 ml-2 text-[10px]">
-                  Sample Data
-                </Badge>
-              </div>
-<div className="flex items-center gap-2">
-  <button
-    onClick={() => {
-      const printWin = window.open("", "_blank", "width=900,height=700");
-      if (!printWin) return;
-      printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Download</title><style>*{box-sizing:border-box;}body{margin:0;padding:0;background:white;}@media print{@page{size:A4;margin:10mm;}}</style></head><body>${previewHtml}<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},400);};<\/script></body></html>`);
-      printWin.document.close();
-    }}
-    className="p-2 rounded-full hover:bg-white/20 transition-colors"
-    title="Download PDF"
-  >
-    <Download className="h-4 w-4" />
-  </button>
-  <button
-    onClick={handlePrint}
-    className="p-2 rounded-full hover:bg-white/20 transition-colors"
-    title="Print"
-  >
-    <Printer className="h-4 w-4" />
-  </button>
-                <button
-                  onClick={() => {
-                    const w = window.open("", "_blank");
-                    if (w) {
-                      w.document.write(`
-                        <html>
-                          <head>
-                            <title>Print Preview</title>
-                            <style>
-                              @media print {
-                                body { margin: 0; padding: 0; }
-                              }
-                            </style>
-                          </head>
-                          <body>${previewHtml}</body>
-                        </html>
-                      `);
-                      w.document.close();
-                    }
-                  }}
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                  title="Open in New Tab"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+          <div
+  className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 flex items-center justify-between flex-wrap gap-2"
+  style={{ color: "#fff", flexShrink: 0 }}
+>
+  {/* Left */}
+  <div className="flex items-center gap-1.5 min-w-0">
+    <Eye className="h-4 w-4 flex-shrink-0" />
+
+    <span className="text-sm sm:text-base font-semibold truncate">
+      Template Preview
+    </span>
+
+    <Badge className="hidden sm:flex bg-white/20 text-white border-0 text-[10px] px-2 py-0">
+      Sample Data
+    </Badge>
+  </div>
+
+  {/* Right */}
+  <div className="flex items-center gap-1 flex-shrink-0">
+    <button
+      onClick={() => {
+        const printWin = window.open("", "_blank", "width=900,height=700");
+        if (!printWin) return;
+        printWin.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8"/>
+              <title>Download</title>
+              <style>
+                *{box-sizing:border-box;}
+                body{margin:0;padding:0;background:white;}
+                @media print{
+                  @page{size:A4;margin:10mm;}
+                }
+              </style>
+            </head>
+            <body>
+              ${previewHtml}
+              <script>
+                window.onload=function(){
+                  setTimeout(function(){
+                    window.print();
+                    window.onafterprint=function(){window.close();}
+                  },400);
+                };
+              <\/script>
+            </body>
+          </html>
+        `);
+        printWin.document.close();
+      }}
+      className="p-1.5 rounded-md hover:bg-white/20 transition-colors"
+      title="Download"
+    >
+      <Download className="h-4 w-4" />
+    </button>
+
+    <button
+      onClick={handlePrint}
+      className="p-1.5 rounded-md hover:bg-white/20 transition-colors"
+      title="Print"
+    >
+      <Printer className="h-4 w-4" />
+    </button>
+
+    <button
+      onClick={() => {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(`
+            <html>
+              <head>
+                <title>Preview</title>
+                <style>
+                  @media print {
+                    body { margin:0; padding:0; }
+                  }
+                </style>
+              </head>
+              <body>${previewHtml}</body>
+            </html>
+          `);
+          w.document.close();
+        }
+      }}
+      className="p-1.5 rounded-md hover:bg-white/20 transition-colors"
+      title="Open"
+    >
+      <Eye className="h-4 w-4" />
+    </button>
+
+    <button
+      onClick={() => setShowPreview(false)}
+      className="p-1.5 rounded-md hover:bg-white/20 transition-colors"
+      title="Close"
+    >
+      <X className="h-4 w-4" />
+    </button>
+  </div>
+</div>
 
             {/* Content */}
             <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#f1f5f9", padding: "20px" }}>

@@ -579,10 +579,14 @@ const loadDetailedStats = async () => {
   }, [highlightedReceipt]);
 
   // Update the onViewReceipt handler
-  const handleViewReceipt = (receiptId: number) => {
-    setHighlightedReceipt(receiptId);
-    handlePreviewReceipt(receiptId);
-  };
+ const handleViewReceipt = (receiptId: number) => {
+  setHighlightedReceipt(receiptId);
+  const receipt = receipts.find((r) => r.id === receiptId);
+  if (receipt) {
+    setSelectedReceipt(receipt);
+    setIsReceiptPreviewOpen(true);
+  }
+};
 
   // Toggle row expansion
   const toggleRowExpansion = (paymentId: number) => {
@@ -3746,7 +3750,7 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
                 setIsDeleteDialogOpen(true);
               }}
               actionLoading={actionLoading}
-              onViewReceipt={handlePreviewReceipt}
+onViewReceipt={handleViewReceipt}
               setActiveTab={setActiveTab}
               expandedRows={expandedRows}
               onToggleExpand={toggleRowExpansion}
@@ -4875,7 +4879,7 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
               getTenantPhone={getTenantPhone}
               tenants={tenants}
               highlightedReceipt={highlightedReceipt}
-              onPreviewReceipt={handlePreviewReceipt}
+onPreviewReceipt={handleViewReceipt}
               onDownloadReceipt={paymentApi.downloadReceipt}
               showFilterSidebar={showReceiptFilterSidebar}
               setShowFilterSidebar={setShowReceiptFilterSidebar}
@@ -7124,211 +7128,316 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
         open={isReceiptPreviewOpen}
         onOpenChange={setIsReceiptPreviewOpen}
       >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader className="flex flex-row items-center justify-between">
-            {/* Left side */}
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+
+          {/* Header — same style as Expense Receipt modal */}
+          <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
             <div>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
+              <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+                <FileText className="h-3.5 w-3.5" />
                 Payment Receipt
-              </DialogTitle>
-              <DialogDescription>
-                Receipt #{selectedReceipt?.id} - {selectedReceipt?.month}{" "}
-                {selectedReceipt?.year}
-              </DialogDescription>
+              </h2>
+              <p className="text-[10px] leading-tight text-blue-100">
+                Receipt #{selectedReceipt?.id} • {selectedReceipt?.month} {selectedReceipt?.year}
+              </p>
             </div>
-
-            {/* Right side close icon - FIXED */}
             <button
-              onClick={() => setIsReceiptPreviewOpen(false)} // ✅ FIXED: Use setIsReceiptPreviewOpen
-              className="p-1 rounded-md hover:bg-gray-100 transition"
-            >
-              <X className="h-4 w-4 text-gray-500" />
-            </button>
-          </DialogHeader>
-
-          {selectedReceipt && (
-            <div className="py-4">
-              {/* Receipt Content */}
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                {/* Header with Logo */}
-                <div className="text-center border-b border-slate-200 pb-4 mb-4">
-                  {/* Logo Image */}
-                  <div className="flex justify-center mb-2">
-                    <img
-                      src={companyLogo || "/default-logo.png"}
-                      alt={siteName}
-                      className="h-16 w-auto object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        // Show text fallback
-                        const parent = (e.target as HTMLImageElement)
-                          .parentElement;
-                        if (parent) {
-                          const fallback = document.createElement("div");
-                          fallback.className =
-                            "text-2xl font-bold text-slate-800";
-                          fallback.textContent = siteName;
-                          parent.appendChild(fallback);
-                        }
-                      }}
-                    />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-800">
-                    {siteName}
-                  </h2>
-                  <p className="text-sm text-slate-500">{siteTagline}</p>
-                  <p className="text-xs text-slate-400 mt-1">Payment Receipt</p>
-                </div>
-
-                {/* Receipt Details Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs text-slate-500">Receipt No.</p>
-                    <p className="text-sm font-medium">#{selectedReceipt.id}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Date</p>
-                    <p className="text-sm font-medium">
-                      {format(
-                        new Date(selectedReceipt.payment_date),
-                        "dd MMM yyyy",
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Tenant Details */}
-                <div className="bg-slate-50 p-3 rounded-lg mb-4">
-                  <p className="text-xs font-medium text-slate-700 mb-2">
-                    Tenant Details
-                  </p>
-                  <p className="text-sm">{selectedReceipt.tenant_name}</p>
-                  {selectedReceipt.tenant_phone && (
-                    <p className="text-xs text-slate-600">
-                      {selectedReceipt.tenant_phone}
-                    </p>
-                  )}
-                  {selectedReceipt.tenant_email && (
-                    <p className="text-xs text-slate-600">
-                      {selectedReceipt.tenant_email}
-                    </p>
-                  )}
-                </div>
-
-                {/* Property Details */}
-                <div className="bg-slate-50 p-3 rounded-lg mb-4">
-                  <p className="text-xs font-medium text-slate-700 mb-2">
-                    Property Details
-                  </p>
-                  <p className="text-sm">
-                    {selectedReceipt.property_name || "N/A"}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    Room: {selectedReceipt.room_number || "N/A"}
-                    {selectedReceipt.bed_number &&
-                      ` • Bed #${selectedReceipt.bed_number}`}
-                  </p>
-                </div>
-
-                {/* Payment Details */}
-                <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                  <p className="text-xs font-medium text-blue-700 mb-3">
-                    Payment Details
-                  </p>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm text-blue-600">Amount Paid:</span>
-                    <span className="text-lg font-bold text-blue-700">
-                      ₹{selectedReceipt.amount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-xs text-blue-600">Payment Mode:</span>
-                    <span className="text-sm font-medium capitalize">
-                      {selectedReceipt.payment_mode}
-                    </span>
-                  </div>
-                  {selectedReceipt.bank_name && (
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs text-blue-600">Bank:</span>
-                      <span className="text-sm">
-                        {selectedReceipt.bank_name}
-                      </span>
-                    </div>
-                  )}
-                  {selectedReceipt.transaction_id && (
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs text-blue-600">
-                        Transaction ID:
-                      </span>
-                      <span className="text-xs font-mono">
-                        {selectedReceipt.transaction_id}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-xs text-blue-600">Period:</span>
-                    <span className="text-sm">
-                      {selectedReceipt.month} {selectedReceipt.year}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Remark if exists */}
-                {selectedReceipt.remark && (
-                  <div className="bg-yellow-50 p-3 rounded-lg mb-4">
-                    <p className="text-xs font-medium text-yellow-700 mb-1">
-                      Remark:
-                    </p>
-                    <p className="text-sm text-yellow-800">
-                      {selectedReceipt.remark}
-                    </p>
-                  </div>
-                )}
-
-                {/* Contact Information */}
-                <div className="text-center text-xs text-slate-400 mt-4 pt-4 border-t border-slate-200">
-                  <p>{contactAddress}</p>
-                  <p className="mt-1">
-                    Tel: {contactPhone} | Email: {contactEmail}
-                  </p>
-                  <p className="mt-1">
-                    This is a computer generated receipt. No signature required.
-                  </p>
-                  <p className="mt-1">
-                    Generated on:{" "}
-                    {format(
-                      new Date(selectedReceipt.created_at),
-                      "dd MMM yyyy, hh:mm a",
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {/* Download Button */}
-              <div className="flex justify-end mt-4">
-                <Button
-                  onClick={() => paymentApi.downloadReceipt(selectedReceipt.id)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
               onClick={() => setIsReceiptPreviewOpen(false)}
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
+            >
+              <X className="h-3.5 w-3.5 text-white" />
+            </button>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto px-3 py-2">
+            {selectedReceipt && (() => {
+              const amt = Number(selectedReceipt.amount) || 0;
+              const modeLabel = (selectedReceipt.payment_mode || "").replace(/_/g, " ").toUpperCase();
+              const roomBed = [
+                selectedReceipt.room_number ? `${selectedReceipt.room_number}` : null,
+                selectedReceipt.bed_number ? `Bed ${selectedReceipt.bed_number}` : null,
+              ].filter(Boolean).join(" | ");
+              const paymentTypeDisplay =
+                selectedReceipt.payment_type === "security_deposit" ? "Security Deposit" :
+                selectedReceipt.payment_type === "deposit_refund" ? "Deposit Refund" :
+                selectedReceipt.payment_type === "penalty_payment" ? "Penalty Payment" :
+                "Rent Payment";
+              const receiptDateObj = new Date(selectedReceipt.payment_date);
+              const mm = String(receiptDateObj.getMonth() + 1).padStart(2, "0");
+              const yyyy = receiptDateObj.getFullYear();
+              const receiptNo = `REC-${String(selectedReceipt.id).padStart(4, "0")}-${mm}${yyyy}`;
+
+              return (
+  <div id="payment-receipt-print-area" className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+
+                  {/* Watermark */}
+                 <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
+  <span
+    className="absolute left-1/2 top-1/2 whitespace-nowrap text-[90px] font-black text-blue-100/50"
+    style={{
+      transform: "translate(-50%, -50%) rotate(-25deg)",
+      userSelect: "none",
+    }}
+  >
+    {(siteName || "R").split(" ")[0]}
+  </span>
+</div>
+
+                  {/* Header: logo left, site name center, receipt no right */}
+                  <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
+                    <div className="w-28 flex-shrink-0">
+                      {companyLogo ? (
+                        <img
+                          src={companyLogo}
+                          alt={siteName}
+                          className="h-14 w-auto object-contain"
+                          onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+                        />
+                      ) : (
+                        <div className="text-xl font-extrabold text-blue-700">{(siteName || "R").charAt(0)}</div>
+                      )}
+                    </div>
+                    <div className="flex-1 text-center">
+                      <h2 className="text-lg font-bold text-slate-800">{siteName}</h2>
+                      <p className="text-sm font-semibold text-cyan-600">Payment Receipt</p>
+                    </div>
+                    <div className="w-28 text-right text-[10px] text-slate-400">
+                      <span className="block font-semibold uppercase tracking-wide text-slate-400">Receipt No.</span>
+                      <span className="font-mono text-[10px] text-slate-700">{receiptNo}</span>
+                    </div>
+                  </div>
+
+                  {/* Meta strip */}
+                  <div className="relative z-10 mb-3 flex justify-between rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-500">
+                    <div>
+                      <span className="block text-[9px] font-semibold uppercase">Payment Date</span>
+                      <span className="block font-bold text-slate-800">
+                        {format(new Date(selectedReceipt.payment_date), "dd MMM yyyy")}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-semibold uppercase">Property</span>
+                      <span className="block font-bold text-slate-800">{selectedReceipt.property_name || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-semibold uppercase">Billing Period</span>
+                      <span className="block font-bold text-slate-800">
+                        {selectedReceipt.month} {selectedReceipt.year}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[9px] font-semibold uppercase">Status</span>
+                      <span className="inline-block rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-600">
+                        PAID
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Field grid */}
+                  <div className="relative z-10 mb-3 grid grid-cols-3 gap-x-4 gap-y-1.5 border-b border-slate-200 pb-3 text-xs">
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Tenant Name</span><div className="font-semibold text-blue-700">{selectedReceipt.tenant_name || "—"}</div></div>
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Mobile Number</span><div className="font-semibold text-blue-700">{selectedReceipt.tenant_phone || "—"}</div></div>
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Email Address</span><div className="text-[10px] font-medium text-slate-700">{selectedReceipt.tenant_email || "—"}</div></div>
+
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Payment Mode</span><div className="font-medium text-slate-700">{modeLabel || "—"}</div></div>
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Bank Name</span><div className="font-medium text-slate-700">{selectedReceipt.bank_name || "—"}</div></div>
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Mode Type</span><div className="font-mono text-[10px] text-slate-600">—</div></div>
+
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Property Name</span><div className="font-medium text-slate-700">{selectedReceipt.property_name || "—"}</div></div>
+                    <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Unit / Room</span><div className="font-medium text-slate-700">{roomBed || "—"}</div></div>
+                    {selectedReceipt.transaction_id ? (
+                      <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Transaction ID</span><div className="font-mono text-[10px] text-slate-700">{selectedReceipt.transaction_id}</div></div>
+                    ) : (
+                      <div><span className="block text-[9px] font-semibold uppercase text-slate-400">Payment For</span><div className="font-medium text-slate-700">{paymentTypeDisplay}</div></div>
+                    )}
+                  </div>
+
+                  {/* Payment details table */}
+                  {/* <p className="relative z-10 mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment Details</p> */}
+                  {/* <table className="relative z-10 mb-3 w-full border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-blue-50">
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">#</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Tenant Name</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Payment Type</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Unit / Room</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Period</th>
+                        <th className="border border-blue-100 px-2 py-1 text-right text-[10px] font-semibold text-blue-500">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-600">1</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{selectedReceipt.tenant_name || "—"}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{paymentTypeDisplay}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{roomBed || "—"}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{selectedReceipt.month} {selectedReceipt.year}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-right font-medium text-slate-800">₹{amt.toLocaleString("en-IN")}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-emerald-50">
+                        <td colSpan={5} className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">Total</td>
+                        <td className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">₹{amt.toLocaleString("en-IN")}</td>
+                      </tr>
+                    </tfoot>
+                  </table> */}
+
+                  {/* Payment history table */}
+                  <p className="relative z-10 mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment History</p>
+                  <table className="relative z-10 mb-3 w-full border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-blue-50">
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Payment Date</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Mode</th>
+                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Transaction ID</th>
+                        <th className="border border-blue-100 px-2 py-1 text-right text-[10px] font-semibold text-blue-500">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{format(new Date(selectedReceipt.payment_date), "dd MMM yyyy")}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{modeLabel || "—"}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-slate-500">{selectedReceipt.transaction_id || selectedReceipt.bank_name || "—"}</td>
+                        <td className="border border-slate-200 px-2 py-1 text-right font-medium text-emerald-700">₹{amt.toLocaleString("en-IN")}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-emerald-50">
+                        <td colSpan={3} className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">Total Paid</td>
+                        <td className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">₹{amt.toLocaleString("en-IN")}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+
+                  <div className="relative z-10 mb-2 text-right text-[9px] italic text-slate-400">
+                    {/* Optionally render amount in words here if you add a numberToWords helper */}
+                  </div>
+
+                  {selectedReceipt.remark && (
+                    <div className="relative z-10 mb-3 rounded-md border-l-3 border-amber-400 bg-amber-50 px-2.5 py-1.5">
+                      <div className="text-[8px] font-semibold uppercase tracking-wide text-amber-700">Remark</div>
+                      <div className="text-[11px] text-amber-800">{selectedReceipt.remark}</div>
+                    </div>
+                  )}
+
+                  {/* Thank you + signatures */}
+                  <div className="relative z-10 mt-4 border-t border-dashed border-slate-300 pt-3">
+                    <div className="text-xs font-medium text-slate-700">Thank you for your payment!</div>
+                    {/* <div className="mb-6 text-[10px] italic text-slate-400">
+                      This is a computer generated receipt. No signature required.
+                    </div> */}
+                    <div className="flex items-end justify-between">
+                      <div className="w-40 text-center">
+                        <div className="mx-auto mb-1 h-7 w-36 border-b border-slate-400" />
+                        <div className="text-[9px] font-medium uppercase tracking-wide text-slate-500">Tenant Signature</div>
+                      </div>
+                      <div className="w-40 text-center">
+                        <div className="mx-auto mb-1 h-7 w-36 border-b border-slate-400" />
+                        <div className="text-[9px] font-medium uppercase tracking-wide text-slate-500">Authorised Signatory</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="relative z-10 mt-3 border-t border-slate-200 pt-2 text-center">
+                    <p className="text-[9px] leading-relaxed text-slate-400">
+                      {contactAddress && <>{contactAddress}<br /></>}
+                      {contactPhone && `Tel: ${contactPhone}`}
+                      {contactPhone && contactEmail && "  |  "}
+                      {contactEmail && `Email: ${contactEmail}`}
+                    </p>
+                    <p className="text-[9px] text-slate-400">
+                      Powered by {siteName} • Generated on{" "}
+                      {format(new Date(selectedReceipt.created_at), "dd MMM yyyy, hh:mm a")}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Footer actions */}
+       {/* Footer actions */}
+          <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+            <button
+              onClick={() => setIsReceiptPreviewOpen(false)}
+              className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
             >
               Close
-            </Button>
-          </DialogFooter>
+            </button>
+            {/* <button
+              onClick={() => {
+                const content = document.getElementById("payment-receipt-print-area");
+                if (!content) return;
+                const win = window.open("", "_blank", "width=800,height=900");
+                if (!win) return;
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>Payment Receipt</title>
+                      <style>
+                        body { font-family: Arial, 'Helvetica Neue', sans-serif; padding: 20px; background: #fff; }
+                        #payment-receipt-print-area { max-width: 720px; margin: 0 auto; }
+                        ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                          try {
+                            const rules = sheet.cssRules || sheet.rules;
+                            if (rules) for (const rule of rules) acc += rule.cssText;
+                          } catch (e) {}
+                          return acc;
+                        }, "")}
+                      </style>
+                    </head>
+                    <body>${content.outerHTML}</body>
+                  </html>
+                `);
+                win.document.close();
+                win.focus();
+                win.print();
+              }}
+              className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print
+            </button> */}
+            <button
+              onClick={() => {
+                const content = document.getElementById("payment-receipt-print-area");
+                if (!content) return;
+                const win = window.open("", "_blank", "width=800,height=900");
+                if (!win) return;
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>Payment Receipt</title>
+                      <style>
+                        body { font-family: Arial, 'Helvetica Neue', sans-serif; padding: 20px; background: #fff; }
+                        #payment-receipt-print-area { max-width: 720px; margin: 0 auto; }
+                        ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                          try {
+                            const rules = sheet.cssRules || sheet.rules;
+                            if (rules) for (const rule of rules) acc += rule.cssText;
+                          } catch (e) {}
+                          return acc;
+                        }, "")}
+                      </style>
+                    </head>
+                    <body>${content.outerHTML}</body>
+                  </html>
+                `);
+                win.document.close();
+                win.focus();
+                setTimeout(() => {
+                  win.print();
+                }, 300);
+              }}
+              className="flex h-8 flex-[2] items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+            >
+              <Download className="h-3.5 w-3.5" /> Download PDF
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
-
       {/* Ledger Report Dialog */}
       <LedgerReportDialog
         open={isLedgerReportOpen}
@@ -9015,11 +9124,11 @@ const totalPages = isAll ? 1 : Math.ceil(filteredReceipts.length / (itemsPerPage
                       </td>
 
                       {/* Receipt # */}
-                      <td className="py-1.5 px-2 border-r border-slate-100">
-                        <span className="text-[10px] font-mono text-slate-600 whitespace-nowrap">
-                          #RCP-{String(receipt.id).padStart(5, '0')}
-                        </span>
-                      </td>
+                    <td className="py-1.5 px-2 border-r border-slate-100">
+  <span className="text-[10px] font-mono text-slate-600 whitespace-nowrap">
+    RCP-{String(receipt.id).padStart(5, '0')}
+  </span>
+</td>
 
                       {/* Date */}
                       <td className="py-1.5 px-2 border-r border-slate-100">
