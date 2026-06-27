@@ -159,6 +159,36 @@ interface PartnerDetails {
 additional_documents?: Array<{ filename: string; url: string; uploaded_at?: string }>;
 }
 
+// Helper function to check if tenant is single from couple
+const isSingleFromCouple = (tenant: Tenant | undefined, allTenants?: Tenant[]): boolean => {
+  if (!tenant) return false;
+  if (!tenant.couple_id && !tenant.partner_tenant_id) return false;
+  if (!tenant.is_active) return false;
+
+  if (allTenants && allTenants.length > 0) {
+    const partner = allTenants.find(
+      t => t.couple_id === tenant.couple_id && t.id !== tenant.id
+    );
+    if (!partner) return true;
+    if (partner.is_vacated) return true;
+    if (!partner.is_active) return true;
+  }
+
+  // ✅ NEW: check partner status directly on tenant record (no allTenants needed)
+  const partnerInactive =
+    tenant.partner_is_active === false ||
+    tenant.partner_is_vacated === true ||
+    tenant.partner_status === "vacated" ||
+    tenant.partner_status === "inactive";
+
+  if (partnerInactive) return true;
+
+  if (tenant.partner_tenant_id && !tenant.is_couple_booking) return true;
+  if (tenant.is_couple_booking === false && tenant.partner_full_name) return true;
+
+  return false;
+};
+
 
  
 export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }: TenantFormProps) {
@@ -197,6 +227,7 @@ export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }
   const [selectedPropertyDetails, setSelectedPropertyDetails] =
     useState<Property | null>(null);
   const [useCustomTerms, setUseCustomTerms] = useState(false);
+  const [isSingleFromCoupleCheck, setIsSingleFromCoupleCheck] = useState(false);
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -969,14 +1000,24 @@ useEffect(() => {
     //   is_couple_booking: tenant.is_couple_booking,
     //   partner_full_name: tenant.partner_full_name,
     // });
-    
+   
     const hasPartnerDetails = tenant.is_couple_booking === true && 
                               tenant.partner_full_name && 
                               tenant.partner_full_name.trim() !== "";
+
+                               const singleFromCouple = isSingleFromCouple(tenant);
+    setIsSingleFromCoupleCheck(singleFromCouple);
+
+    if (singleFromCouple) {
+      console.log('🔍 Single from couple (partner vacated/inactive) — hiding partner details');
+      setShowPartnerDetails(false);
+      resetPartnerDetails();   // clear any stale partner state
+      return;
+    }
+    
     
     if (hasPartnerDetails) {
-      
-      
+    
       // Set ALL partner details from tenant's partner_* fields
       setPartnerDetails({
         // Personal Info
@@ -1999,27 +2040,42 @@ if (tenant?.id) {
 />
                   </div>
 
-                  {/* ── Add Partner Details Button (Simple, matches existing UI) ── */}
-                  <div className="mt-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowPartnerDetails(!showPartnerDetails)}
-                      className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Add Partner Details</span>
-                      {showPartnerDetails ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3" />
-                      )}
-                    </button>
-                  </div>
+                 {/* ── Add Partner Details Button ── */}
+<div className="mt-3 pt-2">
+  <button
+    type="button"
+    onClick={() => {
+      // ✅ Don't allow showing partner details if single from couple
+      if (!isSingleFromCoupleCheck) {
+        setShowPartnerDetails(!showPartnerDetails);
+      }
+    }}
+    className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
+      isSingleFromCoupleCheck 
+        ? 'text-gray-400 cursor-not-allowed' 
+        : 'text-blue-600 hover:text-blue-700'
+    }`}
+    disabled={isSingleFromCoupleCheck}
+  >
+    <Plus className="h-3.5 w-3.5" />
+    <span>
+      {isSingleFromCoupleCheck 
+        ? 'Partner Details Hidden (Partner Vacated)' 
+        : showPartnerDetails 
+          ? 'Hide Partner Details' 
+          : 'Add Partner Details'
+      }
+    </span>
+    {!isSingleFromCoupleCheck && (
+      showPartnerDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+    )}
+  </button>
+</div>
                 </div>
                
               </div>
 {/* Partner Details Section within Basic Tab */}
-{showPartnerDetails && (
+{showPartnerDetails && !isSingleFromCoupleCheck && (
   <div className="mt-6 pt-4 border-t border-gray-200">
     <div className="flex items-center gap-2 mb-4">
       <Heart className="h-4 w-4 text-rose-500" />
@@ -2523,7 +2579,7 @@ if (tenant?.id) {
               </div>
               {/* Partner Occupation Section */}
 {/* Partner Occupation Section */}
-{showPartnerDetails && (
+{showPartnerDetails && !isSingleFromCoupleCheck && (
   <div className="mt-6 pt-4 border-t border-gray-200">
     <div className="flex items-center gap-2 mb-3">
       <Heart className="h-3.5 w-3.5 text-rose-500" />
@@ -2854,7 +2910,7 @@ if (tenant?.id) {
                 </div>
               </div>
 {/* Partner Address Section */}
-{showPartnerDetails && (
+{showPartnerDetails && !isSingleFromCoupleCheck && (
   <div className="mt-6 pt-4 border-t border-gray-200">
     <div className="flex items-center gap-2 mb-3">
       <Heart className="h-3.5 w-3.5 text-rose-500" />
@@ -3821,7 +3877,7 @@ if (tenant?.id) {
               </div>
 
 {/* Partner Documents Section */}
-{showPartnerDetails && (
+{showPartnerDetails && !isSingleFromCoupleCheck && (
   <div className="mt-6 pt-4 border-t border-gray-200">
     <div className="flex items-center gap-2 mb-3">
       <Heart className="h-3.5 w-3.5 text-rose-500" />
