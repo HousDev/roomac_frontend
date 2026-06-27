@@ -1979,9 +1979,7 @@ const handleExport = () => {
           <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:bg-gray-50 text-[11px] font-medium">
             <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">Export</span>
           </button>
-          <button onClick={loadDocs} disabled={loading} className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading?"animate-spin":""}`} />
-          </button>
+
         </div>
 
        
