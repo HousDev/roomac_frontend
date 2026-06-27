@@ -37,17 +37,26 @@ const SH = ({ icon, title, color = "text-blue-600" }: { icon: React.ReactNode; t
   </div>
 );
 
-const StatCard = ({ label, value, icon: Icon, accent }: any) => (
-  <Card className="border-0 shadow-sm bg-white">
-    <CardContent className="p-2.5 flex items-center gap-2">
-      <div className={`p-1.5 rounded-lg ${accent}`}><Icon className="h-3.5 w-3.5 text-white" /></div>
-      <div>
-        <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">{label}</p>
-        <p className="text-xs font-bold text-gray-800">{value}</p>
+const StatCard = ({ label, value, icon: Icon, sub, variant = "blue" }: any) => {
+  const colors: Record<string, { bg: string; text: string; icon: string }> = {
+    blue:   { bg: "from-blue-50 to-blue-100", text: "text-blue-800", icon: "text-blue-600" },
+    green:  { bg: "from-green-50 to-green-100", text: "text-green-800", icon: "text-green-600" },
+    indigo: { bg: "from-indigo-50 to-indigo-100", text: "text-indigo-800", icon: "text-indigo-600" },
+    purple: { bg: "from-purple-50 to-purple-100", text: "text-purple-800", icon: "text-purple-600" },
+    orange: { bg: "from-orange-50 to-orange-100", text: "text-orange-800", icon: "text-orange-600" },
+  };
+  const c = colors[variant] || colors.blue;
+  return (
+    <div className={`bg-gradient-to-br ${c.bg} rounded-xl shadow-sm border-0 p-2 sm:p-3`}>
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${c.icon}`} />
+        <p className={`text-[9px] sm:text-[10px] font-semibold ${c.icon}`}>{label}</p>
       </div>
-    </CardContent>
-  </Card>
-);
+      <p className={`text-xs sm:text-sm font-bold ${c.text}`}>{value}</p>
+      {sub && <p className={`text-[8px] ${c.icon} mt-0.5 opacity-80`}>{sub}</p>}
+    </div>
+  );
+};
 
 const StepDot = ({ n, label, cur, done }: { n: number; label: string; cur: number; done: boolean }) => (
   <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -125,6 +134,19 @@ const renderHtml = (html: string, data: Record<string, string>, logoSrc?: string
     ? out.replace(/\{\{logo_url\}\}/g, `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`)
     : out.replace(/\{\{logo_url\}\}/g, "");
   
+  // Image variables — photo/signature ko img tag mein render karo
+  const imageVars = ["tenant_photo", "tenant_signature", "witness_signature"];
+  imageVars.forEach(v => {
+    const val = data[v];
+    if (val && (val.startsWith("data:") || val.startsWith("http") || val.startsWith("/"))) {
+      out = out.replace(new RegExp(`\\{\\{${v}\\}\\}`, "g"),
+        `<img src="${val}" style="max-height:80px;max-width:120px;object-fit:contain;border:1px solid #ddd;border-radius:4px;" />`);
+    } else {
+      out = out.replace(new RegExp(`\\{\\{${v}\\}\\}`, "g"),
+        `<div style="width:120px;height:60px;border:1px dashed #999;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#999;border-radius:4px;">${v.replace(/_/g,' ')}</div>`);
+    }
+  });
+  
   // Sabhi variables replace karo — empty ho toh bhi
   Object.entries(data).forEach(([k, v]) => {
     out = out.replace(new RegExp(`\\{\\{${escRe(k)}\\}\\}`, "g"), v ?? "");
@@ -159,6 +181,7 @@ function FieldInput({ variable, formData, setFormData, required = false }: {
   const strVal  = raw != null ? String(raw) : "";
   const filled  = !!strVal.trim();
   const isAddr  = variable.includes("address");
+  const isImage = ["tenant_photo", "tenant_signature", "witness_signature"].includes(variable);
 
   const cls = `w-full px-2.5 text-[11px] border rounded-md transition-all font-medium outline-none
     ${filled
@@ -170,23 +193,54 @@ function FieldInput({ variable, formData, setFormData, required = false }: {
       <label className={L}>
         {getFieldLabel(variable)}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
-      {isAddr ? (
-        <textarea
-          rows={2}
-          value={strVal}
-          onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
-          placeholder={getFieldLabel(variable)}
-          className={`${cls} py-1.5 resize-none`}
+      
+    {isImage ? (
+  <div className="flex flex-col gap-1.5">
+    <input
+      type="file"
+      accept="image/*"
+      onChange={e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setFormData(p => ({ ...p, [variable]: reader.result as string }));
+        reader.readAsDataURL(file);
+      }}
+      className="text-[10px] text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+    />
+    {strVal && (
+      <div className="flex items-center gap-2">
+        <img
+          src={strVal}
+          alt={variable}
+          className="h-12 w-20 object-contain border border-gray-200 rounded-md bg-gray-50"
         />
-      ) : (
-        <input
-          type={getFieldType(variable)}
-          value={strVal}
-          onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
-          placeholder={getFieldLabel(variable)}
-          className={`${cls} h-8`}
-        />
-      )}
+        <button
+          onClick={() => setFormData(p => ({ ...p, [variable]: "" }))}
+          className="text-[9px] text-red-500 hover:text-red-700 font-medium"
+        >
+          Remove
+        </button>
+      </div>
+    )}
+  </div>
+) : isAddr ? (
+  <textarea
+    rows={2}
+    value={strVal}
+    onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
+    placeholder={getFieldLabel(variable)}
+    className={`${cls} py-1.5 resize-none`}
+  />
+) : (
+  <input
+    type={getFieldType(variable)}
+    value={strVal}
+    onChange={e => setFormData(p => ({ ...p, [variable]: e.target.value }))}
+    placeholder={getFieldLabel(variable)}
+    className={`${cls} h-8`}
+  />
+)}
     </div>
   );
 }
@@ -919,12 +973,7 @@ const generatePreview = () => {
       <div className="sticky top-16 z-10 pb-2">
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            {selTemplate && (
-              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-sm min-w-0 text-[11px]">
-                <FileText className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                <span className="font-semibold text-blue-700 truncate max-w-[120px]">{selTemplate.name}</span>
-              </div>
-            )}
+          
             {isMulti && step >= 3 && (
               <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1.5 shadow-sm text-[11px]">
                 <Users className="h-3 w-3 text-indigo-500 flex-shrink-0" />
@@ -934,26 +983,15 @@ const generatePreview = () => {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button onClick={loadTemplates} disabled={loadingTpls}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 shadow-sm">
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingTpls ? "animate-spin":""}`} />
-            </button>
-            {step > 1 && (
-              <button onClick={resetAll}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium shadow-sm">
-                <X className="h-3.5 w-3.5" />Start Over
-              </button>
-            )}
-          </div>
+        
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-1.5 mb-2">
-          <StatCard label="Templates"  value={stats.total}  icon={LayoutTemplate} accent="bg-blue-600" />
-          <StatCard label="Active"     value={stats.active} icon={CheckCircle}    accent="bg-green-500" />
-          <StatCard label="Categories" value={stats.cats}   icon={Tag}            accent="bg-indigo-600" />
-        </div>
+     <div className="grid grid-cols-3 gap-1.5 mb-2">
+  <StatCard label="Templates" value={stats.total} icon={LayoutTemplate} sub={`${stats.active} active`} variant="blue" />
+  <StatCard label="Active"    value={stats.active} icon={CheckCircle}    sub={`${stats.total - stats.active} inactive`} variant="green" />
+  <StatCard label="Categories" value={stats.cats} icon={Tag}            sub="unique" variant="purple" />
+</div>
 
         {/* Step indicators */}
         <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm overflow-x-auto">

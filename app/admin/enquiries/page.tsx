@@ -325,15 +325,7 @@ const [enquiriesOpenBulkAssign, setEnquiriesOpenBulkAssign] = useState<(() => vo
   <div className="hidden lg:flex items-center gap-2 mx-2 flex-shrink-0">
 
     
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => enquiriesRefresh?.()}
-      className="text-sm"
-    >
-      <RefreshCw className="h-4 w-4 mr-2" />
-      Refresh
-    </Button>
+   
     <input
   type="file"
   id="enquiries-import-input"
@@ -349,7 +341,7 @@ const [enquiriesOpenBulkAssign, setEnquiriesOpenBulkAssign] = useState<(() => vo
       variant="outline"
       size="sm"
 onClick={() => enquiriesImport?.(null)}
-      className="text-sm"
+      className="text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white"
     >
       <Upload className="h-4 w-4 mr-2" />
       Import
@@ -360,7 +352,7 @@ onClick={() => enquiriesImport?.(null)}
       variant="outline"
       size="sm"
       onClick={() => enquiriesExport?.()}
-      className="text-sm"
+      className="text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white"
     >
       <Download className="h-4 w-4 mr-2" />
       Export
@@ -379,17 +371,17 @@ onClick={() => enquiriesImport?.(null)}
 
 
 {enquiriesSelectedCount > 0 && can('edit_enquiries') && (
-  <Button
+  <Button 
     variant="outline"
     size="sm"
     onClick={() => enquiriesOpenBulkAssign?.()}
-    className="text-sm"
+    className="text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white"
   >
     <UserCheck className="h-4 w-4 mr-2" />
     Assign ({enquiriesSelectedCount})
   </Button>
 )}
-   <Button variant="outline" size="sm" onClick={() => enquiriesOpenFilterSidebar?.()}>
+   <Button className =" bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white" variant="outline" size="sm" onClick={() => enquiriesOpenFilterSidebar?.()}>
       <Filter className="h-4 w-4 mr-2" />Filters
     </Button>
 
