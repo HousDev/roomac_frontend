@@ -17,10 +17,27 @@ import {
   Sparkles, Rocket, Zap, BellRing,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
 import { Badge }    from "@/components/ui/badge";
+import { listTenants, type Tenant, getAllProperties } from "@/lib/tenantApi";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -1656,7 +1673,16 @@ export function DocumentList() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll,   setSelectAll]   = useState(false);
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
-
+  // ── New sidebar filter states ──
+  const [sidebarTenantFilter, setSidebarTenantFilter] = useState<string>("all");
+  const [sidebarDocFilter, setSidebarDocFilter] = useState<string>("all");
+const [sidebarPropertyFilter, setSidebarPropertyFilter] = useState<string>("all");
+const [documentNames, setDocumentNames] = useState<string[]>([]);
+const [properties, setProperties] = useState<Array<{ id: number; name: string }>>([]);
+const [loadingDocs, setLoadingDocs] = useState(false);
+const [loadingProperties, setLoadingProperties] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
 const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState<number | "All">(25);
 const [totalItems, setTotalItems] = useState(0);
@@ -1696,6 +1722,75 @@ const loadDocs = useCallback(async (page = currentPage) => {
 useEffect(() => {
   loadDocs(1);
 }, [statusFilter, priorityFilter, pageSize]);
+
+
+useEffect(() => {
+  if (!sidebarOpen) return;
+
+  // Fetch tenants
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
+    try {
+      const res = await listTenants({ pageSize: 999 });
+      if (res.success) setTenants(res.data || []);
+    } catch (e) { console.error(e); }
+    finally { setLoadingTenants(false); }
+  };
+
+  // Fetch unique document names
+  const fetchDocumentNames = async () => {
+    setLoadingDocs(true);
+    try {
+      const res = await listDocuments({ pageSize: 9999 });
+      if (res.data) {
+        const names = [...new Set(res.data.map(d => d.document_name).filter(Boolean))];
+        setDocumentNames(names);
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoadingDocs(false); }
+  };
+
+  // Fetch properties
+  const fetchProperties = async () => {
+    setLoadingProperties(true);
+    try {
+      const res = await getAllProperties();
+      if (res.success) setProperties(res.data || []);
+    } catch (e) { console.error(e); }
+    finally { setLoadingProperties(false); }
+  };
+
+  fetchTenants();
+  fetchDocumentNames();
+  fetchProperties();
+}, [sidebarOpen]);
+
+
+// Sync tenant filter with col.tenant_name
+// Sync tenant
+useEffect(() => {
+  if (sidebarTenantFilter === "all") {
+    setCol(prev => ({ ...prev, tenant_name: "" }));
+  } else {
+    const selected = tenants.find(t => String(t.id) === String(sidebarTenantFilter));
+    setCol(prev => ({ ...prev, tenant_name: selected ? selected.full_name : "" }));
+  }
+}, [sidebarTenantFilter, tenants]);
+
+// Sync document name
+useEffect(() => {
+  setCol(prev => ({ ...prev, document_number: sidebarDocFilter === "all" ? "" : sidebarDocFilter }));
+}, [sidebarDocFilter]);
+
+// Sync property
+useEffect(() => {
+  if (sidebarPropertyFilter === "all") {
+    setCol(prev => ({ ...prev, property_name: "" }));
+  } else {
+    const selected = properties.find(p => String(p.id) === String(sidebarPropertyFilter));
+    setCol(prev => ({ ...prev, property_name: selected ? selected.name : "" }));
+  }
+}, [sidebarPropertyFilter, properties]);
 const filteredRows = useMemo(() => docs.filter(d => {
   // ✅ Document search now checks BOTH document_number AND document_name
   const nOk = !col.document_number ||
@@ -1944,13 +2039,83 @@ const handleExport = () => {
   }
 };
 
-  const hasFilters   = statusFilter !== "all" || priorityFilter !== "all";
-  const filterCount  = [statusFilter!=="all",priorityFilter!=="all"].filter(Boolean).length;
-  const clearFilters = () => { setStatusFilter("all"); setPriorityFilter("all"); };
+   const hasFilters = statusFilter !== "all" || priorityFilter !== "all"
+                   || sidebarTenantFilter !== "all"
+                   || sidebarDocFilter !== "all"
+                   || sidebarPropertyFilter !== "all";
+
+const filterCount = [
+  statusFilter !== "all",
+  priorityFilter !== "all",
+  sidebarTenantFilter !== "all",
+  sidebarDocFilter !== "all",
+  sidebarPropertyFilter !== "all",
+].filter(Boolean).length;
+
+const clearFilters = () => {
+  setStatusFilter("all");
+  setPriorityFilter("all");
+  setSidebarTenantFilter("all");
+  setSidebarDocFilter("all");
+  setSidebarPropertyFilter("all");
+  setCol({ document_number: "", tenant_name: "", property_name: "" });
+};
   const hasColSearch = Object.values(col).some(v => v !== "");
 
   const ALL_STATUSES = ["Created","Shared","On Hold","OTP Verified","E-Sign Pending","Completed","Expired","Cancelled"];
-
+function FilterSelect({
+  label,
+  icon,
+  value,
+  onChange,
+  options,
+  placeholder = "Select...",
+  loading = false,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  value: string;
+  onChange: (val: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+        {icon} {label}
+      </p>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={loading}
+        className={cn(
+          "w-full h-8 px-3 text-[11px] border rounded-lg bg-white appearance-none",
+          "focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400",
+          value !== "all" ? "border-blue-300 bg-blue-50/40" : "border-gray-300",
+          loading && "opacity-60 cursor-not-allowed"
+        )}
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 10px center",
+          backgroundSize: "14px",
+          paddingRight: "32px",
+        }}
+      >
+        {loading ? (
+          <option value={value}>Loading...</option>
+        ) : (
+          options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))
+        )}
+      </select>
+    </div>
+  );
+}
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
     <div className="bg-gray-50 min-h-full">
@@ -2364,49 +2529,105 @@ const handleExport = () => {
 
 
         {/* FILTER SIDEBAR */}
-        {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-white" /><span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">{filterCount} active</span>}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">Clear all</button>}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white"><X className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Status</p>
-              <div className="space-y-1">
-                {["all", ...ALL_STATUSES].map(s => (
-                  <label key={s} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${statusFilter===s?"bg-blue-50 border border-blue-200 text-blue-700":"hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="status" checked={statusFilter===s} onChange={() => setStatusFilter(s)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusFilter===s?"bg-blue-500":"bg-gray-300"}`} />
-                    <span className="text-[12px] font-medium">{s==="all"?"All Statuses":s}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-gray-100" />
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Priority</p>
-              <div className="space-y-1">
-                {["all","low","normal","high","urgent"].map(p => (
-                  <label key={p} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${priorityFilter===p?"bg-blue-50 border border-blue-200 text-blue-700":"hover:bg-gray-50 border border-transparent text-gray-700"}`}>
-                    <input type="radio" name="priority" checked={priorityFilter===p} onChange={() => setPriorityFilter(p)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${priorityFilter===p?"bg-blue-500":"bg-gray-300"}`} />
-                    <span className="text-[12px] font-medium capitalize">{p==="all"?"All Priorities":p}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters} className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40">Clear All</button>
-            <button onClick={() => setSidebarOpen(false)} className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold">Apply & Close</button>
-          </div>
-        </aside>
+  {/* FILTER SIDEBAR */}
+{/* FILTER SIDEBAR */}
+{sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />}
+<aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {hasFilters && <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">{filterCount} active</span>}
+    </div>
+    <div className="flex items-center gap-2">
+      {hasFilters && <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">Clear all</button>}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white"><X className="h-4 w-4" /></button>
+    </div>
+  </div>
+
+  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+    {/* Document Name */}
+    <FilterSelect
+      label="Document Name"
+      value={sidebarDocFilter}
+      onChange={setSidebarDocFilter}
+      options={[
+        { value: "all", label: "All Documents" },
+        ...documentNames.map(name => ({ value: name, label: name }))
+      ]}
+      placeholder="All Documents"
+      loading={loadingDocs}
+    />
+
+    {/* Tenant */}
+    <FilterSelect
+      label="Tenant"
+      value={sidebarTenantFilter}
+      onChange={setSidebarTenantFilter}
+      options={[
+        { value: "all", label: "All Tenants" },
+        ...tenants.map(t => ({ value: String(t.id), label: `${t.full_name} ` }))
+      ]}
+      placeholder="All Tenants"
+      loading={loadingTenants}
+    />
+
+    {/* Property */}
+    <FilterSelect
+      label="Property"
+      value={sidebarPropertyFilter}
+      onChange={setSidebarPropertyFilter}
+      options={[
+        { value: "all", label: "All Properties" },
+        ...properties.map(p => ({ value: String(p.id), label: p.name }))
+      ]}
+      placeholder="All Properties"
+      loading={loadingProperties}
+    />
+
+    <div className="border-t border-gray-100" />
+
+    {/* Status */}
+    <FilterSelect
+      label="Status"
+      value={statusFilter}
+      onChange={setStatusFilter}
+      options={[
+        { value: "all", label: "All Statuses" },
+        ...ALL_STATUSES.map(s => ({ value: s, label: s }))
+      ]}
+      placeholder="All Statuses"
+    />
+
+    {/* Priority */}
+    <FilterSelect
+      label="Priority"
+      value={priorityFilter}
+      onChange={setPriorityFilter}
+      options={[
+        { value: "all", label: "All Priorities" },
+        { value: "low",    label: "Low" },
+        { value: "normal", label: "Normal" },
+        { value: "high",   label: "High" },
+        { value: "urgent", label: "Urgent" },
+      ]}
+      placeholder="All Priorities"
+    />
+
+  </div>
+
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button onClick={clearFilters} disabled={!hasFilters}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40">
+      Clear All
+    </button>
+    <button onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold">
+      Apply & Close
+    </button>
+  </div>
+</aside>
       </div>
 
       {/* VIEW MODAL */}
