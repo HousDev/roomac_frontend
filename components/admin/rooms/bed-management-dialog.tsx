@@ -91,10 +91,9 @@ interface Tenant {
   couple_id?: number;
   is_assigned?: boolean;
   is_partner_of_assigned?: boolean;
-  check_in_date?: string; // Add this field
+  check_in_date?: string;
   property_id?: number;
   property_name?: string;
-  // Partner fields
   partner_full_name?: string;
   partner_phone?: string;
   partner_email?: string;
@@ -112,8 +111,8 @@ interface Tenant {
   partner_address_proof_url?: string;
   partner_photo_url?: string;
   is_couple_booking?: boolean;
-  is_primary_tenant?: boolean; // ✅ ADD THIS
-  partner_tenant_id?: number; // ✅ ADD THIS
+  is_primary_tenant?: boolean;
+  partner_tenant_id?: number;
   is_vacated?: boolean;
 }
 
@@ -145,11 +144,37 @@ const GenderIcon = ({
   }
 };
 
-// Add this helper function at the top of the component (after the imports)
+// ============================================
+// HELPER FUNCTION: Check if tenant is single from couple
+// ============================================
+const isSingleFromCouple = (tenant: Tenant, allTenants: Tenant[]): boolean => {
+  // Check if tenant has couple_id
+  if (!tenant.couple_id) return false;
+  
+  // Check if tenant is active
+  if (!tenant.is_active) return false;
+  
+  // Find partner (same couple_id, different tenant)
+  const partner = allTenants.find(
+    t => t.couple_id === tenant.couple_id && t.id !== tenant.id
+  );
+  
+  // If no partner found or partner is inactive/vacated
+  if (!partner) return true;
+  if (partner.is_vacated) return true;
+  if (!partner.is_active) return true;
+  
+  return false;
+};
+
+// ============================================
+// VALIDATION FUNCTION
+// ============================================
 const validateTenantForAssignment = (
   tenant: Tenant,
   room: RoomResponse,
   isCoupleBooking: boolean,
+  allTenants: Tenant[],
 ): { valid: boolean; message: string } => {
   // 1. Check if tenant has check-in date
   if (!tenant.check_in_date) {
@@ -192,20 +217,12 @@ const validateTenantForAssignment = (
     }
   }
 
-   // ✅ Check if tenant is a couple but isCoupleBooking is false
-  const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-  if (isTenantCouple && !isCoupleBooking) {
-    return {
-      valid: false,
-      message: `"${tenant.full_name}" is part of a couple booking. Please check 'Mark as Couple Booking'.`,
-    };
-  }
-
   return { valid: true, message: "" };
 };
 
-// Tenant Selection Dropdown Component
-// Tenant Selection Dropdown Component (Fixed)
+// ============================================
+// TENANT SELECT DROPDOWN COMPONENT
+// ============================================
 function TenantSelectDropdown({
   bedNumber,
   value,
@@ -247,16 +264,14 @@ function TenantSelectDropdown({
 
   // Filter only unassigned tenants AND NOT partners of already assigned tenants
   const unassignedTenants = tenants.filter(
-    (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned ,
+    (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned,
   );
-
 
   // Filter based on room preferences
   const filteredTenants = unassignedTenants.filter((tenant) => {
     const tenantGender = tenant.gender?.toLowerCase();
-    const tenantIsCouple = tenant.couple_id != null && tenant.is_couple_booking === true;;
+    const tenantIsCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
 
-    // For rooms with both male and female preference
     const hasBothGenders = roomGenderPreferences.some(
       (p) =>
         p.toLowerCase() === "both" ||
@@ -281,7 +296,6 @@ function TenantSelectDropdown({
       return true;
     }
 
-    // Get assigned genders in current room (excluding the current bed)
     const assignedGenders = currentRoomAssignments
       .filter(
         (assignment) =>
@@ -296,12 +310,32 @@ function TenantSelectDropdown({
 
     // For male-only rooms
     if (hasMaleOnly && !hasFemaleOnly) {
-      return tenantGender === "male" && !tenantIsCouple;
+      // Keep existing logic for regular males
+      if (tenantGender === "male" && !tenantIsCouple) {
+        return true;
+      }
+      
+      // NEW: Check for single from couple (male)
+      if (tenantGender === "male" && isSingleFromCouple(tenant, unassignedTenants)) {
+        return true;
+      }
+      
+      return false;
     }
 
     // For female-only rooms
     if (hasFemaleOnly && !hasMaleOnly) {
-      return tenantGender === "female" && !tenantIsCouple;
+      // Keep existing logic for regular females
+      if (tenantGender === "female" && !tenantIsCouple) {
+        return true;
+      }
+      
+      // NEW: Check for single from couple (female)
+      if (tenantGender === "female" && isSingleFromCouple(tenant, unassignedTenants)) {
+        return true;
+      }
+      
+      return false;
     }
 
     // For rooms that allow both male and female (but not "both" preference)
@@ -330,9 +364,9 @@ function TenantSelectDropdown({
 
   // Get selected tenant
   const selectedTenant = tenants.find((t) => t.id.toString() === value);
-   const isSelectedTenantCouple = selectedTenant?.couple_id != null && selectedTenant?.is_couple_booking === true;
+  const isSelectedTenantCouple = selectedTenant?.couple_id != null && selectedTenant?.is_couple_booking === true;
 
-  // Apply search filter - using useMemo to prevent re-renders
+  // Apply search filter
   const searchedTenants = React.useMemo(() => {
     if (searchQuery) {
       return filteredTenants.filter(
@@ -346,7 +380,7 @@ function TenantSelectDropdown({
     return filteredTenants;
   }, [searchQuery, filteredTenants]);
 
-  // Sort tenants: couples first, then by name
+  // Sort tenants
   const sortedTenants = React.useMemo(() => {
     return [...searchedTenants].sort((a, b) => {
       if (a.couple_id && !b.couple_id) return -1;
@@ -355,13 +389,10 @@ function TenantSelectDropdown({
     });
   }, [searchedTenants]);
 
-  // Determine the rent to show in the input
   const displayRent = bedRent || room.rent_per_bed;
 
-  // Handle dropdown open state
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    // Reset search when dropdown closes
     if (!open) {
       setSearchQuery("");
     }
@@ -421,14 +452,8 @@ function TenantSelectDropdown({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-7 md:pl-9 h-7 md:h-9 text-xs md:text-sm"
-                // IMPORTANT: Prevent click from closing dropdown
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                }}
-                // Focus the input when dropdown opens
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 ref={(input) => {
                   if (input && isOpen) {
                     setTimeout(() => input.focus(), 0);
@@ -467,100 +492,103 @@ function TenantSelectDropdown({
               </div>
             ) : (
               <div className="divide-y">
-  {sortedTenants.map((tenant) => (
-    <SelectItem
-      key={tenant.id}
-      value={tenant.id.toString()}
-      className="py-2 md:py-3"
-      onPointerDown={(e) => {
-        e.stopPropagation();
-      }}
-    >
-      <div className="flex flex-col gap-1 w-full">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="relative">
-            {tenant.couple_id ? (
-              <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
-            ) : (
-              <GenderIcon
-                gender={tenant.gender || "Other"}
-                size="h-4 w-4 md:h-5 md:w-5"
-              />
-            )}
-            {tenant.is_active && !tenant.is_vacated && (
-              <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
-            )}
-            {tenant.is_vacated && (
-              <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-gray-400 rounded-full border border-white"></div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2 flex-wrap">
-              {tenant.full_name}
-              {tenant.couple_id && (
-  <Badge
-    variant="outline"
-    className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-pink-50 text-pink-700 border-pink-200 ml-1"
-  >
-    Couple
-  </Badge>
-)}
-              {tenant.is_vacated && (
-                <Badge
-                  variant="outline"
-                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-gray-100 text-gray-600 border-gray-300"
-                >
-                  Vacated
-                </Badge>
-              )}
-              {tenant.is_active && !tenant.is_vacated && !tenant.couple_id &&  (
-                <Badge
-                  variant="outline"
-                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-green-50 text-green-700 border-green-200"
-                >
-                  Active
-                </Badge>
-              )}
-              {!tenant.is_active && (
-                <Badge
-                  variant="outline"
-                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200"
-                >
-                  Inactive
-                </Badge>
-              )}
-            </div>
-            <div className="text-[10px] md:text-xs text-gray-500 flex flex-wrap items-center gap-1 md:gap-2 mt-0.5">
-              <span>ID: {tenant.id}</span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                {tenant.gender || "Not specified"}
-              </span>
-              {tenant.phone && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-2.5 w-2.5" />
-                    {tenant.phone}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </SelectItem>
-  ))}
-</div>
+                {sortedTenants.map((tenant) => (
+                  <SelectItem
+                    key={tenant.id}
+                    value={tenant.id.toString()}
+                    className="py-2 md:py-3"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex flex-col gap-1 w-full">
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="relative">
+                          {tenant.couple_id ? (
+                            <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+                          ) : (
+                            <GenderIcon
+                              gender={tenant.gender || "Other"}
+                              size="h-4 w-4 md:h-5 md:w-5"
+                            />
+                          )}
+                          {tenant.is_active && !tenant.is_vacated && (
+                            <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
+                          )}
+                          {tenant.is_vacated && (
+                            <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-gray-400 rounded-full border border-white"></div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2 flex-wrap">
+                            {tenant.full_name}
+                            {tenant.couple_id && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-pink-50 text-pink-700 border-pink-200 ml-1"
+                              >
+                                Couple
+                              </Badge>
+                            )}
+                            {isSingleFromCouple(tenant, tenants) && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-blue-50 text-blue-700 border-blue-200 ml-1"
+                              >
+                                Single from Couple
+                              </Badge>
+                            )}
+                            {tenant.is_vacated && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-gray-100 text-gray-600 border-gray-300"
+                              >
+                                Vacated
+                              </Badge>
+                            )}
+                            {tenant.is_active && !tenant.is_vacated && !tenant.couple_id && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-green-50 text-green-700 border-green-200"
+                              >
+                                Active
+                              </Badge>
+                            )}
+                            {!tenant.is_active && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200"
+                              >
+                                Inactive
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-[10px] md:text-xs text-gray-500 flex flex-wrap items-center gap-1 md:gap-2 mt-0.5">
+                            <span>ID: {tenant.id}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              {tenant.gender || "Not specified"}
+                            </span>
+                            {tenant.phone && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-2.5 w-2.5" />
+                                  {tenant.phone}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </div>
             )}
           </div>
         </SelectContent>
       </Select>
 
-      {/* Rest of your component remains the same */}
-      {/* Couple Checkbox, Custom Rent Input, Selected tenant preview... */}
-
-       {/* Couple Checkbox - Only show when room allows couples AND tenant is a couple */}
+      {/* Couple Checkbox - Only show when room allows couples AND tenant is a couple */}
       {roomGenderPreferences.some((pref) => pref.toLowerCase() === "couples") &&
         selectedTenant && (
           <div className="flex items-center space-x-2 mt-3">
@@ -589,7 +617,6 @@ function TenantSelectDropdown({
               }`}
             >
               Mark as Couple Booking
-              
             </Label>
           </div>
         )}
@@ -654,7 +681,6 @@ function TenantSelectDropdown({
                   )
                     return;
                   onSecurityDepositChange?.(e.target.value);
-                  
                 }}
                 className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
               />
@@ -749,7 +775,9 @@ function TenantSelectDropdown({
   );
 }
 
-// Bed Card Component
+// ============================================
+// BED CARD COMPONENT
+// ============================================
 function BedCard({
   bedNumber,
   assignment,
@@ -772,9 +800,9 @@ function BedCard({
   securityDeposit,
   onSecurityDepositChange,
   customSecurityDeposit,
-   onEditClick,  // ADD THIS
-  onEditSuccess, // ADD THIS
-   expectedVacateDate,
+  onEditClick,
+  onEditSuccess,
+  expectedVacateDate,
   preAssignedTenantId,
   preAssignedTenantName,
   preAssignedRent,
@@ -795,7 +823,6 @@ function BedCard({
     customRent?: string,
     isCouple?: boolean,
     customSecurityDeposit?: string,
-    
   ) => void;
   onEditClick: (assignment: any, tenantDetails: any) => void;
   onEditSuccess: () => void;
@@ -810,11 +837,10 @@ function BedCard({
   tenantDetails?: Tenant;
   room: RoomResponse;
   bedRent?: number;
-  securityDeposit?: number; // ← ADD THIS
-  onSecurityDepositChange?: (deposit: string) => void; // ← ADD THIS
-  customSecurityDeposit?: string; // ← ADD THIS
-
- expectedVacateDate?: string | null;
+  securityDeposit?: number;
+  onSecurityDepositChange?: (deposit: string) => void;
+  customSecurityDeposit?: string;
+  expectedVacateDate?: string | null;
   preAssignedTenantId?: number | null;
   preAssignedTenantName?: string | null;
   preAssignedRent?: number | null;
@@ -833,14 +859,12 @@ function BedCard({
   const [customSecurityDepositLocal, setCustomSecurityDepositLocal] =
     useState<string>("");
 
-    const [isPreAssigning, setIsPreAssigning] = useState(false);
-const [preAssignTenantId, setPreAssignTenantId] = useState("");
-const [preAssignRent, setPreAssignRent] = useState("");
-const [preAssignDeposit, setPreAssignDeposit] = useState("");
-const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
-    
+  const [isPreAssigning, setIsPreAssigning] = useState(false);
+  const [preAssignTenantId, setPreAssignTenantId] = useState("");
+  const [preAssignRent, setPreAssignRent] = useState("");
+  const [preAssignDeposit, setPreAssignDeposit] = useState("");
+  const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
 
-  // Reset form when assigning state changes
   useEffect(() => {
     if (isAssigning) {
       setSelectedTenantId("");
@@ -848,7 +872,6 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
         bedRent ? bedRent.toString() : room.rent_per_bed.toString(),
       );
       setIsCouple(assignment?.is_couple || false);
-      // Set security deposit default to the bed's rent value
       const defaultDeposit = bedRent
         ? bedRent.toString()
         : room.rent_per_bed.toString();
@@ -877,37 +900,37 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
     >
       <CardContent className="p-2">
         {/* Bed Header */}
-<div className="flex items-center justify-between mb-2">
-  <div className="flex items-center gap-1.5">
-    <div
-      className={`p-1 rounded-md ${isOccupied ? "bg-green-100" : "bg-gray-100"}`}
-    >
-      <Bed
-        className={`h-3.5 w-3.5 ${isOccupied ? "text-green-600" : "text-gray-600"}`}
-      />
-    </div>
-    <div>
-      <h3 className="font-bold text-xs">Bed {bedNumber}</h3>
-      <Badge
-        variant={isOccupied ? "default" : "outline"}
-        className={`text-[9px] md:text-xs ${
-          isOccupied
-            ? isVacatingSoon
-              ? "bg-amber-100 text-amber-800 border-amber-300"
-              : "bg-green-100 text-green-800 border-green-300"
-            : ""
-        }`}
-      >
-        {isVacatingSoon ? "Vacating Soon" : isOccupied ? "Occupied" : "Available"}
-      </Badge>
-    </div>
-  </div>
-  <div
-    className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full ${
-      isVacatingSoon ? "bg-amber-500" : isOccupied ? "bg-green-500" : "bg-gray-300"
-    }`}
-  />
-</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <div
+              className={`p-1 rounded-md ${isOccupied ? "bg-green-100" : "bg-gray-100"}`}
+            >
+              <Bed
+                className={`h-3.5 w-3.5 ${isOccupied ? "text-green-600" : "text-gray-600"}`}
+              />
+            </div>
+            <div>
+              <h3 className="font-bold text-xs">Bed {bedNumber}</h3>
+              <Badge
+                variant={isOccupied ? "default" : "outline"}
+                className={`text-[9px] md:text-xs ${
+                  isOccupied
+                    ? isVacatingSoon
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-green-100 text-green-800 border-green-300"
+                    : ""
+                }`}
+              >
+                {isVacatingSoon ? "Vacating Soon" : isOccupied ? "Occupied" : "Available"}
+              </Badge>
+            </div>
+          </div>
+          <div
+            className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full ${
+              isVacatingSoon ? "bg-amber-500" : isOccupied ? "bg-green-500" : "bg-gray-300"
+            }`}
+          />
+        </div>
 
         {/* Occupied Bed View */}
         {isOccupied && assignment && tenantDetails && (
@@ -953,58 +976,57 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
                 </div>
 
                 {Boolean(assignment.is_couple) && (
-  <>
-    <div className="mt-2 pt-2 border-t border-gray-200">
-      <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
-        <Heart className="h-2.5 w-2.5" /> Partner Details
-      </p>
-    </div>
-    {(() => {
-      // Get partner details using the corrected data
-      const partnerName = tenantDetails?.partner_full_name;
-      const partnerPhone = tenantDetails?.partner_phone;
-      const partnerGender = tenantDetails?.partner_gender;
-      const partnerRelationship = tenantDetails?.partner_relationship;
-      
-      return (
-        <>
-          {tenantDetails?.couple_id && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
-              <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
-                {tenantDetails.couple_id}
-              </Badge>
-            </div>
-          )}
-          {partnerName && partnerName !== tenantDetails?.full_name && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
-              <span className="font-medium text-xs md:text-sm">{partnerName}</span>
-            </div>
-          )}
-          {partnerPhone && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
-              <span className="font-medium text-xs md:text-sm">{partnerPhone}</span>
-            </div>
-          )}
-          {partnerGender && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
-              <span className="font-medium text-xs md:text-sm">{partnerGender}</span>
-            </div>
-          )}
-          {partnerRelationship && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
-              <span className="font-medium text-xs md:text-sm">{partnerRelationship}</span>
-            </div>
-          )}
-        </>
-      );
-    })()}
-  </>
-)}
+                  <>
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
+                        <Heart className="h-2.5 w-2.5" /> Partner Details
+                      </p>
+                    </div>
+                    {(() => {
+                      const partnerName = tenantDetails?.partner_full_name;
+                      const partnerPhone = tenantDetails?.partner_phone;
+                      const partnerGender = tenantDetails?.partner_gender;
+                      const partnerRelationship = tenantDetails?.partner_relationship;
+                      
+                      return (
+                        <>
+                          {tenantDetails?.couple_id && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+                              <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
+                                {tenantDetails.couple_id}
+                              </Badge>
+                            </div>
+                          )}
+                          {partnerName && partnerName !== tenantDetails?.full_name && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
+                              <span className="font-medium text-xs md:text-sm">{partnerName}</span>
+                            </div>
+                          )}
+                          {partnerPhone && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
+                              <span className="font-medium text-xs md:text-sm">{partnerPhone}</span>
+                            </div>
+                          )}
+                          {partnerGender && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
+                              <span className="font-medium text-xs md:text-sm">{partnerGender}</span>
+                            </div>
+                          )}
+                          {partnerRelationship && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
+                              <span className="font-medium text-xs md:text-sm">{partnerRelationship}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
 
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] md:text-xs text-gray-600">
@@ -1021,108 +1043,104 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
             </div>
 
             {/* Vacating Soon + Pre-Assignment Section */}
-{/* ✅ Check if expectedVacateDate exists and is a valid date */}
-{isVacatingSoon && expectedVacateDate &&  (
-  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-2">
-    <div className="flex items-center gap-1.5 text-amber-700">
-      <Clock className="h-3.5 w-3.5" />
-      <span className="text-[10px] font-semibold">
-        Vacating soon — available from{" "}
-        {new Date(expectedVacateDate).toLocaleDateString("en-IN", { 
-          day: "2-digit", 
-          month: "short", 
-          year: "numeric" 
-        })}
-      </span>
-    </div>
+            {isVacatingSoon && expectedVacateDate && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-2">
+                <div className="flex items-center gap-1.5 text-amber-700">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-semibold">
+                    Vacating soon — available from{" "}
+                    {new Date(expectedVacateDate).toLocaleDateString("en-IN", { 
+                      day: "2-digit", 
+                      month: "short", 
+                      year: "numeric" 
+                    })}
+                  </span>
+                </div>
 
-    {preAssignedTenantId ? (
-      <div className="bg-white rounded-md p-2 border border-amber-300">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-semibold text-gray-700">Pre-Assigned Tenant</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-5 text-[9px] text-red-600 hover:bg-red-500 px-1.5"
-            onClick={() => onCancelPreAssign(assignment.id)}
-          >
-            Cancel
-          </Button>
-        </div>
-        <p className="text-xs font-medium text-gray-800">{preAssignedTenantName || 'Unknown Tenant'}</p>
-        <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
-          <span>Rent: ₹{preAssignedRent || '—'}</span>
-          <span>•</span>
-          <span>Deposit: ₹{preAssignedDeposit || '—'}</span>
-          {preAssignedIsCouple && (
-            <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700 border-pink-200">
-              Couple
-            </Badge>
-          )}
-        </div>
-      </div>
-    ) : isPreAssigning ? (
-      <>
-        <TenantSelectDropdown
-          bedNumber={bedNumber}
-          value={preAssignTenantId}
-          onValueChange={setPreAssignTenantId}
-          tenants={tenants}
-          loading={loadingTenants}
-          roomGenderPreferences={roomGenderPreferences}
-          currentRoomAssignments={currentRoomAssignments}
-          onCustomRentChange={setPreAssignRent}
-          onIsCoupleChange={setPreAssignIsCouple}
-          onSecurityDepositChange={setPreAssignDeposit}
-          customRent={preAssignRent}
-          isCouple={preAssignIsCouple}
-          room={room}
-          bedRent={bedRent}
-          customSecurityDeposit={preAssignDeposit}
-        />
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1 h-7 text-[10px]"
-            onClick={() => setIsPreAssigning(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-  className="flex-1 h-7 text-[10px] bg-amber-600 hover:bg-amber-700"
-  onClick={async () => {
-    // Call parent's onPreAssign and wait for result
-    const success = await onPreAssign(
-      assignment, 
-      preAssignTenantId, 
-      preAssignRent, 
-      preAssignDeposit, 
-      preAssignIsCouple
-    );
-    // Only close if successful
-    if (success) {
-      setIsPreAssigning(false);
-    }
-    // If failed, keep isPreAssigning true so dropdown stays open
-  }}
-  disabled={!preAssignTenantId}
->
-  Confirm Pre-Assign
-</Button>
-        </div>
-      </>
-    ) : (
-      <Button
-        variant="outline"
-        className="w-full h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-500"
-        onClick={() => setIsPreAssigning(true)}
-      >
-        <UserPlus className="h-3 w-3 mr-1" />
-        Pre-Assign Tenant
-      </Button>
-    )}
-  </div>
-)}
+                {preAssignedTenantId ? (
+                  <div className="bg-white rounded-md p-2 border border-amber-300">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-semibold text-gray-700">Pre-Assigned Tenant</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 text-[9px] text-red-600 hover:bg-red-500 px-1.5"
+                        onClick={() => onCancelPreAssign(assignment.id)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <p className="text-xs font-medium text-gray-800">{preAssignedTenantName || 'Unknown Tenant'}</p>
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
+                      <span>Rent: ₹{preAssignedRent || '—'}</span>
+                      <span>•</span>
+                      <span>Deposit: ₹{preAssignedDeposit || '—'}</span>
+                      {preAssignedIsCouple && (
+                        <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700 border-pink-200">
+                          Couple
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ) : isPreAssigning ? (
+                  <>
+                    <TenantSelectDropdown
+                      bedNumber={bedNumber}
+                      value={preAssignTenantId}
+                      onValueChange={setPreAssignTenantId}
+                      tenants={tenants}
+                      loading={loadingTenants}
+                      roomGenderPreferences={roomGenderPreferences}
+                      currentRoomAssignments={currentRoomAssignments}
+                      onCustomRentChange={setPreAssignRent}
+                      onIsCoupleChange={setPreAssignIsCouple}
+                      onSecurityDepositChange={setPreAssignDeposit}
+                      customRent={preAssignRent}
+                      isCouple={preAssignIsCouple}
+                      room={room}
+                      bedRent={bedRent}
+                      customSecurityDeposit={preAssignDeposit}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-7 text-[10px]"
+                        onClick={() => setIsPreAssigning(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1 h-7 text-[10px] bg-amber-600 hover:bg-amber-700"
+                        onClick={async () => {
+                          const success = await onPreAssign(
+                            assignment, 
+                            preAssignTenantId, 
+                            preAssignRent, 
+                            preAssignDeposit, 
+                            preAssignIsCouple
+                          );
+                          if (success) {
+                            setIsPreAssigning(false);
+                          }
+                        }}
+                        disabled={!preAssignTenantId}
+                      >
+                        Confirm Pre-Assign
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-500"
+                    onClick={() => setIsPreAssigning(true)}
+                  >
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Pre-Assign Tenant
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Actions for Occupied Bed */}
             <div className="space-y-2 md:space-y-3">
@@ -1143,7 +1161,7 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
                     isCouple={isCouple}
                     room={room}
                     bedRent={bedRent}
-                    customSecurityDeposit={customSecurityDepositLocal} // ← CHANGE THIS - use the local state, not the prop from parent
+                    customSecurityDeposit={customSecurityDepositLocal}
                   />
 
                   <div className="flex gap-2">
@@ -1168,14 +1186,14 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
-          variant="outline"
-          className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-900 h-8 md:h-9 text-[10px] md:text-xs"
-          onClick={() => onEditClick(assignment, tenantDetails)}
-          disabled={isSaving}
-        >
-          <Pencil className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-          Edit
-        </Button>
+                      variant="outline"
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-900 h-8 md:h-9 text-[10px] md:text-xs"
+                      onClick={() => onEditClick(assignment, tenantDetails)}
+                      disabled={isSaving}
+                    >
+                      <Pencil className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                      Edit
+                    </Button>
                     <Button
                       variant="outline"
                       className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-900 h-8 md:h-9 text-[10px] md:text-xs"
@@ -1225,12 +1243,12 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
                   currentRoomAssignments={currentRoomAssignments}
                   onCustomRentChange={setCustomRent}
                   onIsCoupleChange={setIsCouple}
-                  onSecurityDepositChange={setCustomSecurityDepositLocal} // ← ADD THIS
+                  onSecurityDepositChange={setCustomSecurityDepositLocal}
                   customRent={customRent}
                   isCouple={isCouple}
                   room={room}
                   bedRent={bedRent}
-                  customSecurityDeposit={customSecurityDepositLocal} // ← CHANGE THIS - use the local state
+                  customSecurityDeposit={customSecurityDepositLocal}
                   defaultSecurityDeposit={securityDeposit}
                 />
 
@@ -1279,7 +1297,6 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
             </div>
           </div>
 
-          {/* Security Deposit Display */}
           {assignment?.security_deposit && (
             <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-100">
               <span className="text-[10px] md:text-xs text-gray-600">
@@ -1293,12 +1310,14 @@ const [preAssignIsCouple, setPreAssignIsCouple] = useState(false);
             </div>
           )}
         </div>
-
       </CardContent>
     </Card>
   );
 }
 
+// ============================================
+// MAIN BED MANAGEMENT DIALOG COMPONENT
+// ============================================
 export function BedManagementDialog({
   room,
   open,
@@ -1317,12 +1336,10 @@ export function BedManagementDialog({
   const [securityDeposit, setSecurityDeposit] = useState<number>(0);
   const [securityDepositLoading, setSecurityDepositLoading] = useState(false);
 
-  // State for vacate wizard
   const [vacateWizardOpen, setVacateWizardOpen] = useState(false);
   const [selectedBedForVacate, setSelectedBedForVacate] =
     useState<BedAssignment | null>(null);
 
-  // State for transfer confirmation dialog
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [totalSecurityDeposit, setTotalSecurityDeposit] = useState<number>(0);
   const [transferDetails, setTransferDetails] = useState<{
@@ -1340,14 +1357,12 @@ export function BedManagementDialog({
   });
   const [transferReason, setTransferReason] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
-const [selectedBedForEdit, setSelectedBedForEdit] = useState<any>(null);
-const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
+  const [selectedBedForEdit, setSelectedBedForEdit] = useState<any>(null);
+  const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
 
-  // State for Change Bed wizard
   const [changeBedWizardOpen, setChangeBedWizardOpen] = useState(false);
   const [selectedTenantForChange, setSelectedTenantForChange] =
     useState<Tenant | null>(null);
-   
 
   const roomGenderPreferences = Array.isArray(room.room_gender_preference)
     ? room.room_gender_preference
@@ -1355,624 +1370,584 @@ const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
       ? room.room_gender_preference.split(",").filter(Boolean)
       : [];
 
-  // Function to refresh room data
-const refreshRoomData = useCallback(async () => {
-  try {
-    setLoading(true);
-    
-    const response = await getRoomById(room.id.toString());
-    
-    // ✅ Extract actual room data from wrapper
-    let roomData: any = null;
-    if (response && (response as any).success && (response as any).data) {
-      roomData = (response as any).data;
-    } else if (response && (response as any).id) {
-      roomData = response;
-    } else {
-      roomData = room; // fallback to prop
-    }
-
-    let beds: BedAssignment[] = roomData?.bed_assignments || room.bed_assignments || [];
-
-    // ✅ FIX: Safely get property_id from roomData or room
-    let propertyId = roomData?.property_id || room?.property_id;
-    
-    // ✅ If no property_id, try to find it from the room data or fetch again
-    if (!propertyId && roomData?.id) {
-      try {
-        const fullRoom = await getRoomById(roomData.id.toString());
-        let fullRoomData: any = null;
-        if (fullRoom && (fullRoom as any).success && (fullRoom as any).data) {
-          fullRoomData = (fullRoom as any).data;
-        } else if (fullRoom && (fullRoom as any).id) {
-          fullRoomData = fullRoom;
-        }
-        if (fullRoomData?.property_id) {
-          roomData.property_id = fullRoomData.property_id;
-          propertyId = fullRoomData.property_id;
-        }
-      } catch (e) {
-        console.error("❌ [DEBUG] Could not fetch property_id:", e);
+  // ============================================
+  // REFRESH ROOM DATA
+  // ============================================
+  const refreshRoomData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      const response = await getRoomById(room.id.toString());
+      
+      let roomData: any = null;
+      if (response && (response as any).success && (response as any).data) {
+        roomData = (response as any).data;
+      } else if (response && (response as any).id) {
+        roomData = response;
+      } else {
+        roomData = room;
       }
-    }
-    
-    // ✅ Fetch vacate requests if we have a valid property_id
-    if (propertyId) {
-      try {
-        const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-        const vacateUrl = `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`;
-        
-        const vacateRes = await fetch(vacateUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        
-        const vacateData = await vacateRes.json();
 
-        if (vacateData.success && Array.isArray(vacateData.data)) {
-          // ✅ Create a map of bed_id -> vacate info
-          const vacateMap: Record<number, { date: string; status: string; tenantName: string }> = {};
+      let beds: BedAssignment[] = roomData?.bed_assignments || room.bed_assignments || [];
+
+      let propertyId = roomData?.property_id || room?.property_id;
+      
+      if (!propertyId && roomData?.id) {
+        try {
+          const fullRoom = await getRoomById(roomData.id.toString());
+          let fullRoomData: any = null;
+          if (fullRoom && (fullRoom as any).success && (fullRoom as any).data) {
+            fullRoomData = (fullRoom as any).data;
+          } else if (fullRoom && (fullRoom as any).id) {
+            fullRoomData = fullRoom;
+          }
+          if (fullRoomData?.property_id) {
+            roomData.property_id = fullRoomData.property_id;
+            propertyId = fullRoomData.property_id;
+          }
+        } catch (e) {
+          console.error("❌ [DEBUG] Could not fetch property_id:", e);
+        }
+      }
+      
+      if (propertyId) {
+        try {
+          const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+          const vacateUrl = `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`;
           
-          vacateData.data.forEach((req: any) => {
-            const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
-            const isApproved = req.vacate_status === 'approved';
+          const vacateRes = await fetch(vacateUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+          
+          const vacateData = await vacateRes.json();
+
+          if (vacateData.success && Array.isArray(vacateData.data)) {
+            const vacateMap: Record<number, { date: string; status: string; tenantName: string }> = {};
             
-            // ✅ Only include if not completed/cancelled
-            if (!isCompleted && req.bed_id && req.expected_vacate_date) {
-              // ✅ Use the existing vacate_date or expected_vacate_date
-              const vacateDate = req.expected_vacate_date || req.vacate_date;
+            vacateData.data.forEach((req: any) => {
+              const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
               
-              // ✅ Store the most recent request for each bed
-              if (!vacateMap[req.bed_id]) {
-                vacateMap[req.bed_id] = {
-                  date: vacateDate,
-                  status: req.vacate_status || 'pending',
-                  tenantName: req.tenant_name || 'Unknown',
+              if (!isCompleted && req.bed_id && req.expected_vacate_date) {
+                const vacateDate = req.expected_vacate_date || req.vacate_date;
+                
+                if (!vacateMap[req.bed_id]) {
+                  vacateMap[req.bed_id] = {
+                    date: vacateDate,
+                    status: req.vacate_status || 'pending',
+                    tenantName: req.tenant_name || 'Unknown',
+                  };
+                }
+              }
+            });
+
+            beds = beds.map((bed) => {
+              const vacateInfo = vacateMap[bed.id];
+              if (vacateInfo) {
+                return {
+                  ...bed,
+                  expected_vacate_date: vacateInfo.date,
+                  vacate_status: vacateInfo.status,
+                  vacating_tenant_name: vacateInfo.tenantName,
                 };
               }
-            }
-          });
-
-          // ✅ Update beds with vacate info
-          beds = beds.map((bed) => {
-            const vacateInfo = vacateMap[bed.id];
-            if (vacateInfo) {
-              // ✅ Set both expected_vacate_date and vacate_status
               return {
                 ...bed,
-                expected_vacate_date: vacateInfo.date,
-                vacate_status: vacateInfo.status,
-                // ✅ Also store the tenant name for display
-                vacating_tenant_name: vacateInfo.tenantName,
+                expected_vacate_date: null,
+                vacate_status: null,
+                vacating_tenant_name: null,
               };
-            }
-            // ✅ Clear vacate info if no request exists
-            return {
-              ...bed,
-              expected_vacate_date: null,
-              vacate_status: null,
-              vacating_tenant_name: null,
+            });
+          }
+        } catch (vacateErr) {
+          console.error("❌ [DEBUG] Could not fetch vacate dates:", vacateErr);
+        }
+      }
+
+      try {
+        const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+        const bedsRes = await fetch(
+          `/api/rooms/bed-assignments?room_id=${room.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        const bedsData = await bedsRes.json();
+
+        if (bedsData.success && Array.isArray(bedsData.data)) {
+          const preAssignMap: Record<number, any> = {};
+
+          bedsData.data.forEach((b: any) => {
+            preAssignMap[b.id] = {
+              pre_assigned_tenant_id: b.pre_assigned_tenant_id ?? null,
+              pre_assigned_rent: b.pre_assigned_rent ?? null,
+              pre_assigned_security_deposit: b.pre_assigned_security_deposit ?? null,
+              pre_assigned_is_couple: !!b.pre_assigned_is_couple,
             };
           });
+
+          beds = beds.map((bed) => ({
+            ...bed,
+            ...(preAssignMap[bed.id] ?? {}),
+          }));
         }
-      } catch (vacateErr) {
-        console.error("❌ [DEBUG] Could not fetch vacate dates:", vacateErr);
+      } catch (preErr) {
+        console.error("❌ [DEBUG] Could not fetch pre-assignment data:", preErr);
       }
-    }
 
-    // Fetch pre-assignment data
-    try {
-      const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-      const bedsRes = await fetch(
-        `/api/rooms/bed-assignments?room_id=${room.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      const bedsData = await bedsRes.json();
-
-      if (bedsData.success && Array.isArray(bedsData.data)) {
-        const preAssignMap: Record<number, any> = {};
-
-        bedsData.data.forEach((b: any) => {
-          preAssignMap[b.id] = {
-            pre_assigned_tenant_id: b.pre_assigned_tenant_id ?? null,
-            pre_assigned_rent: b.pre_assigned_rent ?? null,
-            pre_assigned_security_deposit: b.pre_assigned_security_deposit ?? null,
-            pre_assigned_is_couple: !!b.pre_assigned_is_couple,
-          };
-        });
-
-        beds = beds.map((bed) => ({
-          ...bed,
-          ...(preAssignMap[bed.id] ?? {}),
-        }));
+      setBedAssignments(beds);
+      if (onRoomUpdate) {
+        onRoomUpdate({ ...roomData, bed_assignments: beds });
       }
-    } catch (preErr) {
-      console.error("❌ [DEBUG] Could not fetch pre-assignment data:", preErr);
+      
+      setLoading(false);
+    } catch (error) {
+      console.error("❌ [DEBUG] Error refreshing room:", error);
+      setLoading(false);
     }
+  }, [room.id, room.property_id, onRoomUpdate]);
 
-    setBedAssignments(beds);
-    if (onRoomUpdate) {
-      onRoomUpdate({ ...roomData, bed_assignments: beds });
-    }
+  // ============================================
+  // CALCULATE TOTAL SECURITY DEPOSIT
+  // ============================================
+  useEffect(() => {
+    const total = bedAssignments.reduce((sum, bed) => {
+      if (!bed.is_available && bed.tenant_id && bed.security_deposit) {
+        const deposit = typeof bed.security_deposit === 'string' 
+          ? parseFloat(bed.security_deposit) 
+          : bed.security_deposit;
+        return sum + (isNaN(deposit) ? 0 : deposit);
+      }
+      return sum;
+    }, 0);
     
-    setLoading(false);
-  } catch (error) {
-    console.error("❌ [DEBUG] Error refreshing room:", error);
-    setLoading(false);
-  }
-}, [room.id, room.property_id, onRoomUpdate]);
+    setTotalSecurityDeposit(total);
+  }, [bedAssignments]);
 
-  // Add this useEffect to calculate total security deposit from bed assignments
-useEffect(() => {
-  // Calculate total security deposit from all occupied beds
-  const total = bedAssignments.reduce((sum, bed) => {
-    // Only add security deposit if bed is occupied (tenant assigned)
-    if (!bed.is_available && bed.tenant_id && bed.security_deposit) {
-      const deposit = typeof bed.security_deposit === 'string' 
-        ? parseFloat(bed.security_deposit) 
-        : bed.security_deposit;
-      return sum + (isNaN(deposit) ? 0 : deposit);
+  // ============================================
+  // LOAD DATA ON DIALOG OPEN
+  // ============================================
+  useEffect(() => {
+    if (open && room?.id) {
+      setAssigningBed(null);
+      const timer = setTimeout(() => {
+        refreshRoomData();
+        loadTenantsBasedOnPreferences();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-    return sum;
-  }, 0);
-  
-  setTotalSecurityDeposit(total);
-}, [bedAssignments]);
+  }, [open, room?.id]);
 
-useEffect(() => {
-  if (open && room?.id) {
-    setAssigningBed(null);
-    // ✅ Don't reset bedAssignments here, let refreshRoomData handle it
-    const timer = setTimeout(() => {
-      refreshRoomData();
-      loadTenantsBasedOnPreferences();
-    }, 100);
-    return () => clearTimeout(timer);
-  }
-}, [open, room?.id]);
-
+  // ============================================
+  // EDIT HANDLERS
+  // ============================================
   const handleEditClick = (bedAssignment: any, tenantDetails: any) => {
-  setSelectedBedForEdit(bedAssignment);
-  setSelectedTenantForEdit(tenantDetails);
-  setEditModalOpen(true);
-};
+    setSelectedBedForEdit(bedAssignment);
+    setSelectedTenantForEdit(tenantDetails);
+    setEditModalOpen(true);
+  };
 
-const handleEditSuccess = () => {
-  refreshRoomData();
-  loadTenantsBasedOnPreferences();
-  if (onRefresh) onRefresh();
-};
+  const handleEditSuccess = () => {
+    refreshRoomData();
+    loadTenantsBasedOnPreferences();
+    if (onRefresh) onRefresh();
+  };
 
-const handlePreAssign = async (
-  bedAssignment: BedAssignment,
-  tenantId: string,
-  rent?: string,
-  deposit?: string,
-  isCouple?: boolean,
-) => {
-  if (!tenantId.trim()) {
-    toast.error("Please select a tenant");
-    return;
-  }
-
-  const tenant = tenants.find((t) => t.id.toString() === tenantId);
-  if (!tenant) {
-    toast.error("Invalid tenant selected");
-    return;
-  }
-
-  const tenantIdNum = parseInt(tenantId);
-  
-  // ✅ Check if tenant is a couple
-  const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-
-  
-   // ✅ VALIDATION 1: If tenant is a couple, checkbox MUST be checked
-  if (isTenantCouple && !isCouple) {
-    toast.error(`"${tenant.full_name}" is part of a couple booking. Please check 'Mark as Couple Booking' before assigning.`, {
-      duration: 5000,
-    });
-    return;
-  }
-  
-  // ✅ If tenant is a couple, force isCouple to true
-  const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-  
-   // ✅ VALIDATION 2: If checkbox is checked but tenant doesn't have partner details
-  if (effectiveIsCouple && !isTenantCouple) {
-    if (!tenant.partner_full_name || !tenant.partner_phone) {
-      toast.error(
-        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-        { duration: 5000 }
-      );
+  // ============================================
+  // PRE-ASSIGN HANDLERS
+  // ============================================
+  const handlePreAssign = async (
+    bedAssignment: BedAssignment,
+    tenantId: string,
+    rent?: string,
+    deposit?: string,
+    isCouple?: boolean,
+  ) => {
+    if (!tenantId.trim()) {
+      toast.error("Please select a tenant");
       return;
     }
-    if (!tenant.partner_gender) {
-      toast.warning(
-        `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-        { duration: 4000 }
-      );
-    }
-  }
 
-  try {
-    setSavingBed(bedAssignment.bed_number);
-    const { preAssignTenant } = await import("@/lib/roomsApi");
-    const result = await preAssignTenant(bedAssignment.id, {
-      tenant_id: tenantIdNum,
-      rent: rent ? parseFloat(rent) : undefined,
-      security_deposit: deposit ? parseFloat(deposit) : undefined,
-      // ✅ FIX: Use effectiveIsCouple here instead of isCouple
-      is_couple: effectiveIsCouple,
-    });
-    if (result.success) {
-      toast.success("Tenant pre-assigned successfully");
-      await refreshRoomData();
-    } else {
-      toast.error(result.message || "Failed to pre-assign tenant");
+    const tenant = tenants.find((t) => t.id.toString() === tenantId);
+    if (!tenant) {
+      toast.error("Invalid tenant selected");
+      return;
     }
-  } catch (err: any) {
-    toast.error(err.message || "Failed to pre-assign tenant");
-  } finally {
-    setSavingBed(null);
-  }
-};
 
-const handleCancelPreAssign = async (bedAssignmentId: number) => {
-  try {
-    const { cancelPreAssignment } = await import("@/lib/roomsApi");
-    const result = await cancelPreAssignment(bedAssignmentId);
-    if (result.success) {
-      toast.success("Pre-assignment cancelled");
-      await refreshRoomData();
-    }
-  } catch (err: any) {
-    toast.error(err.message || "Failed to cancel pre-assignment");
-  }
-};
-
-const checkIfTenantVacated = async (tenantId: number): Promise<boolean> => {
-  try {
-    // Use the same API that loads tenant details
-    const response = await request<ApiResult<any>>(
-      `/api/tenants/${tenantId}`
-    );
+    const tenantIdNum = parseInt(tenantId);
     
-    if (response.success && response.data) {
-      // Check multiple possible sources for vacate status
-      
-      // 1. Check if there's a vacate_records array with any records
-      if (response.data.vacate_records && response.data.vacate_records.length > 0) {
-        return true;
+    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
+
+    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
+    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
+      toast.error("Please check 'Mark as Couple Booking' before assigning.");
+      return;
+    }
+    
+    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
+    
+    if (effectiveIsCouple && !isTenantCouple) {
+      if (!tenant.partner_full_name || !tenant.partner_phone) {
+        toast.error(
+          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
+          { duration: 5000 }
+        );
+        return;
       }
-      
-      // 2. Check if tenant has has_vacated flag
-      if (response.data.has_vacated === true) {
-        return true;
+      if (!tenant.partner_gender) {
+        toast.warning(
+          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
+          { duration: 4000 }
+        );
       }
+    }
+
+    try {
+      setSavingBed(bedAssignment.bed_number);
+      const { preAssignTenant } = await import("@/lib/roomsApi");
+      const result = await preAssignTenant(bedAssignment.id, {
+        tenant_id: tenantIdNum,
+        rent: rent ? parseFloat(rent) : undefined,
+        security_deposit: deposit ? parseFloat(deposit) : undefined,
+        is_couple: effectiveIsCouple,
+      });
+      if (result.success) {
+        toast.success("Tenant pre-assigned successfully");
+        await refreshRoomData();
+      } else {
+        toast.error(result.message || "Failed to pre-assign tenant");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to pre-assign tenant");
+    } finally {
+      setSavingBed(null);
+    }
+  };
+
+  const handleCancelPreAssign = async (bedAssignmentId: number) => {
+    try {
+      const { cancelPreAssignment } = await import("@/lib/roomsApi");
+      const result = await cancelPreAssignment(bedAssignmentId);
+      if (result.success) {
+        toast.success("Pre-assignment cancelled");
+        await refreshRoomData();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel pre-assignment");
+    }
+  };
+
+  // ============================================
+  // TENANT VACATE CHECK
+  // ============================================
+  const checkIfTenantVacated = async (tenantId: number): Promise<boolean> => {
+    try {
+      const response = await request<ApiResult<any>>(
+        `/api/tenants/${tenantId}`
+      );
       
-      // 3. Check if tenant has any vacate records via bed_assignments with vacate_reason
-      // This would require an additional API call if needed
-      
+      if (response.success && response.data) {
+        if (response.data.vacate_records && response.data.vacate_records.length > 0) {
+          return true;
+        }
+        if (response.data.has_vacated === true) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    } catch (error) {
+      console.error(`Error checking vacate status for tenant ${tenantId}:`, error);
       return false;
     }
-    return false;
-  } catch (error) {
-    console.error(`Error checking vacate status for tenant ${tenantId}:`, error);
-    return false;
-  }
-};
+  };
 
-const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boolean> => {
-  try {
-    const response = await request<ApiResult<any>>(
-      `/api/rooms/tenant-assignment/${tenantId}`
-    );
-    
-    if (response.success && response.data && Array.isArray(response.data)) {
-      // Check if any assignment has vacate_reason (meaning it was vacated)
-      const hasVacatedAssignment = response.data.some(
-        (assignment: any) => assignment.vacate_reason && assignment.is_available === true
+  const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boolean> => {
+    try {
+      const response = await request<ApiResult<any>>(
+        `/api/rooms/tenant-assignment/${tenantId}`
       );
-      return hasVacatedAssignment;
+      
+      if (response.success && response.data && Array.isArray(response.data)) {
+        const hasVacatedAssignment = response.data.some(
+          (assignment: any) => assignment.vacate_reason && assignment.is_available === true
+        );
+        return hasVacatedAssignment;
+      }
+      return false;
+    } catch (error) {
+      console.error(`Error checking bed assignments for tenant ${tenantId}:`, error);
+      return false;
     }
-    return false;
-  } catch (error) {
-    console.error(`Error checking bed assignments for tenant ${tenantId}:`, error);
-    return false;
-  }
-};
+  };
 
+  // ============================================
+  // LOAD TENANTS BASED ON PREFERENCES
+  // ============================================
+  const loadTenantsBasedOnPreferences = async () => {
+    try {
+      if (!room?.property_id) {
+        console.warn("room.property_id not available yet");
+        return;
+      }
+      setLoadingTenants(true);
 
+      const response: any = await request<Tenant[]>(
+        "/api/tenants?is_active=true&pageSize=1000",
+      );
 
+      let tenantsList: Tenant[] = [];
 
-const loadTenantsBasedOnPreferences = async () => {
-  try {
-    if (!room?.property_id) {
-    console.warn("room.property_id not available yet");
-    return;
-  }
-    setLoadingTenants(true);
+      if (Array.isArray(response)) {
+        tenantsList = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        tenantsList = response.data;
+      }
 
-    const response: any = await request<Tenant[]>(
-      "/api/tenants?is_active=true&pageSize=1000",
-    );
+      const tenantsWithDetails = await Promise.all(
+        tenantsList.map(async (tenant) => {
+          try {
+            const tenantDetails = await request<ApiResult<Tenant>>(
+              `/api/tenants/${tenant.id}`,
+            );
 
-    let tenantsList: Tenant[] = [];
-
-    if (Array.isArray(response)) {
-      tenantsList = response;
-    } else if (response.data && Array.isArray(response.data)) {
-      tenantsList = response.data;
-    }
-
-    // ✅ Fetch full tenant details including partner info for each tenant
-    const tenantsWithDetails = await Promise.all(
-      tenantsList.map(async (tenant) => {
-        try {
-          const tenantDetails = await request<ApiResult<Tenant>>(
-            `/api/tenants/${tenant.id}`,
-          );
-
-          let isVacated = false;
-          
-          if (tenantDetails.success && tenantDetails.data) {
-            if (tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) {
-              isVacated = true;
+            let isVacated = false;
+            
+            if (tenantDetails.success && tenantDetails.data) {
+              if (tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) {
+                isVacated = true;
+              }
+              if (tenantDetails.data.has_vacated === true) {
+                isVacated = true;
+              }
             }
-            if (tenantDetails.data.has_vacated === true) {
-              isVacated = true;
+            
+            if (!isVacated) {
+              isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
             }
-          }
-          
-          if (!isVacated) {
-            isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
-          }
 
-          if (tenantDetails.success && tenantDetails.data) {
+            if (tenantDetails.success && tenantDetails.data) {
+              return {
+                ...tenant,
+                partner_full_name: tenantDetails.data.partner_full_name,
+                partner_phone: tenantDetails.data.partner_phone,
+                partner_email: tenantDetails.data.partner_email,
+                partner_gender: tenantDetails.data.partner_gender,
+                partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
+                partner_address: tenantDetails.data.partner_address,
+                partner_occupation: tenantDetails.data.partner_occupation,
+                partner_organization: tenantDetails.data.partner_organization,
+                partner_relationship: tenantDetails.data.partner_relationship,
+                partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
+                partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
+                partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
+                partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
+                partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
+                partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
+                partner_photo_url: tenantDetails.data.partner_photo_url,
+                is_couple_booking: tenantDetails.data.is_couple_booking,
+                couple_id: tenantDetails.data.couple_id,
+                partner_tenant_id: tenantDetails.data.partner_tenant_id,
+                is_primary_tenant: tenantDetails.data.is_primary_tenant,
+                is_vacated: isVacated,
+              };
+            }
             return {
               ...tenant,
-              partner_full_name: tenantDetails.data.partner_full_name,
-              partner_phone: tenantDetails.data.partner_phone,
-              partner_email: tenantDetails.data.partner_email,
-              partner_gender: tenantDetails.data.partner_gender,
-              partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
-              partner_address: tenantDetails.data.partner_address,
-              partner_occupation: tenantDetails.data.partner_occupation,
-              partner_organization: tenantDetails.data.partner_organization,
-              partner_relationship: tenantDetails.data.partner_relationship,
-              partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
-              partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
-              partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
-              partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
-              partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
-              partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
-              partner_photo_url: tenantDetails.data.partner_photo_url,
-              is_couple_booking: tenantDetails.data.is_couple_booking,
-              couple_id: tenantDetails.data.couple_id,
-              partner_tenant_id: tenantDetails.data.partner_tenant_id,
-              is_primary_tenant: tenantDetails.data.is_primary_tenant,
               is_vacated: isVacated,
             };
+          } catch (error) {
+            console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
+            return {
+              ...tenant,
+              is_vacated: false,
+            };
           }
-          return {
-            ...tenant,
-            is_vacated: isVacated,
-          };
-        } catch (error) {
-          console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
-          return {
-            ...tenant,
-            is_vacated: false,
-          };
-        }
-      }),
-    );
+        }),
+      );
 
-    // ✅ CRITICAL FIX: Get ALL assigned tenant IDs from ALL rooms in the SAME property
-    // First, get all room IDs for this property
-    const propertyRoomsResponse = await request<ApiResult<any>>(
-      `/api/rooms/property/${room.property_id}`
-    );
-    
-    let allAssignedTenantIds = new Set<number>();
-    let assignedCoupleIds = new Set<number>();
-    
-    if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
-      const propertyRooms = propertyRoomsResponse.data;
+      const propertyRoomsResponse = await request<ApiResult<any>>(
+        `/api/rooms/property/${room.property_id}`
+      );
       
-      // Collect all tenant IDs from ALL rooms in this property
-      for (const propertyRoom of propertyRooms) {
-        const assignments = propertyRoom.bed_assignments || [];
-        for (const assignment of assignments) {
-          if (!assignment.is_available && assignment.tenant_id) {
-            allAssignedTenantIds.add(assignment.tenant_id);
-            
-            // Also track couple IDs for partner detection
-            const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
-            if (assignedTenant?.couple_id) {
-              assignedCoupleIds.add(assignedTenant.couple_id);
+      let allAssignedTenantIds = new Set<number>();
+      let assignedCoupleIds = new Set<number>();
+      
+      if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
+        const propertyRooms = propertyRoomsResponse.data;
+        
+        for (const propertyRoom of propertyRooms) {
+          const assignments = propertyRoom.bed_assignments || [];
+          for (const assignment of assignments) {
+            if (!assignment.is_available && assignment.tenant_id) {
+              allAssignedTenantIds.add(assignment.tenant_id);
+              
+              const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
+              if (assignedTenant?.couple_id) {
+                assignedCoupleIds.add(assignedTenant.couple_id);
+              }
             }
           }
         }
       }
-    }
-    
-    // Also check current room's assignments (as fallback)
-    const currentRoomAssignments = bedAssignments.filter(
-      (b) => !b.is_available && b.tenant_id,
-    );
-    
-    for (const assignment of currentRoomAssignments) {
-      if (assignment.tenant_id) {
-        allAssignedTenantIds.add(assignment.tenant_id);
-        const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
-        if (assignedTenant?.couple_id) {
-          assignedCoupleIds.add(assignedTenant.couple_id);
+      
+      const currentRoomAssignments = bedAssignments.filter(
+        (b) => !b.is_available && b.tenant_id,
+      );
+      
+      for (const assignment of currentRoomAssignments) {
+        if (assignment.tenant_id) {
+          allAssignedTenantIds.add(assignment.tenant_id);
+          const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
+          if (assignedTenant?.couple_id) {
+            assignedCoupleIds.add(assignedTenant.couple_id);
+          }
         }
       }
+
+      const tenantsWithAssignment = tenantsWithDetails.map((tenant) => {
+        const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
+        
+        let isPartnerOfAssigned = false;
+        if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
+          isPartnerOfAssigned = assignedCoupleIds.has(tenant.couple_id);
+        }
+        
+        return {
+          ...tenant,
+          is_assigned: hasActiveAssignment,
+          is_partner_of_assigned: isPartnerOfAssigned,
+        };
+      });
+
+      const filteredTenants = tenantsWithAssignment.filter(
+        (tenant) => tenant.property_id === room.property_id
+      );
+
+      setTenants(filteredTenants);
+    } catch (error: any) {
+      console.error("Error loading tenants:", error);
+      toast.error(`Failed to load tenants: ${error.message}`);
+      setTenants([]);
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  // ============================================
+  // GET BED STATUS
+  // ============================================
+  const getBedStatus = useCallback((bedNumber: number) => {
+    const assignment = bedAssignments.find((b) => b.bed_number === bedNumber);
+
+    if (!assignment) {
+      return { status: "available", assignment: null };
     }
 
-    // ✅ Now mark tenants as assigned if they are in ANY room of this property
-    const tenantsWithAssignment = tenantsWithDetails.map((tenant) => {
-      const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
+    const hasVacateDate = !!assignment.expected_vacate_date && assignment.expected_vacate_date !== null;
+    const isAvailable = assignment.is_available;
+    const hasTenant = !!assignment.tenant_id;
+
+    if (hasVacateDate && hasTenant && !isAvailable) {
+      const vacateDate = new Date(assignment.expected_vacate_date);
+      const today = new Date();
       
-      // Check if tenant's partner is assigned
-      let isPartnerOfAssigned = false;
-      if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
-        isPartnerOfAssigned = assignedCoupleIds.has(tenant.couple_id);
+      if (vacateDate < today) {
+        return { status: "occupied", assignment };
       }
       
-      return {
-        ...tenant,
-        is_assigned: hasActiveAssignment,
-        is_partner_of_assigned: isPartnerOfAssigned,
-      };
-    });
+      if (assignment.vacate_status === 'completed' || assignment.vacate_status === 'cancelled') {
+        return { status: "occupied", assignment };
+      }
+      
+      return { status: "vacating_soon", assignment };
+    }
 
-    // Filter tenants to only show those assigned to THIS property
-    const filteredTenants = tenantsWithAssignment.filter(
-      (tenant) => tenant.property_id === room.property_id
-    );
-
-    setTenants(filteredTenants);
-  } catch (error: any) {
-    console.error("Error loading tenants:", error);
-    toast.error(`Failed to load tenants: ${error.message}`);
-    setTenants([]);
-  } finally {
-    setLoadingTenants(false);
-  }
-};
-
-  
-
-const getBedStatus = useCallback((bedNumber: number) => {
-  const assignment = bedAssignments.find((b) => b.bed_number === bedNumber);
-
-  if (!assignment) {
-    return { status: "available", assignment: null };
-  }
-
-  const hasVacateDate = !!assignment.expected_vacate_date && assignment.expected_vacate_date !== null;
-  const isAvailable = assignment.is_available;
-  const hasTenant = !!assignment.tenant_id;
-
-  // ✅ Only show "vacating_soon" if:
-  // 1. Bed has a future vacate date
-  // 2. Bed is occupied
-  // 3. Vacate status is not completed or cancelled
-  if (hasVacateDate && hasTenant && !isAvailable) {
-    // Check if vacate date is in the future or today
-    const vacateDate = new Date(assignment.expected_vacate_date);
-    const today = new Date();
-    
-    // ✅ If vacate date is in the past, don't show vacating_soon
-    if (vacateDate < today) {
+    if (!isAvailable && hasTenant) {
       return { status: "occupied", assignment };
     }
     
-    // ✅ Check if vacate status is completed or cancelled
-    if (assignment.vacate_status === 'completed' || assignment.vacate_status === 'cancelled') {
-      return { status: "occupied", assignment };
-    }
+    return { status: "available", assignment };
+  }, [bedAssignments]);
+
+  // ============================================
+  // FIND TENANT DETAILS
+  // ============================================
+  const findTenantDetails = (tenantId: number) => {
+    const tenant = tenants.find((t) => t.id === tenantId);
+    if (!tenant) return null;
     
-    return { status: "vacating_soon", assignment };
-  }
-
-  if (!isAvailable && hasTenant) {
-    return { status: "occupied", assignment };
-  }
-  
-  return { status: "available", assignment };
-}, [bedAssignments]);
-
-  // In BedManagementDialog.tsx
-const findTenantDetails = (tenantId: number) => {
-  // Find the tenant in the tenants list
-  const tenant = tenants.find((t) => t.id === tenantId);
-  
-  if (!tenant) return null;
-  
-  
-  // Get partner details using the corrected helper
-  const partnerInfo = getCorrectPartnerDetails(tenant);
-  
-  const result = {
-    ...tenant,
-    partner_full_name: partnerInfo.partner_full_name,
-    partner_phone: partnerInfo.partner_phone,
-    partner_email: partnerInfo.partner_email,
-    partner_gender: partnerInfo.partner_gender,
-    partner_relationship: partnerInfo.partner_relationship,
+    const partnerInfo = getCorrectPartnerDetails(tenant);
+    
+    return {
+      ...tenant,
+      partner_full_name: partnerInfo.partner_full_name,
+      partner_phone: partnerInfo.partner_phone,
+      partner_email: partnerInfo.partner_email,
+      partner_gender: partnerInfo.partner_gender,
+      partner_relationship: partnerInfo.partner_relationship,
+    };
   };
-  
-  
-  return result;
-};
 
-const getCorrectPartnerDetails = (tenant: Tenant) => {
-  
-  // CASE 1: This tenant is PRIMARY (has partner_tenant_id pointing to partner)
-  if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
-    const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
+  const getCorrectPartnerDetails = (tenant: Tenant) => {
+    if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
+      const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
+      
+      if (partnerTenant) {
+        return {
+          partner_full_name: partnerTenant.full_name,
+          partner_phone: partnerTenant.phone || '',
+          partner_email: partnerTenant.email || '',
+          partner_gender: partnerTenant.gender || '',
+          partner_relationship: tenant.partner_relationship || 'Spouse',
+        };
+      }
+    }
     
-    if (partnerTenant) {
+    const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
+    
+    if (primaryTenant) {
       return {
-        partner_full_name: partnerTenant.full_name,
-        partner_phone: partnerTenant.phone || '',
-        partner_email: partnerTenant.email || '',
-        partner_gender: partnerTenant.gender || '',
+        partner_full_name: primaryTenant.full_name,
+        partner_phone: primaryTenant.phone || '',
+        partner_email: primaryTenant.email || '',
+        partner_gender: primaryTenant.gender || '',
         partner_relationship: tenant.partner_relationship || 'Spouse',
       };
     }
-  }
-  
-  // CASE 2: This tenant is PARTNER (someone else's partner_tenant_id points to this tenant)
-  const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
-  
-  if (primaryTenant) {
+    
+    if (tenant.couple_id) {
+      const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
+      
+      if (coupleTenants.length > 0) {
+        const partnerTenant = coupleTenants[0];
+        return {
+          partner_full_name: partnerTenant.full_name,
+          partner_phone: partnerTenant.phone || '',
+          partner_email: partnerTenant.email || '',
+          partner_gender: partnerTenant.gender || '',
+          partner_relationship: tenant.partner_relationship || 'Spouse',
+        };
+      }
+    }
+    
     return {
-      partner_full_name: primaryTenant.full_name,
-      partner_phone: primaryTenant.phone || '',
-      partner_email: primaryTenant.email || '',
-      partner_gender: primaryTenant.gender || '',
+      partner_full_name: tenant.partner_full_name || '',
+      partner_phone: tenant.partner_phone || '',
+      partner_email: tenant.partner_email || '',
+      partner_gender: tenant.partner_gender || '',
       partner_relationship: tenant.partner_relationship || 'Spouse',
     };
-  }
-  
-  // CASE 3: Find by couple_id (fallback for older data)
-  if (tenant.couple_id) {
-    const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
-    
-    if (coupleTenants.length > 0) {
-      const partnerTenant = coupleTenants[0];
-      return {
-        partner_full_name: partnerTenant.full_name,
-        partner_phone: partnerTenant.phone || '',
-        partner_email: partnerTenant.email || '',
-        partner_gender: partnerTenant.gender || '',
-        partner_relationship: tenant.partner_relationship || 'Spouse',
-      };
-    }
-  }
-  
-  // Fallback to tenant's own partner fields
-  return {
-    partner_full_name: tenant.partner_full_name || '',
-    partner_phone: tenant.partner_phone || '',
-    partner_email: tenant.partner_email || '',
-    partner_gender: tenant.partner_gender || '',
-    partner_relationship: tenant.partner_relationship || 'Spouse',
   };
-};
 
+  // ============================================
+  // CHECK EXISTING ASSIGNMENT
+  // ============================================
   const checkTenantExistingAssignment = async (
     tenantId: number,
     excludeBedAssignmentId?: number,
@@ -2001,6 +1976,9 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     }
   };
 
+  // ============================================
+  // VACATE EXISTING ASSIGNMENT
+  // ============================================
   const vacateExistingAssignment = async (
     bedAssignmentId: number,
     reason: string,
@@ -2022,8 +2000,9 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     }
   };
 
-
-  // Handle Change Bed Click
+  // ============================================
+  // CHANGE BED HANDLER
+  // ============================================
   const handleChangeBedClick = (bedAssignment: BedAssignment) => {
     const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
     if (tenantDetails) {
@@ -2032,13 +2011,11 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     }
   };
 
-
-  
-
-  // Add this useEffect to reset all states when dialog closes
+  // ============================================
+  // RESET STATES ON DIALOG CLOSE
+  // ============================================
   useEffect(() => {
     if (!open) {
-      // Reset all states when dialog closes
       setAssigningBed(null);
       setSavingBed(null);
       setBedAssignments(room.bed_assignments || []);
@@ -2057,6 +2034,9 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     }
   }, [open, room.bed_assignments]);
 
+  // ============================================
+  // ASSIGN BED
+  // ============================================
   const handleAssignBed = async (
     bedNumber: number,
     tenantId: string,
@@ -2077,39 +2057,38 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
 
     const tenantIdNum = parseInt(tenantId);
     const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
 
-// ✅ Validate FIRST using raw isCouple from form
-if (isTenantCouple && !isCouple) {
-  toast.error(`"${tenant.full_name}" is part of a couple booking. Please check 'Mark as Couple Booking' before assigning.`, {
-    duration: 5000,
-  });
-  setSavingBed(null);
-  return;
-}
-
-const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
- // ✅ VALIDATION 2: If checkbox is checked but tenant doesn't have partner details
-  if (effectiveIsCouple && !isTenantCouple) {
-    if (!tenant.partner_full_name || !tenant.partner_phone) {
-      toast.error(
-        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-        { duration: 5000 }
-      );
+    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
+    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
+      toast.error("Please check 'Mark as Couple Booking' before assigning.");
       return;
     }
-    if (!tenant.partner_gender) {
-      toast.warning(
-        `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-        { duration: 4000 }
-      );
+
+    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
+    
+    if (effectiveIsCouple && !isTenantCouple) {
+      if (!tenant.partner_full_name || !tenant.partner_phone) {
+        toast.error(
+          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+      if (!tenant.partner_gender) {
+        toast.warning(
+          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
+          { duration: 4000 }
+        );
+      }
     }
-  }
-const isCoupleBooking = effectiveIsCouple;
+    const isCoupleBooking = effectiveIsCouple;
 
     const validation = validateTenantForAssignment(
       tenant,
       room,
       isCoupleBooking,
+      tenants,
     );
     if (!validation.valid) {
       toast.error(validation.message);
@@ -2168,17 +2147,6 @@ const isCoupleBooking = effectiveIsCouple;
           ? parseFloat(customSecurityDeposit)
           : rentValue,
         is_couple: coupleValue,
-        // ...(coupleValue && {
-        //   partner_full_name: tenant.partner_full_name,
-        //   partner_phone: tenant.partner_phone,
-        //   partner_email: tenant.partner_email,
-        //   partner_gender: tenant.partner_gender,
-        //   partner_date_of_birth: tenant.partner_date_of_birth,
-        //   partner_address: tenant.partner_address,
-        //   partner_occupation: tenant.partner_occupation,
-        //   partner_organization: tenant.partner_organization,
-        //   partner_relationship: tenant.partner_relationship || "Spouse",
-        // }),
         ...(coupleValue && getCorrectPartnerDetails(tenant)),
       };
 
@@ -2186,18 +2154,16 @@ const isCoupleBooking = effectiveIsCouple;
 
       if (result.success) {
         const partnerDetails = getCorrectPartnerDetails(tenant);
-  const coupleMsg = coupleValue
-    ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
-    : "";
-  toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
-        // Reset saving state before closing
+        const coupleMsg = coupleValue
+          ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
+          : "";
+        toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
         setSavingBed(null);
         setAssigningBed(null);
 
         loadTenantsBasedOnPreferences();
         refreshRoomData();
         onOpenChange(false);
-
 
         if (onRefresh) onRefresh();
       } else {
@@ -2211,6 +2177,9 @@ const isCoupleBooking = effectiveIsCouple;
     }
   };
 
+  // ============================================
+  // UPDATE BED ASSIGNMENT
+  // ============================================
   const handleUpdateBedAssignment = async (
     bedAssignment: BedAssignment,
     tenantId: string,
@@ -2231,51 +2200,47 @@ const isCoupleBooking = effectiveIsCouple;
 
     const newTenantId = parseInt(tenantId);
     const currentTenantId = bedAssignment.tenant_id;
-     const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
 
-// ✅ Validate FIRST using raw isCouple from form
-if (isTenantCouple && !isCouple) {
-  toast.error(`"${tenant.full_name}" is part of a couple booking. Please check 'Mark as Couple Booking' before assigning.`, {
-    duration: 5000,
-  });
-  setSavingBed(null);
-  return;
-}
-
-const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-
- // ✅ VALIDATION 2: If checkbox is checked but tenant doesn't have partner details
-  if (effectiveIsCouple && !isTenantCouple) {
-    if (!tenant.partner_full_name || !tenant.partner_phone) {
-      toast.error(
-        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-        { duration: 5000 }
-      );
+    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
+    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
+      toast.error("Please check 'Mark as Couple Booking' before assigning.");
       return;
     }
-    if (!tenant.partner_gender) {
-      toast.warning(
-        `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-        { duration: 4000 }
-      );
+
+    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
+
+    if (effectiveIsCouple && !isTenantCouple) {
+      if (!tenant.partner_full_name || !tenant.partner_phone) {
+        toast.error(
+          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+      if (!tenant.partner_gender) {
+        toast.warning(
+          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
+          { duration: 4000 }
+        );
+      }
     }
-  }
 
-const isCoupleBooking = effectiveIsCouple;
+    const isCoupleBooking = effectiveIsCouple;
 
-    // Validate tenant before assignment (skip if same tenant - we're just updating rent/couple status)
     if (currentTenantId !== newTenantId) {
       const validation = validateTenantForAssignment(
         tenant,
         room,
         isCoupleBooking,
+        tenants,
       );
       if (!validation.valid) {
         toast.error(validation.message);
         return;
       }
     } else {
-      // Even for same tenant, if it's a couple booking, validate partner details
       if (isCoupleBooking) {
         if (!tenant.partner_full_name || !tenant.partner_phone) {
           toast.error(
@@ -2342,6 +2307,9 @@ const isCoupleBooking = effectiveIsCouple;
     }
   };
 
+  // ============================================
+  // UPDATE BED ASSIGNMENT DIRECTLY
+  // ============================================
   const updateBedAssignmentDirectly = async (
     bedAssignment: BedAssignment,
     tenant: Tenant,
@@ -2350,43 +2318,39 @@ const isCoupleBooking = effectiveIsCouple;
     customSecurityDeposit?: string,
   ) => {
     const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
 
-if (isTenantCouple && !isCouple) {
-  toast.error(`"${tenant.full_name}" is part of a couple booking. Please check 'Mark as Couple Booking' before assigning.`, {
-    duration: 5000,
-  });
-  return;
-}
-
-
-const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-
-// ✅ Validate: If isCouple is checked but tenant doesn't have partner details
-  if (effectiveIsCouple && !isTenantCouple) {
-    if (!tenant.partner_full_name || !tenant.partner_phone) {
-      toast.error(
-        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-        { duration: 5000 }
-      );
+    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
+    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
+      toast.error("Please check 'Mark as Couple Booking' before assigning.");
       return;
     }
-    if (!tenant.partner_gender) {
-      toast.warning(
-        `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-        { duration: 4000 }
-      );
-    }
-  }
 
-  
-  
+    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
+
+    if (effectiveIsCouple && !isTenantCouple) {
+      if (!tenant.partner_full_name || !tenant.partner_phone) {
+        toast.error(
+          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+      if (!tenant.partner_gender) {
+        toast.warning(
+          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
+          { duration: 4000 }
+        );
+      }
+    }
+
     const rentValue =
       customRent && customRent.trim() !== ""
         ? parseFloat(customRent)
         : room.rent_per_bed;
 
     const tenantGender = tenant.gender as "Male" | "Female" | "Other";
-   const coupleValue = effectiveIsCouple;
+    const coupleValue = effectiveIsCouple;
 
     let depositValue = rentValue;
     if (
@@ -2400,8 +2364,7 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
       }
     }
 
-    // ✅ Get correct partner details
-  const partnerDetails = getCorrectPartnerDetails(tenant);
+    const partnerDetails = getCorrectPartnerDetails(tenant);
 
     const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,
@@ -2411,20 +2374,11 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
       is_couple: coupleValue,
       security_deposit: depositValue,
       ...(coupleValue && {
-        // partner_full_name: tenant.partner_full_name,
-        // partner_phone: tenant.partner_phone,
-        // partner_email: tenant.partner_email,
-        // partner_gender: tenant.partner_gender,
-        // partner_date_of_birth: tenant.partner_date_of_birth,
-        // partner_address: tenant.partner_address,
-        // partner_occupation: tenant.partner_occupation,
-        // partner_organization: tenant.partner_organization,
-        // partner_relationship: tenant.partner_relationship || "Spouse",
-         partner_full_name: partnerDetails.partner_full_name,  // ✅ Use partnerDetails here!
-      partner_phone: partnerDetails.partner_phone,
-      partner_email: partnerDetails.partner_email,
-      partner_gender: partnerDetails.partner_gender,
-      partner_relationship: partnerDetails.partner_relationship,
+        partner_full_name: partnerDetails.partner_full_name,
+        partner_phone: partnerDetails.partner_phone,
+        partner_email: partnerDetails.partner_email,
+        partner_gender: partnerDetails.partner_gender,
+        partner_relationship: partnerDetails.partner_relationship,
       }),
     };
 
@@ -2434,15 +2388,13 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
     );
 
     if (result.success) {
-       // ✅ Use partnerDetails.partner_full_name for the toast, NOT tenant.partner_full_name
-    const coupleMsg = coupleValue
-      ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
-      : "";
-    toast.success(
-      `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
-    );
+      const coupleMsg = coupleValue
+        ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
+        : "";
+      toast.success(
+        `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
+      );
 
-      // Reset saving state before closing
       setSavingBed(null);
       setAssigningBed(null);
 
@@ -2451,16 +2403,16 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
       
       onOpenChange(false);
 
-  
-
       if (onRefresh) onRefresh();
     } else {
       toast.error(result.message || "Failed to update bed assignment");
     }
   };
 
+  // ============================================
+  // DELETE ASSIGNMENT
+  // ============================================
   const handleDeleteAssignment = async (bedAssignment: BedAssignment) => {
-    // Payment check
     if (bedAssignment.tenant_id) {
       try {
         setLoading(true);
@@ -2516,7 +2468,6 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
           `Bed ${bedAssignment.bed_number} unassigned successfully`,
         );
 
-        // Reset saving state before closing
         setSavingBed(null);
         setAssigningBed(null);
         loadTenantsBasedOnPreferences();
@@ -2537,6 +2488,9 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
     }
   };
 
+  // ============================================
+  // TRANSFER CONFIRMATION
+  // ============================================
   const handleTransferConfirmation = async () => {
     try {
       const {
@@ -2584,15 +2538,13 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
 
         if (result.success) {
           const coupleMsg = coupleValue
-            ? ` (Couple Booking with ${tenant.partner_full_name})`
+            ? ` (Couple Booking with ${newTenant.partner_full_name})`
             : "";
-          toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
+          toast.success(`Bed ${existingAssignment.bed_number} assigned successfully!${coupleMsg}`);
 
-          // ✅ Refresh the bed assignments AND reload tenants (only once)
           await refreshRoomData();
           await loadTenantsBasedOnPreferences();
 
-          // ✅ Close the assigning state for this bed
           setAssigningBed(null);
 
           if (onRefresh) onRefresh();
@@ -2628,7 +2580,6 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
           toast.success(
             `Bed ${bedAssignment.bed_number} updated successfully! ${newTenant.full_name}${coupleMsg}`,
           );
-          // Refresh bed assignments
           await refreshRoomData();
         } else {
           toast.error(result.message || "Failed to update bed assignment");
@@ -2656,206 +2607,118 @@ const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
     }
   };
 
-  // const handleVacateClick = async (bedAssignment: BedAssignment) => {
-  //   const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
+  // ============================================
+  // VACATE CLICK
+  // ============================================
+  const handleVacateClick = async (bedAssignment: BedAssignment) => {
+    const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
 
-  //   if (!tenantDetails) {
-  //     toast.error("Tenant details not found");
-  //     return;
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     const adminToken = localStorage.getItem("auth_token");
-
-  //     const response = await fetch(
-  //       `${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`,
-  //       {
-  //         method: "GET",
-  //         headers: {
-  //           Authorization: `Bearer ${adminToken}`,
-  //           "Content-Type": "application/json",
-  //         },
-  //       },
-  //     );
-
-  //     const result = await response.json();
-
-  //     let vacateRequests = [];
-  //     if (result.success && Array.isArray(result.data)) {
-  //       vacateRequests = result.data;
-  //     }
-
-  //     // Filter for this tenant
-  //     const tenantRequests = vacateRequests.filter(
-  //       (req: any) => req.tenant_id === tenantDetails.id,
-  //     );
-
-  //     console.log(
-  //       `🔍 Found ${tenantRequests.length} vacate requests for tenant ${tenantDetails.id}`,
-  //     );
-
-  //     // TEMPORARY FIX: Since API doesn't return status,
-  //     // if ANY request exists for this tenant, allow vacate
-  //     const hasAnyRequest = tenantRequests.length > 0;
-
-  //     if (!hasAnyRequest) {
-  //       // ✅ ONLY CHANGE THIS - Toast UI
-  //       toast.error(`Cannot vacate bed`, {
-  //         description: `${tenantDetails.full_name} has not submitted any vacate request. Please ask them to submit one first.`,
-  //         duration: 4000,
-  //       });
-  //       return;
-  //     }
-
-  //     // Open wizard
-  //     console.log(`✅ Tenant has vacate request, opening wizard...`);
-  //     setSelectedBedForVacate(bedAssignment);
-  //     setVacateWizardOpen(true);
-  //   } catch (error) {
-  //     console.error("Error:", error);
-  //     // ✅ ONLY CHANGE THIS - Toast UI
-  //     toast.error("Unable to verify vacate request", {
-  //       description: "Please check manually or try again later.",
-  //       duration: 4000,
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // Alternative version - checks but auto-proceeds
-const handleVacateClick = async (bedAssignment: BedAssignment) => {
-  const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
-
-  if (!tenantDetails) {
-    toast.error("Tenant details not found");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    // ✅ FIX: Try multiple possible token storage keys
-    let adminToken = localStorage.getItem("auth_token");
-    
-    if (!adminToken) {
-      adminToken = localStorage.getItem("admin_token");
-    }
-    
-    if (!adminToken) {
-      adminToken = localStorage.getItem("token");
-    }
-    
-    if (!adminToken) {
-      console.warn("⚠️ No admin token found in localStorage");
-      // console.log("Available keys:", Object.keys(localStorage));
-      // Still open wizard, just without tenant request data
-      setSelectedBedForVacate(bedAssignment);
-      setVacateWizardOpen(true);
-      setLoading(false);
+    if (!tenantDetails) {
+      toast.error("Tenant details not found");
       return;
     }
 
-    // console.log("🔍 Using admin token:", adminToken.substring(0, 20) + "...");
+    try {
+      setLoading(true);
 
-    // Call the admin API to get vacate requests for this specific tenant
-    const response = await fetch(
-      `/api/admin/vacate-requests?tenant_id=${tenantDetails.id}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-          "Content-Type": "application/json",
-        },
+      let adminToken = localStorage.getItem("auth_token");
+      
+      if (!adminToken) {
+        adminToken = localStorage.getItem("admin_token");
       }
-    );
+      
+      if (!adminToken) {
+        adminToken = localStorage.getItem("token");
+      }
+      
+      if (!adminToken) {
+        console.warn("⚠️ No admin token found in localStorage");
+        setSelectedBedForVacate(bedAssignment);
+        setVacateWizardOpen(true);
+        setLoading(false);
+        return;
+      }
 
-    // console.log("🔍 Response status:", response.status);
+      const response = await fetch(
+        `/api/admin/vacate-requests?tenant_id=${tenantDetails.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    if (response.status === 401) {
-      console.error("❌ Unauthorized - token may be expired or invalid");
-      // Still open wizard, just without tenant request data
+      if (response.status === 401) {
+        console.error("❌ Unauthorized - token may be expired or invalid");
+        setSelectedBedForVacate(bedAssignment);
+        setVacateWizardOpen(true);
+        setLoading(false);
+        return;
+      }
+
+      const result = await response.json();
+
+      let vacateRequests = [];
+      if (result.success && Array.isArray(result.data)) {
+        vacateRequests = result.data;
+      }
+
+      const tenantVacateRequest = vacateRequests.find(
+        (req: any) => req.tenant_id === tenantDetails.id && 
+                       req.request_status === "pending"
+      );
+
       setSelectedBedForVacate(bedAssignment);
       setVacateWizardOpen(true);
+      
+    } catch (error) {
+      console.error("Error checking vacate requests:", error);
+      setSelectedBedForVacate(bedAssignment);
+      setVacateWizardOpen(true);
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    const result = await response.json();
-    // console.log("🔍 Admin vacate requests response:", result);
-
-    // Store the vacate request data in a way that VacateBedWizard can access
-    let vacateRequests = [];
-    if (result.success && Array.isArray(result.data)) {
-      vacateRequests = result.data;
-    }
-
-    // Find the active vacate request for this tenant
-    const tenantVacateRequest = vacateRequests.find(
-      (req: any) => req.tenant_id === tenantDetails.id && 
-                     req.request_status === "pending"
-    );
-
-    // ✅ Directly open wizard regardless of request status
-    setSelectedBedForVacate(bedAssignment);
-    setVacateWizardOpen(true);
-    
-  } catch (error) {
-    console.error("Error checking vacate requests:", error);
-    // ✅ Still open wizard even if API fails
-    setSelectedBedForVacate(bedAssignment);
-    setVacateWizardOpen(true);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  
-
-  // In BedManagementDialog.tsx - Update handleVacateComplete
-
+  // ============================================
+  // VACATE COMPLETE
+  // ============================================
   const handleVacateComplete = async () => {
-    // First close the wizard
     setVacateWizardOpen(false);
     setSelectedBedForVacate(null);
-
-    // Reset assigning state
     setAssigningBed(null);
 
-    // Refresh the bed assignments - CRITICAL: This will fetch fresh data
     await refreshRoomData();
-
-    // Reload tenants to update their assignment status
     await loadTenantsBasedOnPreferences();
 
-     onOpenChange(false);
+    onOpenChange(false);
 
-    // Notify parent if needed
     if (onRefresh) onRefresh();
-
   };
 
+  // ============================================
+  // CHANGE BED SUCCESS
+  // ============================================
   const handleChangeBedSuccess = () => {
-     // Refresh data
-  refreshRoomData();
-  loadTenantsBasedOnPreferences();
-  if (onRefresh) onRefresh();
-  
-  // ✅ Close the ChangeBedWizard (already handled by onOpenChange)
-  setChangeBedWizardOpen(false);
-  setSelectedTenantForChange(null);
-  
-  // ✅ ALSO CLOSE THE PARENT BedManagementDialog
-  onOpenChange(false);
+    refreshRoomData();
+    loadTenantsBasedOnPreferences();
+    if (onRefresh) onRefresh();
+    
+    setChangeBedWizardOpen(false);
+    setSelectedTenantForChange(null);
+    
+    onOpenChange(false);
   };
 
- const totalBeds = room?.total_bed ?? 0;
+  // ============================================
+  // CALCULATIONS
+  // ============================================
+  const totalBeds = room?.total_bed ?? 0;
   const occupiedBeds = bedAssignments.filter((b) => !b.is_available).length;
   const availableBedsCount = totalBeds - occupiedBeds;
 
-  // Calculate total room rent from bed assignments using tenant_rent
   const totalRoomRent = bedAssignments.reduce((sum, bed) => {
     const bedRent = bed.tenant_rent
       ? parseFloat(bed.tenant_rent.toString())
@@ -2863,42 +2726,45 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
     return sum + (isNaN(bedRent) ? 0 : bedRent);
   }, 0);
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl">
           <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-1.5 md:px-3 md:py-2 flex-shrink-0">
             <DialogHeader className="space-y-0.5 md:space-y-1">
-          <DialogTitle className="text-xs md:text-base lg:text-lg font-bold">
-  <div className="flex items-start justify-between gap-2">
-    <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <Bed className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-        <span>Bed Management - Room {room.room_number}</span>
-      </div>
-      <Badge
-        variant="outline"
-        className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600 w-fit"
-      >
-        {room.property_name}
-      </Badge>
-    </div>
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => onOpenChange(false)}
-      className="h-7 w-7 p-0 text-white hover:bg-white/20 flex-shrink-0 mt-0"
-    >
-      <X className="h-3 w-3 md:h-4 md:w-4" />
-    </Button>
-  </div>
-</DialogTitle>
+              <DialogTitle className="text-xs md:text-base lg:text-lg font-bold">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Bed className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+                      <span>Bed Management - Room {room.room_number}</span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600 w-fit"
+                    >
+                      {room.property_name}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onOpenChange(false)}
+                    className="h-7 w-7 p-0 text-white hover:bg-white/20 flex-shrink-0 mt-0"
+                  >
+                    <X className="h-3 w-3 md:h-4 md:w-4" />
+                  </Button>
+                </div>
+              </DialogTitle>
               <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-nowrap min-w-0 justify-start">
-  <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-  <span className="truncate min-w-0">
-    {room.property_address} • Floor {room.floor || "G"}
-  </span>
-</div>
+                <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+                <span className="truncate min-w-0">
+                  {room.property_address} • Floor {room.floor || "G"}
+                </span>
+              </div>
             </DialogHeader>
           </div>
 
@@ -3006,27 +2872,27 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                   </CardContent>
                 </Card>
                 <Card>
-  <CardContent className="p-2">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[9px] text-gray-500 leading-tight">
-          Security Deposit
-        </p>
-        <h3 className="text-sm font-bold text-amber-600 leading-tight">
-          {securityDepositLoading ? (
-            <Loader2 className="h-3 w-3 animate-spin inline" />
-          ) : (
-            `₹${totalSecurityDeposit.toLocaleString()}`
-          )}
-        </h3>
-        <p className="text-[8px] text-gray-400 leading-tight">
-          From {bedAssignments.filter(b => !b.is_available && b.security_deposit).length} occupied bed(s)
-        </p>
-      </div>
-      <Shield className="h-4 w-4 text-amber-500 flex-shrink-0" />
-    </div>
-  </CardContent>
-</Card>
+                  <CardContent className="p-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] text-gray-500 leading-tight">
+                          Security Deposit
+                        </p>
+                        <h3 className="text-sm font-bold text-amber-600 leading-tight">
+                          {securityDepositLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin inline" />
+                          ) : (
+                            `₹${totalSecurityDeposit.toLocaleString()}`
+                          )}
+                        </h3>
+                        <p className="text-[8px] text-gray-400 leading-tight">
+                          From {bedAssignments.filter(b => !b.is_available && b.security_deposit).length} occupied bed(s)
+                        </p>
+                      </div>
+                      <Shield className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <Card>
                   <CardContent className="p-2">
@@ -3075,98 +2941,95 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                   </Badge>
                 </div>
 
-{/* In the render section, replace the map function */}
-<div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
-  {Array.from({ length: totalBeds }, (_, i) => i + 1).map((bedNumber) => {
-    const { status, assignment } = getBedStatus(bedNumber);
-    const isOccupied = status === "occupied" || status === "vacating_soon";
-    // ✅ FIX: Define isVacatingSoon here
-    const isVacatingSoon = status === "vacating_soon";
-    const tenantDetails = assignment?.tenant_id
-      ? findTenantDetails(assignment.tenant_id)
-      : null;
-    const isAssigning = assigningBed === bedNumber;
-    const isSaving = savingBed === bedNumber;
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
+                  {Array.from({ length: totalBeds }, (_, i) => i + 1).map((bedNumber) => {
+                    const { status, assignment } = getBedStatus(bedNumber);
+                    const isOccupied = status === "occupied" || status === "vacating_soon";
+                    const isVacatingSoon = status === "vacating_soon";
+                    const tenantDetails = assignment?.tenant_id
+                      ? findTenantDetails(assignment.tenant_id)
+                      : null;
+                    const isAssigning = assigningBed === bedNumber;
+                    const isSaving = savingBed === bedNumber;
 
-
-    return (
-      <BedCard
-        key={bedNumber}
-        bedNumber={bedNumber}
-        assignment={assignment}
-        isOccupied={isOccupied}
-        isVacatingSoon={isVacatingSoon} // ✅ Pass the defined variable
-        isAssigning={isAssigning}
-        isSaving={isSaving}
-        onAssignClick={() => {
-          if (isAssigning) {
-            setAssigningBed(null);
-          } else {
-            setAssigningBed(bedNumber);
-          }
-        }}
-        onUpdateClick={(
-          bedAssignment,
-          tenantId,
-          customRent,
-          isCouple,
-          customSecurityDeposit,
-        ) => {
-          if (bedAssignment) {
-            handleUpdateBedAssignment(
-              bedAssignment,
-              tenantId,
-              customRent,
-              isCouple,
-              customSecurityDeposit,
-            );
-          } else {
-            handleAssignBed(
-              bedNumber,
-              tenantId,
-              customRent,
-              isCouple,
-              customSecurityDeposit,
-            );
-          }
-        }}
-        onDeleteClick={() =>
-          assignment && handleDeleteAssignment(assignment)
-        }
-        onVacateClick={() =>
-          assignment && handleVacateClick(assignment)
-        }
-        onChangeBedClick={() =>
-          assignment && handleChangeBedClick(assignment)
-        }
-        tenants={tenants}
-        loadingTenants={loadingTenants}
-        roomGenderPreferences={roomGenderPreferences}
-        currentRoomAssignments={bedAssignments}
-        tenantDetails={tenantDetails}
-        room={room}
-        bedRent={assignment?.tenant_rent}
-        securityDeposit={securityDeposit}
-        onSecurityDepositChange={(val) => {}}
-        customSecurityDeposit=""
-        onEditClick={handleEditClick}
-        onEditSuccess={handleEditSuccess}
-        expectedVacateDate={assignment?.expected_vacate_date || null}
-        preAssignedTenantId={assignment?.pre_assigned_tenant_id}
-        preAssignedTenantName={
-          assignment?.pre_assigned_tenant_id
-            ? findTenantDetails(assignment.pre_assigned_tenant_id)?.full_name
-            : null
-        }
-        preAssignedRent={assignment?.pre_assigned_rent}
-        preAssignedDeposit={assignment?.pre_assigned_security_deposit}
-        preAssignedIsCouple={!!assignment?.pre_assigned_is_couple}
-        onPreAssign={handlePreAssign}
-        onCancelPreAssign={handleCancelPreAssign}
-      />
-    );
-  })}
-</div>
+                    return (
+                      <BedCard
+                        key={bedNumber}
+                        bedNumber={bedNumber}
+                        assignment={assignment}
+                        isOccupied={isOccupied}
+                        isVacatingSoon={isVacatingSoon}
+                        isAssigning={isAssigning}
+                        isSaving={isSaving}
+                        onAssignClick={() => {
+                          if (isAssigning) {
+                            setAssigningBed(null);
+                          } else {
+                            setAssigningBed(bedNumber);
+                          }
+                        }}
+                        onUpdateClick={(
+                          bedAssignment,
+                          tenantId,
+                          customRent,
+                          isCouple,
+                          customSecurityDeposit,
+                        ) => {
+                          if (bedAssignment) {
+                            handleUpdateBedAssignment(
+                              bedAssignment,
+                              tenantId,
+                              customRent,
+                              isCouple,
+                              customSecurityDeposit,
+                            );
+                          } else {
+                            handleAssignBed(
+                              bedNumber,
+                              tenantId,
+                              customRent,
+                              isCouple,
+                              customSecurityDeposit,
+                            );
+                          }
+                        }}
+                        onDeleteClick={() =>
+                          assignment && handleDeleteAssignment(assignment)
+                        }
+                        onVacateClick={() =>
+                          assignment && handleVacateClick(assignment)
+                        }
+                        onChangeBedClick={() =>
+                          assignment && handleChangeBedClick(assignment)
+                        }
+                        tenants={tenants}
+                        loadingTenants={loadingTenants}
+                        roomGenderPreferences={roomGenderPreferences}
+                        currentRoomAssignments={bedAssignments}
+                        tenantDetails={tenantDetails}
+                        room={room}
+                        bedRent={assignment?.tenant_rent}
+                        securityDeposit={securityDeposit}
+                        onSecurityDepositChange={(val) => {}}
+                        customSecurityDeposit=""
+                        onEditClick={handleEditClick}
+                        onEditSuccess={handleEditSuccess}
+                        expectedVacateDate={assignment?.expected_vacate_date || null}
+                        preAssignedTenantId={assignment?.pre_assigned_tenant_id}
+                        preAssignedTenantName={
+                          assignment?.pre_assigned_tenant_id
+                            ? findTenantDetails(assignment.pre_assigned_tenant_id)?.full_name
+                            : null
+                        }
+                        preAssignedRent={assignment?.pre_assigned_rent}
+                        preAssignedDeposit={assignment?.pre_assigned_security_deposit}
+                        preAssignedIsCouple={!!assignment?.pre_assigned_is_couple}
+                        onPreAssign={handlePreAssign}
+                        onCancelPreAssign={handleCancelPreAssign}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -3204,16 +3067,14 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
       )}
 
       {selectedBedForEdit && selectedTenantForEdit && (
-  <EditBedModal
-    open={editModalOpen}
-    onOpenChange={setEditModalOpen}
-    bedAssignment={selectedBedForEdit}
-    tenantName={selectedTenantForEdit?.full_name}
-    onSuccess={handleEditSuccess}
-  />
-)}
-
-      
+        <EditBedModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          bedAssignment={selectedBedForEdit}
+          tenantName={selectedTenantForEdit?.full_name}
+          onSuccess={handleEditSuccess}
+        />
+      )}
 
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
         <DialogContent className="max-w-md">
