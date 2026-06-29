@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { Building2, ChevronDown, Trash2 } from "lucide-react";
 import { 
   Eye, 
   AlertCircle, 
@@ -77,6 +77,10 @@ export default function NoticePeriodRequestsPage() {
   const { can } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
 const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+const [properties, setProperties] = useState<any[]>([]);
+const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+const [filterPropertyId, setFilterPropertyId] = useState<string>("");
+const [propertySearch, setPropertySearch] = useState("");
 
   // Search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -156,6 +160,42 @@ const getFilteredTenants = () => {
       setLoading(false);
     }
   };
+
+  // Add this function to fetch properties
+const fetchProperties = async () => {
+  try {
+    const res = await fetch("/api/notice-period-requests/properties");
+    const data = await res.json();
+    if (data.success) {
+      setProperties(data.data);
+    }
+  } catch (error) {
+    console.error("Error fetching properties:", error);
+  }
+};
+
+// Add this function to fetch tenants by property
+const fetchTenantsByProperty = async (propertyId: string) => {
+  if (!propertyId) {
+    setTenants([]);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/notice-period-requests/properties/${propertyId}/tenants`);
+    const data = await res.json();
+    if (data.success) {
+      setTenants(data.data);
+    }
+  } catch (error) {
+    console.error("Error fetching tenants by property:", error);
+  }
+};
+
+// Add useEffect to fetch properties on mount
+useEffect(() => {
+  fetchProperties();
+}, []);
+
 
 const loadTenants = async () => {
   try {
@@ -818,135 +858,152 @@ const currentPageItems = itemsPerPage === 9999
             
             {/* Tenant Selection with Search */}
             <div className="border rounded-md p-3">
-              <h4 className="text-xs font-semibold flex items-center gap-1 mb-3 text-blue-600">
-                <User className="h-3 w-3" />
-                Select Tenant
-              </h4>
-              
-              <div className="relative" ref={tenantDropdownRef}>
-                {/* Selected Tenant Display */}
-                {/* Selected Tenant Display */}
-<div
-  className="w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors"
-  onClick={() => {
-    setIsTenantDropdownOpen(!isTenantDropdownOpen);
-    setTimeout(() => {
-      if (tenantSearchRef.current && !isTenantDropdownOpen) {
-        tenantSearchRef.current.focus();
-      }
-    }, 50);
-  }}
->
-  <div className="flex flex-col flex-1 min-w-0">
-    {selectedTenant ? (
-      <>
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
-          <span className="text-sm font-medium truncate">
-            {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
-          </span>
-        </div>
-        {/* Show room, property, bed details for selected tenant */}
-        {(() => {
-          const selected = tenants.find(t => t.id.toString() === selectedTenant);
-          if (selected) {
-            return (
-              <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
-                <span className="bg-blue-50 px-1.5 py-0.5 rounded">R- {selected.room_number || 'N/A'}</span>
-                <span className="bg-purple-50 px-1.5 py-0.5 rounded">{selected.property_name || 'N/A'}</span>
-                <span className="bg-green-50 px-1.5 py-0.5 rounded">B- {selected.bed_number || 'N/A'}</span>
-              </div>
-            );
-          }
-          return null;
-        })()}
-      </>
-    ) : (
-      <span className="text-sm text-gray-400">Select a tenant...</span>
-    )}
-  </div>
-  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
-</div>
-
-                {/* Dropdown with Search */}
-                {isTenantDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-80 overflow-hidden">
-                    {/* Search Input */}
-                    <div className="p-2 border-b sticky top-0 bg-white">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          ref={tenantSearchRef}
-                          type="text"
-                          placeholder="Search by name, email or phone..."
-                          value={tenantSearch}
-                          onChange={(e) => setTenantSearch(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Tenants List */}
-                    <div className="max-h-64 overflow-y-auto">
-  {getFilteredTenants().length === 0 ? (
-    <div className="p-4 text-center text-sm text-gray-500">
-      No tenants found
-    </div>
-  ) : (
-    getFilteredTenants().map((tenant) => (
-      <div
-        key={tenant.id}
-        className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
-          selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-        }`}
-        onClick={() => {
-          setSelectedTenant(tenant.id.toString());
-          setIsTenantDropdownOpen(false);
-          setTenantSearch("");
-        }}
-      >
-        <div className="flex flex-col">
-          {/* Tenant Name - Main display */}
-          <p className="font-medium text-sm text-gray-900 flex items-center gap-2">
-            <User className="h-3.5 w-3.5 text-blue-500" />
-            {tenant.full_name}
-          </p>
-          
-          {/* Room & Property Info - Show as badges */}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-100">
-              R-{tenant.room_number || 'N/A'}
-            </span>
-            <span className="text-xs bg-purple-50 px-2 py-0.5 rounded-full text-purple-700 border border-purple-100">
-              {tenant.property_name || 'N/A'}
-            </span>
-            <span className="text-xs bg-green-50 px-2 py-0.5 rounded-full text-green-700 border border-green-100">
-              B-{tenant.bed_number || 'N/A'}
-            </span>
-          </div>
-          
-          {/* Email & Phone - Small secondary info */}
-          {/* <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
-            <span className="flex items-center gap-0.5">
-              <Mail className="h-2.5 w-2.5" />
-              {tenant.email}
-            </span>
-            {tenant.phone && (
-              <span className="flex items-center gap-0.5">
-                📞 {tenant.phone}
+  <h4 className="text-xs font-semibold flex items-center gap-1 mb-3 text-blue-600">
+    <Building2 className="h-3 w-3" />
+    Select Property & Tenant
+  </h4>
+  
+  {/* Property Selection */}
+  <div className="mb-3">
+    <Label className="text-xs font-medium">Property <span className="text-red-500">*</span></Label>
+    <Select
+      value={selectedPropertyId}
+      onValueChange={(value) => {
+        setSelectedPropertyId(value);
+        setSelectedTenant(""); // Reset tenant when property changes
+        setTenantSearch("");
+        fetchTenantsByProperty(value);
+      }}
+    >
+      <SelectTrigger className="mt-1 h-9 text-sm">
+        <SelectValue placeholder="Select property..." />
+      </SelectTrigger>
+      <SelectContent>
+        {properties.map((property) => (
+          <SelectItem key={property.id} value={property.id.toString()}>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-3 w-3 text-gray-400" />
+              <span>{property.name}</span>
+              <span className="text-xs text-gray-400">
+                ({property.active_tenants || 0} tenants)
               </span>
-            )}
-          </div> */}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+  
+  {/* Tenant Selection with Search */}
+  <div className="relative" ref={tenantDropdownRef}>
+    <div
+      className={`w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors ${
+        !selectedPropertyId ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      onClick={() => {
+        if (!selectedPropertyId) {
+          toast.info("Please select a property first");
+          return;
+        }
+        setIsTenantDropdownOpen(!isTenantDropdownOpen);
+        setTimeout(() => {
+          if (tenantSearchRef.current && !isTenantDropdownOpen) {
+            tenantSearchRef.current.focus();
+          }
+        }, 50);
+      }}
+    >
+      <div className="flex flex-col flex-1 min-w-0">
+        {selectedTenant ? (
+          <>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">
+                {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
+              </span>
+            </div>
+            {(() => {
+              const selected = tenants.find(t => t.id.toString() === selectedTenant);
+              if (selected) {
+                return (
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                    <span className="bg-blue-50 px-1.5 py-0.5 rounded">R- {selected.room_number || 'N/A'}</span>
+                    <span className="bg-green-50 px-1.5 py-0.5 rounded">B- {selected.bed_number || 'N/A'}</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </>
+        ) : (
+          <span className="text-sm text-gray-400">
+            {selectedPropertyId ? "Select a tenant..." : "Select property first"}
+          </span>
+        )}
+      </div>
+      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
+    </div>
+
+    {/* Dropdown with Search */}
+    {isTenantDropdownOpen && selectedPropertyId && (
+      <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-80 overflow-hidden">
+        {/* Search Input */}
+        <div className="p-2 border-b sticky top-0 bg-white">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              ref={tenantSearchRef}
+              type="text"
+              placeholder="Search by name, email or phone..."
+              value={tenantSearch}
+              onChange={(e) => setTenantSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+              autoFocus
+            />
+          </div>
+        </div>
+        
+        {/* Tenants List */}
+        <div className="max-h-64 overflow-y-auto">
+          {getFilteredTenants().length === 0 ? (
+            <div className="p-4 text-center text-sm text-gray-500">
+              No tenants found in this property
+            </div>
+          ) : (
+            getFilteredTenants().map((tenant) => (
+              <div
+                key={tenant.id}
+                className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
+                  selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                }`}
+                onClick={() => {
+                  setSelectedTenant(tenant.id.toString());
+                  setIsTenantDropdownOpen(false);
+                  setTenantSearch("");
+                }}
+              >
+                <div className="flex flex-col">
+                  <p className="font-medium text-sm text-gray-900 flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-blue-500" />
+                    {tenant.full_name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-100">
+                      R-{tenant.room_number || 'N/A'}
+                    </span>
+                    <span className="text-xs bg-green-50 px-2 py-0.5 rounded-full text-green-700 border border-green-100">
+                      B-{tenant.bed_number || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
-    ))
-  )}
+    )}
+  </div>
 </div>
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* Request Details */}
             <div className="border rounded-md p-3">

@@ -114,6 +114,8 @@ interface Tenant {
   is_primary_tenant?: boolean;
   partner_tenant_id?: number;
   is_vacated?: boolean;
+  partner_is_active?: boolean;
+  partner_has_vacated?: boolean;
 }
 
 interface ApiResult<T = any> {
@@ -975,58 +977,57 @@ function BedCard({
                   </span>
                 </div>
 
-                {Boolean(assignment.is_couple) && (
-                  <>
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
-                        <Heart className="h-2.5 w-2.5" /> Partner Details
-                      </p>
-                    </div>
-                    {(() => {
-                      const partnerName = tenantDetails?.partner_full_name;
-                      const partnerPhone = tenantDetails?.partner_phone;
-                      const partnerGender = tenantDetails?.partner_gender;
-                      const partnerRelationship = tenantDetails?.partner_relationship;
-                      
-                      return (
-                        <>
-                          {tenantDetails?.couple_id && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
-                              <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
-                                {tenantDetails.couple_id}
-                              </Badge>
-                            </div>
-                          )}
-                          {partnerName && partnerName !== tenantDetails?.full_name && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
-                              <span className="font-medium text-xs md:text-sm">{partnerName}</span>
-                            </div>
-                          )}
-                          {partnerPhone && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
-                              <span className="font-medium text-xs md:text-sm">{partnerPhone}</span>
-                            </div>
-                          )}
-                          {partnerGender && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
-                              <span className="font-medium text-xs md:text-sm">{partnerGender}</span>
-                            </div>
-                          )}
-                          {partnerRelationship && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
-                              <span className="font-medium text-xs md:text-sm">{partnerRelationship}</span>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
+                {Boolean(assignment.is_couple) && (() => {
+                  const partnerName = tenantDetails?.partner_full_name;
+                  const partnerPhone = tenantDetails?.partner_phone;
+                  const partnerGender = tenantDetails?.partner_gender;
+                  const partnerRelationship = tenantDetails?.partner_relationship;
+
+                  // ✅ No partner name = partner vacated → hide entire section
+                  if (!partnerName || partnerName === tenantDetails?.full_name) {
+                    return null;
+                  }
+
+                  return (
+                    <>
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
+                          <Heart className="h-2.5 w-2.5" /> Partner Details
+                        </p>
+                      </div>
+                      {tenantDetails?.couple_id && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+                          <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
+                            {tenantDetails.couple_id}
+                          </Badge>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
+                        <span className="font-medium text-xs md:text-sm">{partnerName}</span>
+                      </div>
+                      {partnerPhone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
+                          <span className="font-medium text-xs md:text-sm">{partnerPhone}</span>
+                        </div>
+                      )}
+                      {partnerGender && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
+                          <span className="font-medium text-xs md:text-sm">{partnerGender}</span>
+                        </div>
+                      )}
+                      {partnerRelationship && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
+                          <span className="font-medium text-xs md:text-sm">{partnerRelationship}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] md:text-xs text-gray-600">
@@ -1754,6 +1755,8 @@ export function BedManagementDialog({
                 couple_id: tenantDetails.data.couple_id,
                 partner_tenant_id: tenantDetails.data.partner_tenant_id,
                 is_primary_tenant: tenantDetails.data.is_primary_tenant,
+                partner_is_active: tenantDetails.data.partner_is_active,
+                partner_has_vacated: tenantDetails.data.partner_has_vacated,
                 is_vacated: isVacated,
               };
             }
@@ -1894,7 +1897,20 @@ export function BedManagementDialog({
     };
   };
 
-  const getCorrectPartnerDetails = (tenant: Tenant) => {
+const getCorrectPartnerDetails = (tenant: Tenant) => {
+    // ✅ Treat partner as gone if THIS tenant's own record says so
+    // (this field comes from /api/tenants/:id → getTenantWithPartner,
+    // which checks the partner's vacate_records — same source tenant-form uses)
+    if (tenant.partner_is_active === false || tenant.partner_has_vacated === true) {
+      return {
+        partner_full_name: '',
+        partner_phone: '',
+        partner_email: '',
+        partner_gender: '',
+        partner_relationship: tenant.partner_relationship || 'Spouse',
+      };
+    }
+
     if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
       const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
       
