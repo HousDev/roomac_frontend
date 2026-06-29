@@ -1280,17 +1280,9 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
 }
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
-function HistoryTab({
-  tenant,
-  assignment,
-  payments,
-  paymentSummary,
-}: {
-  tenant: any;
-  assignment: any;
-  payments: any[];
-  paymentSummary: any;
-}) {
+function HistoryTab({ tenant }: { tenant: any }) {
+  const [expandedStay, setExpandedStay] = useState<string | null>(null);
+  const [sectionMap, setSectionMap] = useState<Record<string, string>>({});
 
   function resolveDocNumber(tenant: any, docType: "Aadhar Card" | "PAN Card"): string | null {
     if (tenant.id_proof_type === docType && tenant.id_proof_number) return tenant.id_proof_number;
@@ -1300,199 +1292,104 @@ function HistoryTab({
     return null;
   }
 
-  const [expandedStay, setExpandedStay] = useState<string | null>(null);
-  const [sectionMap, setSectionMap] = useState<Record<string, string>>({});
- 
   const aadharNum = resolveDocNumber(tenant, "Aadhar Card");
   const panNum = resolveDocNumber(tenant, "PAN Card");
 
-  // ── Helper: Get refund status for a specific vacate record ──
-  const getRefundStatusForVacate = (vacateRecordId: number, refundableAmount: number) => {
-    // Find all deposit_refund payments linked to this vacate record
-    const refundPayments = (payments || []).filter(p => 
-      p.payment_type === "deposit_refund" && 
-      p.vacate_record_id === vacateRecordId &&
-      (p.status === "approved" || p.status === "paid" || p.status === "refund" || p.status === "completed")
-    );
-    
-    // Also check for refund payments that might not have vacate_record_id but are for this tenant
-    // This handles older refunds that weren't linked properly
-    const unlinkedRefunds = (payments || []).filter(p => 
-      p.payment_type === "deposit_refund" && 
-      p.tenant_id === tenant.id &&
-      (!p.vacate_record_id || p.vacate_record_id === null) &&
-      (p.status === "approved" || p.status === "paid" || p.status === "refund" || p.status === "completed")
-    );
-    
-    // Combine both sets
-    const allRefunds = [...refundPayments, ...unlinkedRefunds];
-    
-    if (allRefunds.length === 0) {
-      return { 
-        status: "Not Refunded", 
-        amount: 0, 
-        payments: [],
-        isFullyRefunded: false,
-        isPartialRefund: false
-      };
-    }
-    
-    const totalRefunded = allRefunds.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    
-    // Determine status based on refundable amount vs actual refunded
-    let status = "Not Refunded";
-    let isFullyRefunded = false;
-    let isPartialRefund = false;
-    
-    if (refundableAmount > 0 && totalRefunded >= refundableAmount) {
-      status = "Refunded";
-      isFullyRefunded = true;
-    } else if (refundableAmount > 0 && totalRefunded > 0 && totalRefunded < refundableAmount) {
-      status = "Partial Refund";
-      isPartialRefund = true;
-    } else if (refundableAmount > 0 && totalRefunded === 0) {
-      status = "Pending Refund";
-    } else if (refundableAmount === 0 && totalRefunded > 0) {
-      // Edge case: refund given when refundable amount is 0 (maybe penalty refund)
-      status = "Refunded";
-      isFullyRefunded = true;
-    }
-    
-    return { 
-      status, 
-      amount: totalRefunded, 
-      payments: allRefunds,
-      isFullyRefunded,
-      isPartialRefund
-    };
-  };
+  // ✅ Read the backend-computed, correctly-windowed stay history.
+  // Each entry already has: stayNumber, checkIn, checkOut, isCurrent,
+  // vacateRecord, rentPayments, depositPayments, refundPayments,
+  // penaltyPayments, totalRentPaid, totalDepositPaid, totalRefunded,
+  // totalPenaltyPaid, refundStatusInfo: { status, isFullyRefunded, isPartialRefund }
+  const rawStayHistory: any[] = tenant.stay_history ?? [];
 
-  // ── Build past stays from vacate_records ──
-  const pastStays = [...(tenant.vacate_records ?? [])]
-    .sort((a: any, b: any) => new Date(a.requested_vacate_date || 0).getTime() - new Date(a.requested_vacate_date || 0).getTime())
-    .map((vr: any, i: number) => {
-      // Get refund status for this vacate record
-      const refundableAmount = Number(vr.refundable_amount || 0);
-      const refundInfo = getRefundStatusForVacate(vr.id, refundableAmount);
-      
+  // Normalize into the shape the rest of this component renders, while
+  // pulling display fields (property/room/bed/rent/penalty amounts) from
+  // either the vacateRecord (past stays) or the tenant/assignment (current).
+  const allStays = [...rawStayHistory]
+    .map((stay: any) => {
+      const vr = stay.vacateRecord;
+      const isVacatedRecord = !stay.isCurrent;
+
+      const property = isVacatedRecord
+        ? (vr?.property_name || tenant.assigned_property_name || "N/A")
+        : (tenant.current_assignment?.property?.name || tenant.assigned_property_name || "N/A");
+
+      const room = isVacatedRecord
+        ? (vr?.room_number || "—")
+        : (tenant.current_assignment?.room?.room_number || tenant.room_number || "—");
+
+      const bed = isVacatedRecord
+        ? (vr?.bed_number || "—")
+        : (tenant.current_assignment?.bed_number || tenant.bed_number || "—");
+
+      const monthlyRent = isVacatedRecord
+        ? Number(vr?.rent_amount || 0)
+        : Number(tenant.current_assignment?.tenant_rent || tenant.monthly_rent || 0);
+
+      const securityDeposit = isVacatedRecord
+        ? Number(vr?.security_deposit_amount || 0)
+        : Number(tenant.current_assignment?.security_deposit || tenant.security_deposit || 0);
+
+      const refundInfo = stay.refundStatusInfo || { status: null, isFullyRefunded: false, isPartialRefund: false };
+
       return {
-        id: `vacate-${vr.id ?? i}`,
-        stayNumber: i + 1,
-        aadharNumber: tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null),
-        panNumber: tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null),
-        isCurrent: false,
-        property: vr.property_name || assignment?.property?.name || tenant.assigned_property_name || "N/A",
-        room: vr.room_number || assignment?.room?.room_number || "—",
-        bed: vr.bed_number || "—",
+        id: stay.isCurrent ? "current" : `vacate-${stay.vacateRecordId}`,
+        stayNumber: stay.stayNumber,
+        isCurrent: stay.isCurrent,
+        isVacatedRecord,
+        vacateRecordId: stay.vacateRecordId,
+        vacateRecord: vr,
+        property,
+        room,
+        bed,
         stayType: tenant.is_couple_booking ? "Couple" : "Single",
-        monthlyRent: Number(vr.rent_amount || 0),
-        checkIn: vr.stay_check_in_date || tenant.check_in_date || null,
-        checkOut: vr.requested_vacate_date || null,
-        securityDeposit: Number(vr.security_deposit_amount || 0),
-        depositPaid: Number(
-          (payments || [])
-            .filter((p: any) => 
-              p.payment_type === "security_deposit" && 
-              (p.status === "paid" || p.status === "approved") &&
-              new Date(p.payment_date) <= new Date(vr.requested_vacate_date)
-            )
-            .reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
-        ),
-        refundAmount: refundableAmount,
+        monthlyRent,
+        securityDeposit,
+        checkIn: stay.checkIn,
+        checkOut: stay.checkOut,
+        rentPayments: stay.rentPayments || [],
+        depositPayments: stay.depositPayments || [],
+        refundPayments: stay.refundPayments || [],
+        penaltyPayments: stay.penaltyPayments || [],
+        depositPaid: stay.totalDepositPaid || 0,
+        totalRentPaidThisStay: stay.totalRentPaid || 0,
+        totalRefunded: stay.totalRefunded || 0,
+        refundAmount: Number(vr?.refundable_amount || 0),
         refundStatus: refundInfo.status,
-        refundPayments: refundInfo.payments,
-        totalRefunded: refundInfo.amount,
         isFullyRefunded: refundInfo.isFullyRefunded,
         isPartialRefund: refundInfo.isPartialRefund,
-        totalPenalty: Number(vr.total_penalty_amount || 0),
-        lockinPenalty: Number(vr.lockin_penalty_amount || 0),
-        noticePenalty: Number(vr.notice_penalty_amount || 0),
-        inspectionPenalty: Number(vr.inspection_penalty_amount || 0),
-        vacateReason: vr.vacate_reason_value || "—",
-        lockInPeriod: vr.lockin_period_months ? `${vr.lockin_period_months} months` : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
-        lockinPenaltyType: vr.lockin_penalty_type || tenant.lockin_penalty_type || "fixed",
-        lockinPenaltyAmount: Number(vr.lockin_penalty_amount || tenant.lockin_penalty_amount || 0),
-        noticePeriod: vr.notice_period_days ? `${vr.notice_period_days} days` : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
-        noticePenaltyType: vr.notice_penalty_type || tenant.notice_penalty_type || "fixed",
-        noticePenaltyAmount: Number(vr.notice_penalty_amount || tenant.notice_penalty_amount || 0),
-        partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
-        isVacatedRecord: true,
-        vacateRecordId: vr.id,
-        vacateRecord: vr,
-        // Store the check-in date from vacate record for display
-        stayCheckInDate: vr.stay_check_in_date,
+        totalPenalty: Number(vr?.total_penalty_amount || 0),
+        lockinPenalty: Number(vr?.lockin_penalty_amount || 0),
+        noticePenalty: Number(vr?.notice_penalty_amount || 0),
+        inspectionPenalty: Number(vr?.inspection_penalty_amount || 0),
+        vacateReason: vr?.vacate_reason_value || "—",
+        lockInPeriod: vr?.lockin_period_months
+          ? `${vr.lockin_period_months} months`
+          : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
+        lockinPenaltyType: vr?.lockin_penalty_type || tenant.lockin_penalty_type || "fixed",
+        lockinPenaltyAmount: Number(vr?.lockin_penalty_amount || tenant.lockin_penalty_amount || 0),
+        noticePeriod: vr?.notice_period_days
+          ? `${vr.notice_period_days} days`
+          : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
+        noticePenaltyType: vr?.notice_penalty_type || tenant.notice_penalty_type || "fixed",
+        noticePenaltyAmount: Number(vr?.notice_penalty_amount || tenant.notice_penalty_amount || 0),
+        partner: tenant.partner_full_name
+          ? {
+              name: tenant.partner_full_name,
+              phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(),
+              relation: tenant.partner_relationship || "Spouse",
+            }
+          : null,
       };
-    });
+    })
+    .sort((a, b) => b.stayNumber - a.stayNumber); // most recent first
 
-  // ── Determine if there is a current stay ──
-  const vacateRecords = tenant.vacate_records ?? [];
-  const lastVacateDate = vacateRecords.length > 0
-    ? new Date(vacateRecords[0].requested_vacate_date)
-    : null;
-
-  const hasCurrentStay = tenant.is_active && tenant.check_in_date && 
-    (!lastVacateDate || new Date(tenant.check_in_date) > lastVacateDate);
-
-  // ── Build current stay ──
-  const currentStay = hasCurrentStay
-    ? {
-        id: "current",
-        stayNumber: pastStays.length + 1,
-        isCurrent: true,
-        property: assignment?.property?.name || tenant.assigned_property_name || "N/A",
-        room: assignment?.room?.room_number || "—",
-        bed: assignment?.bed_number || "—",
-        stayType: tenant.is_couple_booking ? "Couple" : "Single",
-        monthlyRent: Number(assignment?.tenant_rent || tenant.monthly_rent || 0),
-        checkIn: tenant.check_in_date || null,
-        checkOut: null,
-        securityDeposit: (() => {
-          if (assignment?.security_deposit) return Number(assignment.security_deposit);
-          if (tenant.security_deposit) return Number(tenant.security_deposit);
-          if (paymentSummary?.security_deposit_info?.total) return Number(paymentSummary.security_deposit_info.total);
-          if (paymentSummary?.security_deposit_info?.paid) return Number(paymentSummary.security_deposit_info.paid);
-          if (paymentSummary?.vacate_info?.security_deposit) return Number(paymentSummary.vacate_info.security_deposit);
-          const sdP = (payments || []).filter((p: any) =>
-            p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved")
-          );
-          if (sdP.length > 0) return sdP.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-          return 0;
-        })(),
-        depositPaid: Number(
-          (payments || [])
-            .filter((p: any) => p.payment_type === "security_deposit" && (p.status === "paid" || p.status === "approved"))
-            .reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
-        ),
-        refundAmount: 0,
-        refundStatus: null,
-        totalPenalty: 0,
-        lockinPenalty: 0,
-        noticePenalty: 0,
-        inspectionPenalty: 0,
-        vacateReason: null,
-        lockInPeriod: tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—",
-        lockinPenaltyType: tenant.lockin_penalty_type || "fixed",
-        lockinPenaltyAmount: Number(tenant.lockin_penalty_amount || 0),
-        noticePeriod: tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—",
-        noticePenaltyType: tenant.notice_penalty_type || "fixed",
-        noticePenaltyAmount: Number(tenant.notice_penalty_amount || 0),
-        partner: tenant.partner_full_name ? { name: tenant.partner_full_name, phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(), relation: tenant.partner_relationship || "Spouse" } : null,
-        isVacatedRecord: false,
-        vacateRecordId: null,
-        vacateRecord: null,
-        stayCheckInDate: tenant.check_in_date,
-      }
-    : null;
- 
-  // ── Combine and sort all stays (most recent first) ──
-  const allStays = [...(currentStay ? [currentStay] : []), ...pastStays].sort((a, b) => b.stayNumber - a.stayNumber);
- 
   const stayTypeCfg: Record<string, { bg: string; text: string; ring: string; icon: React.ReactNode }> = {
     Single: { bg: "bg-blue-500", text: "text-blue-700", ring: "ring-blue-200", icon: <User size={10} /> },
     Sharing: { bg: "bg-teal-500", text: "text-teal-700", ring: "ring-teal-200", icon: <Users size={10} /> },
     Couple: { bg: "bg-rose-500", text: "text-rose-700", ring: "ring-rose-200", icon: <Heart size={10} /> },
   };
- 
+
   const typeColor: Record<string, string> = {
     rent: "bg-blue-100 text-blue-700",
     security_deposit: "bg-amber-100 text-amber-700",
@@ -1509,8 +1406,7 @@ function HistoryTab({
     deposit_refund: "Deposit Refund",
     refund: "Refund",
   };
- 
-  // ── Print / download for one stay ──
+
   const doPrint = (stay: any) => {
     const w = window.open("", "_blank");
     if (!w) return;
@@ -1531,7 +1427,7 @@ function HistoryTab({
     w.document.close();
     w.print();
   };
- 
+
   const doDownload = (stay: any) => {
     const csv = [
       `Stay History,${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name},ID:${tenant.id},Stay#${stay.stayNumber}`,
@@ -1552,12 +1448,10 @@ function HistoryTab({
     a.download = `stay-${tenant.id}-${stay.stayNumber}.csv`;
     a.click();
   };
- 
+
   // ── Top stat cards ──
   const totalStays = allStays.length;
-  const lifetimeRent =
-    pastStays.reduce((a, s) => a + s.monthlyRent, 0) +
-    Number(paymentSummary?.total_rent_paid ?? paymentSummary?.total_paid ?? 0);
+  const lifetimeRent = allStays.reduce((a, s) => a + (s.isCurrent ? s.totalRentPaidThisStay : s.monthlyRent), 0);
   const monthsStayed = (() => {
     let total = 0;
     for (const s of allStays) {
@@ -1571,9 +1465,9 @@ function HistoryTab({
     }
     return total;
   })();
-  
-  const refundReceived = pastStays.reduce((a, s) => a + s.totalRefunded, 0);
-  
+
+  const refundReceived = allStays.filter(s => s.isVacatedRecord).reduce((a, s) => a + s.totalRefunded, 0);
+
   if (allStays.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -1582,7 +1476,7 @@ function HistoryTab({
       </div>
     );
   }
- 
+
   return (
     <div className="space-y-3">
       {/* Top stat cards */}
@@ -1602,7 +1496,7 @@ function HistoryTab({
           </div>
         ))}
       </div>
- 
+
       <div className="flex justify-end">
         <button
           onClick={() => allStays.forEach(s => doPrint(s))}
@@ -1612,50 +1506,31 @@ function HistoryTab({
           <Printer size={10} className="sm:size-[11px]" /> Print All
         </button>
       </div>
- 
-      {/* Timeline - Note: stays are already sorted with most recent first (Stay #3, #2, #1) */}
+
+      {/* Timeline */}
       <div className="relative space-y-2.5">
         <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-gray-200 hidden lg:block" />
         {allStays.map(stay => {
           const cfg = stayTypeCfg[stay.stayType] ?? stayTypeCfg.Single;
           const isOpen = expandedStay === stay.id;
           const section = sectionMap[stay.id] ?? "payments";
- 
-          // Payments shown for this stay
-          const stayPayments = stay.isCurrent
-            ? payments
-            : [
-                ...(stay.monthlyRent > 0
-                  ? [{ id: `${stay.id}-rent`, payment_date: stay.checkOut, amount: stay.monthlyRent, payment_type: "rent", payment_mode: "—", month: "", year: "", status: "approved" }]
-                  : []),
-                ...(stay.totalPenalty > 0
-                  ? [{ id: `${stay.id}-penalty`, payment_date: stay.checkOut, amount: stay.totalPenalty, payment_type: "penalty_payment", payment_mode: "—", month: "", year: "", status: "approved" }]
-                  : []),
-                ...(stay.refundPayments && stay.refundPayments.length > 0
-                  ? stay.refundPayments.map((rp: any, idx: number) => ({
-                      id: `refund-${rp.id || idx}`,
-                      payment_date: rp.payment_date || stay.checkOut,
-                      amount: rp.amount || 0,
-                      payment_type: "deposit_refund",
-                      payment_mode: rp.payment_mode || "—",
-                      month: rp.month || "",
-                      year: rp.year || "",
-                      status: rp.status || stay.refundStatus,
-                    }))
-                  : (stay.refundAmount > 0 && stay.refundStatus !== "Not Refunded"
-                    ? [{ id: `${stay.id}-refund`, payment_date: stay.checkOut, amount: stay.refundAmount, payment_type: "deposit_refund", payment_mode: "—", month: "", year: "", status: stay.refundStatus }]
-                    : [])
-                ),
-              ];
- 
-          const stayRentPaid = stay.isCurrent
-            ? Number(paymentSummary?.total_paid ?? paymentSummary?.total_rent_paid ?? 0)
-            : stay.monthlyRent;
+
+          // ✅ Build the unified payments list shown in the Payments sub-tab
+          // directly from the backend-windowed arrays — no more guessing or
+          // date-cutoff filtering here.
+          const stayPayments = [
+            ...stay.rentPayments,
+            ...stay.depositPayments,
+            ...stay.refundPayments,
+            ...stay.penaltyPayments,
+          ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
+
+          const stayRentPaid = stay.totalRentPaidThisStay;
           const docsUploaded = stay.isCurrent
             ? [tenant.id_proof_url, tenant.address_proof_url, tenant.photo_url].filter(Boolean).length
             : 0;
-          const docsTotal = stay.isCurrent ? 3 : 3;
- 
+          const docsTotal = 3;
+
           return (
             <div key={stay.id} className="relative lg:pl-10">
               <div
@@ -1665,7 +1540,7 @@ function HistoryTab({
               <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
                 {/* Stay header */}
                 <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
-                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>{stay.stayNumber}</div>
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       <span className="text-[10px] sm:text-xs font-bold text-gray-900" style={fontStyle}>{stay.property}</span>
@@ -1719,7 +1594,7 @@ function HistoryTab({
                     {isOpen ? <ChevronUp size={11} className="sm:size-[13px] text-gray-400 ml-0.5" /> : <ChevronDown size={11} className="sm:size-[13px] text-gray-400 ml-0.5" />}
                   </div>
                 </div>
- 
+
                 {isOpen && (
                   <div className="border-t border-gray-100">
                     <div className="flex border-b border-gray-100 bg-gray-50/50 overflow-x-auto">
@@ -1745,11 +1620,6 @@ function HistoryTab({
                     <div className="p-2 sm:p-3">
                       {section === "payments" && (
                         <div className="space-y-2">
-                          {!stay.isCurrent && (
-                            <p className="text-[8px] sm:text-[9px] text-gray-400 italic" style={fontStyle}>
-                              Detailed transaction history isn't tracked per past stay — figures below are summarized from the vacate record.
-                            </p>
-                          )}
                           <div className="rounded-lg border border-gray-100 overflow-hidden">
                             <table className="w-full text-[10px] sm:text-[11px]">
                               <thead>
@@ -1763,7 +1633,7 @@ function HistoryTab({
                                 {stayPayments.length === 0 ? (
                                   <tr><td colSpan={5} className="text-center py-6 text-gray-400 text-xs" style={fontStyle}>No payment records</td></tr>
                                 ) : stayPayments.map((p: any, idx: number) => {
-                                  const approved = p.status === "approved" || p.status === "paid";
+                                  const approved = p.status === "approved" || p.status === "paid" || p.status === "refund" || p.status === "completed";
                                   const rejected = p.status === "rejected" || p.status === "failed";
                                   const isRefund = p.payment_type === "deposit_refund";
                                   const typeKey = p.payment_type || "";
@@ -1774,7 +1644,7 @@ function HistoryTab({
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap"><span className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold ${typeColor[typeKey] ?? "bg-gray-100 text-gray-600"}`}>{typeDisplay[typeKey] || typeKey || "—"}</span></td>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap capitalize">{p.payment_mode || "—"}</td>
                                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
-                                        {approved && <span className="flex items-center gap-1 font-bold text-emerald-600"><CheckCircle2 size={8} className="sm:size-[9px]" />{p.status === "paid" ? "Paid" : "Approved"}</span>}
+                                        {approved && <span className="flex items-center gap-1 font-bold text-emerald-600"><CheckCircle2 size={8} className="sm:size-[9px]" />{p.status === "paid" ? "Paid" : p.status === "refund" ? "Refunded" : "Approved"}</span>}
                                         {rejected && <span className="flex items-center gap-1 font-bold text-red-500"><XCircle size={8} className="sm:size-[9px]" />{p.status === "failed" ? "Failed" : "Rejected"}</span>}
                                         {!approved && !rejected && <span className="flex items-center gap-1 font-bold text-amber-600"><Clock size={8} className="sm:size-[9px]" />{p.status ?? "Pending"}</span>}
                                       </td>
@@ -1796,7 +1666,7 @@ function HistoryTab({
                           </div>
                         </div>
                       )}
- 
+
                       {section === "documents" && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
@@ -1816,7 +1686,7 @@ function HistoryTab({
                           ))}
                         </div>
                       )}
- 
+
                       {section === "deposit" && (
                         <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2">
@@ -1825,14 +1695,14 @@ function HistoryTab({
                               ["Deposit Paid", formatINR(stay.depositPaid), "text-emerald-600"],
                               ...(stay.isVacatedRecord ? [
                                 ["Refund Amount", formatINR(stay.refundAmount ?? 0), "text-blue-600"],
-                                ["Total Refunded", formatINR(stay.totalRefunded || 0), 
-                                  stay.isFullyRefunded ? "text-green-600" : 
-                                  stay.isPartialRefund ? "text-yellow-600" : 
+                                ["Total Refunded", formatINR(stay.totalRefunded || 0),
+                                  stay.isFullyRefunded ? "text-green-600" :
+                                  stay.isPartialRefund ? "text-yellow-600" :
                                   stay.refundStatus === "Pending Refund" ? "text-amber-600" : "text-gray-600"
                                 ],
-                                ["Refund Status", stay.refundStatus ?? "N/A", 
-                                  stay.isFullyRefunded ? "text-green-600" : 
-                                  stay.isPartialRefund ? "text-yellow-600" : 
+                                ["Refund Status", stay.refundStatus ?? "N/A",
+                                  stay.isFullyRefunded ? "text-green-600" :
+                                  stay.isPartialRefund ? "text-yellow-600" :
                                   stay.refundStatus === "Pending Refund" ? "text-amber-600" : "text-gray-600"
                                 ],
                               ] : []),
@@ -1843,7 +1713,6 @@ function HistoryTab({
                               </div>
                             ))}
                           </div>
-                          {/* Show refund payments if they exist */}
                           {stay.refundPayments && stay.refundPayments.length > 0 && (
                             <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
                               <p className="text-[9px] font-semibold text-green-700 mb-1">Refund Payments</p>
@@ -1859,21 +1728,21 @@ function HistoryTab({
                           )}
                         </div>
                       )}
- 
+
                       {section === "terms" && (
                         <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2">
                             {[
                               ["Lock-in Period", stay.lockInPeriod],
                               ["Lock-in Penalty", stay.lockinPenaltyAmount > 0 ? (
-                                stay.lockinPenaltyType === "percentage" 
-                                  ? `${stay.lockinPenaltyAmount}% of rent` 
+                                stay.lockinPenaltyType === "percentage"
+                                  ? `${stay.lockinPenaltyAmount}% of rent`
                                   : formatINR(stay.lockinPenaltyAmount)
                               ) : "—"],
                               ["Notice Period", stay.noticePeriod],
                               ["Notice Penalty", stay.noticePenaltyAmount > 0 ? (
-                                stay.noticePenaltyType === "percentage" 
-                                  ? `${stay.noticePenaltyAmount}% of rent` 
+                                stay.noticePenaltyType === "percentage"
+                                  ? `${stay.noticePenaltyAmount}% of rent`
                                   : formatINR(stay.noticePenaltyAmount)
                               ) : "—"],
                             ].map(([k, v]) => (
@@ -1883,7 +1752,6 @@ function HistoryTab({
                               </div>
                             ))}
                           </div>
-                          {/* Show penalty breakdown for vacated stays */}
                           {stay.isVacatedRecord && (stay.lockinPenalty > 0 || stay.noticePenalty > 0 || stay.inspectionPenalty > 0) && (
                             <div className="mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
                               <p className="text-[9px] font-semibold text-red-700 mb-1">Penalty Breakdown</p>
@@ -1915,7 +1783,6 @@ function HistoryTab({
                               </div>
                             </div>
                           )}
-                          {/* Show vacate reason */}
                           {stay.vacateReason && stay.vacateReason !== "—" && (
                             <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
                               <p className="text-[9px] font-semibold text-gray-600 mb-1">Vacate Reason</p>
@@ -1924,7 +1791,7 @@ function HistoryTab({
                           )}
                         </div>
                       )}
- 
+
                       {section === "partner" && stay.partner && (
                         <div className="grid grid-cols-3 gap-2">
                           {[
@@ -2645,13 +2512,8 @@ const handleUploadDoc = (docType: string) => {
             )}
             {activeTab === "partner" && <PartnerTab partnerDetails={partnerDetails} onView={viewDoc} />}
 {activeTab === "history" && (
-  <HistoryTab
-    tenant={tenant}
-    assignment={assignment}
-    payments={payments}
-    paymentSummary={paymentSummary}
-  />
-)}          </div>
+  <HistoryTab tenant={tenant} />
+)}        </div>
         </div>
       </div>
 
