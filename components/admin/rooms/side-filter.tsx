@@ -50,8 +50,7 @@ interface FilterState {
   min_capacity: number;
   max_capacity: number;
   is_active: boolean;
-  availability_status: 'any' | 'available' | 'partial' | 'full';
-}
+availability_status?: 'any' | 'available' | 'partial' | 'full';  }
 
 interface FilterData {
   roomTypes: Array<{ value: string; label: string; count: number; totalBeds: number }>;
@@ -77,7 +76,7 @@ const DEFAULT_FILTERS: FilterState = {
   min_capacity: 1,
   max_capacity: 10,
   is_active: true,
-  availability_status: 'any',
+  availability_status: undefined,
 };
 
 const colors = { primary: '#004ab0', secondary: '#f9bd07' };
@@ -110,9 +109,13 @@ export default function SideFilter({
     { id: 'allow_couples', label: 'Couples Allowed', icon: Heart },
   ];
 
-  const availableFloors = useMemo(() => {
+ const availableFloors = useMemo(() => {
     const floorsSet = new Set<string>();
-    rooms.forEach(room => {
+    const propertyId = filters.property_ids[0];
+    const targetRooms = propertyId
+      ? rooms.filter(r => String(r.property_id) === propertyId)
+      : rooms;
+    targetRooms.forEach(room => {
       if (room.floor !== undefined && room.floor !== null) {
         floorsSet.add(String(room.floor));
       }
@@ -123,6 +126,28 @@ export default function SideFilter({
       return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB;
     });
   }, [rooms]);
+
+  // Rooms filtered by property only (for room type / sharing type counts)
+const roomsFilteredByProperty = useMemo(() => {
+  const propertyId = filters.property_ids[0];
+  return propertyId ? rooms.filter(r => String(r.property_id) === propertyId) : rooms;
+}, [rooms, filters.property_ids, (filters as any).sharing_types, filters.room_types]);
+
+// Rooms filtered by property + sharing_type (for gender counts)
+const roomsFilteredByPropertyAndSharing = useMemo(() => {
+  const sharingTypes = (filters as any).sharing_types as string[] | undefined;
+  if (!sharingTypes?.length) return roomsFilteredByProperty;
+  return roomsFilteredByProperty.filter(r => sharingTypes.includes((r as any).sharing_type));
+}, [roomsFilteredByProperty, filters]);
+
+// Rooms filtered by property + sharing + room_type (for gender counts)
+const roomsFilteredByPropertySharingAndRoomType = useMemo(() => {
+  const roomTypes = filters.room_types;
+  if (!roomTypes?.length) return roomsFilteredByPropertyAndSharing;
+  return roomsFilteredByPropertyAndSharing.filter(r => 
+    roomTypes.includes(r.room_type) || roomTypes.includes((r as any).sharing_type)
+  );
+}, [roomsFilteredByPropertyAndSharing, filters.room_types]);
 
   useEffect(() => {
     fetchFilterData();
@@ -170,6 +195,7 @@ export default function SideFilter({
     }
     return counts;
   }, [rooms, filters.property_ids]);
+const totalRooms = availabilityCounts.available + availabilityCounts.partial;
 
   // Property summary
   const propertyStats = useMemo(() => {
@@ -211,6 +237,8 @@ export default function SideFilter({
     let count = 0;
     if (filters.property_ids.length) count++;
     if (filters.room_types.length) count++;
+        if ((filters as any).sharing_types?.length) count++;
+
     if (filters.gender_preferences.length) count++;
     if (filters.amenities.length) count++;
     if (filters.floors.length) count++;
@@ -219,7 +247,7 @@ export default function SideFilter({
     if (filters.has_ac !== undefined) count++;
     if (filters.allow_couples !== undefined) count++;
     if (filters.min_rent > 0 || filters.max_rent < 100000) count++;
-    if (filters.availability_status !== 'any') count++;
+if (filters.availability_status && filters.availability_status !== 'any') count++;
     if (availableFromDate) count++;
     return count;
   }, [filters, availableFromDate]);
@@ -380,14 +408,50 @@ useEffect(() => {
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
-                      {(masterRoomTypes.length ? masterRoomTypes : filterData.roomTypes).map(type => {
-                        const label = typeof type === 'object' && 'name' in type ? type.name : (type as any).label;
-                        return (
-                          <SelectItem key={(type as any).id || label} value={label}>
-                            <span className="text-xs">{label}</span>
-                          </SelectItem>
-                        );
-                      })}
+{(masterRoomTypes.length ? masterRoomTypes : filterData.roomTypes).map(type => {
+  const label = typeof type === 'object' && 'name' in type ? type.name : (type as any).label;
+  
+  // Count from property-filtered rooms
+  const dynamicCount = roomsFilteredByProperty.filter(
+    r => r.room_type === label
+  ).length;
+  
+  return (
+    <SelectItem key={(type as any).id || label} value={label}>
+      <div className="flex justify-between w-full items-center gap-2">
+        <span className="text-xs">{label}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+      </div>
+    </SelectItem>
+  );
+})}
+                    </SelectContent>
+                  </Select>
+                </div>
+                 {/* Sharing Type */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium flex items-center gap-1">
+                    <DoorOpen className="h-3 w-3" /> Sharing Type
+                  </Label>
+                   <Select value={filters.sharing_types?.[0] || 'all'} onValueChange={(v) => handleSelectChange('sharing_types' as any, v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                   {filterData.roomTypes.map(type => {
+  // Count from property-filtered rooms
+  const dynamicCount = roomsFilteredByProperty.filter(
+    r => String((r as any).sharing_type) === String(type.value)
+  ).length;
+  
+  return (
+    <SelectItem key={type.value} value={type.value}>
+      <div className="flex justify-between w-full items-center gap-2">
+        <span className="text-xs capitalize">{type.label}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+      </div>
+    </SelectItem>
+  );
+})}
                     </SelectContent>
                   </Select>
                 </div>
@@ -401,33 +465,48 @@ useEffect(() => {
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any Gender" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any Gender</SelectItem>
-                      {filterData.genderPreferences.map(g => (
-                        <SelectItem key={g.value} value={g.value}>
-                          <div className="flex justify-between w-full items-center gap-2">
-                            <span className="text-xs">{g.label}</span>
-                            <Badge variant="outline" className="text-[10px] px-1.5">{g.count}</Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
+{filterData.genderPreferences.map(g => {
+  // Count from property + sharing + roomtype filtered rooms
+  const dynamicCount = roomsFilteredByPropertySharingAndRoomType.filter(r => {
+    const prefs = Array.isArray(r.room_gender_preference) 
+      ? r.room_gender_preference 
+      : [];
+    return prefs.includes(g.value);
+  }).length;
+  
+  return (
+    <SelectItem key={g.value} value={g.value}>
+      <div className="flex justify-between w-full items-center gap-2">
+        <span className="text-xs">{g.label}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+      </div>
+    </SelectItem>
+  );
+})}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Availability */}
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium flex items-center gap-1">
-                    <Bed className="h-3 w-3" /> Availability
-                  </Label>
-                  <Select value={filters.availability_status} onValueChange={(v) => handleFilterChange('availability_status', v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any Availability</SelectItem>
-                      <SelectItem value="available">Available ({availabilityCounts.available} rooms)</SelectItem>
-                      <SelectItem value="partial">Partial ({availabilityCounts.partial} rooms)</SelectItem>
-                      <SelectItem value="full">Full ({availabilityCounts.full} rooms)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Availability */}
+<div className="space-y-1">
+  <Label className="text-[11px] font-medium flex items-center gap-1">
+    <Bed className="h-3 w-3" /> Availability
+  </Label>
+  <Select 
+    value={filters.availability_status ?? ''} 
+    onValueChange={(v) => handleFilterChange('availability_status', v === '' ? undefined : v)}
+  >
+    <SelectTrigger className="h-8 text-xs">
+      <SelectValue placeholder="Select Availability" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="any">Any Availability ({totalRooms} rooms)</SelectItem>
+      <SelectItem value="available">Available ({availabilityCounts.available} rooms)</SelectItem>
+      <SelectItem value="partial">Partial ({availabilityCounts.partial} rooms)</SelectItem>
+      {/* Full option removed */}
+    </SelectContent>
+  </Select>
+</div>
 
                 {/* Floor Filter */}
                 {availableFloors.length > 0 && (
@@ -447,8 +526,12 @@ useEffect(() => {
                             <div className="flex justify-between w-full items-center gap-2">
                               <span className="text-xs">{floor}</span>
                               <Badge variant="outline" className="text-[10px] px-1.5">
-                                {rooms.filter(r => String(r.floor) === String(floor)).length} rooms
-                              </Badge>
+{rooms.filter(r => {
+  const matchesFloor = String(r.floor) === String(floor);
+  const propertyId = filters.property_ids[0];
+  const matchesProperty = propertyId ? String(r.property_id) === propertyId : true;
+  return matchesFloor && matchesProperty;
+}).length} rooms                              </Badge>
                             </div>
                           </SelectItem>
                         ))}

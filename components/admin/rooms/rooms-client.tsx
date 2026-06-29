@@ -69,6 +69,8 @@ interface FilterState {
   search: string;
   property_ids: string[];
   room_types: string[];
+    sharing_types: string[];
+
   gender_preferences: string[];
   amenities: string[];
   has_attached_bathroom: boolean | undefined;
@@ -509,6 +511,15 @@ export default function RoomsClient({
           return false;
         }
       }
+        // Sharing type filter
+      const sharingTypes = Array.isArray((advancedFilters as any)?.sharing_types)
+        ? (advancedFilters as any).sharing_types
+        : [];
+      if (sharingTypes.length > 0) {
+        if (!sharingTypes.includes(room.sharing_type)) {
+          return false;
+        }
+      }
 
       // Gender preferences filter
       const genderPreferences = advancedFilters?.gender_preferences;
@@ -551,11 +562,11 @@ export default function RoomsClient({
       }
 
       // Floor filter
-if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
-  if (!advancedFilters.floors.includes(room.floor)) {
-    return false;
-  }
-}
+ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
+        if (!advancedFilters.floors.map(String).includes(String(room.floor))) {
+          return false;
+        }
+      }
 
       // Boolean filters
       if (
@@ -1781,6 +1792,7 @@ const handleSelectVacatingBed = useCallback(async (bedAssignmentId: number, room
                         search: "",
                         property_ids: [],
                         room_types: [],
+                        sharing_types: [],
                         gender_preferences: [],
                         amenities: [],
                         floors: [],
