@@ -1,48 +1,67 @@
-
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Package, Plus, Trash2, Loader2, X, Download,
-  Building, IndianRupee, StickyNote, RefreshCw, Filter,
-  AlertTriangle, TrendingDown, Boxes, Eye, Printer,
+  Package,
+  Plus,
+  Trash2,
+  Loader2,
+  X,
+  Download,
+  Building,
+  IndianRupee,
+  StickyNote,
+  RefreshCw,
+  Filter,
+  AlertTriangle,
+  TrendingDown,
+  Boxes,
+  Eye,
+  Printer,
   ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import {
-  Dialog, DialogContent, DialogClose,
-} from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   getPurchases,
   createPurchase,
   addPayment,
   deletePurchase,
   bulkDeletePurchases,
-    updatePurchase,  // Add this
-
+  updatePurchase, // Add this
   getPurchaseStats,
   MaterialPurchase as MaterialPurchaseType,
   PurchaseItem,
   CreatePurchasePayload,
-  AddPaymentPayload
+  AddPaymentPayload,
 } from "@/lib/materialPurchaseApi";
 import { listProperties } from "@/lib/propertyApi";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
-import Swal from 'sweetalert2';
-import { useAuth } from '@/context/authContext';
+import Swal from "sweetalert2";
+import { useAuth } from "@/context/authContext";
+import { getInventoryMappingsGrouped } from "@/lib/categorySubcategoryMapApi";
 
 interface Property {
   id: string;
@@ -54,16 +73,28 @@ interface MasterCategory {
   name: string;
 }
 
-type PaymentStatus = 'all' | 'Pending' | 'Partial' | 'Paid';
+type PaymentStatus = "all" | "Pending" | "Partial" | "Paid";
 
 // Style tokens
-const F = "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
+const F =
+  "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
 const L = "block text-[11px] font-semibold text-gray-500 mb-0.5";
 const SI = "text-[11px] py-0.5";
 
-const SH = ({ icon, title, color = "text-blue-600" }: { icon: React.ReactNode; title: string; color?: string }) => (
-  <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest pb-1 mb-2 border-b border-gray-100 ${color}`}>
-    {icon}{title}
+const SH = ({
+  icon,
+  title,
+  color = "text-blue-600",
+}: {
+  icon: React.ReactNode;
+  title: string;
+  color?: string;
+}) => (
+  <div
+    className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest pb-1 mb-2 border-b border-gray-100 ${color}`}
+  >
+    {icon}
+    {title}
   </div>
 );
 
@@ -72,8 +103,12 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
     <CardContent className="p-2 sm:p-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+            {title}
+          </p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">
+            {value}
+          </p>
         </div>
         <div className={`p-1.5 rounded-lg ${color}`}>
           <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
@@ -87,14 +122,22 @@ export function MaterialPurchase() {
   const [purchases, setPurchases] = useState<MaterialPurchaseType[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [categories, setCategories] = useState<MasterCategory[]>([]);
+  const [inventoryMappings, setInventoryMappings] = useState<
+    {
+      category_id: string;
+      category_name: string;
+      subcategories: { subcategory_id: string; subcategory_name: string }[];
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPurchase, setSelectedPurchase] = useState<MaterialPurchaseType | null>(null);
+  const [selectedPurchase, setSelectedPurchase] =
+    useState<MaterialPurchaseType | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-const [propertySearchTerm, setPropertySearchTerm] = useState('');
+  const [propertySearchTerm, setPropertySearchTerm] = useState("");
   const [stats, setStats] = useState({
     total_purchases: 0,
     total_amount: 0,
@@ -102,79 +145,121 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
     total_balance: 0,
     pending_count: 0,
     partial_count: 0,
-    paid_count: 0
+    paid_count: 0,
   });
-  const { can } = useAuth(); 
+  const { can } = useAuth();
   // ── Pagination state ──
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
-const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState<number | "All">(25);
-const [totalItems, setTotalItems] = useState(0);
-const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | "All">(25);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Filters
-  const [propertyFilter, setPropertyFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<PaymentStatus>('all');
-  const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
-const [showEditForm, setShowEditForm] = useState(false);
-const [editPurchaseId, setEditPurchaseId] = useState<string | number | null>(null);
-const [editSubmitting, setEditSubmitting] = useState(false);
+  const [propertyFilter, setPropertyFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus>("all");
+  const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editPurchaseId, setEditPurchaseId] = useState<string | number | null>(
+    null,
+  );
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [mappingsLoading, setMappingsLoading] = useState(true);
   // Column search
   const [colSearch, setColSearch] = useState({
-    invoice: '', vendor: '', property: '', amount: '', status: ''
+    invoice: "",
+    vendor: "",
+    property: "",
+    amount: "",
+    status: "",
   });
 
-  
   // Form state
   const [formData, setFormData] = useState({
-    purchase_date: new Date().toISOString().split('T')[0],
-    vendor_name: '',
-    vendor_phone: '',
-    invoice_number: '',
-    property_id: '',
-    property_name: '',
-    notes: ''
+    purchase_date: new Date().toISOString().split("T")[0],
+    vendor_name: "",
+    vendor_phone: "",
+    invoice_number: "",
+    property_id: "",
+    property_name: "",
+    notes: "",
   });
 
-  const [lineItems, setLineItems] = useState<PurchaseItem[]>([{
-    item_name: '',
-    category: '',
-    quantity: 0,
-    unit_price: 0,
-    total_price: 0,
-    notes: ''
-  }]);
+  const [lineItems, setLineItems] = useState<PurchaseItem[]>([
+    {
+      item_name: "",
+      category: "",
+      quantity: 0,
+      unit_price: 0,
+      total_price: 0,
+      notes: "",
+    },
+  ]);
 
   const [paymentData, setPaymentData] = useState({
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: new Date().toISOString().split("T")[0],
     amount: 0,
-    payment_method: 'Cash',
-    payment_reference: '',
-    paid_by: '',
-    payment_notes: ''
+    payment_method: "Cash",
+    payment_reference: "",
+    paid_by: "",
+    payment_notes: "",
   });
 
   // Selection
-  const [selectedItems, setSelectedItems] = useState<Set<string | number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<string | number>>(
+    new Set(),
+  );
 
   // Load categories from master
   const loadCategories = useCallback(async () => {
     try {
-      const res = await getMasterItemsByTab('Properties');
+      const res = await getMasterItemsByTab("Properties");
       const list = Array.isArray(res.data) ? res.data : [];
-      const catItem = list.find((i: any) => i.name?.toLowerCase() === 'category');
+      const catItem = list.find(
+        (i: any) => i.name?.toLowerCase() === "category",
+      );
       if (!catItem) return;
       const vRes = await getMasterValues(catItem.id);
-      const values = Array.isArray(vRes.data) ? vRes.data : Array.isArray(vRes) ? vRes : [];
+      const values = Array.isArray(vRes.data)
+        ? vRes.data
+        : Array.isArray(vRes)
+          ? vRes
+          : [];
       setCategories(
         values
           .filter((v: any) => v.isactive === 1 || v.is_active === 1)
-          .map((v: any) => ({ id: String(v.id), name: v.value || v.name || '' }))
+          .map((v: any) => ({
+            id: String(v.id),
+            name: v.value || v.name || "",
+          })),
       );
     } catch (err) {
-      console.error('Could not load categories:', err);
+      console.error("Could not load categories:", err);
     }
   }, []);
+const loadInventoryMappings = useCallback(async () => {
+  setMappingsLoading(true);
+  try {
+    const res = await getInventoryMappingsGrouped();
+    setInventoryMappings(res?.data || []);
+  } catch (err) {
+    console.error('Could not load inventory mappings:', err);
+  } finally {
+    setMappingsLoading(false);
+  }
+}, [])
+
+
+  // Helper to get subcategories for a category (case‑insensitive, trimmed)
+  const getSubcategoriesForCategory = (categoryName: string) => {
+    if (!categoryName) return [];
+    const mapping = inventoryMappings.find(
+      (m) =>
+        m.category_name.trim().toLowerCase() ===
+        categoryName.trim().toLowerCase(),
+    );
+    return mapping?.subcategories || [];
+  };
 
   // Load properties
   const loadProperties = useCallback(async () => {
@@ -184,139 +269,220 @@ const [editSubmitting, setEditSubmitting] = useState(false);
       const arr = Array.isArray(list) ? list : Object.values(list);
       setProperties(arr.map((p: any) => ({ id: String(p.id), name: p.name })));
     } catch (err) {
-      console.error('Could not load properties:', err);
+      console.error("Could not load properties:", err);
     }
   }, []);
 
   // Load purchases and stats
- const loadAll = useCallback(async (page = currentPage) => {
-  setLoading(true);
-  try {
-    const limit = pageSize === "All" ? 999999 : pageSize;
-    const filters: any = {};
-    if (propertyFilter !== 'all') filters.property_id = propertyFilter;
-    if (statusFilter !== 'all') filters.payment_status = statusFilter;
-    if (dateFilter.from) filters.from_date = dateFilter.from;
-    if (dateFilter.to) filters.to_date = dateFilter.to;
-    filters.page = page;
-    filters.limit = limit;
+  const loadAll = useCallback(
+    async (page = currentPage) => {
+      setLoading(true);
+      try {
+        const limit = pageSize === "All" ? 999999 : pageSize;
+        const filters: any = {};
+        if (propertyFilter !== "all") filters.property_id = propertyFilter;
+        if (statusFilter !== "all") filters.payment_status = statusFilter;
+        if (dateFilter.from) filters.from_date = dateFilter.from;
+        if (dateFilter.to) filters.to_date = dateFilter.to;
+        filters.page = page;
+        filters.limit = limit;
 
-    const [purchasesRes, statsRes] = await Promise.all([
-      getPurchases(filters),
-      getPurchaseStats()
-    ]);
+        const [purchasesRes, statsRes] = await Promise.all([
+          getPurchases(filters),
+          getPurchaseStats(),
+        ]);
 
-    // Parse items (existing logic)
-    const purchasesData = purchasesRes.data || [];
-    purchasesData.forEach(p => {
-      if (p.items) {
-        if (typeof p.items === 'string') {
-          try { p.purchase_items = JSON.parse(p.items); } catch { p.purchase_items = []; }
-        } else if (Array.isArray(p.items)) {
-          p.purchase_items = p.items;
-        }
-      } else {
-        p.purchase_items = [];
+        // Parse items (existing logic)
+        const purchasesData = purchasesRes.data || [];
+        purchasesData.forEach((p) => {
+          if (p.items) {
+            if (typeof p.items === "string") {
+              try {
+                p.purchase_items = JSON.parse(p.items);
+              } catch {
+                p.purchase_items = [];
+              }
+            } else if (Array.isArray(p.items)) {
+              p.purchase_items = p.items;
+            }
+          } else {
+            p.purchase_items = [];
+          }
+        });
+
+        setPurchases(purchasesData);
+        setStats(statsRes.data || stats);
+
+        // Set pagination meta
+        const total =
+          purchasesRes.pagination?.totalItems ?? purchasesData.length;
+        setTotalItems(total);
+        const computedTotalPages =
+          purchasesRes.pagination?.totalPages ??
+          Math.ceil(total / (pageSize === "All" ? total : pageSize));
+        setTotalPages(computedTotalPages);
+        setCurrentPage(page);
+      } catch (err: any) {
+        console.error("Error loading purchases:", err);
+        toast.error(err.message || "Failed to load purchases");
+      } finally {
+        setLoading(false);
       }
-    });
+    },
+    [propertyFilter, statusFilter, dateFilter, pageSize],
+  );
 
-    setPurchases(purchasesData);
-    setStats(statsRes.data || stats);
-
-    // Set pagination meta
-    const total = purchasesRes.pagination?.totalItems ?? purchasesData.length;
-    setTotalItems(total);
-    const computedTotalPages = purchasesRes.pagination?.totalPages ?? Math.ceil(total / (pageSize === "All" ? total : pageSize));
-    setTotalPages(computedTotalPages);
-    setCurrentPage(page);
-  } catch (err: any) {
-    console.error('Error loading purchases:', err);
-    toast.error(err.message || 'Failed to load purchases');
-  } finally {
-    setLoading(false);
-  }
-}, [propertyFilter, statusFilter, dateFilter, pageSize]);
-
-  useEffect(() => { 
-    loadCategories(); 
-    loadProperties(); 
+  useEffect(() => {
+    loadCategories();
+    loadProperties();
+    loadInventoryMappings();
   }, []);
-  
-  useEffect(() => { 
-    loadAll(1); 
+
+  useEffect(() => {
+    loadAll(1);
   }, [loadAll]);
 
   // Filtered items with column search
   const filteredPurchases = useMemo(() => {
-    return purchases.filter(p => {
+    return purchases.filter((p) => {
       const cs = colSearch;
-      const invOk = !cs.invoice || p.invoice_number?.toLowerCase().includes(cs.invoice.toLowerCase());
-      const venOk = !cs.vendor || p.vendor_name?.toLowerCase().includes(cs.vendor.toLowerCase());
-      const propOk = !cs.property || (p.property_name || '').toLowerCase().includes(cs.property.toLowerCase());
+      const invOk =
+        !cs.invoice ||
+        p.invoice_number?.toLowerCase().includes(cs.invoice.toLowerCase());
+      const venOk =
+        !cs.vendor ||
+        p.vendor_name?.toLowerCase().includes(cs.vendor.toLowerCase());
+      const propOk =
+        !cs.property ||
+        (p.property_name || "")
+          .toLowerCase()
+          .includes(cs.property.toLowerCase());
       const amtOk = !cs.amount || String(p.total_amount).includes(cs.amount);
-      const statOk = !cs.status || p.payment_status?.toLowerCase().includes(cs.status.toLowerCase());
+      const statOk =
+        !cs.status ||
+        p.payment_status?.toLowerCase().includes(cs.status.toLowerCase());
       return invOk && venOk && propOk && amtOk && statOk;
     });
   }, [purchases, colSearch]);
 
+  //   const handleEdit = (purchase: MaterialPurchaseType) => {
+
+  //   // Ensure purchase_items is properly set
+  //   if (!purchase.purchase_items && purchase.items) {
+  //     if (typeof purchase.items === 'string') {
+  //       try {
+  //         purchase.purchase_items = JSON.parse(purchase.items);
+  //       } catch (e) {
+  //         console.error('Error parsing items in handleEdit:', e);
+  //         purchase.purchase_items = [];
+  //       }
+  //     } else if (Array.isArray(purchase.items)) {
+  //       purchase.purchase_items = purchase.items;
+  //     }
+  //   }
+
+  //   // Set form data with purchase details
+  //   setFormData({
+  //     purchase_date: purchase.purchase_date.split('T')[0] || purchase.purchase_date,
+  //     vendor_name: purchase.vendor_name || '',
+  //     vendor_phone: purchase.vendor_phone || '',
+  //     invoice_number: purchase.invoice_number || '',
+  //     property_id: String(purchase.property_id),
+  //     property_name: purchase.property_name || '',
+  //     notes: purchase.notes || ''
+  //   });
+
+  //   // Set line items
+  //   if (purchase.purchase_items && purchase.purchase_items.length > 0) {
+  //     setLineItems(purchase.purchase_items);
+  //   } else {
+  //     setLineItems([{
+  //       item_name: '',
+  //       category: '',
+  //       quantity: 0,
+  //       unit_price: 0,
+  //       total_price: 0,
+  //       notes: ''
+  //     }]);
+  //   }
+
+  //   setEditPurchaseId(purchase.id);
+  //   setShowEditForm(true);
+  // };
+
   const handleEdit = (purchase: MaterialPurchaseType) => {
-  
-  // Ensure purchase_items is properly set
-  if (!purchase.purchase_items && purchase.items) {
-    if (typeof purchase.items === 'string') {
-      try {
-        purchase.purchase_items = JSON.parse(purchase.items);
-      } catch (e) {
-        console.error('Error parsing items in handleEdit:', e);
-        purchase.purchase_items = [];
+    // Ensure purchase_items is set
+    if (!purchase.purchase_items && purchase.items) {
+      if (typeof purchase.items === "string") {
+        try {
+          purchase.purchase_items = JSON.parse(purchase.items);
+        } catch {
+          purchase.purchase_items = [];
+        }
+      } else if (Array.isArray(purchase.items)) {
+        purchase.purchase_items = purchase.items;
       }
-    } else if (Array.isArray(purchase.items)) {
-      purchase.purchase_items = purchase.items;
     }
-  }
 
-  // Set form data with purchase details
-  setFormData({
-    purchase_date: purchase.purchase_date.split('T')[0] || purchase.purchase_date,
-    vendor_name: purchase.vendor_name || '',
-    vendor_phone: purchase.vendor_phone || '',
-    invoice_number: purchase.invoice_number || '',
-    property_id: String(purchase.property_id),
-    property_name: purchase.property_name || '',
-    notes: purchase.notes || ''
-  });
+    // Map category IDs to names if needed (for editing)
+    const mappedItems = (purchase.purchase_items || []).map((item: any) => {
+      let categoryName = item.category;
+      // If category is a numeric string, try to find the matching category name from inventoryMappings
+      if (!isNaN(Number(categoryName)) && inventoryMappings.length > 0) {
+        const found = inventoryMappings.find(
+          (m) => String(m.category_id) === String(categoryName),
+        );
+        if (found) categoryName = found.category_name;
+      }
+      return { ...item, category: categoryName };
+    });
 
-  // Set line items
-  if (purchase.purchase_items && purchase.purchase_items.length > 0) {
-    setLineItems(purchase.purchase_items);
-  } else {
-    setLineItems([{
-      item_name: '',
-      category: '',
-      quantity: 0,
-      unit_price: 0,
-      total_price: 0,
-      notes: ''
-    }]);
-  }
+    setFormData({
+      purchase_date:
+        purchase.purchase_date.split("T")[0] || purchase.purchase_date,
+      vendor_name: purchase.vendor_name || "",
+      vendor_phone: purchase.vendor_phone || "",
+      invoice_number: purchase.invoice_number || "",
+      property_id: String(purchase.property_id),
+      property_name: purchase.property_name || "",
+      notes: purchase.notes || "",
+    });
 
-  setEditPurchaseId(purchase.id);
-  setShowEditForm(true);
-};
+    setLineItems(
+      mappedItems.length
+        ? mappedItems
+        : [
+            {
+              item_name: "",
+              category: "",
+              quantity: 0,
+              unit_price: 0,
+              total_price: 0,
+              notes: "",
+            },
+          ],
+    );
+
+    setEditPurchaseId(purchase.id);
+    setShowEditForm(true);
+  };
   // Form calculations
   const getTotalAmount = () => {
     return lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
   };
 
   const addLineItem = () => {
-    setLineItems([...lineItems, {
-      item_name: '',
-      category: '',
-      quantity: 0,
-      unit_price: 0,
-      total_price: 0,
-      notes: ''
-    }]);
+    setLineItems([
+      ...lineItems,
+      {
+        item_name: "",
+        category: "",
+        quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+        notes: "",
+      },
+    ]);
   };
 
   const removeLineItem = (index: number) => {
@@ -326,96 +492,111 @@ const [editSubmitting, setEditSubmitting] = useState(false);
     setLineItems(updated);
   };
 
-  const updateLineItem = (index: number, field: keyof PurchaseItem, value: any) => {
-    const updated = [...lineItems];
+ const updateLineItem = (
+  index: number,
+  field: keyof PurchaseItem,
+  value: any,
+) => {
+  setLineItems(prev => {
+    const updated = [...prev];
     updated[index] = { ...updated[index], [field]: value };
-
-    if (field === 'quantity' || field === 'unit_price') {
-      updated[index].total_price = (updated[index].quantity || 0) * (updated[index].unit_price || 0);
+    if (field === "quantity" || field === "unit_price") {
+      updated[index].total_price =
+        (updated[index].quantity || 0) * (updated[index].unit_price || 0);
     }
-
-    setLineItems(updated);
-  };
-
+    return updated;
+  });
+};
   // CRUD Operations
   const openAdd = () => {
     setFormData({
-      purchase_date: new Date().toISOString().split('T')[0],
-      vendor_name: '',
-      vendor_phone: '',
-      invoice_number: '',
-      property_id: '',
-      property_name: '',
-      notes: ''
+      purchase_date: new Date().toISOString().split("T")[0],
+      vendor_name: "",
+      vendor_phone: "",
+      invoice_number: "",
+      property_id: "",
+      property_name: "",
+      notes: "",
     });
-    setLineItems([{
-      item_name: '',
-      category: '',
-      quantity: 0,
-      unit_price: 0,
-      total_price: 0,
-      notes: ''
-    }]);
+    setLineItems([
+      {
+        item_name: "",
+        category: "",
+        quantity: 0,
+        unit_price: 0,
+        total_price: 0,
+        notes: "",
+      },
+    ]);
     setShowForm(true);
   };
 
   const handleViewDetails = (purchase: MaterialPurchaseType) => {
-    
     // 🔥 Ensure purchase_items is properly set
     if (!purchase.purchase_items && purchase.items) {
-      if (typeof purchase.items === 'string') {
+      if (typeof purchase.items === "string") {
         try {
           purchase.purchase_items = JSON.parse(purchase.items);
         } catch (e) {
-          console.error('Error parsing items in handleViewDetails:', e);
+          console.error("Error parsing items in handleViewDetails:", e);
           purchase.purchase_items = [];
         }
       } else if (Array.isArray(purchase.items)) {
         purchase.purchase_items = purchase.items;
       }
     }
-    
+
     // 🔥 Agar purchase_items abhi bhi undefined hai to items se try karo
     if (!purchase.purchase_items && purchase.items) {
       purchase.purchase_items = purchase.items as any;
     }
-    
-    
+
     setSelectedPurchase(purchase);
     setShowDetailsModal(true);
   };
 
   const handleAddPayment = (purchase: MaterialPurchaseType) => {
     setSelectedPurchase(purchase);
-    const remaining = (purchase.balance_amount || purchase.total_amount) || 0;
+    const remaining = purchase.balance_amount || purchase.total_amount || 0;
     setPaymentData({
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: new Date().toISOString().split("T")[0],
       amount: remaining,
-      payment_method: 'Cash',
-      payment_reference: '',
-      paid_by: '',
-      payment_notes: ''
+      payment_method: "Cash",
+      payment_reference: "",
+      paid_by: "",
+      payment_notes: "",
     });
     setShowPaymentModal(true);
   };
 
   const handleSubmitPurchase = async () => {
-    if (!formData.vendor_name || !formData.invoice_number || !formData.property_id) {
-      toast.error('Vendor name, invoice number, and property are required');
+    if (
+      !formData.vendor_name ||
+      !formData.invoice_number ||
+      !formData.property_id
+    ) {
+      toast.error("Vendor name, invoice number, and property are required");
       return;
     }
 
-    if (lineItems.length === 0 || lineItems.some(item => !item.item_name || item.quantity <= 0)) {
-      toast.error('Please add at least one valid item');
+    if (
+      lineItems.length === 0 ||
+      lineItems.some((item) => !item.item_name || item.quantity <= 0)
+    ) {
+      toast.error("Please add at least one valid item");
       return;
     }
 
     setSubmitting(true);
     try {
       const totalAmount = getTotalAmount();
-      const itemsSummary = lineItems.map(item => `${item.item_name} (${item.quantity})`).join(', ');
+      const itemsSummary = lineItems
+        .map((item) => `${item.item_name} (${item.quantity})`)
+        .join(", ");
 
-      const selectedProperty = properties.find(p => p.id === formData.property_id);
+      const selectedProperty = properties.find(
+        (p) => p.id === formData.property_id,
+      );
 
       const payload: CreatePurchasePayload = {
         purchase_date: formData.purchase_date,
@@ -428,82 +609,96 @@ const [editSubmitting, setEditSubmitting] = useState(false);
         items: lineItems,
         items_summary: itemsSummary,
         total_amount: totalAmount,
-        paid_amount: 0
+        paid_amount: 0,
       };
 
       const response = await createPurchase(payload);
-      
+
       setShowForm(false);
       await loadAll();
-      toast.success('Purchase created successfully');
+      toast.success("Purchase created successfully");
     } catch (err: any) {
-      console.error('Error creating purchase:', err);
-      toast.error(err.message || 'Failed to create purchase');
+      console.error("Error creating purchase:", err);
+      toast.error(err.message || "Failed to create purchase");
     } finally {
       setSubmitting(false);
     }
   };
-  
+
   const handleUpdatePurchase = async () => {
-  if (!formData.vendor_name || !formData.invoice_number || !formData.property_id) {
-    toast.error('Vendor name, invoice number, and property are required');
-    return;
-  }
-
-  if (lineItems.length === 0 || lineItems.some(item => !item.item_name || item.quantity <= 0)) {
-    toast.error('Please add at least one valid item');
-    return;
-  }
-
-  setEditSubmitting(true);
-  try {
-    const totalAmount = getTotalAmount();
-    const itemsSummary = lineItems.map(item => `${item.item_name} (${item.quantity})`).join(', ');
-
-    const selectedProperty = properties.find(p => p.id === formData.property_id);
-
-    const payload: CreatePurchasePayload = {
-      purchase_date: formData.purchase_date,
-      vendor_name: formData.vendor_name,
-      vendor_phone: formData.vendor_phone,
-      invoice_number: formData.invoice_number,
-      property_id: parseInt(formData.property_id),
-      property_name: selectedProperty?.name || formData.property_name,
-      notes: formData.notes,
-      items: lineItems,
-      items_summary: itemsSummary,
-      total_amount: totalAmount,
-      paid_amount: 0 // Keep existing paid amount? You might want to preserve it
-    };
-
-    // If you want to preserve the paid amount, you'd need to get it from the original purchase
-    if (editPurchaseId) {
-      const originalPurchase = purchases.find(p => p.id === editPurchaseId);
-      if (originalPurchase) {
-        payload.paid_amount = originalPurchase.paid_amount || 0;
-      }
+    if (
+      !formData.vendor_name ||
+      !formData.invoice_number ||
+      !formData.property_id
+    ) {
+      toast.error("Vendor name, invoice number, and property are required");
+      return;
     }
 
-    await updatePurchase(editPurchaseId!, payload);
-    
-    setShowEditForm(false);
-    setEditPurchaseId(null);
-    await loadAll();
-    toast.success('Purchase updated successfully');
-  } catch (err: any) {
-    console.error('Error updating purchase:', err);
-    toast.error(err.message || 'Failed to update purchase');
-  } finally {
-    setEditSubmitting(false);
-  }
-};
+    if (
+      lineItems.length === 0 ||
+      lineItems.some((item) => !item.item_name || item.quantity <= 0)
+    ) {
+      toast.error("Please add at least one valid item");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const totalAmount = getTotalAmount();
+      const itemsSummary = lineItems
+        .map((item) => `${item.item_name} (${item.quantity})`)
+        .join(", ");
+
+      const selectedProperty = properties.find(
+        (p) => p.id === formData.property_id,
+      );
+
+      const payload: CreatePurchasePayload = {
+        purchase_date: formData.purchase_date,
+        vendor_name: formData.vendor_name,
+        vendor_phone: formData.vendor_phone,
+        invoice_number: formData.invoice_number,
+        property_id: parseInt(formData.property_id),
+        property_name: selectedProperty?.name || formData.property_name,
+        notes: formData.notes,
+        items: lineItems,
+        items_summary: itemsSummary,
+        total_amount: totalAmount,
+        paid_amount: 0, // Keep existing paid amount? You might want to preserve it
+      };
+
+      // If you want to preserve the paid amount, you'd need to get it from the original purchase
+      if (editPurchaseId) {
+        const originalPurchase = purchases.find((p) => p.id === editPurchaseId);
+        if (originalPurchase) {
+          payload.paid_amount = originalPurchase.paid_amount || 0;
+        }
+      }
+
+      await updatePurchase(editPurchaseId!, payload);
+
+      setShowEditForm(false);
+      setEditPurchaseId(null);
+      await loadAll();
+      toast.success("Purchase updated successfully");
+    } catch (err: any) {
+      console.error("Error updating purchase:", err);
+      toast.error(err.message || "Failed to update purchase");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const handleSubmitPayment = async () => {
     if (!selectedPurchase) return;
 
-    const remaining = (selectedPurchase.balance_amount || selectedPurchase.total_amount) || 0;
+    const remaining =
+      selectedPurchase.balance_amount || selectedPurchase.total_amount || 0;
     if (paymentData.amount > remaining) {
-      toast.error(`Payment amount cannot exceed remaining balance: ₹${remaining.toLocaleString('en-IN')}`);
+      toast.error(
+        `Payment amount cannot exceed remaining balance: ₹${remaining.toLocaleString("en-IN")}`,
+      );
       return;
     }
 
@@ -515,15 +710,17 @@ const [editSubmitting, setEditSubmitting] = useState(false);
         payment_method: paymentData.payment_method,
         paid_by: paymentData.paid_by,
         payment_reference: paymentData.payment_reference,
-        payment_notes: paymentData.payment_notes
+        payment_notes: paymentData.payment_notes,
       };
 
       await addPayment(selectedPurchase.id, payload);
       setShowPaymentModal(false);
       await loadAll();
-      toast.success(`Payment of ₹${paymentData.amount.toLocaleString('en-IN')} added successfully`);
+      toast.success(
+        `Payment of ₹${paymentData.amount.toLocaleString("en-IN")} added successfully`,
+      );
     } catch (err: any) {
-      toast.error(err.message || 'Failed to add payment');
+      toast.error(err.message || "Failed to add payment");
     } finally {
       setSubmitting(false);
     }
@@ -531,25 +728,27 @@ const [editSubmitting, setEditSubmitting] = useState(false);
 
   const handleDelete = async (id: string | number, invoiceNumber?: string) => {
     const result = await Swal.fire({
-      title: 'Are you sure?',
+      title: "Are you sure?",
       text: `You are about to delete purchase "${invoiceNumber || id}". This action cannot be undone!`,
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete it!',
-      cancelButtonText: 'Cancel',
-      background: '#fff',
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
       backdrop: `rgba(0,0,0,0.4)`,
-      width: '400px',
-      padding: '1.5rem',
+      width: "400px",
+      padding: "1.5rem",
       customClass: {
-        popup: 'rounded-xl shadow-2xl',
-        title: 'text-lg font-bold text-gray-800',
-        htmlContainer: 'text-sm text-gray-600 my-2',
-        confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
-        cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
-        actions: 'flex justify-center gap-2 mt-4'
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton:
+          "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton:
+          "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+        actions: "flex justify-center gap-2 mt-4",
       },
       buttonsStyling: false,
     });
@@ -560,38 +759,39 @@ const [editSubmitting, setEditSubmitting] = useState(false);
       setSubmitting(true);
       await deletePurchase(id);
       await loadAll();
-      
+
       Swal.fire({
-        title: 'Deleted!',
-        text: 'Purchase has been deleted successfully.',
-        icon: 'success',
+        title: "Deleted!",
+        text: "Purchase has been deleted successfully.",
+        icon: "success",
         timer: 1500,
         showConfirmButton: false,
-        width: '350px',
-        padding: '1rem',
+        width: "350px",
+        padding: "1rem",
         customClass: {
-          popup: 'rounded-xl shadow-2xl',
-          title: 'text-base font-bold text-green-600',
-          htmlContainer: 'text-xs text-gray-600'
-        }
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-green-600",
+          htmlContainer: "text-xs text-gray-600",
+        },
       });
     } catch (err: any) {
-      console.error('Error deleting purchase:', err);
+      console.error("Error deleting purchase:", err);
       Swal.fire({
-        title: 'Error!',
-        text: err.message || 'Failed to delete purchase',
-        icon: 'error',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'OK',
-        width: '350px',
-        padding: '1rem',
+        title: "Error!",
+        text: err.message || "Failed to delete purchase",
+        icon: "error",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "OK",
+        width: "350px",
+        padding: "1rem",
         customClass: {
-          popup: 'rounded-xl shadow-2xl',
-          title: 'text-base font-bold text-red-600',
-          htmlContainer: 'text-xs text-gray-600',
-          confirmButton: 'px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors'
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-red-600",
+          htmlContainer: "text-xs text-gray-600",
+          confirmButton:
+            "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
         },
-        buttonsStyling: false
+        buttonsStyling: false,
       });
     } finally {
       setSubmitting(false);
@@ -601,44 +801,47 @@ const [editSubmitting, setEditSubmitting] = useState(false);
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) {
       Swal.fire({
-        title: 'No items selected',
-        text: 'Please select at least one purchase to delete.',
-        icon: 'info',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'OK',
-        width: '350px',
-        padding: '1rem',
+        title: "No items selected",
+        text: "Please select at least one purchase to delete.",
+        icon: "info",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "OK",
+        width: "350px",
+        padding: "1rem",
         customClass: {
-          popup: 'rounded-xl shadow-2xl',
-          title: 'text-base font-bold text-blue-600',
-          htmlContainer: 'text-xs text-gray-600',
-          confirmButton: 'px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors'
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-blue-600",
+          htmlContainer: "text-xs text-gray-600",
+          confirmButton:
+            "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
         },
-        buttonsStyling: false
+        buttonsStyling: false,
       });
       return;
     }
 
     const result = await Swal.fire({
-      title: 'Are you sure?',
+      title: "Are you sure?",
       text: `You are about to delete ${selectedItems.size} selected purchase(s). This action cannot be undone!`,
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete them!',
-      cancelButtonText: 'Cancel',
-      background: '#fff',
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete them!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
       backdrop: `rgba(0,0,0,0.4)`,
-      width: '400px',
-      padding: '1.5rem',
+      width: "400px",
+      padding: "1.5rem",
       customClass: {
-        popup: 'rounded-xl shadow-2xl',
-        title: 'text-lg font-bold text-gray-800',
-        htmlContainer: 'text-sm text-gray-600 my-2',
-        confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
-        cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
-        actions: 'flex justify-center gap-2 mt-4'
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton:
+          "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton:
+          "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+        actions: "flex justify-center gap-2 mt-4",
       },
       buttonsStyling: false,
     });
@@ -650,38 +853,39 @@ const [editSubmitting, setEditSubmitting] = useState(false);
       await bulkDeletePurchases(Array.from(selectedItems));
       setSelectedItems(new Set());
       await loadAll();
-      
+
       Swal.fire({
-        title: 'Deleted!',
+        title: "Deleted!",
         text: `${selectedItems.size} purchase(s) have been deleted successfully.`,
-        icon: 'success',
+        icon: "success",
         timer: 1500,
         showConfirmButton: false,
-        width: '350px',
-        padding: '1rem',
+        width: "350px",
+        padding: "1rem",
         customClass: {
-          popup: 'rounded-xl shadow-2xl',
-          title: 'text-base font-bold text-green-600',
-          htmlContainer: 'text-xs text-gray-600'
-        }
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-green-600",
+          htmlContainer: "text-xs text-gray-600",
+        },
       });
     } catch (err: any) {
-      console.error('Error bulk deleting purchases:', err);
+      console.error("Error bulk deleting purchases:", err);
       Swal.fire({
-        title: 'Error!',
-        text: err.message || 'Failed to delete purchases',
-        icon: 'error',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'OK',
-        width: '350px',
-        padding: '1rem',
+        title: "Error!",
+        text: err.message || "Failed to delete purchases",
+        icon: "error",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "OK",
+        width: "350px",
+        padding: "1rem",
         customClass: {
-          popup: 'rounded-xl shadow-2xl',
-          title: 'text-base font-bold text-red-600',
-          htmlContainer: 'text-xs text-gray-600',
-          confirmButton: 'px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors'
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-red-600",
+          htmlContainer: "text-xs text-gray-600",
+          confirmButton:
+            "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
         },
-        buttonsStyling: false
+        buttonsStyling: false,
       });
     } finally {
       setSubmitting(false);
@@ -692,7 +896,7 @@ const [editSubmitting, setEditSubmitting] = useState(false);
     if (selectedItems.size === filteredPurchases.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(filteredPurchases.map(p => p.id)));
+      setSelectedItems(new Set(filteredPurchases.map((p) => p.id)));
     }
   };
 
@@ -705,430 +909,525 @@ const [editSubmitting, setEditSubmitting] = useState(false);
     }
     setSelectedItems(newSelected);
   };
-  
-const handleExport = () => {
-  try {
-    // Create workbook
-    const wb = XLSX.utils.book_new();
 
-    // 1. Main purchases sheet
-    const purchasesData = filteredPurchases.map(p => ({
-      'Date': new Date(p.purchase_date).toLocaleDateString('en-IN'),
-      'Invoice #': p.invoice_number,
-      'Vendor Name': p.vendor_name,
-      'Vendor Phone': p.vendor_phone || '',
-      'Property': p.property_name,
-      'Total Amount (₹)': p.total_amount,
-      'Paid Amount (₹)': p.paid_amount || 0,
-      'Balance (₹)': p.balance_amount || p.total_amount,
-      'Payment Status': p.payment_status,
-      'Payment Method': p.payment_method || '',
-      'Paid By': p.paid_by || '',
-      'Payment Reference': p.payment_reference || '',
-      'Notes': p.notes || '',
-      'Purchase ID': p.id
-    }));
+  const handleExport = () => {
+    try {
+      // Create workbook
+      const wb = XLSX.utils.book_new();
 
-    const purchasesWs = XLSX.utils.json_to_sheet(purchasesData);
-    
-    // Auto-size columns
-    const purchasesColWidths = [];
-    const purchasesHeaders = Object.keys(purchasesData[0] || {});
-    purchasesHeaders.forEach(header => {
-      const maxLength = Math.max(
-        header.length,
-        ...purchasesData.map(row => String(row[header] || '').length)
-      );
-      purchasesColWidths.push({ wch: Math.min(maxLength + 2, 50) });
-    });
-    purchasesWs['!cols'] = purchasesColWidths;
-    
-    XLSX.utils.book_append_sheet(wb, purchasesWs, "Purchases");
+      // 1. Main purchases sheet
+      const purchasesData = filteredPurchases.map((p) => ({
+        Date: new Date(p.purchase_date).toLocaleDateString("en-IN"),
+        "Invoice #": p.invoice_number,
+        "Vendor Name": p.vendor_name,
+        "Vendor Phone": p.vendor_phone || "",
+        Property: p.property_name,
+        "Total Amount (₹)": p.total_amount,
+        "Paid Amount (₹)": p.paid_amount || 0,
+        "Balance (₹)": p.balance_amount || p.total_amount,
+        "Payment Status": p.payment_status,
+        "Payment Method": p.payment_method || "",
+        "Paid By": p.paid_by || "",
+        "Payment Reference": p.payment_reference || "",
+        Notes: p.notes || "",
+        "Purchase ID": p.id,
+      }));
 
-    // 2. Items sheet - all items from all purchases
-    const allItems: any[] = [];
-    filteredPurchases.forEach(purchase => {
-      // Parse items properly
-      let itemsToShow = purchase.purchase_items;
-      if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
-        if (typeof purchase.items === 'string') {
-          try {
-            itemsToShow = JSON.parse(purchase.items);
-          } catch (e) {
-            itemsToShow = [];
+      const purchasesWs = XLSX.utils.json_to_sheet(purchasesData);
+
+      // Auto-size columns
+      const purchasesColWidths = [];
+      const purchasesHeaders = Object.keys(purchasesData[0] || {});
+      purchasesHeaders.forEach((header) => {
+        const maxLength = Math.max(
+          header.length,
+          ...purchasesData.map((row) => String(row[header] || "").length),
+        );
+        purchasesColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+      });
+      purchasesWs["!cols"] = purchasesColWidths;
+
+      XLSX.utils.book_append_sheet(wb, purchasesWs, "Purchases");
+
+      // 2. Items sheet - all items from all purchases
+      const allItems: any[] = [];
+      filteredPurchases.forEach((purchase) => {
+        // Parse items properly
+        let itemsToShow = purchase.purchase_items;
+        if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
+          if (typeof purchase.items === "string") {
+            try {
+              itemsToShow = JSON.parse(purchase.items);
+            } catch (e) {
+              itemsToShow = [];
+            }
+          } else if (Array.isArray(purchase.items)) {
+            itemsToShow = purchase.items;
           }
-        } else if (Array.isArray(purchase.items)) {
-          itemsToShow = purchase.items;
         }
-      }
-      
-      itemsToShow?.forEach((item: any) => {
-        allItems.push({
-          'Invoice #': purchase.invoice_number,
-          'Purchase Date': new Date(purchase.purchase_date).toLocaleDateString('en-IN'),
-          'Vendor': purchase.vendor_name,
-          'Property': purchase.property_name,
-          'Item Name': item.item_name || '',
-          'Category': item.category || '',
-          'Quantity': item.quantity || 0,
-          'Unit Price (₹)': item.unit_price || 0,
-          'Total Price (₹)': item.total_price || 0,
-          'Item Notes': item.notes || ''
+
+        itemsToShow?.forEach((item: any) => {
+          allItems.push({
+            "Invoice #": purchase.invoice_number,
+            "Purchase Date": new Date(
+              purchase.purchase_date,
+            ).toLocaleDateString("en-IN"),
+            Vendor: purchase.vendor_name,
+            Property: purchase.property_name,
+            "Item Name": item.item_name || "",
+            Category: item.category || "",
+            Quantity: item.quantity || 0,
+            "Unit Price (₹)": item.unit_price || 0,
+            "Total Price (₹)": item.total_price || 0,
+            "Item Notes": item.notes || "",
+          });
         });
       });
-    });
 
-    if (allItems.length > 0) {
-      const itemsWs = XLSX.utils.json_to_sheet(allItems);
-      XLSX.utils.book_append_sheet(wb, itemsWs, "Items");
-    }
-
-    // 3. Summary sheet
-    const totalPurchases = filteredPurchases.length;
-    const totalAmount = filteredPurchases.reduce((sum, p) => sum + p.total_amount, 0);
-    const totalPaid = filteredPurchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
-    const totalBalance = filteredPurchases.reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0);
-    
-    const pendingCount = filteredPurchases.filter(p => p.payment_status === 'Pending').length;
-    const partialCount = filteredPurchases.filter(p => p.payment_status === 'Partial').length;
-    const paidCount = filteredPurchases.filter(p => p.payment_status === 'Paid').length;
-
-    const summaryData = [
-      ['Metric', 'Value'],
-      ['Total Purchases', totalPurchases],
-      ['Total Amount (₹)', totalAmount.toLocaleString('en-IN')],
-      ['Total Paid (₹)', totalPaid.toLocaleString('en-IN')],
-      ['Total Balance (₹)', totalBalance.toLocaleString('en-IN')],
-      ['Collection Rate', totalAmount > 0 ? `${((totalPaid / totalAmount) * 100).toFixed(1)}%` : '0%'],
-      ['Pending Purchases', pendingCount],
-      ['Partial Purchases', partialCount],
-      ['Paid Purchases', paidCount],
-      ['Unique Vendors', new Set(filteredPurchases.map(p => p.vendor_name)).size],
-      ['Unique Properties', new Set(filteredPurchases.map(p => p.property_name)).size],
-      ['Export Date', new Date().toLocaleString('en-IN')]
-    ];
-
-    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
-
-    // 4. Vendor summary sheet
-    const vendorMap = new Map();
-    filteredPurchases.forEach(p => {
-      if (!vendorMap.has(p.vendor_name)) {
-        vendorMap.set(p.vendor_name, {
-          vendor: p.vendor_name,
-          phone: p.vendor_phone || '',
-          purchases: 0,
-          total: 0,
-          paid: 0,
-          balance: 0
-        });
+      if (allItems.length > 0) {
+        const itemsWs = XLSX.utils.json_to_sheet(allItems);
+        XLSX.utils.book_append_sheet(wb, itemsWs, "Items");
       }
-      const vendor = vendorMap.get(p.vendor_name);
-      vendor.purchases++;
-      vendor.total += p.total_amount;
-      vendor.paid += p.paid_amount || 0;
-      vendor.balance += p.balance_amount || p.total_amount;
-    });
 
-    const vendorData = Array.from(vendorMap.values()).map(v => ({
-      'Vendor': v.vendor,
-      'Phone': v.phone,
-      'No. of Purchases': v.purchases,
-      'Total Amount (₹)': v.total,
-      'Paid Amount (₹)': v.paid,
-      'Balance (₹)': v.balance,
-      'Payment Rate': v.total > 0 ? `${((v.paid / v.total) * 100).toFixed(1)}%` : '0%'
-    }));
+      // 3. Summary sheet
+      const totalPurchases = filteredPurchases.length;
+      const totalAmount = filteredPurchases.reduce(
+        (sum, p) => sum + p.total_amount,
+        0,
+      );
+      const totalPaid = filteredPurchases.reduce(
+        (sum, p) => sum + (p.paid_amount || 0),
+        0,
+      );
+      const totalBalance = filteredPurchases.reduce(
+        (sum, p) => sum + (p.balance_amount || p.total_amount),
+        0,
+      );
 
-    if (vendorData.length > 0) {
-      const vendorWs = XLSX.utils.json_to_sheet(vendorData);
-      XLSX.utils.book_append_sheet(wb, vendorWs, "Vendor Summary");
-    }
+      const pendingCount = filteredPurchases.filter(
+        (p) => p.payment_status === "Pending",
+      ).length;
+      const partialCount = filteredPurchases.filter(
+        (p) => p.payment_status === "Partial",
+      ).length;
+      const paidCount = filteredPurchases.filter(
+        (p) => p.payment_status === "Paid",
+      ).length;
 
-    // 5. Property summary sheet
-    const propertyMap = new Map();
-    filteredPurchases.forEach(p => {
-      if (!propertyMap.has(p.property_name)) {
-        propertyMap.set(p.property_name, {
-          property: p.property_name,
-          purchases: 0,
-          total: 0,
-          paid: 0,
-          balance: 0
-        });
+      const summaryData = [
+        ["Metric", "Value"],
+        ["Total Purchases", totalPurchases],
+        ["Total Amount (₹)", totalAmount.toLocaleString("en-IN")],
+        ["Total Paid (₹)", totalPaid.toLocaleString("en-IN")],
+        ["Total Balance (₹)", totalBalance.toLocaleString("en-IN")],
+        [
+          "Collection Rate",
+          totalAmount > 0
+            ? `${((totalPaid / totalAmount) * 100).toFixed(1)}%`
+            : "0%",
+        ],
+        ["Pending Purchases", pendingCount],
+        ["Partial Purchases", partialCount],
+        ["Paid Purchases", paidCount],
+        [
+          "Unique Vendors",
+          new Set(filteredPurchases.map((p) => p.vendor_name)).size,
+        ],
+        [
+          "Unique Properties",
+          new Set(filteredPurchases.map((p) => p.property_name)).size,
+        ],
+        ["Export Date", new Date().toLocaleString("en-IN")],
+      ];
+
+      const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+      // 4. Vendor summary sheet
+      const vendorMap = new Map();
+      filteredPurchases.forEach((p) => {
+        if (!vendorMap.has(p.vendor_name)) {
+          vendorMap.set(p.vendor_name, {
+            vendor: p.vendor_name,
+            phone: p.vendor_phone || "",
+            purchases: 0,
+            total: 0,
+            paid: 0,
+            balance: 0,
+          });
+        }
+        const vendor = vendorMap.get(p.vendor_name);
+        vendor.purchases++;
+        vendor.total += p.total_amount;
+        vendor.paid += p.paid_amount || 0;
+        vendor.balance += p.balance_amount || p.total_amount;
+      });
+
+      const vendorData = Array.from(vendorMap.values()).map((v) => ({
+        Vendor: v.vendor,
+        Phone: v.phone,
+        "No. of Purchases": v.purchases,
+        "Total Amount (₹)": v.total,
+        "Paid Amount (₹)": v.paid,
+        "Balance (₹)": v.balance,
+        "Payment Rate":
+          v.total > 0 ? `${((v.paid / v.total) * 100).toFixed(1)}%` : "0%",
+      }));
+
+      if (vendorData.length > 0) {
+        const vendorWs = XLSX.utils.json_to_sheet(vendorData);
+        XLSX.utils.book_append_sheet(wb, vendorWs, "Vendor Summary");
       }
-      const prop = propertyMap.get(p.property_name);
-      prop.purchases++;
-      prop.total += p.total_amount;
-      prop.paid += p.paid_amount || 0;
-      prop.balance += p.balance_amount || p.total_amount;
-    });
 
-    const propertyData = Array.from(propertyMap.values()).map(p => ({
-      'Property': p.property,
-      'No. of Purchases': p.purchases,
-      'Total Amount (₹)': p.total,
-      'Paid Amount (₹)': p.paid,
-      'Balance (₹)': p.balance,
-      'Payment Rate': p.total > 0 ? `${((p.paid / p.total) * 100).toFixed(1)}%` : '0%'
-    }));
+      // 5. Property summary sheet
+      const propertyMap = new Map();
+      filteredPurchases.forEach((p) => {
+        if (!propertyMap.has(p.property_name)) {
+          propertyMap.set(p.property_name, {
+            property: p.property_name,
+            purchases: 0,
+            total: 0,
+            paid: 0,
+            balance: 0,
+          });
+        }
+        const prop = propertyMap.get(p.property_name);
+        prop.purchases++;
+        prop.total += p.total_amount;
+        prop.paid += p.paid_amount || 0;
+        prop.balance += p.balance_amount || p.total_amount;
+      });
 
-    if (propertyData.length > 0) {
-      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
-      XLSX.utils.book_append_sheet(wb, propertyWs, "Property Summary");
-    }
+      const propertyData = Array.from(propertyMap.values()).map((p) => ({
+        Property: p.property,
+        "No. of Purchases": p.purchases,
+        "Total Amount (₹)": p.total,
+        "Paid Amount (₹)": p.paid,
+        "Balance (₹)": p.balance,
+        "Payment Rate":
+          p.total > 0 ? `${((p.paid / p.total) * 100).toFixed(1)}%` : "0%",
+      }));
 
-    // 6. Payment status sheet
-    const statusData = [
-      ['Payment Status', 'Count', 'Total Amount (₹)', 'Paid Amount (₹)', 'Balance (₹)'],
-      ['Pending', 
-        pendingCount, 
-        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + p.total_amount, 0),
-        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
-        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
-      ],
-      ['Partial',
-        partialCount,
-        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + p.total_amount, 0),
-        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
-        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
-      ],
-      ['Paid',
-        paidCount,
-        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + p.total_amount, 0),
-        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
-        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
-      ]
-    ];
-
-    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
-    XLSX.utils.book_append_sheet(wb, statusWs, "Payment Status");
-
-    // 7. Monthly summary sheet
-    const monthlyMap = new Map();
-    filteredPurchases.forEach(p => {
-      const month = new Date(p.purchase_date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-      if (!monthlyMap.has(month)) {
-        monthlyMap.set(month, {
-          month,
-          purchases: 0,
-          total: 0,
-          paid: 0,
-          balance: 0
-        });
+      if (propertyData.length > 0) {
+        const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+        XLSX.utils.book_append_sheet(wb, propertyWs, "Property Summary");
       }
-      const m = monthlyMap.get(month);
-      m.purchases++;
-      m.total += p.total_amount;
-      m.paid += p.paid_amount || 0;
-      m.balance += p.balance_amount || p.total_amount;
-    });
 
-    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
-      'Month': m.month,
-      'No. of Purchases': m.purchases,
-      'Total Amount (₹)': m.total,
-      'Paid Amount (₹)': m.paid,
-      'Balance (₹)': m.balance
-    }));
+      // 6. Payment status sheet
+      const statusData = [
+        [
+          "Payment Status",
+          "Count",
+          "Total Amount (₹)",
+          "Paid Amount (₹)",
+          "Balance (₹)",
+        ],
+        [
+          "Pending",
+          pendingCount,
+          filteredPurchases
+            .filter((p) => p.payment_status === "Pending")
+            .reduce((sum, p) => sum + p.total_amount, 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Pending")
+            .reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Pending")
+            .reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0),
+        ],
+        [
+          "Partial",
+          partialCount,
+          filteredPurchases
+            .filter((p) => p.payment_status === "Partial")
+            .reduce((sum, p) => sum + p.total_amount, 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Partial")
+            .reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Partial")
+            .reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0),
+        ],
+        [
+          "Paid",
+          paidCount,
+          filteredPurchases
+            .filter((p) => p.payment_status === "Paid")
+            .reduce((sum, p) => sum + p.total_amount, 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Paid")
+            .reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+          filteredPurchases
+            .filter((p) => p.payment_status === "Paid")
+            .reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0),
+        ],
+      ];
 
-    if (monthlyData.length > 0) {
-      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
-      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Summary");
+      const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+      XLSX.utils.book_append_sheet(wb, statusWs, "Payment Status");
+
+      // 7. Monthly summary sheet
+      const monthlyMap = new Map();
+      filteredPurchases.forEach((p) => {
+        const month = new Date(p.purchase_date).toLocaleDateString("en-IN", {
+          month: "long",
+          year: "numeric",
+        });
+        if (!monthlyMap.has(month)) {
+          monthlyMap.set(month, {
+            month,
+            purchases: 0,
+            total: 0,
+            paid: 0,
+            balance: 0,
+          });
+        }
+        const m = monthlyMap.get(month);
+        m.purchases++;
+        m.total += p.total_amount;
+        m.paid += p.paid_amount || 0;
+        m.balance += p.balance_amount || p.total_amount;
+      });
+
+      const monthlyData = Array.from(monthlyMap.values()).map((m) => ({
+        Month: m.month,
+        "No. of Purchases": m.purchases,
+        "Total Amount (₹)": m.total,
+        "Paid Amount (₹)": m.paid,
+        "Balance (₹)": m.balance,
+      }));
+
+      if (monthlyData.length > 0) {
+        const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+        XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Summary");
+      }
+
+      // Generate filename
+      const filename = `purchases_export_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      toast.success(
+        `Exported ${filteredPurchases.length} purchases successfully`,
+      );
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export purchases");
     }
-
-    // Generate filename
-    const filename = `purchases_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-    // Save file
-    XLSX.writeFile(wb, filename);
-    
-    toast.success(`Exported ${filteredPurchases.length} purchases successfully`);
-  } catch (error) {
-    console.error('Export error:', error);
-    toast.error('Failed to export purchases');
-  }
-};
+  };
 
   // PDF Download - FIXED FORMATTING
- // PDF Download - FIXED FORMATTING
-const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
+  // PDF Download - FIXED FORMATTING
+  const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
 
-  // Header with green background
-  doc.setFillColor(16, 185, 129);
-  doc.rect(0, 0, pageWidth, 35, 'F');
+    // Header with green background
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, pageWidth, 35, "F");
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MATERIAL PURCHASE', pageWidth / 2, 15, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("MATERIAL PURCHASE", pageWidth / 2, 15, { align: "center" });
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Purchase Order Details', pageWidth / 2, 25, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text("Purchase Order Details", pageWidth / 2, 25, { align: "center" });
 
-  let yPos = 45;
+    let yPos = 45;
 
-  // Purchase Info Box
-  doc.setFillColor(243, 244, 246);
-  doc.roundedRect(14, yPos, pageWidth - 28, 40, 2, 2, 'F');
+    // Purchase Info Box
+    doc.setFillColor(243, 244, 246);
+    doc.roundedRect(14, yPos, pageWidth - 28, 40, 2, 2, "F");
 
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-
-  doc.text('Invoice:', 18, yPos + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(purchase.invoice_number, 45, yPos + 8);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Date:', 120, yPos + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(new Date(purchase.purchase_date).toLocaleDateString('en-IN'), 140, yPos + 8);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Vendor:', 18, yPos + 18);
-  doc.setFont('helvetica', 'normal');
-  doc.text(purchase.vendor_name, 45, yPos + 18);
-  if (purchase.vendor_phone) {
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(purchase.vendor_phone, 45, yPos + 26);
-    doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-  }
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Property:', 120, yPos + 18);
-  doc.setFont('helvetica', 'normal');
-  doc.text(purchase.property_name, 160, yPos + 18);
+    doc.text("Invoice:", 18, yPos + 8);
+    doc.setFont("helvetica", "normal");
+    doc.text(purchase.invoice_number, 45, yPos + 8);
 
-  yPos += 50;
+    doc.setFont("helvetica", "bold");
+    doc.text("Date:", 120, yPos + 8);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      new Date(purchase.purchase_date).toLocaleDateString("en-IN"),
+      140,
+      yPos + 8,
+    );
 
-  // Items Table
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(31, 41, 55);
-  doc.text('Purchase Items', 14, yPos);
-  yPos += 5;
-
-  // Get items data - FIXED: Properly parse numbers
-  let itemsToShow = purchase.purchase_items;
-  if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
-    if (typeof purchase.items === 'string') {
-      try {
-        itemsToShow = JSON.parse(purchase.items);
-      } catch (e) {
-        itemsToShow = [];
-      }
-    } else if (Array.isArray(purchase.items)) {
-      itemsToShow = purchase.items;
+    doc.setFont("helvetica", "bold");
+    doc.text("Vendor:", 18, yPos + 18);
+    doc.setFont("helvetica", "normal");
+    doc.text(purchase.vendor_name, 45, yPos + 18);
+    if (purchase.vendor_phone) {
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(purchase.vendor_phone, 45, yPos + 26);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
     }
-  }
-  
-  // Format numbers properly - ensure they are numbers not strings
-  const itemsData = (itemsToShow || []).map((item: any) => {
-    // Parse to number first to ensure proper formatting
-    const qty = Number(item.quantity) || 0;
-    const unitPrice = Number(item.unit_price) || 0;
-    const totalPrice = Number(item.total_price) || 0;
-    
-    return [
-      item.item_name || '-',
-      item.category || '-',
-      qty.toString(),
-      `Rs. ${unitPrice.toLocaleString('en-IN')}`,
-`Rs. ${totalPrice.toLocaleString('en-IN')}`
-    ];
-  });
 
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Item Name', 'Category', 'Qty', 'Unit Price', 'Total']],
-    body: itemsData,
-    foot: [[
-      '', 
-      '', 
-      '', 
-      'Total Amount:', 
-`Rs. ${(Number(purchase.total_amount) || 0).toLocaleString('en-IN')}`
-    ]],
-    theme: 'grid',
-    headStyles: { fillColor: [59, 130, 246], fontSize: 10, textColor: [255, 255, 255] },
-    footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontSize: 11, fontStyle: 'bold' },
-    columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 20, halign: 'center' },
-      3: { cellWidth: 35, halign: 'right' },
-      4: { cellWidth: 35, halign: 'right' }
-    },
-    // Add this to ensure numbers are treated as numbers
-    didParseCell: function(data) {
-      if (data.column.index === 3 || data.column.index === 4) {
-        if (data.cell.raw && typeof data.cell.raw === 'string') {
-          // Already formatted, keep as is
+    doc.setFont("helvetica", "bold");
+    doc.text("Property:", 120, yPos + 18);
+    doc.setFont("helvetica", "normal");
+    doc.text(purchase.property_name, 160, yPos + 18);
+
+    yPos += 50;
+
+    // Items Table
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(31, 41, 55);
+    doc.text("Purchase Items", 14, yPos);
+    yPos += 5;
+
+    // Get items data - FIXED: Properly parse numbers
+    let itemsToShow = purchase.purchase_items;
+    if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
+      if (typeof purchase.items === "string") {
+        try {
+          itemsToShow = JSON.parse(purchase.items);
+        } catch (e) {
+          itemsToShow = [];
         }
+      } else if (Array.isArray(purchase.items)) {
+        itemsToShow = purchase.items;
       }
     }
-  });
 
-  yPos = (doc as any).lastAutoTable.finalY + 15;
+    // Format numbers properly - ensure they are numbers not strings
+    const itemsData = (itemsToShow || []).map((item: any) => {
+      // Parse to number first to ensure proper formatting
+      const qty = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unit_price) || 0;
+      const totalPrice = Number(item.total_price) || 0;
 
-  // Payment Summary Box
-  doc.setFillColor(239, 246, 255);
-  doc.roundedRect(14, yPos, pageWidth - 28, 30, 2, 2, 'F');
+      return [
+        item.item_name || "-",
+        item.category || "-",
+        qty.toString(),
+        `Rs. ${unitPrice.toLocaleString("en-IN")}`,
+        `Rs. ${totalPrice.toLocaleString("en-IN")}`,
+      ];
+    });
 
-  doc.setFontSize(10);
-  doc.setTextColor(55, 65, 81);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Total:', 20, yPos + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Rs. ${(Number(purchase.total_amount) || 0).toLocaleString('en-IN')}`
-, 60, yPos + 8);
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Item Name", "Category", "Qty", "Unit Price", "Total"]],
+      body: itemsData,
+      foot: [
+        [
+          "",
+          "",
+          "",
+          "Total Amount:",
+          `Rs. ${(Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
+        ],
+      ],
+      theme: "grid",
+      headStyles: {
+        fillColor: [59, 130, 246],
+        fontSize: 10,
+        textColor: [255, 255, 255],
+      },
+      footStyles: {
+        fillColor: [243, 244, 246],
+        textColor: [0, 0, 0],
+        fontSize: 11,
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 20, halign: "center" },
+        3: { cellWidth: 35, halign: "right" },
+        4: { cellWidth: 35, halign: "right" },
+      },
+      // Add this to ensure numbers are treated as numbers
+      didParseCell: function (data) {
+        if (data.column.index === 3 || data.column.index === 4) {
+          if (data.cell.raw && typeof data.cell.raw === "string") {
+            // Already formatted, keep as is
+          }
+        }
+      },
+    });
 
-  doc.setTextColor(16, 185, 129);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Paid:', 20, yPos + 18);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Rs. ${(Number(purchase.paid_amount) || 0).toLocaleString('en-IN')}`
-, 60, yPos + 18);
+    yPos = (doc as any).lastAutoTable.finalY + 15;
 
-  doc.setTextColor(239, 68, 68);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Balance:', 120, yPos + 13);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text(`Rs.${(Number(purchase.balance_amount) || Number(purchase.total_amount) || 0).toLocaleString('en-IN')}`, 160, yPos + 13);
+    // Payment Summary Box
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(14, yPos, pageWidth - 28, 30, 2, 2, "F");
 
-  // Save PDF
-  const fileName = `Purchase_${purchase.invoice_number.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-  doc.save(fileName);
-};
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total:", 20, yPos + 8);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Rs. ${(Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
+      60,
+      yPos + 8,
+    );
+
+    doc.setTextColor(16, 185, 129);
+    doc.setFont("helvetica", "bold");
+    doc.text("Paid:", 20, yPos + 18);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Rs. ${(Number(purchase.paid_amount) || 0).toLocaleString("en-IN")}`,
+      60,
+      yPos + 18,
+    );
+
+    doc.setTextColor(239, 68, 68);
+    doc.setFont("helvetica", "bold");
+    doc.text("Balance:", 120, yPos + 13);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(
+      `Rs.${(Number(purchase.balance_amount) || Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
+      160,
+      yPos + 13,
+    );
+
+    // Save PDF
+    const fileName = `Purchase_${purchase.invoice_number.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    doc.save(fileName);
+  };
 
   // Print function
   const handlePrint = (purchase: MaterialPurchaseType) => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      toast.error('Please allow pop-ups to print');
+      toast.error("Please allow pop-ups to print");
       return;
     }
 
-    const itemsToShow = purchase.purchase_items || 
-      (typeof purchase.items === 'string' ? JSON.parse(purchase.items) : purchase.items) || [];
+    const itemsToShow =
+      purchase.purchase_items ||
+      (typeof purchase.items === "string"
+        ? JSON.parse(purchase.items)
+        : purchase.items) ||
+      [];
 
-    const itemsRows = itemsToShow.map((item: any) => `
+    const itemsRows = itemsToShow
+      .map(
+        (item: any) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.item_name || '-'}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.category || '-'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.item_name || "-"}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.category || "-"}</td>
         <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity || 0}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹ ${(item.unit_price || 0).toLocaleString('en-IN')}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹ ${(item.total_price || 0).toLocaleString('en-IN')}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹ ${(item.unit_price || 0).toLocaleString("en-IN")}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹ ${(item.total_price || 0).toLocaleString("en-IN")}</td>
       </tr>
-    `).join('');
+    `,
+      )
+      .join("");
 
     const printContent = `
       <!DOCTYPE html>
@@ -1172,11 +1471,11 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
           </div>
           <div class="info-item">
             <div class="label">Purchase Date</div>
-            <div class="value">${new Date(purchase.purchase_date).toLocaleDateString('en-IN')}</div>
+            <div class="value">${new Date(purchase.purchase_date).toLocaleDateString("en-IN")}</div>
           </div>
           <div class="info-item">
             <div class="label">Vendor</div>
-            <div class="value">${purchase.vendor_name}${purchase.vendor_phone ? `<br><small>${purchase.vendor_phone}</small>` : ''}</div>
+            <div class="value">${purchase.vendor_name}${purchase.vendor_phone ? `<br><small>${purchase.vendor_phone}</small>` : ""}</div>
           </div>
           <div class="info-item">
             <div class="label">Property</div>
@@ -1201,7 +1500,7 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
           <tfoot>
             <tr class="total-row">
               <td colspan="4" style="text-align: right; padding: 8px;">Total Amount:</td>
-              <td style="text-align: right; padding: 8px;">₹ ${purchase.total_amount.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; padding: 8px;">₹ ${purchase.total_amount.toLocaleString("en-IN")}</td>
             </tr>
           </tfoot>
         </table>
@@ -1209,27 +1508,31 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
         <div class="summary">
           <div class="summary-item">
             <div class="label">Total</div>
-            <div class="value">₹ ${purchase.total_amount.toLocaleString('en-IN')}</div>
+            <div class="value">₹ ${purchase.total_amount.toLocaleString("en-IN")}</div>
           </div>
           <div class="summary-item">
             <div class="label">Paid</div>
-            <div class="value paid">₹ ${(purchase.paid_amount || 0).toLocaleString('en-IN')}</div>
+            <div class="value paid">₹ ${(purchase.paid_amount || 0).toLocaleString("en-IN")}</div>
           </div>
           <div class="summary-item">
             <div class="label">Balance</div>
-            <div class="value balance">₹ ${(purchase.balance_amount || purchase.total_amount).toLocaleString('en-IN')}</div>
+            <div class="value balance">₹ ${(purchase.balance_amount || purchase.total_amount).toLocaleString("en-IN")}</div>
           </div>
         </div>
 
-        ${purchase.notes ? `
+        ${
+          purchase.notes
+            ? `
           <div style="background-color: #fffbeb; padding: 15px; border-radius: 8px; margin-top: 20px;">
             <div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Notes</div>
             <div style="font-size: 12px;">${purchase.notes}</div>
           </div>
-        ` : ''}
+        `
+            : ""
+        }
 
         <div style="text-align: center; margin-top: 30px; font-size: 11px; color: #9ca3af;">
-          Generated on ${new Date().toLocaleString('en-IN')}
+          Generated on ${new Date().toLocaleString("en-IN")}
         </div>
 
         <div style="text-align: center; margin-top: 20px;">
@@ -1247,165 +1550,265 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
   // Status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Paid':
-        return <Badge className="bg-green-100 text-green-700 text-[9px] px-1.5">Paid</Badge>;
-      case 'Partial':
-        return <Badge className="bg-orange-100 text-orange-700 text-[9px] px-1.5">Partial</Badge>;
+      case "Paid":
+        return (
+          <Badge className="bg-green-100 text-green-700 text-[9px] px-1.5">
+            Paid
+          </Badge>
+        );
+      case "Partial":
+        return (
+          <Badge className="bg-orange-100 text-orange-700 text-[9px] px-1.5">
+            Partial
+          </Badge>
+        );
       default:
-        return <Badge className="bg-red-100 text-red-700 text-[9px] px-1.5">Pending</Badge>;
+        return (
+          <Badge className="bg-red-100 text-red-700 text-[9px] px-1.5">
+            Pending
+          </Badge>
+        );
     }
   };
 
-  const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const hasFilters = propertyFilter !== 'all' || statusFilter !== 'all' || dateFilter.from || dateFilter.to;
+  const hasColSearch = Object.values(colSearch).some((v) => v !== "");
+  const hasFilters =
+    propertyFilter !== "all" ||
+    statusFilter !== "all" ||
+    dateFilter.from ||
+    dateFilter.to;
   const activeFilterCount = [
-    propertyFilter !== 'all',
-    statusFilter !== 'all',
+    propertyFilter !== "all",
+    statusFilter !== "all",
     !!dateFilter.from,
-    !!dateFilter.to
+    !!dateFilter.to,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
-    setPropertyFilter('all');
-    setStatusFilter('all');
-    setDateFilter({ from: '', to: '' });
+    setPropertyFilter("all");
+    setStatusFilter("all");
+    setDateFilter({ from: "", to: "" });
   };
 
-  const clearColSearch = () => setColSearch({
-    invoice: '', vendor: '', property: '', amount: '', status: ''
-  });
+  const clearColSearch = () =>
+    setColSearch({
+      invoice: "",
+      vendor: "",
+      property: "",
+      amount: "",
+      status: "",
+    });
 
   return (
     <div className="bg-gray-50 ">
       {/* Header */}
       <div className="sticky top-20 z-10">
-         <div className="px-0 sm:px-0 pb-3">
+        <div className="px-0 sm:px-0 pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total Purchases" value={stats.total_purchases} icon={Boxes} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Total Amount" value={`₹${Number(stats.total_amount || 0).toLocaleString('en-IN')}`} icon={IndianRupee} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Total Paid" value={`₹${Number(stats.total_paid || 0).toLocaleString('en-IN')}`} icon={TrendingDown} color="bg-orange-600" bg="bg-gradient-to-br from-orange-50 to-orange-100" />
-            <StatCard title="Balance Due" value={`₹${Number(stats.total_balance || 0).toLocaleString('en-IN')}`} icon={AlertTriangle} color="bg-red-600" bg="bg-gradient-to-br from-red-50 to-red-100" />
+            <StatCard
+              title="Total Purchases"
+              value={stats.total_purchases}
+              icon={Boxes}
+              color="bg-blue-600"
+              bg="bg-gradient-to-br from-blue-50 to-blue-100"
+            />
+            <StatCard
+              title="Total Amount"
+              value={`₹${Number(stats.total_amount || 0).toLocaleString("en-IN")}`}
+              icon={IndianRupee}
+              color="bg-green-600"
+              bg="bg-gradient-to-br from-green-50 to-green-100"
+            />
+            <StatCard
+              title="Total Paid"
+              value={`₹${Number(stats.total_paid || 0).toLocaleString("en-IN")}`}
+              icon={TrendingDown}
+              color="bg-orange-600"
+              bg="bg-gradient-to-br from-orange-50 to-orange-100"
+            />
+            <StatCard
+              title="Balance Due"
+              value={`₹${Number(stats.total_balance || 0).toLocaleString("en-IN")}`}
+              icon={AlertTriangle}
+              color="bg-red-600"
+              bg="bg-gradient-to-br from-red-50 to-red-100"
+            />
           </div>
         </div>
         <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-            
-            
-            <button onClick={loadAll} disabled={loading} className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <button
+              onClick={loadAll}
+              disabled={loading}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
             </button>
             <button
-              onClick={() => setSidebarOpen(o => !o)}
+              onClick={() => setSidebarOpen((o) => !o)}
               className={`
                 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px]  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white font-medium transition-colors
-                ${sidebarOpen || hasFilters
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}
+                ${
+                  sidebarOpen || hasFilters
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }
               `}
             >
               <Filter className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
-                <span className={`
+                <span
+                  className={`
                   h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}
-                `}>
+                  ${sidebarOpen || hasFilters ? "bg-white text-blue-600" : "bg-blue-600 text-white"}
+                `}
+                >
                   {activeFilterCount}
                 </span>
               )}
             </button>
 
-  {can('export_material_purchase') && (
+            {can("export_material_purchase") && (
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors"
+              >
+                <Download className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            )}
 
-            <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-  )}
-
-            
-  {can('create_material_purchase') && (
-
-            <button onClick={openAdd} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">Add Purchase</span>
-            </button>
-  )}
+            {can("create_material_purchase") && (
+              <button
+                onClick={openAdd}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="hidden xs:inline sm:inline">Add Purchase</span>
+              </button>
+            )}
           </div>
         </div>
-
-       
       </div>
 
       <div className="relative">
         <main className="p-0 sm:p-0">
           <Card className="border rounded-lg shadow-sm">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">All Purchases ({filteredPurchases.length})</span>
+              <span className="text-sm font-semibold text-gray-700">
+                All Purchases ({filteredPurchases.length})
+              </span>
               {hasColSearch && (
-                <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>
+                <button
+                  onClick={clearColSearch}
+                  className="text-[10px] text-blue-600 font-semibold"
+                >
+                  Clear Search
+                </button>
               )}
             </div>
 
             {selectedItems.size > 0 && (
               <div className="p-3 bg-blue-50 border-b flex items-center justify-between">
-                <span className="text-sm font-semibold text-blue-900">{selectedItems.size} item(s) selected</span>
-                <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors">
+                <span className="text-sm font-semibold text-blue-900">
+                  {selectedItems.size} item(s) selected
+                </span>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors"
+                >
                   <Trash2 className="h-3.5 w-3.5" /> Delete Selected
                 </button>
               </div>
             )}
 
-<div
-  className="overflow-auto rounded-b-lg transition-all duration-300"
-  style={{
-    maxHeight: selectedItems.size > 0
-      ? (window.innerWidth >= 768 ? '380px' : '310px')
-      : (window.innerWidth >= 768 ? '430px' : '370px')
-  }}
->            
- <div className="min-w-[1000px]">
+            <div
+              className="overflow-auto rounded-b-lg transition-all duration-300"
+              style={{
+                maxHeight:
+                  selectedItems.size > 0
+                    ? window.innerWidth >= 768
+                      ? "380px"
+                      : "310px"
+                    : window.innerWidth >= 768
+                      ? "430px"
+                      : "370px",
+              }}
+            >
+              <div className="min-w-[1000px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>
                       <TableHead className="py-2 px-3 w-8">
-                        <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
-                          {selectedItems.size === filteredPurchases.length && filteredPurchases.length > 0 ?
-                            <span className="text-blue-600">✓</span> : <span className="text-gray-400">□</span>}
+                        <button
+                          onClick={toggleSelectAll}
+                          className="p-1 hover:bg-gray-200 rounded"
+                        >
+                          {selectedItems.size === filteredPurchases.length &&
+                          filteredPurchases.length > 0 ? (
+                            <span className="text-blue-600">✓</span>
+                          ) : (
+                            <span className="text-gray-400">□</span>
+                          )}
                         </button>
                       </TableHead>
                       <TableHead className="py-2 px-3 text-xs">Date</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Invoice #</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Vendor</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
+                      <TableHead className="py-2 px-3 text-xs">
+                        Invoice #
+                      </TableHead>
+                      <TableHead className="py-2 px-3 text-xs">
+                        Vendor
+                      </TableHead>
+                      <TableHead className="py-2 px-3 text-xs">
+                        Property
+                      </TableHead>
                       <TableHead className="py-2 px-3 text-xs">Total</TableHead>
                       <TableHead className="py-2 px-3 text-xs">Paid</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Balance</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
+                      <TableHead className="py-2 px-3 text-xs">
+                        Balance
+                      </TableHead>
+                      <TableHead className="py-2 px-3 text-xs">
+                        Status
+                      </TableHead>
+                      <TableHead className="py-2 px-3 text-xs text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
 
                     <TableRow className="bg-gray-50/80">
                       <TableCell className="py-1 px-2"></TableCell>
                       {[
-                        { key: null, ph: '' },
-                        { key: 'invoice', ph: 'Search invoice…' },
-                        { key: 'vendor', ph: 'Search vendor…' },
-                        { key: 'property', ph: 'Search property…' },
-                        { key: 'amount', ph: 'Amount…' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: 'status', ph: 'Status…' },
+                        { key: null, ph: "" },
+                        { key: "invoice", ph: "Search invoice…" },
+                        { key: "vendor", ph: "Search vendor…" },
+                        { key: "property", ph: "Search property…" },
+                        { key: "amount", ph: "Amount…" },
+                        { key: null, ph: "" },
+                        { key: null, ph: "" },
+                        { key: null, ph: "" },
+                        { key: "status", ph: "Status…" },
                       ].map((col, idx) => (
                         <TableCell key={idx} className="py-1 px-2">
                           {col.key ? (
-                            <Input placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(prev => ({ ...prev, [col.key!]: e.target.value }))}
+                            <Input
+                              placeholder={col.ph}
+                              value={
+                                colSearch[col.key as keyof typeof colSearch]
+                              }
+                              onChange={(e) =>
+                                setColSearch((prev) => ({
+                                  ...prev,
+                                  [col.key!]: e.target.value,
+                                }))
+                              }
                               className="h-6 text-[10px]"
                             />
-                          ) : <div />}
+                          ) : (
+                            <div />
+                          )}
                         </TableCell>
                       ))}
                       <TableCell className="py-1 px-2" />
@@ -1417,169 +1820,314 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                       <TableRow>
                         <TableCell colSpan={11} className="text-center py-12">
                           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading purchases…</p>
+                          <p className="text-xs text-gray-500">
+                            Loading purchases…
+                          </p>
                         </TableCell>
                       </TableRow>
                     ) : filteredPurchases.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={11} className="text-center py-12">
                           <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No purchases found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            No purchases found
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Try adjusting your filters
+                          </p>
                         </TableCell>
                       </TableRow>
-                    ) : filteredPurchases.map(purchase => (
-                      <TableRow key={purchase.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3">
-                          <button onClick={() => toggleSelectItem(purchase.id)} className="p-1 hover:bg-gray-200 rounded">
-                            {selectedItems.has(purchase.id) ? <span className="text-blue-600">✓</span> : <span className="text-gray-400">□</span>}
-                          </button>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs">{new Date(purchase.purchase_date).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-medium">{purchase.invoice_number}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs">{purchase.vendor_name}{purchase.vendor_phone && <div className="text-[9px] text-gray-500">{purchase.vendor_phone}</div>}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">{purchase.property_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-semibold">₹{purchase.total_amount.toLocaleString('en-IN')}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-green-600">₹{(purchase.paid_amount || 0).toLocaleString('en-IN')}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-semibold text-red-600">₹{(purchase.balance_amount || purchase.total_amount).toLocaleString('en-IN')}</TableCell>
-                        <TableCell className="py-2 px-3">{getStatusBadge(purchase.payment_status)}</TableCell>
-                        <TableCell className="py-2 px-3">
-  <div className="flex justify-end gap-1">
-    {can('view_material_purchase') && (
-    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleViewDetails(purchase)}>
-      <Eye className="h-3.5 w-3.5" />
-    </Button>
-    )}
-    {/* Add Edit Button */}
-        {can('edit_material_purchase') && (
+                    ) : (
+                      filteredPurchases.map((purchase) => (
+                        <TableRow
+                          key={purchase.id}
+                          className="hover:bg-gray-50"
+                        >
+                          <TableCell className="py-2 px-3">
+                            <button
+                              onClick={() => toggleSelectItem(purchase.id)}
+                              className="p-1 hover:bg-gray-200 rounded"
+                            >
+                              {selectedItems.has(purchase.id) ? (
+                                <span className="text-blue-600">✓</span>
+                              ) : (
+                                <span className="text-gray-400">□</span>
+                              )}
+                            </button>
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs">
+                            {new Date(
+                              purchase.purchase_date,
+                            ).toLocaleDateString("en-IN")}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs font-medium">
+                            {purchase.invoice_number}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs">
+                            {purchase.vendor_name}
+                            {purchase.vendor_phone && (
+                              <div className="text-[9px] text-gray-500">
+                                {purchase.vendor_phone}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">
+                            {purchase.property_name}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs font-semibold">
+                            ₹{purchase.total_amount.toLocaleString("en-IN")}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs text-green-600">
+                            ₹
+                            {(purchase.paid_amount || 0).toLocaleString(
+                              "en-IN",
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2 px-3 text-xs font-semibold text-red-600">
+                            ₹
+                            {(
+                              purchase.balance_amount || purchase.total_amount
+                            ).toLocaleString("en-IN")}
+                          </TableCell>
+                          <TableCell className="py-2 px-3">
+                            {getStatusBadge(purchase.payment_status)}
+                          </TableCell>
+                          <TableCell className="py-2 px-3">
+                            <div className="flex justify-end gap-1">
+                              {can("view_material_purchase") && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                  onClick={() => handleViewDetails(purchase)}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {/* Add Edit Button */}
+                              {can("edit_material_purchase") && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
+                                  onClick={() => handleEdit(purchase)}
+                                >
+                                  <svg
+                                    className="h-3.5 w-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
+                                </Button>
+                              )}
 
-    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600" onClick={() => handleEdit(purchase)}>
-      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-      </svg>
-    </Button>
-        )}
-    
-    {can('add_payment_material') && purchase.payment_status !== 'Paid' && (
-      <Button
-        size="sm"
-        className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
-        onClick={() => handleAddPayment(purchase)}
-      >
-        <IndianRupee className="h-3.5 w-3.5" />
-        Pay
-      </Button>
-    )}
-        {can('delete_material_purchase') && (
-
-    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600" onClick={() => handleDelete(purchase.id)}>
-      <Trash2 className="h-3.5 w-3.5" />
-    </Button>
-        )}
-  </div>
-</TableCell>
-                      </TableRow>
-                    ))}
+                              {can("add_payment_material") &&
+                                purchase.payment_status !== "Paid" && (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+                                    onClick={() => handleAddPayment(purchase)}
+                                  >
+                                    <IndianRupee className="h-3.5 w-3.5" />
+                                    Pay
+                                  </Button>
+                                )}
+                              {can("delete_material_purchase") && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                                  onClick={() => handleDelete(purchase.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
             </div>
-     {/* ── Pagination Bar ── */}
-{!loading && totalItems > 0 && (
-  <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-    <div className="flex items-center gap-3 text-gray-500">
-      <span className="text-[11px]">
-        Showing {((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1}–
-        {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems} purchases
-      </span>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-400 text-[10px]">Rows:</span>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(val) => {
-            const newSize = val === "All" ? "All" : Number(val);
-            setPageSize(newSize);
-            setCurrentPage(1);
-            loadAll(1);
-          }}
-        >
-          <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
-            <SelectValue>{pageSize}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={String(size)} value={String(size)} className="text-xs">
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+            {/* ── Pagination Bar ── */}
+            {!loading && totalItems > 0 && (
+              <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
+                <div className="flex items-center gap-3 text-gray-500">
+                  <span className="text-[11px]">
+                    Showing{" "}
+                    {(currentPage - 1) *
+                      (pageSize === "All" ? totalItems : pageSize) +
+                      1}
+                    –
+                    {Math.min(
+                      currentPage *
+                        (pageSize === "All" ? totalItems : pageSize),
+                      totalItems,
+                    )}{" "}
+                    of {totalItems} purchases
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400 text-[10px]">Rows:</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(val) => {
+                        const newSize = val === "All" ? "All" : Number(val);
+                        setPageSize(newSize);
+                        setCurrentPage(1);
+                        loadAll(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
+                        <SelectValue>{pageSize}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <SelectItem
+                            key={String(size)}
+                            value={String(size)}
+                            className="text-xs"
+                          >
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-    <div className="flex items-center gap-1">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => loadAll(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="h-6 w-6 p-0"
-      >
-        <ChevronLeft className="h-3 w-3" />
-      </Button>
-      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-        const page = i + 1;
-        return (
-          <Button
-            key={page}
-            size="sm"
-            variant={currentPage === page ? "default" : "outline"}
-            onClick={() => loadAll(page)}
-            className={`h-6 w-6 p-0 text-[10px] ${
-              currentPage === page ? "bg-blue-600 text-white border-blue-600" : ""
-            }`}
-          >
-            {page}
-          </Button>
-        );
-      })}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => loadAll(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="h-6 w-6 p-0"
-      >
-        <ChevronRight className="h-3 w-3" />
-      </Button>
-    </div>
-  </div>
-)}
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => loadAll(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <Button
+                        key={page}
+                        size="sm"
+                        variant={currentPage === page ? "default" : "outline"}
+                        onClick={() => loadAll(page)}
+                        className={`h-6 w-6 p-0 text-[10px] ${
+                          currentPage === page
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : ""
+                        }`}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => loadAll(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-6 w-6 p-0"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </main>
 
         {/* Filter Sidebar */}
         {sidebarOpen && (
           <>
-            <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
+            <div
+              className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
+              onClick={() => setSidebarOpen(false)}
+            />
             <aside className="fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col">
               <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-white" /><span className="text-sm font-semibold text-white">Filters</span>{hasFilters && <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">{activeFilterCount} active</span>}</div>
-                <div className="flex items-center gap-2">{hasFilters && <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">Clear all</button>}<button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white"><X className="h-4 w-4" /></button></div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-white" />
+                  <span className="text-sm font-semibold text-white">
+                    Filters
+                  </span>
+                  {hasFilters && (
+                    <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+                      {activeFilterCount} active
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-[10px] text-blue-200 hover:text-white font-semibold"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded-full hover:bg-white/20 text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-5">
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Building className="h-3 w-3 text-indigo-500" /> Property</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <Building className="h-3 w-3 text-indigo-500" /> Property
+                  </p>
                   <div className="space-y-1">
-                    <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === 'all' ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                      <input type="radio" name="property" value="all" checked={propertyFilter === 'all'} onChange={() => setPropertyFilter('all')} className="sr-only" />
-                      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === 'all' ? 'bg-blue-500' : 'bg-gray-300'}`} /><span className="text-[12px] font-medium">All Properties</span>
+                    <label
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === "all" ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="property"
+                        value="all"
+                        checked={propertyFilter === "all"}
+                        onChange={() => setPropertyFilter("all")}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === "all" ? "bg-blue-500" : "bg-gray-300"}`}
+                      />
+                      <span className="text-[12px] font-medium">
+                        All Properties
+                      </span>
                     </label>
-                    {properties.map(p => (
-                      <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === p.id ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                        <input type="radio" name="property" value={p.id} checked={propertyFilter === p.id} onChange={() => setPropertyFilter(p.id)} className="sr-only" />
-                        <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? 'bg-blue-500' : 'bg-gray-300'}`} /><span className="text-[12px] font-medium truncate">{p.name}</span>
+                    {properties.map((p) => (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === p.id ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+                      >
+                        <input
+                          type="radio"
+                          name="property"
+                          value={p.id}
+                          checked={propertyFilter === p.id}
+                          onChange={() => setPropertyFilter(p.id)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? "bg-blue-500" : "bg-gray-300"}`}
+                        />
+                        <span className="text-[12px] font-medium truncate">
+                          {p.name}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -1588,17 +2136,41 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                 <div className="border-t border-gray-100" />
 
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><TrendingDown className="h-3 w-3 text-orange-500" /> Payment Status</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <TrendingDown className="h-3 w-3 text-orange-500" /> Payment
+                    Status
+                  </p>
                   <div className="space-y-1">
                     {[
-                      { val: 'all', label: 'All Status', dot: 'bg-gray-400' },
-                      { val: 'Pending', label: 'Pending', dot: 'bg-red-500' },
-                      { val: 'Partial', label: 'Partial', dot: 'bg-orange-500' },
-                      { val: 'Paid', label: 'Paid', dot: 'bg-green-500' },
-                    ].map(opt => (
-                      <label key={opt.val} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${statusFilter === opt.val ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                        <input type="radio" name="status" value={opt.val} checked={statusFilter === opt.val} onChange={() => setStatusFilter(opt.val as PaymentStatus)} className="sr-only" />
-                        <span className={`h-2 w-2 rounded-full flex-shrink-0 ${opt.dot}`} /><span className="text-[12px] font-medium">{opt.label}</span>
+                      { val: "all", label: "All Status", dot: "bg-gray-400" },
+                      { val: "Pending", label: "Pending", dot: "bg-red-500" },
+                      {
+                        val: "Partial",
+                        label: "Partial",
+                        dot: "bg-orange-500",
+                      },
+                      { val: "Paid", label: "Paid", dot: "bg-green-500" },
+                    ].map((opt) => (
+                      <label
+                        key={opt.val}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${statusFilter === opt.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
+                      >
+                        <input
+                          type="radio"
+                          name="status"
+                          value={opt.val}
+                          checked={statusFilter === opt.val}
+                          onChange={() =>
+                            setStatusFilter(opt.val as PaymentStatus)
+                          }
+                          className="sr-only"
+                        />
+                        <span
+                          className={`h-2 w-2 rounded-full flex-shrink-0 ${opt.dot}`}
+                        />
+                        <span className="text-[12px] font-medium">
+                          {opt.label}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -1607,17 +2179,60 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                 <div className="border-t border-gray-100" />
 
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Date Range</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                    Date Range
+                  </p>
                   <div className="space-y-2">
-                    <div><label className="text-[10px] text-gray-500 mb-1 block">From</label><Input type="date" value={dateFilter.from} onChange={e => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="h-7 text-[10px]" /></div>
-                    <div><label className="text-[10px] text-gray-500 mb-1 block">To</label><Input type="date" value={dateFilter.to} onChange={e => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="h-7 text-[10px]" /></div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 mb-1 block">
+                        From
+                      </label>
+                      <Input
+                        type="date"
+                        value={dateFilter.from}
+                        onChange={(e) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            from: e.target.value,
+                          }))
+                        }
+                        className="h-7 text-[10px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 mb-1 block">
+                        To
+                      </label>
+                      <Input
+                        type="date"
+                        value={dateFilter.to}
+                        onChange={(e) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            to: e.target.value,
+                          }))
+                        }
+                        className="h-7 text-[10px]"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-                <button onClick={clearFilters} disabled={!hasFilters} className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40">Clear All</button>
-                <button onClick={() => setSidebarOpen(false)} className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">Apply & Close</button>
+                <button
+                  onClick={clearFilters}
+                  disabled={!hasFilters}
+                  className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
+                >
+                  Apply & Close
+                </button>
               </div>
             </aside>
           </>
@@ -1625,12 +2240,19 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
       </div>
 
       {/* Add Purchase Dialog */}
-      <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
+      <Dialog
+        open={showForm}
+        onOpenChange={(v) => {
+          if (!v) setShowForm(false);
+        }}
+      >
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
           <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">New Material Purchase</h2>
-              <p className="text-xs text-blue-100">Fill in the purchase details</p>
+              <p className="text-xs text-blue-100">
+                Fill in the purchase details
+              </p>
             </div>
             <DialogClose asChild>
               <button className="p-1.5 rounded-full hover:bg-white/20 transition">
@@ -1642,89 +2264,154 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
           <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
             {/* Basic Info */}
             <div>
-              <SH icon={<Package className="h-3 w-3" />} title="Purchase Info" />
+              <SH
+                icon={<Package className="h-3 w-3" />}
+                title="Purchase Info"
+              />
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                 <div>
-                  <label className={L}>Vendor Name <span className="text-red-400">*</span></label>
-                  <Input className={F} placeholder="Vendor name"
+                  <label className={L}>
+                    Vendor Name <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    className={F}
+                    placeholder="Vendor name"
                     value={formData.vendor_name}
-                    onChange={e => setFormData({ ...formData, vendor_name: e.target.value })} />
+                    onChange={(e) =>
+                      setFormData({ ...formData, vendor_name: e.target.value })
+                    }
+                  />
                 </div>
                 <div>
                   <label className={L}>Vendor Phone</label>
-                  <Input className={F} placeholder="Phone number"
+                  <Input
+                    className={F}
+                    placeholder="Phone number"
                     value={formData.vendor_phone}
                     maxLength={10}
-                    onChange={e => setFormData({ ...formData, vendor_phone: e.target.value })} />
+                    onChange={(e) =>
+                      setFormData({ ...formData, vendor_phone: e.target.value })
+                    }
+                  />
                 </div>
-                
+
                 {/* Teen columns ek row mein - Purchase Date, Invoice Number, Property */}
                 <div className="col-span-2 grid grid-cols-3 gap-3">
                   <div>
-                    <label className={L}>Purchase Date <span className="text-red-400">*</span></label>
-                    <Input type="date" className={F}
+                    <label className={L}>
+                      Purchase Date <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      className={F}
                       value={formData.purchase_date}
-                      onChange={e => setFormData({ ...formData, purchase_date: e.target.value })} />
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          purchase_date: e.target.value,
+                        })
+                      }
+                    />
                   </div>
                   <div>
-                    <label className={L}>Invoice Number <span className="text-red-400">*</span></label>
-                    <Input className={F} placeholder="INV-001"
+                    <label className={L}>
+                      Invoice Number <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      className={F}
+                      placeholder="INV-001"
                       value={formData.invoice_number}
-                      onChange={e => setFormData({ ...formData, invoice_number: e.target.value })} />
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          invoice_number: e.target.value,
+                        })
+                      }
+                    />
                   </div>
-                <div>
-  <label className={L}>Property <span className="text-red-400">*</span></label>
-  <Select 
-    value={formData.property_id}
-    onValueChange={v => {
-      const selected = properties.find(p => p.id === v);
-      setFormData(p => ({ ...p, property_id: v, property_name: selected?.name || '' }));
-      setPropertySearchTerm(''); // Clear search after selection
-    }}
-  >
-    <SelectTrigger className={F}>
-      <Building className="h-3 w-3 text-gray-400 mr-1.5" />
-      <SelectValue placeholder="Select property" />
-    </SelectTrigger>
-    <SelectContent className="max-h-[300px]">
-      {/* Search input */}
-      <div className="sticky top-0 bg-white p-2 border-b z-10">
-        <div className="relative">
-          <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <Input
-            placeholder="Search properties..."
-            className="pl-7 h-7 text-xs"
-            value={propertySearchTerm}
-            onChange={(e) => setPropertySearchTerm(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      </div>
-      
-      {/* Properties list */}
-      <div className="py-1">
-        {properties
-          .filter(p => p.name.toLowerCase().includes(propertySearchTerm.toLowerCase()))
-          .map(p => (
-            <SelectItem key={p.id} value={p.id} className={SI}>
-              {p.name}
-            </SelectItem>
-          ))}
-        
-        {/* Show message if no results */}
-        {properties.filter(p => 
-          p.name.toLowerCase().includes(propertySearchTerm.toLowerCase())
-        ).length === 0 && (
-          <div className="px-2 py-3 text-center">
-            <p className="text-xs text-gray-400">No properties found</p>
-          </div>
-        )}
-      </div>
-    </SelectContent>
-  </Select>
-</div>
+                  <div>
+                    <label className={L}>
+                      Property <span className="text-red-400">*</span>
+                    </label>
+                    <Select
+                      value={formData.property_id}
+                      onValueChange={(v) => {
+                        const selected = properties.find((p) => p.id === v);
+                        setFormData((p) => ({
+                          ...p,
+                          property_id: v,
+                          property_name: selected?.name || "",
+                        }));
+                        setPropertySearchTerm(""); // Clear search after selection
+                      }}
+                    >
+                      <SelectTrigger className={F}>
+                        <Building className="h-3 w-3 text-gray-400 mr-1.5" />
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {/* Search input */}
+                        <div className="sticky top-0 bg-white p-2 border-b z-10">
+                          <div className="relative">
+                            <svg
+                              className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                              />
+                            </svg>
+                            <Input
+                              placeholder="Search properties..."
+                              className="pl-7 h-7 text-xs"
+                              value={propertySearchTerm}
+                              onChange={(e) =>
+                                setPropertySearchTerm(e.target.value)
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Properties list */}
+                        <div className="py-1">
+                          {properties
+                            .filter((p) =>
+                              p.name
+                                .toLowerCase()
+                                .includes(propertySearchTerm.toLowerCase()),
+                            )
+                            .map((p) => (
+                              <SelectItem
+                                key={p.id}
+                                value={p.id}
+                                className={SI}
+                              >
+                                {p.name}
+                              </SelectItem>
+                            ))}
+
+                          {/* Show message if no results */}
+                          {properties.filter((p) =>
+                            p.name
+                              .toLowerCase()
+                              .includes(propertySearchTerm.toLowerCase()),
+                          ).length === 0 && (
+                            <div className="px-2 py-3 text-center">
+                              <p className="text-xs text-gray-400">
+                                No properties found
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1732,10 +2419,17 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
             {/* Line Items */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <SH icon={<Boxes className="h-3 w-3" />} title="Purchase Items" />
-                <Button type="button" size="sm" variant="outline"
+                <SH
+                  icon={<Boxes className="h-3 w-3" />}
+                  title="Purchase Items"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={addLineItem}
-                  className="h-7 text-[10px] border-blue-200 text-blue-600 hover:bg-blue-50">
+                  className="h-7 text-[10px] border-blue-200 text-blue-600 hover:bg-blue-50"
+                >
                   <Plus className="h-3 w-3 mr-1" /> Add Item
                 </Button>
               </div>
@@ -1744,83 +2438,188 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                 {lineItems.map((item, index) => (
                   <div key={index}>
                     {/* Desktop View */}
-                    <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
-                      <div className="col-span-3">
-                        <Input placeholder="Item name *"
-                          value={item.item_name}
-                          onChange={e => updateLineItem(index, 'item_name', e.target.value)}
-                          className="h-7 text-[10px]" />
-                      </div>
-                      <div className="col-span-2">
-                        <Select value={item.category} onValueChange={v => updateLineItem(index, 'category', v)}>
-                          <SelectTrigger className="h-7 text-[10px]">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map(c => (
-                              <SelectItem key={c.id} value={c.name} className="text-[10px]">{c.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="col-span-1">
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="Qty"
-                          value={item.quantity || ''}
-                          onChange={e => updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                          onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                          className="h-7 text-[10px]" />
-                      </div>
-                      <div className="col-span-2">
-                        <Input type="number" min="0" step="0.01" placeholder="Price"
-                          value={item.unit_price || ''}
-                          onChange={e => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                          className="h-7 text-[10px]" />
-                      </div>
-                      <div className="col-span-2">
-                        <div className="h-7 px-2 bg-blue-100 rounded-md flex items-center text-[10px] font-semibold text-blue-700">
-                          ₹{(item.total_price || 0).toLocaleString('en-IN')}
-                        </div>
-                      </div>
-                      <div className="col-span-1">
-                        <button onClick={() => removeLineItem(index)}
-                          disabled={lineItems.length === 1}
-                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30">
-                          <Trash2 className="h-3 w-3 text-red-600" />
-                        </button>
-                      </div>
-                    </div>
+<div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
+  {/* Category Select */}
+  <div className="col-span-3">
+    <Select
+      value={item.category || ''}
+      onValueChange={v => {
+        updateLineItem(index, 'category', v);
+        updateLineItem(index, 'item_name', '');
+      }}
+    >
+      <SelectTrigger className="h-7 text-[10px]">
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent>
+        {inventoryMappings.map(c => (
+          <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
+            {c.category_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Item Select / Input */}
+  <div className="col-span-3">
+    {(() => {
+      const subcats = getSubcategoriesForCategory(item.category);
+      if (subcats.length > 0) {
+        return (
+          <Select
+            value={item.item_name || ''}
+            onValueChange={v => updateLineItem(index, 'item_name', v)}
+          >
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Select item *" />
+            </SelectTrigger>
+            <SelectContent>
+              {subcats.map(s => (
+                <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
+                  {s.subcategory_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      } else {
+        return (
+          <Input
+            placeholder="Item name *"
+            value={item.item_name}
+            onChange={e => updateLineItem(index, 'item_name', e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        );
+      }
+    })()}
+  </div>
+
+  {/* Qty */}
+  <div className="col-span-1">
+    <Input
+      type="number"
+      min="1"
+      placeholder="Qty"
+      value={item.quantity || ''}
+      onChange={e => updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)}
+      onWheel={(e) => (e.target as HTMLInputElement).blur()}
+      className="h-7 text-[10px]"
+    />
+  </div>
+
+  {/* Price */}
+  <div className="col-span-2">
+    <Input
+      type="number"
+      min="0"
+      step="0.01"
+      placeholder="Price"
+      value={item.unit_price || ''}
+      onChange={e => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+      className="h-7 text-[10px]"
+    />
+  </div>
+
+  {/* Total */}
+  <div className="col-span-2">
+    <div className="h-7 px-2 bg-amber-100 rounded-md flex items-center text-[10px] font-semibold text-amber-700">
+      ₹{(item.total_price || 0).toLocaleString('en-IN')}
+    </div>
+  </div>
+
+  {/* Delete */}
+  <div className="col-span-1">
+    <button
+      onClick={() => removeLineItem(index)}
+      disabled={lineItems.length === 1}
+      className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30"
+    >
+      <Trash2 className="h-3 w-3 text-red-600" />
+    </button>
+  </div>
+</div>
 
                     {/* Mobile View */}
                     <div className="md:hidden bg-gray-50 rounded-lg p-3 border border-gray-200">
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         <div>
                           <label className="block text-[10px] font-semibold text-gray-600 mb-1">
-                            Item Name <span className="text-red-400">*</span>
-                          </label>
-                          <Input 
-                            placeholder="Item name"
-                            value={item.item_name}
-                            onChange={e => updateLineItem(index, 'item_name', e.target.value)}
-                            className="h-9 text-[12px] bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
                             Category
                           </label>
-                          <Select value={item.category} onValueChange={v => updateLineItem(index, 'category', v)}>
+                          <Select
+                            value={item.category || ""}
+                            onValueChange={(v) => {
+                              updateLineItem(index, "category", v);
+                              updateLineItem(index, "item_name", "");
+                            }}
+                          >
                             <SelectTrigger className="h-9 text-[12px] bg-white">
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent>
-                              {categories.map(c => (
-                                <SelectItem key={c.id} value={c.name} className="text-[11px]">{c.name}</SelectItem>
+                              {inventoryMappings.map((c) => (
+                                <SelectItem
+                                  key={c.category_id}
+                                  value={c.category_name}
+                                  className="text-[11px]"
+                                >
+                                  {c.category_name}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Item Name <span className="text-red-400">*</span>
+                          </label>
+                          {(() => {
+                            const subcats = getSubcategoriesForCategory(
+                              item.category,
+                            );
+                            if (subcats.length > 0) {
+                              return (
+                                <Select
+                                  value={item.item_name || ""}
+                                  onValueChange={(v) =>
+                                    updateLineItem(index, "item_name", v)
+                                  }
+                                >
+                                  <SelectTrigger className="h-9 text-[12px] bg-white">
+                                    <SelectValue placeholder="Select item" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {subcats.map((s) => (
+                                      <SelectItem
+                                        key={s.subcategory_id}
+                                        value={s.subcategory_name}
+                                        className="text-[11px]"
+                                      >
+                                        {s.subcategory_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            } else {
+                              return (
+                                <Input
+                                  placeholder="Item name"
+                                  value={item.item_name}
+                                  onChange={(e) =>
+                                    updateLineItem(
+                                      index,
+                                      "item_name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="h-9 text-[12px] bg-white"
+                                />
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
 
@@ -1833,23 +2632,35 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                             type="number"
                             min="1"
                             placeholder="Qty"
-                            value={item.quantity || ''}
-                            onChange={e => updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                            className="h-9 text-[12px] bg-white" 
+                            value={item.quantity || ""}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 0,
+                              )
+                            }
+                            className="h-9 text-[12px] bg-white"
                           />
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold text-gray-600 mb-1">
                             Price (₹)
                           </label>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            step="0.01" 
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
                             placeholder="Price"
-                            value={item.unit_price || ''}
-                            onChange={e => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                            className="h-9 text-[12px] bg-white" 
+                            value={item.unit_price || ""}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                "unit_price",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-9 text-[12px] bg-white"
                           />
                         </div>
                       </div>
@@ -1860,11 +2671,11 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                             Total
                           </label>
                           <div className="h-9 px-3 bg-blue-100 rounded-md flex items-center text-[13px] font-bold text-blue-700">
-                            ₹{(item.total_price || 0).toLocaleString('en-IN')}
+                            ₹{(item.total_price || 0).toLocaleString("en-IN")}
                           </div>
                         </div>
                         <div className="flex justify-end items-end">
-                          <button 
+                          <button
                             onClick={() => removeLineItem(index)}
                             disabled={lineItems.length === 1}
                             className="h-9 w-9 flex items-center justify-center rounded-md bg-red-50 hover:bg-red-100 disabled:opacity-30"
@@ -1879,7 +2690,9 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                           <span className="font-medium">{item.item_name}</span>
                           {item.category && <span> • {item.category}</span>}
                           <br />
-                          <span className="text-[10px] text-gray-500">{item.quantity || 0} × ₹{item.unit_price || 0}</span>
+                          <span className="text-[10px] text-gray-500">
+                            {item.quantity || 0} × ₹{item.unit_price || 0}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1888,22 +2701,30 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
               </div>
 
               <div className="mt-3 p-3 bg-blue-50 rounded-lg flex justify-between items-center">
-                <span className="text-xs font-semibold text-gray-700">Total Amount:</span>
+                <span className="text-xs font-semibold text-gray-700">
+                  Total Amount:
+                </span>
                 <span className="text-lg font-bold text-blue-600">
-                  ₹{getTotalAmount().toLocaleString('en-IN')}
+                  ₹{getTotalAmount().toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
 
             {/* Notes */}
             <div>
-              <SH icon={<StickyNote className="h-3 w-3" />} title="Notes" color="text-amber-600" />
+              <SH
+                icon={<StickyNote className="h-3 w-3" />}
+                title="Notes"
+                color="text-amber-600"
+              />
               <Textarea
                 className="text-[11px] rounded-md border-gray-200 bg-gray-50 focus:bg-white min-h-[56px]"
                 placeholder="Additional notes..."
                 rows={2}
                 value={formData.notes}
-                onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
               />
             </div>
 
@@ -1913,348 +2734,612 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
               className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
             >
               {submitting ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Creating…</>
-              ) : 'Create Purchase'}
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                "Create Purchase"
+              )}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
       {/* Edit Purchase Dialog */}
-<Dialog open={showEditForm} onOpenChange={v => { if (!v) { setShowEditForm(false); setEditPurchaseId(null); } }}>
-  <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-      <div>
-        <h2 className="text-base font-semibold">Edit Material Purchase</h2>
-        <p className="text-xs text-amber-100">Update purchase details</p>
-      </div>
-      <DialogClose asChild>
-        <button className="p-1.5 rounded-full hover:bg-white/20 transition">
-          <X className="h-4 w-4" />
-        </button>
-      </DialogClose>
-    </div>
-
-    <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
-      {/* Basic Info */}
-      <div>
-        <SH icon={<Package className="h-3 w-3" />} title="Purchase Info" />
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-          <div>
-            <label className={L}>Vendor Name <span className="text-red-400">*</span></label>
-            <Input className={F} placeholder="Vendor name"
-              value={formData.vendor_name}
-              onChange={e => setFormData({ ...formData, vendor_name: e.target.value })} />
-          </div>
-          <div>
-            <label className={L}>Vendor Phone</label>
-            <Input className={F} placeholder="Phone number"
-              value={formData.vendor_phone}
-              maxLength={10}
-              onChange={e => setFormData({ ...formData, vendor_phone: e.target.value })} />
-          </div>
-          
-          {/* Three columns in one row - Purchase Date, Invoice Number, Property */}
-          <div className="col-span-2 grid grid-cols-3 gap-3">
+      <Dialog
+        open={showEditForm}
+        onOpenChange={(v) => {
+          if (!v) {
+            setShowEditForm(false);
+            setEditPurchaseId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
-              <label className={L}>Purchase Date <span className="text-red-400">*</span></label>
-              <Input type="date" className={F}
-                value={formData.purchase_date}
-                onChange={e => setFormData({ ...formData, purchase_date: e.target.value })} />
+              <h2 className="text-base font-semibold">
+                Edit Material Purchase
+              </h2>
+              <p className="text-xs text-amber-100">Update purchase details</p>
             </div>
-            <div>
-              <label className={L}>Invoice Number <span className="text-red-400">*</span></label>
-              <Input className={F} placeholder="INV-001"
-                value={formData.invoice_number}
-                onChange={e => setFormData({ ...formData, invoice_number: e.target.value })} />
-            </div>
-            <div>
-              <label className={L}>Property <span className="text-red-400">*</span></label>
-              <Select 
-                value={formData.property_id}
-                onValueChange={v => {
-                  const selected = properties.find(p => p.id === v);
-                  setFormData(p => ({ ...p, property_id: v, property_name: selected?.name || '' }));
-                }}
-              >
-                <SelectTrigger className={F}>
-                  <Building className="h-3 w-3 text-gray-400 mr-1.5" />
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {properties.map(p => (
-                    <SelectItem key={p.id} value={p.id} className={SI}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <DialogClose asChild>
+              <button className="p-1.5 rounded-full hover:bg-white/20 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
           </div>
-        </div>
-      </div>
 
-      {/* Line Items */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <SH icon={<Boxes className="h-3 w-3" />} title="Purchase Items" />
-          <Button type="button" size="sm" variant="outline"
-            onClick={addLineItem}
-            className="h-7 text-[10px] border-amber-200 text-amber-600 hover:bg-amber-50">
-            <Plus className="h-3 w-3 mr-1" /> Add Item
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          {lineItems.map((item, index) => (
-            <div key={index}>
-              {/* Desktop View - same as your existing line item display */}
-              <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
-                <div className="col-span-3">
-                  <Input placeholder="Item name *"
-                    value={item.item_name}
-                    onChange={e => updateLineItem(index, 'item_name', e.target.value)}
-                    className="h-7 text-[10px]" />
-                </div>
-                <div className="col-span-2">
-                  <Select value={item.category} onValueChange={v => updateLineItem(index, 'category', v)}>
-                    <SelectTrigger className="h-7 text-[10px]">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(c => (
-                        <SelectItem key={c.id} value={c.name} className="text-[10px]">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-1">
+          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+            {/* Basic Info */}
+            <div>
+              <SH
+                icon={<Package className="h-3 w-3" />}
+                title="Purchase Info"
+              />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                <div>
+                  <label className={L}>
+                    Vendor Name <span className="text-red-400">*</span>
+                  </label>
                   <Input
-                    type="number"
-                    min="1"
-                    placeholder="Qty"
-                    value={item.quantity || ''}
-                    onChange={e => updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    className="h-7 text-[10px]" />
+                    className={F}
+                    placeholder="Vendor name"
+                    value={formData.vendor_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, vendor_name: e.target.value })
+                    }
+                  />
                 </div>
-                <div className="col-span-2">
-                  <Input type="number" min="0" step="0.01" placeholder="Price"
-                    value={item.unit_price || ''}
-                    onChange={e => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                    className="h-7 text-[10px]" />
+                <div>
+                  <label className={L}>Vendor Phone</label>
+                  <Input
+                    className={F}
+                    placeholder="Phone number"
+                    value={formData.vendor_phone}
+                    maxLength={10}
+                    onChange={(e) =>
+                      setFormData({ ...formData, vendor_phone: e.target.value })
+                    }
+                  />
                 </div>
-                <div className="col-span-2">
-                  <div className="h-7 px-2 bg-amber-100 rounded-md flex items-center text-[10px] font-semibold text-amber-700">
-                    ₹{(item.total_price || 0).toLocaleString('en-IN')}
+
+                {/* Three columns in one row - Purchase Date, Invoice Number, Property */}
+                <div className="col-span-2 grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={L}>
+                      Purchase Date <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      className={F}
+                      value={formData.purchase_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          purchase_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={L}>
+                      Invoice Number <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      className={F}
+                      placeholder="INV-001"
+                      value={formData.invoice_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          invoice_number: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={L}>
+                      Property <span className="text-red-400">*</span>
+                    </label>
+                    <Select
+                      value={formData.property_id}
+                      onValueChange={(v) => {
+                        const selected = properties.find((p) => p.id === v);
+                        setFormData((p) => ({
+                          ...p,
+                          property_id: v,
+                          property_name: selected?.name || "",
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className={F}>
+                        <Building className="h-3 w-3 text-gray-400 mr-1.5" />
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {properties.map((p) => (
+                          <SelectItem key={p.id} value={p.id} className={SI}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div className="col-span-1">
-                  <button onClick={() => removeLineItem(index)}
-                    disabled={lineItems.length === 1}
-                    className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30">
-                    <Trash2 className="h-3 w-3 text-red-600" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Mobile View - same as your existing mobile view */}
-              <div className="md:hidden bg-gray-50 rounded-lg p-3 border border-gray-200">
-                {/* Copy your existing mobile view code here */}
               </div>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-3 p-3 bg-amber-50 rounded-lg flex justify-between items-center">
-          <span className="text-xs font-semibold text-gray-700">Total Amount:</span>
-          <span className="text-lg font-bold text-amber-600">
-            ₹{getTotalAmount().toLocaleString('en-IN')}
-          </span>
-        </div>
-      </div>
+            {/* Line Items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <SH
+                  icon={<Boxes className="h-3 w-3" />}
+                  title="Purchase Items"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addLineItem}
+                  className="h-7 text-[10px] border-amber-200 text-amber-600 hover:bg-amber-50"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Item
+                </Button>
+              </div>
 
-      {/* Notes */}
-      <div>
-        <SH icon={<StickyNote className="h-3 w-3" />} title="Notes" color="text-amber-600" />
-        <Textarea
-          className="text-[11px] rounded-md border-gray-200 bg-gray-50 focus:bg-white min-h-[56px]"
-          placeholder="Additional notes..."
-          rows={2}
-          value={formData.notes}
-          onChange={e => setFormData({ ...formData, notes: e.target.value })}
-        />
-      </div>
+              <div className="space-y-2">
+                {lineItems.map((item, index) => (
+                  <div key={index}>
+                    {/* Desktop View - same as your existing line item display */}
+                    <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
+                      <div className="col-span-3">
+                        {item.category &&
+                        inventoryMappings.find(
+                          (m) => m.category_name === item.category,
+                        )?.subcategories?.length ? (
+                          <Select
+                            value={item.item_name}
+                            onValueChange={(v) =>
+                              updateLineItem(index, "item_name", v)
+                            }
+                          >
+                            <SelectTrigger className="h-9 text-[12px] bg-white">
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(
+                                inventoryMappings.find(
+                                  (m) => m.category_name === item.category,
+                                )?.subcategories || []
+                              ).map((s) => (
+                                <SelectItem
+                                  key={s.subcategory_id}
+                                  value={s.subcategory_name}
+                                  className="text-[11px]"
+                                >
+                                  {s.subcategory_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            placeholder="Item name"
+                            value={item.item_name}
+                            onChange={(e) =>
+                              updateLineItem(index, "item_name", e.target.value)
+                            }
+                            className="h-9 text-[12px] bg-white"
+                          />
+                        )}
+                      </div>
+                      <div className="col-span-2">
+                        <Select
+                          value={item.category}
+                          onValueChange={(v) => {
+                            updateLineItem(index, "category", v);
+                            updateLineItem(index, "item_name", "");
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-[12px] bg-white">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {inventoryMappings.map((c) => (
+                              <SelectItem
+                                key={c.category_id}
+                                value={c.category_name}
+                                className="text-[11px]"
+                              >
+                                {c.category_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-1">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={item.quantity || ""}
+                          onChange={(e) =>
+                            updateLineItem(
+                              index,
+                              "quantity",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Price"
+                          value={item.unit_price || ""}
+                          onChange={(e) =>
+                            updateLineItem(
+                              index,
+                              "unit_price",
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <div className="h-7 px-2 bg-amber-100 rounded-md flex items-center text-[10px] font-semibold text-amber-700">
+                          ₹{(item.total_price || 0).toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                      <div className="col-span-1">
+                        <button
+                          onClick={() => removeLineItem(index)}
+                          disabled={lineItems.length === 1}
+                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-3 w-3 text-red-600" />
+                        </button>
+                      </div>
+                    </div>
 
-      <Button
-        disabled={editSubmitting}
-        onClick={handleUpdatePurchase}
-        className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-700 to-blue-600 hover:to-blue-600 hover:to-blue-700 text-white"
-      >
-        {editSubmitting ? (
-          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Updating…</>
-        ) : 'Update Purchase'}
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+                    {/* Mobile View - same as your existing mobile view */}
+                    <div className="md:hidden bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      {/* Copy your existing mobile view code here */}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 p-3 bg-amber-50 rounded-lg flex justify-between items-center">
+                <span className="text-xs font-semibold text-gray-700">
+                  Total Amount:
+                </span>
+                <span className="text-lg font-bold text-amber-600">
+                  ₹{getTotalAmount().toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <SH
+                icon={<StickyNote className="h-3 w-3" />}
+                title="Notes"
+                color="text-amber-600"
+              />
+              <Textarea
+                className="text-[11px] rounded-md border-gray-200 bg-gray-50 focus:bg-white min-h-[56px]"
+                placeholder="Additional notes..."
+                rows={2}
+                value={formData.notes}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
+              />
+            </div>
+
+            <Button
+              disabled={editSubmitting}
+              onClick={handleUpdatePurchase}
+              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-700 to-blue-600 hover:to-blue-600 hover:to-blue-700 text-white"
+            >
+              {editSubmitting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                "Update Purchase"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
-     {/* Payment Dialog */}
-<Dialog open={showPaymentModal} onOpenChange={v => { if (!v) setShowPaymentModal(false); }}>
-  <DialogContent className="max-w-3xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
-    <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
-      <div>
-        <h2 className="text-base font-semibold">Add Payment</h2>
-        <p className="text-xs text-green-100">Record payment for purchase</p>
-      </div>
-      <DialogClose asChild>
-        <button className="p-1.5 rounded-full hover:bg-white/20 transition">
-          <X className="h-4 w-4" />
-        </button>
-      </DialogClose>
-    </div>
-
-    <div className="p-4 overflow-y-auto max-h-[75vh]">
-      {selectedPurchase && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <p className="text-[9px] text-gray-500 uppercase tracking-wider">Invoice Number</p>
-            <p className="text-xs font-semibold text-gray-800 mt-1">{selectedPurchase.invoice_number}</p>
+      {/* Payment Dialog */}
+      <Dialog
+        open={showPaymentModal}
+        onOpenChange={(v) => {
+          if (!v) setShowPaymentModal(false);
+        }}
+      >
+        <DialogContent className="max-w-3xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
+            <div>
+              <h2 className="text-base font-semibold">Add Payment</h2>
+              <p className="text-xs text-green-100">
+                Record payment for purchase
+              </p>
+            </div>
+            <DialogClose asChild>
+              <button className="p-1.5 rounded-full hover:bg-white/20 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
           </div>
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <p className="text-[9px] text-gray-500 uppercase tracking-wider">Vendor</p>
-            <p className="text-xs font-semibold text-gray-800 mt-1">{selectedPurchase.vendor_name}</p>
+
+          <div className="p-4 overflow-y-auto max-h-[75vh]">
+            {selectedPurchase && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">
+                    Invoice Number
+                  </p>
+                  <p className="text-xs font-semibold text-gray-800 mt-1">
+                    {selectedPurchase.invoice_number}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">
+                    Vendor
+                  </p>
+                  <p className="text-xs font-semibold text-gray-800 mt-1">
+                    {selectedPurchase.vendor_name}
+                  </p>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <p className="text-[9px] text-red-500 uppercase tracking-wider">
+                    Balance Due
+                  </p>
+                  <p className="text-xs font-bold text-red-600 mt-1">
+                    ₹
+                    {(
+                      selectedPurchase.balance_amount ||
+                      selectedPurchase.total_amount
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 3x3 Grid for Form Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Payment Date *
+                </label>
+                <Input
+                  type="date"
+                  className="h-8 text-xs w-full"
+                  value={paymentData.payment_date}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      payment_date: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Amount (₹) *
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="h-8 text-xs w-full"
+                  value={paymentData.amount}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Payment Method *
+                </label>
+                <Select
+                  value={paymentData.payment_method}
+                  onValueChange={(v) =>
+                    setPaymentData({ ...paymentData, payment_method: v })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs w-full">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Paid By *
+                </label>
+                <Input
+                  className="h-8 text-xs w-full"
+                  placeholder="Person name"
+                  value={paymentData.paid_by}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, paid_by: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Reference (optional)
+                </label>
+                <Input
+                  className="h-8 text-xs w-full"
+                  placeholder="Transaction ID / Cheque no."
+                  value={paymentData.payment_reference}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      payment_reference: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">
+                  Notes
+                </label>
+                <Textarea
+                  className="text-xs min-h-[60px] w-full"
+                  placeholder="Payment notes..."
+                  rows={2}
+                  value={paymentData.payment_notes}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      payment_notes: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Submit Button - Full width at bottom */}
+            <div className="mt-4 sticky bottom-0 bg-white pt-2">
+              <Button
+                disabled={submitting}
+                onClick={handleSubmitPayment}
+                className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Adding Payment…
+                  </>
+                ) : (
+                  "Add Payment"
+                )}
+              </Button>
+            </div>
           </div>
-          <div className="p-3 bg-red-50 rounded-lg">
-            <p className="text-[9px] text-red-500 uppercase tracking-wider">Balance Due</p>
-            <p className="text-xs font-bold text-red-600 mt-1">
-              ₹{(selectedPurchase.balance_amount || selectedPurchase.total_amount).toLocaleString('en-IN')}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 3x3 Grid for Form Fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div>
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Payment Date *</label>
-          <Input type="date" className="h-8 text-xs w-full"
-            value={paymentData.payment_date}
-            onChange={e => setPaymentData({ ...paymentData, payment_date: e.target.value })} />
-        </div>
-
-        <div>
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Amount (₹) *</label>
-          <Input type="number" min="0" step="0.01" className="h-8 text-xs w-full"
-            value={paymentData.amount}
-            onChange={e => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })} />
-        </div>
-
-        <div>
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Payment Method *</label>
-          <Select value={paymentData.payment_method}
-            onValueChange={v => setPaymentData({ ...paymentData, payment_method: v })}>
-            <SelectTrigger className="h-8 text-xs w-full">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Cash">Cash</SelectItem>
-              <SelectItem value="UPI">UPI</SelectItem>
-              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-              <SelectItem value="Cheque">Cheque</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Paid By *</label>
-          <Input className="h-8 text-xs w-full" placeholder="Person name"
-            value={paymentData.paid_by}
-            onChange={e => setPaymentData({ ...paymentData, paid_by: e.target.value })} />
-        </div>
-
-        <div>
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Reference (optional)</label>
-          <Input className="h-8 text-xs w-full" placeholder="Transaction ID / Cheque no."
-            value={paymentData.payment_reference}
-            onChange={e => setPaymentData({ ...paymentData, payment_reference: e.target.value })} />
-        </div>
-
-        <div className="sm:col-span-2 lg:col-span-1">
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Notes</label>
-          <Textarea className="text-xs min-h-[60px] w-full"
-            placeholder="Payment notes..."
-            rows={2}
-            value={paymentData.payment_notes}
-            onChange={e => setPaymentData({ ...paymentData, payment_notes: e.target.value })} />
-        </div>
-      </div>
-
-      {/* Submit Button - Full width at bottom */}
-      <div className="mt-4 sticky bottom-0 bg-white pt-2">
-        <Button
-          disabled={submitting}
-          onClick={handleSubmitPayment}
-          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-        >
-          {submitting ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Adding Payment…</>
-          ) : 'Add Payment'}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Details Dialog */}
-      <Dialog open={showDetailsModal} onOpenChange={v => { if (!v) setShowDetailsModal(false); }}>
+      <Dialog
+        open={showDetailsModal}
+        onOpenChange={(v) => {
+          if (!v) setShowDetailsModal(false);
+        }}
+      >
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">Purchase Details</h2>
-              <p className="text-xs text-emerald-100">View complete purchase information</p>
+              <p className="text-xs text-emerald-100">
+                View complete purchase information
+              </p>
             </div>
-        <div className="flex items-center gap-2">
-  {/* Download PDF — Red */}
-  <button
-    onClick={() => selectedPurchase && handleDownloadPDF(selectedPurchase)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-medium transition-colors"
-  >
-    <Download className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline">Download PDF</span>
-  </button>
+            <div className="flex items-center gap-2">
+              {/* Download PDF — Red */}
+              <button
+                onClick={() =>
+                  selectedPurchase && handleDownloadPDF(selectedPurchase)
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-medium transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Download PDF</span>
+              </button>
 
-  {/* Print — Blue */}
-  <button
-    onClick={() => selectedPurchase && handlePrint(selectedPurchase)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
-  >
-    <Printer className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline">Print Page</span>
-  </button>
+              {/* Print — Blue */}
+              <button
+                onClick={() =>
+                  selectedPurchase && handlePrint(selectedPurchase)
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Print Page</span>
+              </button>
 
-  {/* Close */}
-  <DialogClose asChild>
-    <button className="p-1.5 rounded-full hover:bg-white/20 transition ml-1">
-      <X className="h-4 w-4 text-white" />
-    </button>
-  </DialogClose>
-</div>  </div>
+              {/* Close */}
+              <DialogClose asChild>
+                <button className="p-1.5 rounded-full hover:bg-white/20 transition ml-1">
+                  <X className="h-4 w-4 text-white" />
+                </button>
+              </DialogClose>
+            </div>{" "}
+          </div>
 
           {selectedPurchase && (
             <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><p className="text-[10px] text-gray-500">Invoice Number</p><p className="text-sm font-bold">{selectedPurchase.invoice_number}</p></div>
-                  <div><p className="text-[10px] text-gray-500">Purchase Date</p><p className="text-sm font-bold">{new Date(selectedPurchase.purchase_date).toLocaleDateString('en-IN')}</p></div>
-                  <div><p className="text-[10px] text-gray-500">Vendor</p><p className="text-sm font-bold">{selectedPurchase.vendor_name}{selectedPurchase.vendor_phone && <p className="text-[10px] text-gray-600">{selectedPurchase.vendor_phone}</p>}</p></div>
-                  <div><p className="text-[10px] text-gray-500">Property</p><p className="text-sm font-bold">{selectedPurchase.property_name}</p></div>
+                  <div>
+                    <p className="text-[10px] text-gray-500">Invoice Number</p>
+                    <p className="text-sm font-bold">
+                      {selectedPurchase.invoice_number}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500">Purchase Date</p>
+                    <p className="text-sm font-bold">
+                      {new Date(
+                        selectedPurchase.purchase_date,
+                      ).toLocaleDateString("en-IN")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500">Vendor</p>
+                    <p className="text-sm font-bold">
+                      {selectedPurchase.vendor_name}
+                      {selectedPurchase.vendor_phone && (
+                        <p className="text-[10px] text-gray-600">
+                          {selectedPurchase.vendor_phone}
+                        </p>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500">Property</p>
+                    <p className="text-sm font-bold">
+                      {selectedPurchase.property_name}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Items Table */}
               <div>
-                <h3 className="text-xs font-bold text-gray-700 mb-2">Purchase Items</h3>
+                <h3 className="text-xs font-bold text-gray-700 mb-2">
+                  Purchase Items
+                </h3>
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100">
@@ -2269,9 +3354,12 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                     <tbody>
                       {(() => {
                         let itemsToShow = selectedPurchase?.purchase_items;
-                        
-                        if ((!itemsToShow || itemsToShow.length === 0) && selectedPurchase?.items) {
-                          if (typeof selectedPurchase.items === 'string') {
+
+                        if (
+                          (!itemsToShow || itemsToShow.length === 0) &&
+                          selectedPurchase?.items
+                        ) {
+                          if (typeof selectedPurchase.items === "string") {
                             try {
                               itemsToShow = JSON.parse(selectedPurchase.items);
                             } catch (e) {
@@ -2281,20 +3369,37 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                             itemsToShow = selectedPurchase.items;
                           }
                         }
-                        
+
                         return itemsToShow && itemsToShow.length > 0 ? (
                           itemsToShow.map((item, idx) => (
                             <tr key={idx} className="border-t">
-                              <td className="px-3 py-2 font-medium">{item.item_name || '-'}</td>
-                              <td className="px-3 py-2">{item.category || '-'}</td>
-                              <td className="px-3 py-2 text-center">{item.quantity || 0}</td>
-                              <td className="px-3 py-2 text-right">₹{(item.unit_price || 0).toLocaleString('en-IN')}</td>
-                              <td className="px-3 py-2 text-right font-semibold">₹{(item.total_price || 0).toLocaleString('en-IN')}</td>
+                              <td className="px-3 py-2 font-medium">
+                                {item.item_name || "-"}
+                              </td>
+                              <td className="px-3 py-2">
+                                {item.category || "-"}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {item.quantity || 0}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                ₹
+                                {(item.unit_price || 0).toLocaleString("en-IN")}
+                              </td>
+                              <td className="px-3 py-2 text-right font-semibold">
+                                ₹
+                                {(item.total_price || 0).toLocaleString(
+                                  "en-IN",
+                                )}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                            <td
+                              colSpan={5}
+                              className="px-3 py-4 text-center text-gray-500"
+                            >
                               No items found
                             </td>
                           </tr>
@@ -2303,9 +3408,17 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>
-                        <td colSpan={4} className="px-3 py-2 text-right font-bold">Total:</td>
+                        <td
+                          colSpan={4}
+                          className="px-3 py-2 text-right font-bold"
+                        >
+                          Total:
+                        </td>
                         <td className="px-3 py-2 text-right font-bold text-blue-600">
-                          ₹{(selectedPurchase?.total_amount || 0).toLocaleString('en-IN')}
+                          ₹
+                          {(selectedPurchase?.total_amount || 0).toLocaleString(
+                            "en-IN",
+                          )}
                         </td>
                       </tr>
                     </tfoot>
@@ -2313,24 +3426,70 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-blue-50 p-3 rounded-lg text-center"><p className="text-[10px] text-gray-600">Total Amount</p><p className="text-base font-bold">₹{selectedPurchase.total_amount.toLocaleString('en-IN')}</p></div>
-                <div className="bg-green-50 p-3 rounded-lg text-center"><p className="text-[10px] text-gray-600">Paid Amount</p><p className="text-base font-bold text-green-600">₹{(selectedPurchase.paid_amount || 0).toLocaleString('en-IN')}</p></div>
-                <div className="bg-red-50 p-3 rounded-lg text-center"><p className="text-[10px] text-gray-600">Balance Due</p><p className="text-base font-bold text-red-600">₹{(selectedPurchase.balance_amount || selectedPurchase.total_amount).toLocaleString('en-IN')}</p></div>
+                <div className="bg-blue-50 p-3 rounded-lg text-center">
+                  <p className="text-[10px] text-gray-600">Total Amount</p>
+                  <p className="text-base font-bold">
+                    ₹{selectedPurchase.total_amount.toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg text-center">
+                  <p className="text-[10px] text-gray-600">Paid Amount</p>
+                  <p className="text-base font-bold text-green-600">
+                    ₹
+                    {(selectedPurchase.paid_amount || 0).toLocaleString(
+                      "en-IN",
+                    )}
+                  </p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-lg text-center">
+                  <p className="text-[10px] text-gray-600">Balance Due</p>
+                  <p className="text-base font-bold text-red-600">
+                    ₹
+                    {(
+                      selectedPurchase.balance_amount ||
+                      selectedPurchase.total_amount
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
               </div>
 
               {selectedPurchase.payment_method && (
                 <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-[10px] text-gray-500 mb-1">Payment Information</p>
+                  <p className="text-[10px] text-gray-500 mb-1">
+                    Payment Information
+                  </p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-gray-600">Method:</span><span className="ml-2 font-semibold">{selectedPurchase.payment_method}</span></div>
-                    {selectedPurchase.paid_by && <div><span className="text-gray-600">Paid By:</span><span className="ml-2 font-semibold">{selectedPurchase.paid_by}</span></div>}
-                    {selectedPurchase.payment_reference && <div className="col-span-2"><span className="text-gray-600">Reference:</span><span className="ml-2 font-semibold">{selectedPurchase.payment_reference}</span></div>}
+                    <div>
+                      <span className="text-gray-600">Method:</span>
+                      <span className="ml-2 font-semibold">
+                        {selectedPurchase.payment_method}
+                      </span>
+                    </div>
+                    {selectedPurchase.paid_by && (
+                      <div>
+                        <span className="text-gray-600">Paid By:</span>
+                        <span className="ml-2 font-semibold">
+                          {selectedPurchase.paid_by}
+                        </span>
+                      </div>
+                    )}
+                    {selectedPurchase.payment_reference && (
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Reference:</span>
+                        <span className="ml-2 font-semibold">
+                          {selectedPurchase.payment_reference}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {selectedPurchase.notes && (
-                <div className="bg-amber-50 p-3 rounded-lg"><p className="text-[10px] text-gray-500 mb-1">Notes</p><p className="text-xs">{selectedPurchase.notes}</p></div>
+                <div className="bg-amber-50 p-3 rounded-lg">
+                  <p className="text-[10px] text-gray-500 mb-1">Notes</p>
+                  <p className="text-xs">{selectedPurchase.notes}</p>
+                </div>
               )}
             </div>
           )}

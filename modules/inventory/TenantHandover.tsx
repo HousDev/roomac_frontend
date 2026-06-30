@@ -10,6 +10,8 @@ import {
   Edit,
   Mail,
 } from 'lucide-react';
+// import { getAvailableAssets } from '@/lib/assetsApi'; // adjust path
+
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -221,7 +223,7 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
   const [colSearch, setColSearch] = useState({
     tenant_name: '', property_name: '', room_number: '', status: '', handover_date: '',
   });
-
+const [availableAssets, setAvailableAssets] = useState<Record<string, string[]>>({});
   const emptyForm = {
     tenant_id: '', tenant_name: '', tenant_phone: '', tenant_email: '',
     property_id: '', property_name: '', room_number: '', bed_number: '',
@@ -2058,12 +2060,42 @@ const handleVerifyOTP = async () => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input 
-                    className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
-                    placeholder="Item name"
-                    value={item.item_name}
-                    onChange={e => updateHandoverItemField(idx, 'item_name', e.target.value)} 
-                  />
+                 <Select
+  value={item.asset_id || ''}
+  onValueChange={async (v) => {
+    updateHandoverItemField(idx, 'asset_id', v);
+  }}
+  onOpenChange={async (open) => {
+    if (open && item.item_name && !availableAssets[item.item_name]) {
+      try {
+        const res = await getAvailableAssets(item.item_name);
+        setAvailableAssets(prev => ({
+          ...prev,
+          [item.item_name]: res.data.map(a => a.asset_id)
+        }));
+      } catch (e) {
+        console.error('Failed to load assets', e);
+      }
+    }
+  }}
+>
+  <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+    <SelectValue placeholder="Asset ID" />
+  </SelectTrigger>
+  <SelectContent>
+    {(availableAssets[item.item_name] || []).length === 0 ? (
+      <div className="px-2 py-3 text-center">
+        <p className="text-xs text-gray-400">No available assets</p>
+      </div>
+    ) : (
+      (availableAssets[item.item_name] || []).map(assetId => (
+        <SelectItem key={assetId} value={assetId} className="text-xs">
+          {assetId}
+        </SelectItem>
+      ))
+    )}
+  </SelectContent>
+</Select>
                 )}
               </div>
 
