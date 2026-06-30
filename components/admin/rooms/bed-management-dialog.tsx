@@ -1411,61 +1411,74 @@ export function BedManagementDialog({
         }
       }
       
-      if (propertyId) {
-        try {
-          const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
-          const vacateUrl = `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`;
-          
-          const vacateRes = await fetch(vacateUrl, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-          
-          const vacateData = await vacateRes.json();
+if (propertyId) {
+  try {
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
 
-          if (vacateData.success && Array.isArray(vacateData.data)) {
-            const vacateMap: Record<number, { date: string; status: string; tenantName: string }> = {};
-            
-            vacateData.data.forEach((req: any) => {
-              const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
-              
-              if (!isCompleted && req.bed_id && req.expected_vacate_date) {
-                const vacateDate = req.expected_vacate_date || req.vacate_date;
-                
-                if (!vacateMap[req.bed_id]) {
-                  vacateMap[req.bed_id] = {
-                    date: vacateDate,
-                    status: req.vacate_status || 'pending',
-                    tenantName: req.tenant_name || 'Unknown',
-                  };
-                }
-              }
-            });
+    const vacateMap: Record<number, { date: string; status: string; tenantName: string; source: 'vacate_request' | 'notice_period' }> = {};
 
-            beds = beds.map((bed) => {
-              const vacateInfo = vacateMap[bed.id];
-              if (vacateInfo) {
-                return {
-                  ...bed,
-                  expected_vacate_date: vacateInfo.date,
-                  vacate_status: vacateInfo.status,
-                  vacating_tenant_name: vacateInfo.tenantName,
-                };
-              }
-              return {
-                ...bed,
-                expected_vacate_date: null,
-                vacate_status: null,
-                vacating_tenant_name: null,
-              };
-            });
+    // 1. Vacate requests (priority source)
+    const vacateRes = await fetch(
+      `/api/admin/vacate-requests?property_id=${propertyId}&limit=100`,
+      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+    );
+    const vacateData = await vacateRes.json();
+
+    if (vacateData.success && Array.isArray(vacateData.data)) {
+      vacateData.data.forEach((req: any) => {
+        const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
+        if (!isCompleted && req.bed_id && req.expected_vacate_date) {
+          if (!vacateMap[req.bed_id]) {
+            vacateMap[req.bed_id] = {
+              date: req.expected_vacate_date,
+              status: req.vacate_status || 'pending',
+              tenantName: req.tenant_name || 'Unknown',
+              source: 'vacate_request',
+            };
           }
-        } catch (vacateErr) {
-          console.error("❌ [DEBUG] Could not fetch vacate dates:", vacateErr);
         }
+      });
+    }
+
+    // 2. Notice periods (fallback — only fills beds with no vacate request)
+    try {
+      const noticeRes = await fetch(
+        `/api/notice-period-requests/availability/active?property_id=${propertyId}`,
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      const noticeData = await noticeRes.json();
+      if (noticeData.success && Array.isArray(noticeData.data)) {
+        noticeData.data.forEach((n: any) => {
+          if (n.bed_assignment_id && n.notice_period_date && !vacateMap[n.bed_assignment_id]) {
+            vacateMap[n.bed_assignment_id] = {
+              date: n.notice_period_date,
+              status: 'notice_pending',
+              tenantName: n.tenant_name || 'Unknown',
+              source: 'notice_period',
+            };
+          }
+        });
       }
+    } catch (noticeErr) {
+      console.error("❌ Could not fetch notice periods:", noticeErr);
+    }
+
+    beds = beds.map((bed) => {
+      const info = vacateMap[bed.id];
+      return info
+        ? {
+            ...bed,
+            expected_vacate_date: info.date,
+            vacate_status: info.status,
+            vacating_tenant_name: info.tenantName,
+            vacate_source: info.source,
+          }
+        : { ...bed, expected_vacate_date: null, vacate_status: null, vacating_tenant_name: null, vacate_source: null };
+    });
+  } catch (vacateErr) {
+    console.error("❌ [VACATE DEBUG] fetch failed:", vacateErr);
+  }
+}
 
       try {
         const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
@@ -1561,74 +1574,79 @@ export function BedManagementDialog({
   // ============================================
   // PRE-ASSIGN HANDLERS
   // ============================================
-  const handlePreAssign = async (
-    bedAssignment: BedAssignment,
-    tenantId: string,
-    rent?: string,
-    deposit?: string,
-    isCouple?: boolean,
-  ) => {
-    if (!tenantId.trim()) {
-      toast.error("Please select a tenant");
-      return;
-    }
+const handlePreAssign = async (
+  bedAssignment: BedAssignment,
+  tenantId: string,
+  rent?: string,
+  deposit?: string,
+  isCouple?: boolean,
+) => {
+  if (!tenantId.trim()) {
+    toast.error("Please select a tenant");
+    return false;
+  }
 
-    const tenant = tenants.find((t) => t.id.toString() === tenantId);
-    if (!tenant) {
-      toast.error("Invalid tenant selected");
-      return;
-    }
+  const tenant = tenants.find((t) => t.id.toString() === tenantId);
+  if (!tenant) {
+    toast.error("Invalid tenant selected");
+    return false;
+  }
 
-    const tenantIdNum = parseInt(tenantId);
-    
-    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
+  const tenantIdNum = parseInt(tenantId);
+  const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
+  const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
 
-    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
-    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
-      toast.error("Please check 'Mark as Couple Booking' before assigning.");
-      return;
-    }
-    
-    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-    
-    if (effectiveIsCouple && !isTenantCouple) {
-      if (!tenant.partner_full_name || !tenant.partner_phone) {
-        toast.error(
-          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-          { duration: 5000 }
-        );
-        return;
-      }
-      if (!tenant.partner_gender) {
-        toast.warning(
-          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-          { duration: 4000 }
-        );
-      }
-    }
+  if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
+    toast.error("Please check 'Mark as Couple Booking' before assigning.");
+    return false;
+  }
 
-    try {
-      setSavingBed(bedAssignment.bed_number);
-      const { preAssignTenant } = await import("@/lib/roomsApi");
-      const result = await preAssignTenant(bedAssignment.id, {
-        tenant_id: tenantIdNum,
-        rent: rent ? parseFloat(rent) : undefined,
-        security_deposit: deposit ? parseFloat(deposit) : undefined,
-        is_couple: effectiveIsCouple,
-      });
-      if (result.success) {
-        toast.success("Tenant pre-assigned successfully");
-        await refreshRoomData();
-      } else {
-        toast.error(result.message || "Failed to pre-assign tenant");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to pre-assign tenant");
-    } finally {
-      setSavingBed(null);
+  const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
+
+  // ✅ NEW: same validation as normal bed assignment
+  const validation = validateTenantForAssignment(tenant, room, effectiveIsCouple, tenants);
+  if (!validation.valid) {
+    toast.error(validation.message);
+    return false;
+  }
+
+  if (effectiveIsCouple && !isTenantCouple) {
+    if (!tenant.partner_full_name || !tenant.partner_phone) {
+      toast.error(
+        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
+        { duration: 5000 }
+      );
+      return false;
     }
-  };
+    if (!tenant.partner_gender) {
+      toast.warning(`Partner gender is missing for "${tenant.full_name}". Please update partner details.`, { duration: 4000 });
+    }
+  }
+
+  try {
+    setSavingBed(bedAssignment.bed_number);
+    const { preAssignTenant } = await import("@/lib/roomsApi");
+    const result = await preAssignTenant(bedAssignment.id, {
+      tenant_id: tenantIdNum,
+      rent: rent ? parseFloat(rent) : undefined,
+      security_deposit: deposit ? parseFloat(deposit) : undefined,
+      is_couple: effectiveIsCouple,
+    });
+    if (result.success) {
+      toast.success("Tenant pre-assigned successfully");
+      await refreshRoomData();
+      return true;
+    } else {
+      toast.error(result.message || "Failed to pre-assign tenant");
+      return false;
+    }
+  } catch (err: any) {
+    toast.error(err.message || "Failed to pre-assign tenant");
+    return false;
+  } finally {
+    setSavingBed(null);
+  }
+};
 
   const handleCancelPreAssign = async (bedAssignmentId: number) => {
     try {
@@ -1845,38 +1863,33 @@ export function BedManagementDialog({
   // ============================================
   // GET BED STATUS
   // ============================================
-  const getBedStatus = useCallback((bedNumber: number) => {
-    const assignment = bedAssignments.find((b) => b.bed_number === bedNumber);
+const getBedStatus = useCallback((bedNumber: number) => {
+  const assignment = bedAssignments.find((b) => b.bed_number === bedNumber);
 
-    if (!assignment) {
-      return { status: "available", assignment: null };
-    }
+  if (!assignment) {
+    return { status: "available", assignment: null };
+  }
 
-    const hasVacateDate = !!assignment.expected_vacate_date && assignment.expected_vacate_date !== null;
-    const isAvailable = assignment.is_available;
-    const hasTenant = !!assignment.tenant_id;
+  const hasVacateDate = !!assignment.expected_vacate_date && assignment.expected_vacate_date !== null;
+  const isAvailable = assignment.is_available;
+  const hasTenant = !!assignment.tenant_id;
 
-    if (hasVacateDate && hasTenant && !isAvailable) {
-      const vacateDate = new Date(assignment.expected_vacate_date);
-      const today = new Date();
-      
-      if (vacateDate < today) {
-        return { status: "occupied", assignment };
-      }
-      
-      if (assignment.vacate_status === 'completed' || assignment.vacate_status === 'cancelled') {
-        return { status: "occupied", assignment };
-      }
-      
-      return { status: "vacating_soon", assignment };
-    }
-
-    if (!isAvailable && hasTenant) {
+  if (hasVacateDate && hasTenant && !isAvailable) {
+    // ✅ If the vacate request is completed/cancelled, treat as plain occupied
+    if (assignment.vacate_status === 'completed' || assignment.vacate_status === 'cancelled') {
       return { status: "occupied", assignment };
     }
-    
-    return { status: "available", assignment };
-  }, [bedAssignments]);
+
+    // ✅ Any pending/approved vacate request (past or future date) shows as vacating_soon
+    return { status: "vacating_soon", assignment };
+  }
+
+  if (!isAvailable && hasTenant) {
+    return { status: "occupied", assignment };
+  }
+  
+  return { status: "available", assignment };
+}, [bedAssignments]);
 
   // ============================================
   // FIND TENANT DETAILS

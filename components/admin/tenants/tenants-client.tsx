@@ -57,6 +57,7 @@
     User,
     Shield,
     Share2,
+    UserPlus,
   } from "lucide-react";
   import { toast } from "sonner";
   import {
@@ -114,6 +115,7 @@
   import { useAuth } from "@/context/authContext";
   import { VacatedTenantPaymentModal } from "./VacatedTenantPaymentModal";
 import { FaMale, FaFemale } from "react-icons/fa";
+import { ReassignTenantModal } from "./ReassignTenantModal";
 
 
   // Helper to capitalize first letter of each word in a name
@@ -148,6 +150,8 @@ import { FaMale, FaFemale } from "react-icons/fa";
     const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);
     const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
     const [vacateRecordId, setVacateRecordId] = useState<number | null>(null);
+    const [reassignModalOpen, setReassignModalOpen] = useState(false);
+const [reassignTarget, setReassignTarget] = useState<Tenant | null>(null);
 
     const [shareModalTenant, setShareModalTenant] = useState<Tenant | null>(null);
 const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -1972,6 +1976,15 @@ const flattenedRows = useMemo(() => {
                       >
                         <Trash2 className="w-3 h-3 mr-2" /> Move to Deleted
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+  className="text-xs text-purple-600"
+  onClick={() => {
+    setReassignTarget(tenant);
+    setReassignModalOpen(true);
+  }}
+>
+  <RefreshCw className="w-3 h-3 mr-2" /> Reassign Tenant
+</DropdownMenuItem>
                     </>
                   ) : (
                     <>
@@ -3612,6 +3625,20 @@ const totalRefunded = payments
                         <Trash2 className="w-3 h-3" />
                       </button>
                     )}
+                    {/* ✅ NEW: Reassign icon — only in Vacated tab */}
+{activeTab === "vacated" && (
+  <button
+    onClick={() => {
+      setReassignTarget(tenant);
+      setReassignModalOpen(true);
+    }}
+    className="text-purple-500 hover:text-purple-700 transition-colors"
+    title="Reassign Tenant"
+  >
+    <UserPlus  className="w-3 h-3" />
+  </button>
+)}
+
                     {activeTab === "deleted" && (
                       <button onClick={() => handleRestoreVacatedTenant(tenant)} className="text-green-500 hover:text-green-700 transition-colors" title="Restore to Vacated">
                         <RefreshCw className="w-3 h-3" />
@@ -4955,6 +4982,15 @@ const totalRefunded = payments
       </div>
     </DialogContent>
   </Dialog>
+)}
+
+{reassignTarget && (
+  <ReassignTenantModal
+    open={reassignModalOpen}
+    onOpenChange={setReassignModalOpen}
+    tenant={reassignTarget}
+    onSuccess={loadTenants}
+  />
 )}
           
           {selectedVacatedTenant && (
