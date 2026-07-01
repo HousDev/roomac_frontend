@@ -1157,7 +1157,7 @@ export default function CategoryMappingTab() {
           <button onClick={() => { setEditData(null); setShowForm(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-lg text-xs font-medium hover:bg-blue-700">
             <Plus size={13} />
-            Add Mapping
+            Add Category
           </button>
         </div>
       </div>
@@ -1185,7 +1185,7 @@ export default function CategoryMappingTab() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden overflow-y-auto max-h-[380px] sm:max-h-[450px]">
+        <div className="bg-white rounded-xl border overflow-hidden overflow-y-auto max-h-[350px] sm:max-h-[400px]">
           <table className="w-full border-collapse">
             <thead className="sticky top-0 z-10">
               <tr className="bg-gray-50 border-b">

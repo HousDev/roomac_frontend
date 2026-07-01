@@ -46,6 +46,7 @@ import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
 import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
+import { request } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -225,7 +226,12 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
     const [currentOTP, setCurrentOTP] = useState('');
     const [isResendOtpSent, setIsResendOtpSent] = useState(true);
    
-
+// ── Pagination state (client-side) ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
   const [colSearch, setColSearch] = useState({
     tenant_name: '', property_name: '', room_number: '', inspector_name: '', status: '', inspection_date: ''
   });
@@ -441,26 +447,25 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
 };
 
   // ── Update inspection item ───────────────────────────────────────────────────
-  const updateInspectionItem = (index: number, field: keyof InspectionItem, value: any) => {
-    const newItems = [...inspectionItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+ const updateInspectionItem = (index: number, field: keyof InspectionItem, value: any) => {
+  const newItems = [...inspectionItems];
+  newItems[index] = { ...newItems[index], [field]: value };
 
-    if (field === 'condition_at_moveout') {
-      const item = newItems[index];
-      const penalty = calculatePenalty(
-        item.category,
-        item.condition_at_movein,
-        value
-      );
-      newItems[index].penalty_amount = penalty;
-    }
+  if (field === 'condition_at_moveout') {
+    const item = newItems[index];
+    const penalty = calculatePenalty(
+      item.category,
+      item.condition_at_movein,
+      value
+    );
+    newItems[index].penalty_amount = penalty;
+  }
 
-    setInspectionItems(newItems);
+  setInspectionItems(newItems);
 
-    // Update total penalty
-    const total = newItems.reduce((sum, item) => sum + (item.penalty_amount || 0), 0);
-    setFormData(p => ({ ...p, total_penalty: total }));
-  };
+  const total = newItems.reduce((sum, item) => sum + (item.penalty_amount || 0), 0);
+  setFormData(p => ({ ...p, total_penalty: total }));
+};
 
   // ── Filtered rows ───────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
@@ -475,6 +480,20 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
       return tn && pn && rn && ins && s && d;
     });
   }, [inspections, colSearch]);
+
+  const paginatedItems = useMemo(() => {
+  if (pageSize === "All") return filteredItems;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredItems.slice(start, start + (pageSize as number));
+}, [filteredItems, currentPage, pageSize]);
+
+useEffect(() => {
+  setTotalItems(filteredItems.length);
+  setTotalPages(pageSize === "All" ? 1 : Math.ceil(filteredItems.length / (pageSize as number)));
+  if (currentPage > Math.ceil(filteredItems.length / (pageSize === "All" ? filteredItems.length : pageSize as number))) {
+    setCurrentPage(1);
+  }
+}, [filteredItems, pageSize]);
 
   // ── Bulk Selection ───────────────────────────────────────────────────────────
   const toggleSelectAll = () => {
@@ -620,16 +639,38 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
       };
 
 
-      if (editingItem) {
-        await updateInspection(editingItem.id, payload);
-        toast.success('Inspection updated successfully');
-      } else {
-        await createInspection(payload);
-        toast.success('Inspection created successfully');
-      }
+     if (editingItem) {
+  await updateInspection(editingItem.id, payload);
+  toast.success('Inspection updated successfully');
+} else {
+  await createInspection(payload);
+  toast.success('Inspection created successfully');
+}
 
-      setShowForm(false);
-      await loadAll();
+// Update asset status in inventory based on move-out condition
+for (const item of inspectionItems) {
+  if (item.asset_id) {
+    let newStatus = 'available';
+    if (item.condition_at_moveout === 'Missing') {
+      newStatus = 'missing';
+    } else if (item.condition_at_moveout === 'Damaged') {
+      newStatus = 'damaged';
+    } else {
+      newStatus = 'available'; // released back to available on move-out
+    }
+    try {
+      await request('/api/inventory/assign-asset', {
+        method: 'POST',
+        body: JSON.stringify({ asset_id: item.asset_id, status: newStatus })
+      });
+    } catch (e) {
+      console.error('Asset status update error:', e);
+    }
+  }
+}
+
+setShowForm(false);
+await loadAll();
     } catch (err: any) {
       console.error('Failed to save inspection:', err);
       toast.error(err.message || 'Failed to save inspection');
@@ -1394,7 +1435,10 @@ const handleResendOTP = async () => {
 
   const hasFilters = statusFilter !== 'all' || propertyFilter !== 'all';
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const activeCount = [statusFilter !== 'all', propertyFilter !== 'all'].filter(Boolean).length;
+const activeCount = [
+  statusFilter !== 'all',
+  propertyFilter !== 'all',
+].filter(Boolean).length;
   const clearFilters = () => { setStatusFilter('all'); setPropertyFilter('all'); };
   const clearColSearch = () => setColSearch({
     tenant_name: '', property_name: '', room_number: '', inspector_name: '', status: '', inspection_date: ''
@@ -1404,234 +1448,456 @@ const handleResendOTP = async () => {
     <div className="bg-gray-50 ">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div className="sticky top-20 z-10">
-         {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-            <StatCard title="Total Inspections" value={stats.total}
-              icon={FileText} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Total Penalties" value={money(stats.total_penalties)}
-              icon={IndianRupee} color="bg-red-600" bg="bg-gradient-to-br from-red-50 to-red-100" />
-            <StatCard title="Completed" value={stats.completed} icon={Check} color="bg-green-600" bg="bg-green-50" />
-            <StatCard title="Approved" value={stats.approved} icon={ShieldCheck} color="bg-emerald-600" bg="bg-emerald-50" />
-           <StatCard title="Pending" value={stats.pending} icon={AlertCircle} color="bg-amber-600" bg="bg-amber-50" />
-            <StatCard title="Cancelled" value={stats.cancelled} icon={X} color="bg-red-600" bg="bg-red-50" />
-          </div>
-          <div className="grid grid-cols-5 gap-1.5 mt-1.5">
-            
-          </div>
-        </div>
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
- <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeCount > 0 && (
-                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
-                  {activeCount}
-                </span>
-              )}
-            </button>
-            {can('export_moveout_inspection') && (
+     <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-            <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-            )}
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 flex-1">
+      <StatCard
+        title="Total Inspections"
+        value={stats.total}
+        icon={FileText}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
-           
-{can('create_moveout_inspection') && (
+      <StatCard
+        title="Total Penalties"
+        value={money(stats.total_penalties)}
+        icon={IndianRupee}
+        color="bg-red-600"
+        bg="bg-gradient-to-br from-red-50 to-red-100"
+      />
 
-            <button onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className=" xs:inline">Add Inspection</span>
-            </button>
-)}
-          </div>
-        </div>
+      <StatCard
+        title="Completed"
+        value={stats.completed}
+        icon={Check}
+        color="bg-green-600"
+        bg="bg-green-50"
+      />
 
-       
-      </div>
+      <StatCard
+        title="Approved"
+        value={stats.approved}
+        icon={ShieldCheck}
+        color="bg-emerald-600"
+        bg="bg-emerald-50"
+      />
+
+      <StatCard
+        title="Pending"
+        value={stats.pending}
+        icon={AlertCircle}
+        color="bg-amber-600"
+        bg="bg-amber-50"
+      />
+
+      <StatCard
+        title="Cancelled"
+        value={stats.cancelled}
+        icon={X}
+        color="bg-red-600"
+        bg="bg-red-50"
+      />
+    </div>
+
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Filters</span>
+
+        {activeCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+              ${
+                sidebarOpen || hasFilters
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-600 text-white"
+              }`}
+          >
+            {activeCount}
+          </span>
+        )}
+      </button>
+
+      {can("export_moveout_inspection") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_moveout_inspection") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Add Inspection</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
       <div className="relative">
-        <main className="p-0 sm:p-0">
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                All Inspections ({filteredItems.length})
-                {selectedItems.size > 0 && (
-                  <span className="ml-2 text-blue-600 text-xs">({selectedItems.size} selected)</span>
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                {selectedItems.size > 0 && (
-                  <Button size="sm" variant="destructive"
-                    className="h-7 text-[10px] px-2 bg-red-600 hover:bg-red-700"
-                    onClick={handleBulkDelete}>
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete Selected ({selectedItems.size})
-                  </Button>
-                )}
-                {hasColSearch && (
-                  <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold">
-                    Clear Search
-                  </button>
-                )}
-              </div>
-            </div>
+  <main className="p-0 sm:p-0">
+    {/* ── Bulk Selection Bar (outside Card) ── */}
+    {selectedItems.size > 0 && (
+      <div className="px-0 pb-2">
+        <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px] bg-white">
+          <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
+            {selectedItems.size} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectedItems(new Set()); setSelectAll(false); }}
+              className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
+            >
+              Clear
+            </button>
+            {can('delete_moveout_inspection') && (
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete {selectedItems.size}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
-<div
-  className="overflow-auto rounded-b-lg transition-all duration-300"
-  style={{
-    maxHeight: selectedItems.size > 0
-      ? (window.innerWidth >= 768 ? '450px' : '310px')
-      : (window.innerWidth >= 768 ? '450px' : '310px')
-  }}
->            <div className="min-w-[1200px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 text-xs w-8">
-                        <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
-                          {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Tenant</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Phone</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Room/Bed</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Inspector</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Inspection Date</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Total Penalty</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Items</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                    </TableRow>
+    <Card className="border rounded-lg shadow-sm overflow-hidden">
+      {/* ── Table ── */}
+      <div className="flex flex-col h-[380px] sm:h-[520px]">
+        <div className="overflow-auto flex-1 min-h-0">
+          <table
+            className="border-collapse text-[11px] font-sans"
+            style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}
+          >
+            <colgroup>
+              <col style={{ width: "34px" }} />    {/* checkbox */}
+              <col style={{ width: "130px" }} />   {/* Tenant */}
+              <col style={{ width: "100px" }} />   {/* Phone */}
+              <col style={{ width: "140px" }} />   {/* Property */}
+              <col style={{ width: "90px" }} />    {/* Room/Bed */}
+              <col style={{ width: "100px" }} />   {/* Inspector */}
+              <col style={{ width: "90px" }} />    {/* Inspection Date */}
+              <col style={{ width: "100px" }} />   {/* Total Penalty */}
+              <col style={{ width: "70px" }} />    {/* Items */}
+              <col style={{ width: "90px" }} />    {/* Status */}
+              <col style={{ width: "90px" }} />    {/* Actions */}
+            </colgroup>
 
-                    <TableRow className="bg-gray-50/80">
-                      <TableCell className="py-1 px-2" />
-                      {[
-                        { key: 'tenant_name', ph: 'Search tenant…' },
-                        { key: null, ph: '' },
-                        { key: 'property_name', ph: 'Search prop…' },
-                        { key: 'room_number', ph: 'Room…' },
-                        { key: 'inspector_name', ph: 'Inspector…' },
-                        { key: 'inspection_date', ph: 'Date…' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: 'status', ph: 'Status…' },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(p => ({ ...p, [col.key!]: e.target.value }))}
-                              className="h-6 text-[10px]"
-                            />
-                          ) : <div />}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
+            {/* ── STICKY THEAD ── */}
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-200 border-b border-gray-300">
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSelectAll(checked);
+                      setSelectedItems(checked ? new Set(filteredItems.map(i => i.id)) : new Set());
+                    }}
+                    className="w-3.5 h-3.5 cursor-pointer"
+                  />
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Phone</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Inspector</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Inspection Date</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Penalty</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Items</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </th>
+              </tr>
 
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={12} className="text-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading inspections…</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={12} className="text-center py-12">
-                          <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No inspections found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.map(i => (
-                      <TableRow key={i.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3">
-                          <button onClick={() => toggleSelectItem(i.id)} className="p-1 hover:bg-gray-200 rounded">
-                            {selectedItems.has(i.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
+              {/* Search row */}
+              <tr className="bg-white border-b border-gray-300">
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Search…"
+                    value={colSearch.tenant_name || ''}
+                    onChange={e => setColSearch(p => ({ ...p, tenant_name: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Search prop…"
+                    value={colSearch.property_name || ''}
+                    onChange={e => setColSearch(p => ({ ...p, property_name: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Room…"
+                    value={colSearch.room_number || ''}
+                    onChange={e => setColSearch(p => ({ ...p, room_number: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Inspector…"
+                    value={colSearch.inspector_name || ''}
+                    onChange={e => setColSearch(p => ({ ...p, inspector_name: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Date…"
+                    value={colSearch.inspection_date || ''}
+                    onChange={e => setColSearch(p => ({ ...p, inspection_date: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Status…"
+                    value={colSearch.status || ''}
+                    onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1" />
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={11} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Loading inspections…</p>
+                  </td>
+                </tr>
+              ) : paginatedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="text-center py-12">
+                    <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-500">No inspections found</p>
+                    <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedItems.map(i => (
+                  <tr key={i.id} className="hover:bg-gray-50 border-b border-slate-200">
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(i.id)}
+                        onChange={() => {
+                          const newSet = new Set(selectedItems);
+                          if (newSet.has(i.id)) newSet.delete(i.id);
+                          else newSet.add(i.id);
+                          setSelectedItems(newSet);
+                          setSelectAll(newSet.size === filteredItems.length && filteredItems.length > 0);
+                        }}
+                        className="w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-medium text-slate-800 border-r border-slate-200">
+                      {i.tenant_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {i.tenant_phone}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 truncate max-w-[140px] border-r border-slate-200">
+                      {i.property_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {i.room_number}{i.bed_number ? ` / ${i.bed_number}` : ''}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {i.inspector_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {fmt(i.inspection_date)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 text-right border-r border-slate-200">
+                      <span className={i.total_penalty > 0 ? 'text-red-600' : 'text-green-600'}>
+                        {money(i.total_penalty)}
+                      </span>
+                    </td>
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                      <Badge className="bg-blue-100 text-blue-700 text-[9px] px-1.5">
+                        {i.inspection_items?.length || 0}
+                      </Badge>
+                    </td>
+                    <td className="px-1.5 py-1.5 border-r border-slate-200">
+                      <Badge className={`text-[9px] px-1.5 ${statusColor(i.status)}`}>
+                        {i.status}
+                      </Badge>
+                    </td>
+                    <td className="px-1.5 py-1.5 text-right">
+                      <div className="flex justify-end gap-0.5">
+                        {can('view_moveout_inspection') && (
+                          <button
+                            title="View"
+                            className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                            onClick={async () => {
+                              try {
+                                const full = await getInspectionById(i.id);
+                                setViewItem(full.data);
+                              } catch {
+                                setViewItem(i);
+                              }
+                            }}
+                          >
+                            <Eye size={12} />
                           </button>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-medium">{i.tenant_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{i.tenant_phone}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[140px] truncate">{i.property_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">
-                          {i.room_number}{i.bed_number ? ` / ${i.bed_number}` : ''}
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{i.inspector_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{fmt(i.inspection_date)}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-semibold text-gray-800">
-                          <span className={i.total_penalty > 0 ? 'text-red-600' : 'text-green-600'}>
-                            {money(i.total_penalty)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs">
-                          <Badge className="bg-blue-100 text-blue-700 text-[9px] px-1.5">
-                            {i.inspection_items?.length || 0} items
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <Badge className={`text-[9px] px-1.5 ${statusColor(i.status)}`}>{i.status}</Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <div className="flex justify-end gap-1">
-                              {can('view_moveout_inspection') && (
+                        )}
+                        {can('edit_moveout_inspection') && (
+                          <button
+                            title="Edit"
+                            className="w-6 h-6 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                            onClick={() => openEdit(i)}
+                          >
+                            <Edit size={12} />
+                          </button>
+                        )}
+                        {can('delete_moveout_inspection') && (
+                          <button
+                            title="Delete"
+                            className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                            onClick={() => handleDelete(i.id, i.tenant_name)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={async () => {
-  try {
-    const full = await getInspectionById(i.id);
-    setViewItem(full.data);
-  } catch {
-    setViewItem(i);
-  }
-}} title="View">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                              )}
-                                {can('edit_moveout_inspection') && (
+      {/* ── Footer: pagination ── */}
+      {!loading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Show</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(val) => {
+                const newSize = val === "All" ? "All" : Number(val);
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                <SelectValue>{pageSize}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>entries</span>
+            <span className="ml-2">
+              Showing {paginatedItems.length > 0 ? ((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1 : 0}–
+              {Math.min(
+                (pageSize === "All" ? totalItems : currentPage * (pageSize as number)),
+                totalItems
+              )} of {totalItems}
+            </span>
+          </div>
 
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
-                              onClick={() => openEdit(i)} title="Edit">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>)}
-                              {can('delete_moveout_inspection') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                              onClick={() => handleDelete(i.id, i.tenant_name)} title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                              )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </Card>
-        </main>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum = i + 1;
+              if (totalPages > 5) {
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum} size="sm"
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`h-6 w-6 p-0 text-[10px] ${currentPage === pageNum ? "bg-blue-600 text-white border-blue-600" : ""}`}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  </main>
 
         {/* ── FILTER DRAWER ────────────────────────────────────────────── */}
         {sidebarOpen && (

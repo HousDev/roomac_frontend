@@ -9,8 +9,8 @@ export const STATIC_TABS = [
   { id: 'rooms', name: 'Rooms', icon: 'Door' },
   { id: 'requests', name: 'Requests', icon: 'MessageSquare' },
   // Add these new tabs
-  { id: 'roles', name: 'Roles', icon: 'Users' },
-  { id: 'departments', name: 'Departments', icon: 'Building2' },
+  // { id: 'roles', name: 'Roles', icon: 'Users' },
+  // { id: 'departments', name: 'Departments', icon: 'Building2' },
 
 ] as const;
 

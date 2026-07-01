@@ -18,6 +18,7 @@ import {
   Printer,
   ChevronLeft,
   ChevronRight,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,9 @@ export function MaterialPurchase() {
   const [pageSize, setPageSize] = useState<number | "All">(25);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [vendorFilter, setVendorFilter] = useState("all");
+const [amountFilter, setAmountFilter] = useState({ min: "", max: "" });
+const [vendors, setVendors] = useState<{ id: string; name: string; phone?: string }[]>([]);
 
   // Filters
   const [propertyFilter, setPropertyFilter] = useState("all");
@@ -237,6 +241,32 @@ export function MaterialPurchase() {
       console.error("Could not load categories:", err);
     }
   }, []);
+
+  const loadVendors = useCallback(async () => {
+  try {
+    // Fetch the "Vendors" item from the "Common" tab
+    const res = await getMasterItemsByTab("Common");
+    const list = Array.isArray(res.data) ? res.data : [];
+    const vendorItem = list.find(
+      (i: any) => i.name?.toLowerCase() === "vendors"
+    );
+    if (!vendorItem) return;
+    const vRes = await getMasterValues(vendorItem.id);
+    const values = Array.isArray(vRes.data) ? vRes.data : Array.isArray(vRes) ? vRes : [];
+    setVendors(
+      values
+        .filter((v: any) => v.isactive === 1 || v.is_active === 1)
+        .map((v: any) => ({
+          id: String(v.id),
+          name: v.value || v.name || "",
+          phone: v.phone || v.phone_number || "", // if phone field exists
+        }))
+    );
+  } catch (err) {
+    console.error("Could not load vendors:", err);
+  }
+}, []);
+
 const loadInventoryMappings = useCallback(async () => {
   setMappingsLoading(true);
   try {
@@ -336,6 +366,7 @@ const loadInventoryMappings = useCallback(async () => {
     loadCategories();
     loadProperties();
     loadInventoryMappings();
+    loadVendors(); 
   }, []);
 
   useEffect(() => {
@@ -343,27 +374,32 @@ const loadInventoryMappings = useCallback(async () => {
   }, [loadAll]);
 
   // Filtered items with column search
-  const filteredPurchases = useMemo(() => {
-    return purchases.filter((p) => {
-      const cs = colSearch;
-      const invOk =
-        !cs.invoice ||
-        p.invoice_number?.toLowerCase().includes(cs.invoice.toLowerCase());
-      const venOk =
-        !cs.vendor ||
-        p.vendor_name?.toLowerCase().includes(cs.vendor.toLowerCase());
-      const propOk =
-        !cs.property ||
-        (p.property_name || "")
-          .toLowerCase()
-          .includes(cs.property.toLowerCase());
-      const amtOk = !cs.amount || String(p.total_amount).includes(cs.amount);
-      const statOk =
-        !cs.status ||
-        p.payment_status?.toLowerCase().includes(cs.status.toLowerCase());
-      return invOk && venOk && propOk && amtOk && statOk;
-    });
-  }, [purchases, colSearch]);
+const filteredPurchases = useMemo(() => {
+  return purchases.filter((p) => {
+    const cs = colSearch;
+    const invOk =
+      !cs.invoice ||
+      p.invoice_number?.toLowerCase().includes(cs.invoice.toLowerCase());
+    const venOk =
+      !cs.vendor ||
+      p.vendor_name?.toLowerCase().includes(cs.vendor.toLowerCase());
+    const propOk =
+      !cs.property ||
+      (p.property_name || "")
+        .toLowerCase()
+        .includes(cs.property.toLowerCase());
+    const amtOk = !cs.amount || String(p.total_amount).includes(cs.amount);
+    const statOk =
+      !cs.status ||
+      p.payment_status?.toLowerCase().includes(cs.status.toLowerCase());
+
+    const vendorFilterOk = vendorFilter === "all" || p.vendor_name === vendorFilter;
+    const minOk = !amountFilter.min || p.total_amount >= Number(amountFilter.min);
+    const maxOk = !amountFilter.max || p.total_amount <= Number(amountFilter.max);
+
+    return invOk && venOk && propOk && amtOk && statOk && vendorFilterOk && minOk && maxOk;
+  });
+}, [purchases, colSearch, vendorFilter, amountFilter]);
 
   //   const handleEdit = (purchase: MaterialPurchaseType) => {
 
@@ -1572,23 +1608,31 @@ const loadInventoryMappings = useCallback(async () => {
   };
 
   const hasColSearch = Object.values(colSearch).some((v) => v !== "");
-  const hasFilters =
-    propertyFilter !== "all" ||
-    statusFilter !== "all" ||
-    dateFilter.from ||
-    dateFilter.to;
-  const activeFilterCount = [
-    propertyFilter !== "all",
-    statusFilter !== "all",
-    !!dateFilter.from,
-    !!dateFilter.to,
-  ].filter(Boolean).length;
+ const hasFilters =
+  propertyFilter !== "all" ||
+  statusFilter !== "all" ||
+  vendorFilter !== "all" ||
+  !!amountFilter.min ||
+  !!amountFilter.max ||
+  !!dateFilter.from ||
+  !!dateFilter.to;
+const activeFilterCount = [
+  propertyFilter !== "all",
+  statusFilter !== "all",
+  vendorFilter !== "all",
+  !!amountFilter.min,
+  !!amountFilter.max,
+  !!dateFilter.from,
+  !!dateFilter.to,
+].filter(Boolean).length;
 
-  const clearFilters = () => {
-    setPropertyFilter("all");
-    setStatusFilter("all");
-    setDateFilter({ from: "", to: "" });
-  };
+const clearFilters = () => {
+  setPropertyFilter("all");
+  setStatusFilter("all");
+  setVendorFilter("all");
+  setAmountFilter({ min: "", max: "" });
+  setDateFilter({ from: "", to: "" });
+};
 
   const clearColSearch = () =>
     setColSearch({
@@ -1602,322 +1646,311 @@ const loadInventoryMappings = useCallback(async () => {
   return (
     <div className="bg-gray-50 ">
       {/* Header */}
-      <div className="sticky top-20 z-10">
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard
-              title="Total Purchases"
-              value={stats.total_purchases}
-              icon={Boxes}
-              color="bg-blue-600"
-              bg="bg-gradient-to-br from-blue-50 to-blue-100"
-            />
-            <StatCard
-              title="Total Amount"
-              value={`₹${Number(stats.total_amount || 0).toLocaleString("en-IN")}`}
-              icon={IndianRupee}
-              color="bg-green-600"
-              bg="bg-gradient-to-br from-green-50 to-green-100"
-            />
-            <StatCard
-              title="Total Paid"
-              value={`₹${Number(stats.total_paid || 0).toLocaleString("en-IN")}`}
-              icon={TrendingDown}
-              color="bg-orange-600"
-              bg="bg-gradient-to-br from-orange-50 to-orange-100"
-            />
-            <StatCard
-              title="Balance Due"
-              value={`₹${Number(stats.total_balance || 0).toLocaleString("en-IN")}`}
-              icon={AlertTriangle}
-              color="bg-red-600"
-              bg="bg-gradient-to-br from-red-50 to-red-100"
-            />
-          </div>
-        </div>
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-            <button
-              onClick={loadAll}
-              disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
-            <button
-              onClick={() => setSidebarOpen((o) => !o)}
-              className={`
-                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px]  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white font-medium transition-colors
-                ${
-                  sidebarOpen || hasFilters
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }
-              `}
-            >
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeFilterCount > 0 && (
-                <span
-                  className={`
-                  h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0
-                  ${sidebarOpen || hasFilters ? "bg-white text-blue-600" : "bg-blue-600 text-white"}
-                `}
-                >
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+     <div className="sticky top-0 z-10 mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-            {can("export_material_purchase") && (
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors"
-              >
-                <Download className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="hidden sm:inline">Export</span>
-              </button>
-            )}
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total Purchases"
+        value={stats.total_purchases}
+        icon={Boxes}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
+      <StatCard
+        title="Total Amount"
+        value={`₹${Number(stats.total_amount || 0).toLocaleString("en-IN")}`}
+        icon={IndianRupee}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
+      <StatCard
+        title="Total Paid"
+        value={`₹${Number(stats.total_paid || 0).toLocaleString("en-IN")}`}
+        icon={TrendingDown}
+        color="bg-orange-600"
+        bg="bg-gradient-to-br from-orange-50 to-orange-100"
+      />
+      <StatCard
+        title="Balance Due"
+        value={`₹${Number(stats.total_balance || 0).toLocaleString("en-IN")}`}
+        icon={AlertTriangle}
+        color="bg-red-600"
+        bg="bg-gradient-to-br from-red-50 to-red-100"
+      />
+    </div>
 
-            {can("create_material_purchase") && (
-              <button
-                onClick={openAdd}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="hidden xs:inline sm:inline">Add Purchase</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+      <button
+        onClick={() => setSidebarOpen((o) => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Filters</span>
+        {activeFilterCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center ${
+              sidebarOpen || hasFilters
+                ? "bg-white text-blue-600"
+                : "bg-blue-600 text-white"
+            }`}
+          >
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {can("export_material_purchase") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_material_purchase") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Add Purchase</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       <div className="relative">
         <main className="p-0 sm:p-0">
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                All Purchases ({filteredPurchases.length})
-              </span>
-              {hasColSearch && (
-                <button
-                  onClick={clearColSearch}
-                  className="text-[10px] text-blue-600 font-semibold"
-                >
-                  Clear Search
-                </button>
-              )}
-            </div>
-
-            {selectedItems.size > 0 && (
-              <div className="p-3 bg-blue-50 border-b flex items-center justify-between">
-                <span className="text-sm font-semibold text-blue-900">
-                  {selectedItems.size} item(s) selected
+          {selectedItems.size > 0 && (
+            <div className="px-0 pb-2">
+              <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px] bg-white">
+                <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
+                  {selectedItems.size} selected
                 </span>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete Selected
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedItems(new Set())}
+                    className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
+                  >
+                    Clear
+                  </button>
+                  {can("delete_material_purchase") && (
+                    <button
+                      onClick={handleBulkDelete}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete {selectedItems.size}
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+          )}
 
-            <div
-              className="overflow-auto rounded-b-lg transition-all duration-300"
-              style={{
-                maxHeight:
-                  selectedItems.size > 0
-                    ? window.innerWidth >= 768
-                      ? "380px"
-                      : "310px"
-                    : window.innerWidth >= 768
-                      ? "430px"
-                      : "370px",
-              }}
-            >
-              <div className="min-w-[1000px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 w-8">
-                        <button
-                          onClick={toggleSelectAll}
-                          className="p-1 hover:bg-gray-200 rounded"
-                        >
-                          {selectedItems.size === filteredPurchases.length &&
-                          filteredPurchases.length > 0 ? (
-                            <span className="text-blue-600">✓</span>
-                          ) : (
-                            <span className="text-gray-400">□</span>
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Date</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">
-                        Invoice #
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">
-                        Vendor
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">
-                        Property
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Total</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Paid</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">
-                        Balance
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">
-                        Status
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">
-                        Actions
-                      </TableHead>
-                    </TableRow>
+          <Card className="border rounded-lg shadow-sm overflow-hidden">
+            {/* ── Table ── */}
+            <div className="flex flex-col h-[500px] sm:h-[520px]">
+              <div className="overflow-auto flex-1 min-h-0">
+                <table
+                  className="border-collapse text-[11px] font-sans"
+                  style={{ tableLayout: "fixed", minWidth: "1100px", width: "100%" }}
+                >
+                  <colgroup>
+                    <col style={{ width: "34px" }} />   {/* checkbox */}
+                    <col style={{ width: "90px" }} />   {/* Date */}
+                    <col style={{ width: "110px" }} />  {/* Invoice # */}
+                    <col style={{ width: "140px" }} />  {/* Vendor */}
+                    <col style={{ width: "140px" }} />  {/* Property */}
+                    <col style={{ width: "100px" }} />  {/* Total */}
+                    <col style={{ width: "100px" }} />  {/* Paid */}
+                    <col style={{ width: "100px" }} />  {/* Balance */}
+                    <col style={{ width: "80px" }} />   {/* Status */}
+                    <col style={{ width: "140px" }} />  {/* Actions */}
+                  </colgroup>
 
-                    <TableRow className="bg-gray-50/80">
-                      <TableCell className="py-1 px-2"></TableCell>
-                      {[
-                        { key: null, ph: "" },
-                        { key: "invoice", ph: "Search invoice…" },
-                        { key: "vendor", ph: "Search vendor…" },
-                        { key: "property", ph: "Search property…" },
-                        { key: "amount", ph: "Amount…" },
-                        { key: null, ph: "" },
-                        { key: null, ph: "" },
-                        { key: null, ph: "" },
-                        { key: "status", ph: "Status…" },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input
-                              placeholder={col.ph}
-                              value={
-                                colSearch[col.key as keyof typeof colSearch]
-                              }
-                              onChange={(e) =>
-                                setColSearch((prev) => ({
-                                  ...prev,
-                                  [col.key!]: e.target.value,
-                                }))
-                              }
-                              className="h-6 text-[10px]"
-                            />
-                          ) : (
-                            <div />
-                          )}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
+                  {/* ── STICKY THEAD ── */}
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-200 border-b border-gray-300">
+                      <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedItems.size === filteredPurchases.length &&
+                            filteredPurchases.length > 0
+                          }
+                          onChange={toggleSelectAll}
+                          className="w-3.5 h-3.5 cursor-pointer"
+                        />
+                      </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Invoice #</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vendor</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Paid</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Balance</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-right bg-gray-200">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                      </th>
+                    </tr>
+                    {/* Search row */}
+                    <tr className="bg-white border-b border-gray-300">
+                      <td className="p-1 border-r border-gray-200" />
+                      <td className="p-1 border-r border-gray-200" />
+                      <td className="p-1 border-r border-gray-200">
+                        <input
+                          placeholder="Search…"
+                          value={colSearch.invoice}
+                          onChange={(e) => setColSearch((prev) => ({ ...prev, invoice: e.target.value }))}
+                          className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-gray-200">
+                        <input
+                          placeholder="Search…"
+                          value={colSearch.vendor}
+                          onChange={(e) => setColSearch((prev) => ({ ...prev, vendor: e.target.value }))}
+                          className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-gray-200">
+                        <input
+                          placeholder="Search…"
+                          value={colSearch.property}
+                          onChange={(e) => setColSearch((prev) => ({ ...prev, property: e.target.value }))}
+                          className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-gray-200">
+                        <input
+                          placeholder="Amount…"
+                          value={colSearch.amount}
+                          onChange={(e) => setColSearch((prev) => ({ ...prev, amount: e.target.value }))}
+                          className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 text-right"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-gray-200" />
+                      <td className="p-1 border-r border-gray-200" />
+                      <td className="p-1 border-r border-gray-200">
+                        <input
+                          placeholder="Status…"
+                          value={colSearch.status}
+                          onChange={(e) => setColSearch((prev) => ({ ...prev, status: e.target.value }))}
+                          className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                        />
+                      </td>
+                      <td className="p-1" />
+                    </tr>
+                  </thead>
 
-                  <TableBody>
+                  <tbody>
                     {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-12">
+                      <tr>
+                        <td colSpan={10} className="text-center py-12">
                           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">
-                            Loading purchases…
-                          </p>
-                        </TableCell>
-                      </TableRow>
+                          <p className="text-xs text-gray-500">Loading purchases…</p>
+                        </td>
+                      </tr>
                     ) : filteredPurchases.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-12">
+                      <tr>
+                        <td colSpan={10} className="text-center py-12">
                           <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">
-                            No purchases found
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Try adjusting your filters
-                          </p>
-                        </TableCell>
-                      </TableRow>
+                          <p className="text-sm font-medium text-gray-500">No purchases found</p>
+                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                        </td>
+                      </tr>
                     ) : (
                       filteredPurchases.map((purchase) => (
-                        <TableRow
-                          key={purchase.id}
-                          className="hover:bg-gray-50"
-                        >
-                          <TableCell className="py-2 px-3">
-                            <button
-                              onClick={() => toggleSelectItem(purchase.id)}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
-                              {selectedItems.has(purchase.id) ? (
-                                <span className="text-blue-600">✓</span>
-                              ) : (
-                                <span className="text-gray-400">□</span>
-                              )}
-                            </button>
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs">
-                            {new Date(
-                              purchase.purchase_date,
-                            ).toLocaleDateString("en-IN")}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs font-medium">
+                        <tr key={purchase.id} className="border-b border-slate-200 hover:bg-slate-50">
+                          <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.has(purchase.id)}
+                              onChange={() => toggleSelectItem(purchase.id)}
+                              className="w-3.5 h-3.5 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                            {new Date(purchase.purchase_date).toLocaleDateString("en-IN")}
+                          </td>
+                          <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 border-r border-slate-200">
                             {purchase.invoice_number}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs">
-                            {purchase.vendor_name}
-                            {purchase.vendor_phone && (
-                              <div className="text-[9px] text-gray-500">
-                                {purchase.vendor_phone}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">
+                          </td>
+                         <td className="px-1.5 py-1.5 text-[11px] text-slate-700 border-r border-slate-200">
+  <div className="flex items-center gap-2 flex-wrap">
+    <span className="font-medium">{purchase.vendor_name}</span>
+
+    {purchase.vendor_phone && (
+      <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
+        <Phone className="h-2 w-2" />
+        {purchase.vendor_phone}
+      </span>
+    )}
+  </div>
+</td>
+                          <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200 truncate max-w-[140px]">
                             {purchase.property_name}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs font-semibold">
+                          </td>
+                          <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 text-right border-r border-slate-200">
                             ₹{purchase.total_amount.toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs text-green-600">
-                            ₹
-                            {(purchase.paid_amount || 0).toLocaleString(
-                              "en-IN",
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs font-semibold text-red-600">
-                            ₹
-                            {(
-                              purchase.balance_amount || purchase.total_amount
-                            ).toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell className="py-2 px-3">
+                          </td>
+                          <td className="px-1.5 py-1.5 text-[11px] font-semibold text-green-600 text-right border-r border-slate-200">
+                            ₹{(purchase.paid_amount || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-1.5 py-1.5 text-[11px] font-bold text-red-600 text-right border-r border-slate-200">
+                            ₹{(purchase.balance_amount || purchase.total_amount).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-1.5 py-1.5 border-r border-slate-200">
                             {getStatusBadge(purchase.payment_status)}
-                          </TableCell>
-                          <TableCell className="py-2 px-3">
-                            <div className="flex justify-end gap-1">
+                          </td>
+                          <td className="px-1.5 py-1.5 text-right">
+                            <div className="flex justify-end gap-0.5">
                               {can("view_material_purchase") && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                <button
+                                  title="View"
+                                  className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
                                   onClick={() => handleViewDetails(purchase)}
                                 >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
+                                  <Eye size={12} />
+                                </button>
                               )}
-                              {/* Add Edit Button */}
                               {can("edit_material_purchase") && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
+                                <button
+                                  title="Edit"
+                                  className="w-6 h-6 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors"
                                   onClick={() => handleEdit(purchase)}
                                 >
-                                  <svg
-                                    className="h-3.5 w-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
+                                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -1925,83 +1958,65 @@ const loadInventoryMappings = useCallback(async () => {
                                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                                     />
                                   </svg>
-                                </Button>
+                                </button>
                               )}
-
-                              {can("add_payment_material") &&
-                                purchase.payment_status !== "Paid" && (
-                                  <Button
-                                    size="sm"
-                                    className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
-                                    onClick={() => handleAddPayment(purchase)}
-                                  >
-                                    <IndianRupee className="h-3.5 w-3.5" />
-                                    Pay
-                                  </Button>
-                                )}
+                              {can("add_payment_material") && purchase.payment_status !== "Paid" && (
+                                <button
+                                  title="Add Payment"
+                                  className="h-6 px-2 rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center gap-1 text-[10px] font-semibold"
+                                  onClick={() => handleAddPayment(purchase)}
+                                >
+                                  <IndianRupee size={10} /> Pay
+                                </button>
+                              )}
                               {can("delete_material_purchase") && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                                <button
+                                  title="Delete"
+                                  className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
                                   onClick={() => handleDelete(purchase.id)}
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
+                                  <Trash2 size={12} />
+                                </button>
                               )}
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             </div>
-            {/* ── Pagination Bar ── */}
+
+            {/* ── Footer: pagination ── */}
             {!loading && totalItems > 0 && (
-              <div className="flex items-center justify-between px-3 py-2 border-t bg-white rounded-b-lg flex-wrap gap-2">
-                <div className="flex items-center gap-3 text-gray-500">
-                  <span className="text-[11px]">
-                    Showing{" "}
-                    {(currentPage - 1) *
-                      (pageSize === "All" ? totalItems : pageSize) +
-                      1}
-                    –
-                    {Math.min(
-                      currentPage *
-                        (pageSize === "All" ? totalItems : pageSize),
-                      totalItems,
-                    )}{" "}
-                    of {totalItems} purchases
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>Show</span>
+                   <Select
+                    value={String(pageSize)}
+                    onValueChange={(val) => {
+                      const newSize = val === "All" ? "All" : Number(val);
+                      setPageSize(newSize as any);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                      <SelectValue>{pageSize}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span>entries</span>
+                  <span className="ml-2">
+                    Showing {(currentPage - 1) * (pageSize === "All" ? totalItems : pageSize) + 1}–
+                    {Math.min(currentPage * (pageSize === "All" ? totalItems : pageSize), totalItems)} of {totalItems}
                   </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-gray-400 text-[10px]">Rows:</span>
-                    <Select
-                      value={String(pageSize)}
-                      onValueChange={(val) => {
-                        const newSize = val === "All" ? "All" : Number(val);
-                        setPageSize(newSize);
-                        setCurrentPage(1);
-                        loadAll(1);
-                      }}
-                    >
-                      <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
-                        <SelectValue>{pageSize}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAGE_SIZE_OPTIONS.map((size) => (
-                          <SelectItem
-                            key={String(size)}
-                            value={String(size)}
-                            className="text-xs"
-                          >
-                            {size}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -2015,20 +2030,23 @@ const loadInventoryMappings = useCallback(async () => {
                     <ChevronLeft className="h-3 w-3" />
                   </Button>
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    const page = i + 1;
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+                    }
                     return (
                       <Button
-                        key={page}
+                        key={pageNum}
                         size="sm"
-                        variant={currentPage === page ? "default" : "outline"}
-                        onClick={() => loadAll(page)}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        onClick={() => loadAll(pageNum)}
                         className={`h-6 w-6 p-0 text-[10px] ${
-                          currentPage === page
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : ""
+                          currentPage === pageNum ? "bg-blue-600 text-white border-blue-600" : ""
                         }`}
                       >
-                        {page}
+                        {pageNum}
                       </Button>
                     );
                   })}
@@ -2054,7 +2072,7 @@ const loadInventoryMappings = useCallback(async () => {
               className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]"
               onClick={() => setSidebarOpen(false)}
             />
-            <aside className="fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col">
+            <aside className="fixed top-0 right-0 h-full z-40 w-[85vw] sm:w-96 bg-white shadow-2xl flex flex-col">
               <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-white" />
@@ -2085,135 +2103,115 @@ const loadInventoryMappings = useCallback(async () => {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <Building className="h-3 w-3 text-indigo-500" /> Property
-                  </p>
-                  <div className="space-y-1">
-                    <label
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === "all" ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
-                    >
-                      <input
-                        type="radio"
-                        name="property"
-                        value="all"
-                        checked={propertyFilter === "all"}
-                        onChange={() => setPropertyFilter("all")}
-                        className="sr-only"
-                      />
-                      <span
-                        className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === "all" ? "bg-blue-500" : "bg-gray-300"}`}
-                      />
-                      <span className="text-[12px] font-medium">
-                        All Properties
-                      </span>
-                    </label>
-                    {properties.map((p) => (
-                      <label
-                        key={p.id}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${propertyFilter === p.id ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
-                      >
-                        <input
-                          type="radio"
-                          name="property"
-                          value={p.id}
-                          checked={propertyFilter === p.id}
-                          onChange={() => setPropertyFilter(p.id)}
-                          className="sr-only"
-                        />
-                        <span
-                          className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? "bg-blue-500" : "bg-gray-300"}`}
-                        />
-                        <span className="text-[12px] font-medium truncate">
-                          {p.name}
-                        </span>
-                      </label>
-                    ))}
+             <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Property */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                      <Building className="h-3 w-3 text-indigo-500" /> Property
+                    </p>
+                    <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+                      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Properties</SelectItem>
+                        {properties.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
 
-                <div className="border-t border-gray-100" />
-
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <TrendingDown className="h-3 w-3 text-orange-500" /> Payment
-                    Status
-                  </p>
-                  <div className="space-y-1">
-                    {[
-                      { val: "all", label: "All Status", dot: "bg-gray-400" },
-                      { val: "Pending", label: "Pending", dot: "bg-red-500" },
-                      {
-                        val: "Partial",
-                        label: "Partial",
-                        dot: "bg-orange-500",
-                      },
-                      { val: "Paid", label: "Paid", dot: "bg-green-500" },
-                    ].map((opt) => (
-                      <label
-                        key={opt.val}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer ${statusFilter === opt.val ? "bg-blue-50 border border-blue-200 text-blue-700" : "hover:bg-gray-50 border border-transparent text-gray-700"}`}
-                      >
-                        <input
-                          type="radio"
-                          name="status"
-                          value={opt.val}
-                          checked={statusFilter === opt.val}
-                          onChange={() =>
-                            setStatusFilter(opt.val as PaymentStatus)
-                          }
-                          className="sr-only"
-                        />
-                        <span
-                          className={`h-2 w-2 rounded-full flex-shrink-0 ${opt.dot}`}
-                        />
-                        <span className="text-[12px] font-medium">
-                          {opt.label}
-                        </span>
-                      </label>
-                    ))}
+                  {/* Payment Status */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                      <TrendingDown className="h-3 w-3 text-orange-500" /> Payment Status
+                    </p>
+                    <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as PaymentStatus)}>
+                      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Partial">Partial</SelectItem>
+                        <SelectItem value="Paid">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
 
-                <div className="border-t border-gray-100" />
+                  {/* Vendor — Advanced filter */}
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                      <Package className="h-3 w-3 text-cyan-500" /> Vendor
+                    </p>
+                    <Select value={vendorFilter} onValueChange={(val) => setVendorFilter(val)}>
+                      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+                        <SelectValue placeholder="Select vendor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Vendors</SelectItem>
+                        {[...new Set(purchases.map((p) => p.vendor_name).filter(Boolean))].map((v) => (
+                          <SelectItem key={v} value={v}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Date Range
-                  </p>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-[10px] text-gray-500 mb-1 block">
-                        From
-                      </label>
-                      <Input
-                        type="date"
-                        value={dateFilter.from}
-                        onChange={(e) =>
-                          setDateFilter((prev) => ({
-                            ...prev,
-                            from: e.target.value,
-                          }))
-                        }
-                        className="h-7 text-[10px]"
-                      />
+                  {/* Amount Range — Advanced filter */}
+                  {/* <div className="col-span-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                      <IndianRupee className="h-3 w-3 text-emerald-500" /> Amount Range
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] text-gray-500 block mb-0.5">Min ₹</label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={amountFilter.min}
+                          onChange={(e) => setAmountFilter((prev) => ({ ...prev, min: e.target.value }))}
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-gray-500 block mb-0.5">Max ₹</label>
+                        <Input
+                          type="number"
+                          placeholder="Any"
+                          value={amountFilter.max}
+                          onChange={(e) => setAmountFilter((prev) => ({ ...prev, max: e.target.value }))}
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] text-gray-500 mb-1 block">
-                        To
-                      </label>
-                      <Input
-                        type="date"
-                        value={dateFilter.to}
-                        onChange={(e) =>
-                          setDateFilter((prev) => ({
-                            ...prev,
-                            to: e.target.value,
-                          }))
-                        }
-                        className="h-7 text-[10px]"
-                      />
+                  </div> */}
+
+                  {/* Date Range */}
+                  <div className="col-span-2 mt-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                      Purchase Date
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-0.5">From Date</label>
+                        <Input
+                          type="date"
+                          value={dateFilter.from}
+                          onChange={(e) => setDateFilter((prev) => ({ ...prev, from: e.target.value }))}
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-0.5">To Date</label>
+                        <Input
+                          type="date"
+                          value={dateFilter.to}
+                          onChange={(e) => setDateFilter((prev) => ({ ...prev, to: e.target.value }))}
+                          className="h-7 text-[10px]"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2246,8 +2244,8 @@ const loadInventoryMappings = useCallback(async () => {
           if (!v) setShowForm(false);
         }}
       >
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">New Material Purchase</h2>
               <p className="text-xs text-blue-100">
@@ -2261,7 +2259,7 @@ const loadInventoryMappings = useCallback(async () => {
             </DialogClose>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+          <div className="p-2 overflow-y-auto max-h-[75vh] space-y-5">
             {/* Basic Info */}
             <div>
               <SH
@@ -2269,19 +2267,33 @@ const loadInventoryMappings = useCallback(async () => {
                 title="Purchase Info"
               />
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                <div>
-                  <label className={L}>
-                    Vendor Name <span className="text-red-400">*</span>
-                  </label>
-                  <Input
-                    className={F}
-                    placeholder="Vendor name"
-                    value={formData.vendor_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vendor_name: e.target.value })
-                    }
-                  />
-                </div>
+               <div>
+  <label className={L}>
+    Vendor Name <span className="text-red-400">*</span>
+  </label>
+  <Select
+    value={formData.vendor_name}
+    onValueChange={(v) => {
+      const selected = vendors.find((vendor) => vendor.name === v);
+      setFormData({
+        ...formData,
+        vendor_name: v,
+        vendor_phone: selected?.phone || "",
+      });
+    }}
+  >
+    <SelectTrigger className={F}>
+      <SelectValue placeholder="Select vendor" />
+    </SelectTrigger>
+    <SelectContent>
+      {vendors.map((vendor) => (
+        <SelectItem key={vendor.id} value={vendor.name}>
+          {vendor.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
                 <div>
                   <label className={L}>Vendor Phone</label>
                   <Input
@@ -2428,7 +2440,7 @@ const loadInventoryMappings = useCallback(async () => {
                   size="sm"
                   variant="outline"
                   onClick={addLineItem}
-                  className="h-7 text-[10px] border-blue-200 text-blue-600 hover:bg-blue-50"
+                  className="h-7 text-[10px] border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-400"
                 >
                   <Plus className="h-3 w-3 mr-1" /> Add Item
                 </Button>

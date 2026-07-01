@@ -2603,7 +2603,7 @@ const totals = useMemo(() => {
     {/* HEADER */}
     <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <SlidersHorizontal className="w-4 h-4 text-white" />
+        <Filter className="w-4 h-4 text-white" />
         <span className="text-sm font-semibold text-white">Advanced Filters</span>
         {activeFiltersCount > 0 && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
@@ -3238,7 +3238,7 @@ const totals = useMemo(() => {
           {/* ── TABLE CONTAINER WITH SINGLE HORIZONTAL SCROLL ── */}
  <div className="flex-1 min-h-0">
   <div className="overflow-auto" style={{ overflowX: "auto", overflowY: "auto", height: "calc(100vh - 250px)" }}>
-<table className="border-separate border-spacing-0 border border-gray-200" style={{ minWidth: "800px", width: "100%" }}>
+<table className="border-collapse border border-gray-200" style={{ minWidth: "800px", width: "100%" }}>
       <thead className="bg-gray-100 border-b border-gray-200" style={{ position: "sticky", top: 0, zIndex: 30 }}>
         {/* ── Column Title Row ── */}
         <tr className="border-b border-gray-200">
@@ -3253,16 +3253,17 @@ const totals = useMemo(() => {
             </button>
           </th>
           {/* Sticky: ACTIONS */}
-       <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-24 border-r border-gray-200 border-b static lg:sticky lg:left-8 lg:z-40">
+    <th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 border-b static lg:sticky lg:left-8 lg:z-40 ${activeTab === "vacated" ? "w-28" : "w-24"}`}>
   ACTIONS
 </th>
 
-<th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b static lg:sticky lg:left-[128px] lg:z-40">STATUS</th>
+<th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>STATUS</th>
 
           {/* Sticky: NAME */}
-       <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40 border-r border-gray-200 border-b static lg:sticky lg:left-[272px] lg:z-40">
+       <th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40 border-r border-gray-200 border-b static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
   NAME
 </th>
+
           {/* Scrollable columns */}
           <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-14 border-r border-gray-200 border-b">CONTACT</th>
           <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-20 border-r border-gray-200 border-b">CHECK-IN DATE</th>
@@ -3283,7 +3284,7 @@ const totals = useMemo(() => {
         <tr className="border-t border-gray-200 bg-white">
 <td className="bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200 static lg:sticky lg:left-0 lg:z-40" />
 <td className="bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:left-8 lg:z-40" />
-<td className="bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:left-[128px] lg:z-40">
+<td className={`bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>
             <Input
               placeholder="Status..."
               value={columnSearch.status}
@@ -3291,7 +3292,7 @@ const totals = useMemo(() => {
               className="h-6 text-[10px] w-full border-gray-200"
             />
           </td>
-<td className="bg-white px-1 py-1 border-r border-gray-200 static lg:sticky lg:left-[272px] lg:z-40">
+<td className={`bg-white px-1 py-1 border-r border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
             <Input
               placeholder="Name..."
               value={columnSearch.name}
@@ -3551,12 +3552,13 @@ const totalRefunded = payments
             const hasAssignment = !!(tenant.current_assignment || tenant.assigned_room_id);
 
             return (
-              <tr
-                key={tenant.id}
-                className={`border-b border-gray-200 hover:bg-blue-50 transition-colors group ${rowBg}`}
-              >
+            <tr
+  key={tenant.id}
+  className={`hover:bg-blue-50 transition-colors group ${rowBg}`}
+  style={{ borderBottom: "1px solid #e5e7eb" }}
+>
                 {/* ── Sticky: Checkbox ── */}
-<td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
+<td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-b border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
                   <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
                     {selectedTenantIds.includes(String(tenant.id)) ? (
                       <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
@@ -3567,7 +3569,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── Sticky: Actions ── */}
-<td className={`${rowBg} group-hover:bg-blue-100  px-1 py-2 border-r border-gray-200 bg-white static lg:sticky lg:left-8 lg:z-10`}>
+<td className={`${rowBg} group-hover:bg-blue-100 px-1 py-2 border-r border-b border-gray-200 bg-white static lg:sticky lg:left-8 lg:z-10`}>
                   <div className="flex items-center justify-center gap-1.5">
                    {/* Share credentials icon */}
 <button
@@ -3649,7 +3651,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── STATUS (now scrollable) ── */}
-<td className={`${rowBg} group-hover:bg-blue-100 px-2 py-2 static lg:sticky lg:left-[128px] lg:z-10`} style={{ boxShadow: " inset -1px 0 0 0 #e5e7eb" }}>
+<td className={`${rowBg} group-hover:bg-blue-100 px-2 py-2 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`} style={{ boxShadow: "inset -1px 0 0 0 #e5e7eb" }}>
                   <div className="flex whitespace-nowrap gap-1">
                     <Badge className={`text-[7px] px-1.5 py-0 h-4 font-semibold ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
                       {tenant.is_active ? "Active" : "Inactive"}
@@ -3676,7 +3678,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── NAME ── */}
-<td className={`${rowBg} group-hover:bg-blue-100  px-1 py-1 border-r border-gray-200 static lg:sticky lg:left-[272px] lg:z-10`}>
+<td className={`${rowBg} group-hover:bg-blue-100 px-1 py-1 border-r border-gray-200 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
                   <Link href={`/admin/tenants/${tenant.id}`} className="flex items-center gap-1.5">
                     {tenant.photo_url ? (
                       <img src={tenant.photo_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />
