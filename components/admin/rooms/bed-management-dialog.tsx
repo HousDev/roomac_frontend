@@ -366,7 +366,7 @@ function TenantSelectDropdown({
 
   // Get selected tenant
   const selectedTenant = tenants.find((t) => t.id.toString() === value);
-  const isSelectedTenantCouple = selectedTenant?.couple_id != null && selectedTenant?.is_couple_booking === true;
+  // const isSelectedTenantCouple = selectedTenant?.couple_id != null && selectedTenant?.is_couple_booking === true;
 
   // Apply search filter
   const searchedTenants = React.useMemo(() => {
@@ -522,7 +522,7 @@ function TenantSelectDropdown({
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2 flex-wrap">
                             {tenant.full_name}
-                            {tenant.couple_id && (
+                            {tenant.couple_id && !isSingleFromCouple(tenant, tenants) &&(
                               <Badge
                                 variant="outline"
                                 className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-pink-50 text-pink-700 border-pink-200 ml-1"
@@ -591,7 +591,7 @@ function TenantSelectDropdown({
       </Select>
 
       {/* Couple Checkbox - Only show when room allows couples AND tenant is a couple */}
-      {roomGenderPreferences.some((pref) => pref.toLowerCase() === "couples") &&
+      {/* {roomGenderPreferences.some((pref) => pref.toLowerCase() === "couples") &&
         selectedTenant && (
           <div className="flex items-center space-x-2 mt-3">
             <input
@@ -621,7 +621,7 @@ function TenantSelectDropdown({
               Mark as Couple Booking
             </Label>
           </div>
-        )}
+        )} */}
 
       {/* Custom Rent Input */}
       {selectedTenant && (
@@ -820,12 +820,11 @@ function BedCard({
   isAssigning: boolean;
   onAssignClick: () => void;
   onUpdateClick: (
-    bedAssignment: any,
-    tenantId: string,
-    customRent?: string,
-    isCouple?: boolean,
-    customSecurityDeposit?: string,
-  ) => void;
+  bedAssignment: any,
+  tenantId: string,
+  customRent?: string,
+  customSecurityDeposit?: string,
+) => void;
   onEditClick: (assignment: any, tenantDetails: any) => void;
   onEditSuccess: () => void;
   onDeleteClick?: () => void;
@@ -882,17 +881,13 @@ function BedCard({
   }, [isAssigning, room.rent_per_bed, bedRent, assignment]);
 
   const handleUpdateClick = () => {
-    const selectedTenant = tenants.find(
-      (t) => t.id.toString() === selectedTenantId,
-    );
-    onUpdateClick(
-      assignment,
-      selectedTenantId,
-      customRent,
-      isCouple,
-      customSecurityDepositLocal,
-    );
-  };
+  onUpdateClick(
+    assignment,
+    selectedTenantId,
+    customRent,
+    customSecurityDepositLocal,
+  );
+};
 
   const displayRent = assignment?.tenant_rent || room.rent_per_bed;
 
@@ -977,7 +972,7 @@ function BedCard({
                   </span>
                 </div>
 
-                {Boolean(assignment.is_couple) && (() => {
+                {Boolean(assignment.is_couple) &&  (() => {
                   const partnerName = tenantDetails?.partner_full_name;
                   const partnerPhone = tenantDetails?.partner_phone;
                   const partnerGender = tenantDetails?.partner_gender;
@@ -1579,7 +1574,6 @@ const handlePreAssign = async (
   tenantId: string,
   rent?: string,
   deposit?: string,
-  isCouple?: boolean,
 ) => {
   if (!tenantId.trim()) {
     toast.error("Please select a tenant");
@@ -1593,34 +1587,16 @@ const handlePreAssign = async (
   }
 
   const tenantIdNum = parseInt(tenantId);
-  const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-  const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
+  const effectiveIsCouple =
+    tenant.couple_id != null && tenant.is_couple_booking === true;
 
-  if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
-    toast.error("Please check 'Mark as Couple Booking' before assigning.");
-    return false;
-  }
-
-  const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-
-  // ✅ NEW: same validation as normal bed assignment
+  // Same validation used for live assignment — check-in date, property match,
+  // and (if couple) partner_full_name/phone/gender — applied identically to
+  // pre-assignment so a bad pre-assign can't slip through.
   const validation = validateTenantForAssignment(tenant, room, effectiveIsCouple, tenants);
   if (!validation.valid) {
     toast.error(validation.message);
     return false;
-  }
-
-  if (effectiveIsCouple && !isTenantCouple) {
-    if (!tenant.partner_full_name || !tenant.partner_phone) {
-      toast.error(
-        `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-        { duration: 5000 }
-      );
-      return false;
-    }
-    if (!tenant.partner_gender) {
-      toast.warning(`Partner gender is missing for "${tenant.full_name}". Please update partner details.`, { duration: 4000 });
-    }
   }
 
   try {
@@ -1636,10 +1612,9 @@ const handlePreAssign = async (
       toast.success("Tenant pre-assigned successfully");
       await refreshRoomData();
       return true;
-    } else {
-      toast.error(result.message || "Failed to pre-assign tenant");
-      return false;
     }
+    toast.error(result.message || "Failed to pre-assign tenant");
+    return false;
   } catch (err: any) {
     toast.error(err.message || "Failed to pre-assign tenant");
     return false;
@@ -1910,69 +1885,184 @@ const getBedStatus = useCallback((bedNumber: number) => {
     };
   };
 
+// const getCorrectPartnerDetails = (tenant: Tenant) => {
+//     // ✅ Treat partner as gone if THIS tenant's own record says so
+//     // (this field comes from /api/tenants/:id → getTenantWithPartner,
+//     // which checks the partner's vacate_records — same source tenant-form uses)
+//     if (tenant.partner_is_active === false || tenant.partner_has_vacated === true) {
+//       return {
+//         partner_full_name: '',
+//         partner_phone: '',
+//         partner_email: '',
+//         partner_gender: '',
+//         partner_relationship: tenant.partner_relationship || 'Spouse',
+//       };
+//     }
+
+//     if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
+//       const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
+      
+//       if (partnerTenant) {
+//         return {
+//           partner_full_name: partnerTenant.full_name,
+//           partner_phone: partnerTenant.phone || '',
+//           partner_email: partnerTenant.email || '',
+//           partner_gender: partnerTenant.gender || '',
+//           partner_relationship: tenant.partner_relationship || 'Spouse',
+//         };
+//       }
+//     }
+    
+//     const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
+    
+//     if (primaryTenant) {
+//       return {
+//         partner_full_name: primaryTenant.full_name,
+//         partner_phone: primaryTenant.phone || '',
+//         partner_email: primaryTenant.email || '',
+//         partner_gender: primaryTenant.gender || '',
+//         partner_relationship: tenant.partner_relationship || 'Spouse',
+//       };
+//     }
+    
+//     if (tenant.couple_id) {
+//       const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
+      
+//       if (coupleTenants.length > 0) {
+//         const partnerTenant = coupleTenants[0];
+//         return {
+//           partner_full_name: partnerTenant.full_name,
+//           partner_phone: partnerTenant.phone || '',
+//           partner_email: partnerTenant.email || '',
+//           partner_gender: partnerTenant.gender || '',
+//           partner_relationship: tenant.partner_relationship || 'Spouse',
+//         };
+//       }
+//     }
+    
+//     return {
+//       partner_full_name: tenant.partner_full_name || '',
+//       partner_phone: tenant.partner_phone || '',
+//       partner_email: tenant.partner_email || '',
+//       partner_gender: tenant.partner_gender || '',
+//       partner_relationship: tenant.partner_relationship || 'Spouse',
+//     };
+//   };
+
+
+
 const getCorrectPartnerDetails = (tenant: Tenant) => {
-    // ✅ Treat partner as gone if THIS tenant's own record says so
-    // (this field comes from /api/tenants/:id → getTenantWithPartner,
-    // which checks the partner's vacate_records — same source tenant-form uses)
-    if (tenant.partner_is_active === false || tenant.partner_has_vacated === true) {
-      return {
-        partner_full_name: '',
-        partner_phone: '',
-        partner_email: '',
-        partner_gender: '',
-        partner_relationship: tenant.partner_relationship || 'Spouse',
-      };
+    // ✅ CRITICAL FIX: If tenant is NOT active, they shouldn't show partner details
+    // because they're either vacated or reassigned as solo
+    if (!tenant.is_active) {
+        return {
+            partner_full_name: '',
+            partner_phone: '',
+            partner_email: '',
+            partner_gender: '',
+            partner_relationship: tenant.partner_relationship || 'Spouse',
+        };
     }
 
-    if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
-      const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
-      
-      if (partnerTenant) {
+    // ✅ If tenant is active but has no couple_id and no partner_tenant_id,
+    // they are definitely solo → return empty partner details
+    if (!tenant.couple_id && !tenant.partner_tenant_id) {
         return {
-          partner_full_name: partnerTenant.full_name,
-          partner_phone: partnerTenant.phone || '',
-          partner_email: partnerTenant.email || '',
-          partner_gender: partnerTenant.gender || '',
-          partner_relationship: tenant.partner_relationship || 'Spouse',
+            partner_full_name: '',
+            partner_phone: '',
+            partner_email: '',
+            partner_gender: '',
+            partner_relationship: tenant.partner_relationship || 'Spouse',
         };
-      }
+    }
+
+    // ✅ For ACTIVE tenants, check if the partner exists and is still active
+    if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
+        const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
+        
+        if (partnerTenant) {
+            // ✅ Partner exists - check if they are active AND not vacated
+            if (partnerTenant.is_active && !partnerTenant.is_vacated) {
+                return {
+                    partner_full_name: partnerTenant.full_name || '',
+                    partner_phone: partnerTenant.phone || '',
+                    partner_email: partnerTenant.email || '',
+                    partner_gender: partnerTenant.gender || '',
+                    partner_relationship: tenant.partner_relationship || 'Spouse',
+                };
+            } else {
+                // Partner is inactive or vacated → this tenant is now solo
+                return {
+                    partner_full_name: '',
+                    partner_phone: '',
+                    partner_email: '',
+                    partner_gender: '',
+                    partner_relationship: tenant.partner_relationship || 'Spouse',
+                };
+            }
+        }
     }
     
+    // ✅ Check if this tenant is the partner of someone else (primary tenant lookup)
     const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
     
     if (primaryTenant) {
-      return {
-        partner_full_name: primaryTenant.full_name,
-        partner_phone: primaryTenant.phone || '',
-        partner_email: primaryTenant.email || '',
-        partner_gender: primaryTenant.gender || '',
-        partner_relationship: tenant.partner_relationship || 'Spouse',
-      };
+        // ✅ Primary tenant exists - check if they are active AND not vacated
+        if (primaryTenant.is_active && !primaryTenant.is_vacated) {
+            return {
+                partner_full_name: primaryTenant.full_name || '',
+                partner_phone: primaryTenant.phone || '',
+                partner_email: primaryTenant.email || '',
+                partner_gender: primaryTenant.gender || '',
+                partner_relationship: tenant.partner_relationship || 'Spouse',
+            };
+        } else {
+            // Primary tenant is inactive or vacated → this tenant is now solo
+            return {
+                partner_full_name: '',
+                partner_phone: '',
+                partner_email: '',
+                partner_gender: '',
+                partner_relationship: tenant.partner_relationship || 'Spouse',
+            };
+        }
     }
     
+    // ✅ Fallback: if couple_id exists but no partner found, clear partner details
     if (tenant.couple_id) {
-      const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
-      
-      if (coupleTenants.length > 0) {
-        const partnerTenant = coupleTenants[0];
+        const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
+        
+        if (coupleTenants.length > 0) {
+            const partnerTenant = coupleTenants[0];
+            if (partnerTenant.is_active && !partnerTenant.is_vacated) {
+                return {
+                    partner_full_name: partnerTenant.full_name || '',
+                    partner_phone: partnerTenant.phone || '',
+                    partner_email: partnerTenant.email || '',
+                    partner_gender: partnerTenant.gender || '',
+                    partner_relationship: tenant.partner_relationship || 'Spouse',
+                };
+            }
+        }
+        // No active partner found → clear partner details
         return {
-          partner_full_name: partnerTenant.full_name,
-          partner_phone: partnerTenant.phone || '',
-          partner_email: partnerTenant.email || '',
-          partner_gender: partnerTenant.gender || '',
-          partner_relationship: tenant.partner_relationship || 'Spouse',
+            partner_full_name: '',
+            partner_phone: '',
+            partner_email: '',
+            partner_gender: '',
+            partner_relationship: tenant.partner_relationship || 'Spouse',
         };
-      }
     }
     
+    // ✅ Final fallback: return whatever's stored (will likely be empty)
     return {
-      partner_full_name: tenant.partner_full_name || '',
-      partner_phone: tenant.partner_phone || '',
-      partner_email: tenant.partner_email || '',
-      partner_gender: tenant.partner_gender || '',
-      partner_relationship: tenant.partner_relationship || 'Spouse',
+        partner_full_name: tenant.partner_full_name || '',
+        partner_phone: tenant.partner_phone || '',
+        partner_email: tenant.partner_email || '',
+        partner_gender: tenant.partner_gender || '',
+        partner_relationship: tenant.partner_relationship || 'Spouse',
     };
-  };
+};
 
   // ============================================
   // CHECK EXISTING ASSIGNMENT
@@ -2066,377 +2156,263 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
   // ============================================
   // ASSIGN BED
   // ============================================
-  const handleAssignBed = async (
-    bedNumber: number,
-    tenantId: string,
-    customRent?: string,
-    isCouple?: boolean,
-    customSecurityDeposit?: string,
-  ) => {
-    if (!tenantId.trim()) {
-      toast.error("Please select a tenant");
-      return;
-    }
+const handleAssignBed = async (
+  bedNumber: number,
+  tenantId: string,
+  customRent?: string,
+  customSecurityDeposit?: string,
+) => {
+  if (!tenantId.trim()) {
+    toast.error("Please select a tenant");
+    return;
+  }
 
-    const tenant = tenants.find((t) => t.id.toString() === tenantId);
-    if (!tenant) {
-      toast.error("Invalid tenant selected");
-      return;
-    }
+  const tenant = tenants.find((t) => t.id.toString() === tenantId);
+  if (!tenant) {
+    toast.error("Invalid tenant selected");
+    return;
+  }
 
-    const tenantIdNum = parseInt(tenantId);
-    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
+  const tenantIdNum = parseInt(tenantId);
+  const effectiveIsCouple =
+    tenant.couple_id != null && tenant.is_couple_booking === true;
 
-    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
-    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
-      toast.error("Please check 'Mark as Couple Booking' before assigning.");
-      return;
-    }
+  // validateTenantForAssignment already checks partner_full_name / partner_phone /
+  // partner_gender when isCoupleBooking is true, so this single call covers
+  // check-in date, property match, AND couple completeness.
+  const validation = validateTenantForAssignment(
+    tenant,
+    room,
+    effectiveIsCouple,
+    tenants,
+  );
+  if (!validation.valid) {
+    toast.error(validation.message);
+    return;
+  }
 
-    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-    
-    if (effectiveIsCouple && !isTenantCouple) {
-      if (!tenant.partner_full_name || !tenant.partner_phone) {
-        toast.error(
-          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-          { duration: 5000 }
-        );
-        return;
-      }
-      if (!tenant.partner_gender) {
-        toast.warning(
-          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-          { duration: 4000 }
-        );
-      }
-    }
-    const isCoupleBooking = effectiveIsCouple;
+  try {
+    setSavingBed(bedNumber);
 
-    const validation = validateTenantForAssignment(
-      tenant,
-      room,
-      isCoupleBooking,
-      tenants,
-    );
-    if (!validation.valid) {
-      toast.error(validation.message);
-      return;
-    }
-
-    try {
-      setSavingBed(bedNumber);
-
-      const existingAssignment =
-        await checkTenantExistingAssignment(tenantIdNum);
-
-      if (existingAssignment) {
-        setTransferDetails({
-          bedAssignment: null,
-          newTenant: tenant,
-          existingAssignment: existingAssignment,
-          customRent: customRent,
-          isCouple: isCouple,
-        });
-        setTransferReason(
-          `Moved to Bed ${bedNumber} in Room ${room.room_number}`,
-        );
-        setTransferDialogOpen(true);
-        setSavingBed(null);
-        return;
-      }
-
-      const rentValue =
-        customRent && customRent.trim() !== ""
-          ? parseFloat(customRent)
-          : room.rent_per_bed;
-
-      const tenantGender = tenant.gender as "Male" | "Female" | "Other";
-      const coupleValue = effectiveIsCouple;
-
-      let depositValue = securityDeposit;
-      if (
-        customSecurityDeposit !== undefined &&
-        customSecurityDeposit !== null &&
-        customSecurityDeposit.trim() !== ""
-      ) {
-        const parsedDeposit = parseFloat(customSecurityDeposit);
-        if (!isNaN(parsedDeposit)) {
-          depositValue = parsedDeposit;
-        }
-      }
-
-      const payload: AssignBedPayload = {
-        room_id: room.id,
-        bed_number: bedNumber,
-        tenant_id: tenantIdNum,
-        tenant_gender: tenantGender,
-        tenant_rent: rentValue,
-        security_deposit: customSecurityDeposit
-          ? parseFloat(customSecurityDeposit)
-          : rentValue,
-        is_couple: coupleValue,
-        ...(coupleValue && getCorrectPartnerDetails(tenant)),
-      };
-
-      const result = await assignBed(payload);
-
-      if (result.success) {
-        const partnerDetails = getCorrectPartnerDetails(tenant);
-        const coupleMsg = coupleValue
-          ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
-          : "";
-        toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
-        setSavingBed(null);
-        setAssigningBed(null);
-
-        loadTenantsBasedOnPreferences();
-        refreshRoomData();
-        onOpenChange(false);
-
-        if (onRefresh) onRefresh();
-      } else {
-        toast.error(result.message || "Failed to assign bed");
-        setSavingBed(null);
-      }
-    } catch (err: any) {
-      console.error("Assign bed error:", err);
-      toast.error(err.message || "Failed to assign bed");
-      setSavingBed(null);
-    }
-  };
-
-  // ============================================
-  // UPDATE BED ASSIGNMENT
-  // ============================================
-  const handleUpdateBedAssignment = async (
-    bedAssignment: BedAssignment,
-    tenantId: string,
-    customRent?: string,
-    isCouple?: boolean,
-    customSecurityDeposit?: string,
-  ) => {
-    if (!tenantId.trim()) {
-      toast.error("Please select a tenant");
-      return;
-    }
-
-    const tenant = tenants.find((t) => t.id.toString() === tenantId);
-    if (!tenant) {
-      toast.error("Invalid tenant selected");
-      return;
-    }
-
-    const newTenantId = parseInt(tenantId);
-    const currentTenantId = bedAssignment.tenant_id;
-    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
-
-    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
-    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
-      toast.error("Please check 'Mark as Couple Booking' before assigning.");
-      return;
-    }
-
-    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-
-    if (effectiveIsCouple && !isTenantCouple) {
-      if (!tenant.partner_full_name || !tenant.partner_phone) {
-        toast.error(
-          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-          { duration: 5000 }
-        );
-        return;
-      }
-      if (!tenant.partner_gender) {
-        toast.warning(
-          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-          { duration: 4000 }
-        );
-      }
-    }
-
-    const isCoupleBooking = effectiveIsCouple;
-
-    if (currentTenantId !== newTenantId) {
-      const validation = validateTenantForAssignment(
-        tenant,
-        room,
-        isCoupleBooking,
-        tenants,
-      );
-      if (!validation.valid) {
-        toast.error(validation.message);
-        return;
-      }
-    } else {
-      if (isCoupleBooking) {
-        if (!tenant.partner_full_name || !tenant.partner_phone) {
-          toast.error(
-            `Couple booking requires partner details for "${tenant.full_name}". Please add partner's full name and phone number in tenant profile.`,
-          );
-          return;
-        }
-        if (!tenant.partner_gender) {
-          toast.error(
-            `Couple booking requires partner's gender for "${tenant.full_name}". Please update partner details in tenant profile.`,
-          );
-          return;
-        }
-      }
-    }
-
-    if (currentTenantId === newTenantId) {
-      await updateBedAssignmentDirectly(
-        bedAssignment,
-        tenant,
+    const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
+    if (existingAssignment) {
+      setTransferDetails({
+        bedAssignment: null,
+        newTenant: tenant,
+        existingAssignment,
         customRent,
-        isCouple,
-        customSecurityDeposit,
-      );
-      return;
-    }
-
-    try {
-      setSavingBed(bedAssignment.bed_number);
-
-      const existingAssignment = await checkTenantExistingAssignment(
-        newTenantId,
-        bedAssignment.id,
-      );
-
-      if (existingAssignment) {
-        setTransferDetails({
-          bedAssignment: bedAssignment,
-          newTenant: tenant,
-          existingAssignment: existingAssignment,
-          customRent: customRent,
-          isCouple: isCouple,
-        });
-        setTransferReason(
-          `Transferred to Bed ${bedAssignment.bed_number} in Room ${room.room_number}`,
-        );
-        setTransferDialogOpen(true);
-        setSavingBed(null);
-        return;
-      }
-
-      await updateBedAssignmentDirectly(
-        bedAssignment,
-        tenant,
-        customRent,
-        isCouple,
-        customSecurityDeposit,
-      );
-    } catch (err: any) {
-      console.error("Update bed error:", err);
-      toast.error(err.message || "Failed to update bed assignment");
-    } finally {
+        isCouple: effectiveIsCouple,
+      });
+      setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
+      setTransferDialogOpen(true);
       setSavingBed(null);
-    }
-  };
-
-  // ============================================
-  // UPDATE BED ASSIGNMENT DIRECTLY
-  // ============================================
-  const updateBedAssignmentDirectly = async (
-    bedAssignment: BedAssignment,
-    tenant: Tenant,
-    customRent?: string,
-    isCouple?: boolean,
-    customSecurityDeposit?: string,
-  ) => {
-    const isTenantCouple = tenant.couple_id != null && tenant.is_couple_booking === true;
-    const isSingleFromCoupleCheck = isSingleFromCouple(tenant, tenants);
-
-    // ✅ If tenant is a couple AND NOT a "single from couple" AND checkbox is NOT checked
-    if (isTenantCouple && !isCouple && !isSingleFromCoupleCheck) {
-      toast.error("Please check 'Mark as Couple Booking' before assigning.");
       return;
-    }
-
-    const effectiveIsCouple = isTenantCouple ? true : (isCouple || false);
-
-    if (effectiveIsCouple && !isTenantCouple) {
-      if (!tenant.partner_full_name || !tenant.partner_phone) {
-        toast.error(
-          `"${tenant.full_name}" does not have partner details. Please add partner's full name and phone number in tenant profile first.`,
-          { duration: 5000 }
-        );
-        return;
-      }
-      if (!tenant.partner_gender) {
-        toast.warning(
-          `Partner gender is missing for "${tenant.full_name}". Please update partner details.`,
-          { duration: 4000 }
-        );
-      }
     }
 
     const rentValue =
-      customRent && customRent.trim() !== ""
-        ? parseFloat(customRent)
-        : room.rent_per_bed;
-
+      customRent && customRent.trim() !== "" ? parseFloat(customRent) : room.rent_per_bed;
     const tenantGender = tenant.gender as "Male" | "Female" | "Other";
-    const coupleValue = effectiveIsCouple;
 
-    let depositValue = rentValue;
-    if (
-      customSecurityDeposit !== undefined &&
-      customSecurityDeposit !== null &&
-      customSecurityDeposit.trim() !== ""
-    ) {
-      const parsedDeposit = parseFloat(customSecurityDeposit);
-      if (!isNaN(parsedDeposit)) {
-        depositValue = parsedDeposit;
-      }
-    }
-
-    const partnerDetails = getCorrectPartnerDetails(tenant);
-
-    const payload: UpdateBedAssignmentPayload = {
-      tenant_id: tenant.id,
+    const payload: AssignBedPayload = {
+      room_id: room.id,
+      bed_number: bedNumber,
+      tenant_id: tenantIdNum,
       tenant_gender: tenantGender,
-      is_available: false,
       tenant_rent: rentValue,
-      is_couple: coupleValue,
-      security_deposit: depositValue,
-      ...(coupleValue && {
-        partner_full_name: partnerDetails.partner_full_name,
-        partner_phone: partnerDetails.partner_phone,
-        partner_email: partnerDetails.partner_email,
-        partner_gender: partnerDetails.partner_gender,
-        partner_relationship: partnerDetails.partner_relationship,
-      }),
+      security_deposit: customSecurityDeposit
+        ? parseFloat(customSecurityDeposit)
+        : rentValue,
+      is_couple: effectiveIsCouple,
+      ...(effectiveIsCouple && getCorrectPartnerDetails(tenant)),
     };
 
-    const result = await updateBedAssignment(
-      bedAssignment.id.toString(),
-      payload,
-    );
+    const result = await assignBed(payload);
 
     if (result.success) {
-      const coupleMsg = coupleValue
+      const partnerDetails = getCorrectPartnerDetails(tenant);
+      const coupleMsg = effectiveIsCouple
         ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
         : "";
-      toast.success(
-        `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
-      );
-
+      toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
       setSavingBed(null);
       setAssigningBed(null);
-
       loadTenantsBasedOnPreferences();
       refreshRoomData();
-      
       onOpenChange(false);
-
       if (onRefresh) onRefresh();
     } else {
-      toast.error(result.message || "Failed to update bed assignment");
+      toast.error(result.message || "Failed to assign bed");
+      setSavingBed(null);
     }
+  } catch (err: any) {
+    console.error("Assign bed error:", err);
+    toast.error(err.message || "Failed to assign bed");
+    setSavingBed(null);
+  }
+};
+
+// ============================================
+// UPDATE BED ASSIGNMENT
+// ============================================
+const handleUpdateBedAssignment = async (
+  bedAssignment: BedAssignment,
+  tenantId: string,
+  customRent?: string,
+  customSecurityDeposit?: string,
+) => {
+  if (!tenantId.trim()) {
+    toast.error("Please select a tenant");
+    return;
+  }
+
+  const tenant = tenants.find((t) => t.id.toString() === tenantId);
+  if (!tenant) {
+    toast.error("Invalid tenant selected");
+    return;
+  }
+
+  const newTenantId = parseInt(tenantId);
+  const currentTenantId = bedAssignment.tenant_id;
+  const effectiveIsCouple =
+    tenant.couple_id != null && tenant.is_couple_booking === true;
+
+  // Same validation used everywhere: check-in date, property match, and
+  // (if couple) partner_full_name/phone/gender completeness.
+  const validation = validateTenantForAssignment(
+    tenant,
+    room,
+    effectiveIsCouple,
+    tenants,
+  );
+  if (!validation.valid) {
+    toast.error(validation.message);
+    return;
+  }
+
+  // Same tenant, just editing rent/deposit -> go straight to direct update
+  if (currentTenantId === newTenantId) {
+    await updateBedAssignmentDirectly(
+      bedAssignment,
+      tenant,
+      customRent,
+      customSecurityDeposit,
+    );
+    return;
+  }
+
+  try {
+    setSavingBed(bedAssignment.bed_number);
+
+    const existingAssignment = await checkTenantExistingAssignment(
+      newTenantId,
+      bedAssignment.id,
+    );
+
+    if (existingAssignment) {
+      setTransferDetails({
+        bedAssignment: bedAssignment,
+        newTenant: tenant,
+        existingAssignment: existingAssignment,
+        customRent: customRent,
+        isCouple: effectiveIsCouple,
+      });
+      setTransferReason(
+        `Transferred to Bed ${bedAssignment.bed_number} in Room ${room.room_number}`,
+      );
+      setTransferDialogOpen(true);
+      setSavingBed(null);
+      return;
+    }
+
+    await updateBedAssignmentDirectly(
+      bedAssignment,
+      tenant,
+      customRent,
+      customSecurityDeposit,
+    );
+  } catch (err: any) {
+    console.error("Update bed error:", err);
+    toast.error(err.message || "Failed to update bed assignment");
+  } finally {
+    setSavingBed(null);
+  }
+};
+
+// ============================================
+// UPDATE BED ASSIGNMENT DIRECTLY
+// ============================================
+const updateBedAssignmentDirectly = async (
+  bedAssignment: BedAssignment,
+  tenant: Tenant,
+  customRent?: string,
+  customSecurityDeposit?: string,
+) => {
+  const effectiveIsCouple =
+    tenant.couple_id != null && tenant.is_couple_booking === true;
+
+  const rentValue =
+    customRent && customRent.trim() !== ""
+      ? parseFloat(customRent)
+      : room.rent_per_bed;
+
+  const tenantGender = tenant.gender as "Male" | "Female" | "Other";
+
+  let depositValue = rentValue;
+  if (
+    customSecurityDeposit !== undefined &&
+    customSecurityDeposit !== null &&
+    customSecurityDeposit.trim() !== ""
+  ) {
+    const parsedDeposit = parseFloat(customSecurityDeposit);
+    if (!isNaN(parsedDeposit)) {
+      depositValue = parsedDeposit;
+    }
+  }
+
+  const partnerDetails = getCorrectPartnerDetails(tenant);
+
+  const payload: UpdateBedAssignmentPayload = {
+    tenant_id: tenant.id,
+    tenant_gender: tenantGender,
+    is_available: false,
+    tenant_rent: rentValue,
+    is_couple: effectiveIsCouple,
+    security_deposit: depositValue,
+    ...(effectiveIsCouple && {
+      partner_full_name: partnerDetails.partner_full_name,
+      partner_phone: partnerDetails.partner_phone,
+      partner_email: partnerDetails.partner_email,
+      partner_gender: partnerDetails.partner_gender,
+      partner_relationship: partnerDetails.partner_relationship,
+    }),
   };
+
+  const result = await updateBedAssignment(
+    bedAssignment.id.toString(),
+    payload,
+  );
+
+  if (result.success) {
+    const coupleMsg = effectiveIsCouple
+      ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
+      : "";
+    toast.success(
+      `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
+    );
+
+    setSavingBed(null);
+    setAssigningBed(null);
+
+    loadTenantsBasedOnPreferences();
+    refreshRoomData();
+
+    onOpenChange(false);
+
+    if (onRefresh) onRefresh();
+  } else {
+    toast.error(result.message || "Failed to update bed assignment");
+  }
+};
 
   // ============================================
   // DELETE ASSIGNMENT
@@ -2998,30 +2974,27 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
                           }
                         }}
                         onUpdateClick={(
-                          bedAssignment,
-                          tenantId,
-                          customRent,
-                          isCouple,
-                          customSecurityDeposit,
-                        ) => {
-                          if (bedAssignment) {
-                            handleUpdateBedAssignment(
-                              bedAssignment,
-                              tenantId,
-                              customRent,
-                              isCouple,
-                              customSecurityDeposit,
-                            );
-                          } else {
-                            handleAssignBed(
-                              bedNumber,
-                              tenantId,
-                              customRent,
-                              isCouple,
-                              customSecurityDeposit,
-                            );
-                          }
-                        }}
+  bedAssignment,
+  tenantId,
+  customRent,
+  customSecurityDeposit,
+) => {
+  if (bedAssignment) {
+    handleUpdateBedAssignment(
+      bedAssignment,
+      tenantId,
+      customRent,
+      customSecurityDeposit,
+    );
+  } else {
+    handleAssignBed(
+      bedNumber,
+      tenantId,
+      customRent,
+      customSecurityDeposit,
+    );
+  }
+}}
                         onDeleteClick={() =>
                           assignment && handleDeleteAssignment(assignment)
                         }

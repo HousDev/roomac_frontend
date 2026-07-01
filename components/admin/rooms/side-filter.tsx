@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   Filter, X, Bath, Sun, Wind, Heart, Building2, RefreshCw,
   DoorOpen, Users2, Wifi, Coffee, Car, Shield, Zap, Bed, Home, Layers, Check, Calendar, Clock,
-  Loader2
+  Loader2,
+  FileWarning
 } from 'lucide-react';
 import { consumeMasters } from "@/lib/masterApi";
 import { getActiveNoticePeriods } from "@/lib/noticePeriodApi";
