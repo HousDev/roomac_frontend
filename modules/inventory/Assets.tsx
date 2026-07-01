@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Package, Plus, Trash2, Search, Loader2, X, Download,
   Building, IndianRupee, StickyNote, RefreshCw, Filter,
@@ -36,6 +36,8 @@ import Swal from 'sweetalert2';
 import { deletePurchase, getPurchases } from "@/lib/materialPurchaseApi";
 import * as XLSX from 'xlsx';
 import { useAuth } from "@/context/authContext";
+import { getInventoryMappingsGrouped } from "@/lib/categorySubcategoryMapApi";
+
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -52,6 +54,10 @@ interface InventoryItem {
   notes?: string;
   created_at: string;
   updated_at: string;
+    asset_id?: string;
+  vendor_name?: string;
+  purchase_date?: string;
+  asset_status?: string;
 }
 
 interface MasterCategory { id: string; name: string; }
@@ -116,7 +122,10 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
   const { can } = useAuth(); // ← ADD THIS LINE
-
+const [inventoryMappings, setInventoryMappings] = useState<
+  { category_id: string; category_name: string; subcategories: { subcategory_id: string; subcategory_name: string }[] }[]
+>([]);
+const [mappingsLoading, setMappingsLoading] = useState(true);
   const [colSearch, setColSearch] = useState({
     item_name: '', category: '', property: '', quantity: '', unit_price: '', status: '',
   });
@@ -163,7 +172,8 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const emptyForm = {
     item_name: '', category_id: '', category_name: '',
     property_id: '', property_name: '',
-    quantity: 0, unit_price: 0, min_stock_level: 10, notes: '',
+    quantity: 0, unit_price: 0, min_stock_level: 10, notes: '',vendor_name: '',     
+  purchase_date: '', 
   };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -223,7 +233,19 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
     }
   }, []);
 
-useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, []);
+  const loadInventoryMappings = useCallback(async () => {
+  setMappingsLoading(true);
+  try {
+    const res = await getInventoryMappingsGrouped();
+    setInventoryMappings(res?.data || []);
+  } catch (err) {
+    console.error("Could not load inventory mappings:", err);
+  } finally {
+    setMappingsLoading(false);
+  }
+}, []);
+
+useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); loadInventoryMappings(); }, []);
 useEffect(() => { loadAll(1); }, [loadAll]);
   // ── Filtered items (UNCHANGED) ────────────────────────────────────────────
   const filteredItems = useMemo(() => {
@@ -242,21 +264,52 @@ useEffect(() => { loadAll(1); }, [loadAll]);
     });
   }, [items, colSearch]);
 
+  const groupedItems = useMemo(() => {
+  const groups: Record<string, any> = {};
+  filteredItems.forEach(item => {
+    const key = `${item.item_name}__${item.property_id}`;
+    if (!groups[key]) {
+      groups[key] = {
+        key,
+        item_name: item.item_name,
+        category_name: item.category_name,
+        property_full_name: item.property_full_name,
+        total_quantity: 0,
+        unit_price: item.unit_price, // last known price
+        assets: [],
+      };
+    }
+    groups[key].total_quantity += item.quantity || 1;
+    groups[key].assets.push(item); // individual asset rows
+  });
+  return Object.values(groups);
+}, [filteredItems]);
+
+const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+const toggleGroup = (key: string) =>
+  setExpandedGroups(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+
   // ── CRUD (UNCHANGED) ──────────────────────────────────────────────────────
   const openAdd = () => { setEditingItem(null); setFormData(emptyForm); setShowForm(true); };
-  const openEdit = (item: InventoryItem) => {
-    setEditingItem(item);
-    setFormData({
-      item_name:       item.item_name,
-      category_id:     String(item.category_id),
-      property_id:     String(item.property_id),
-      quantity:        item.quantity,
-      unit_price:      item.unit_price,
-      min_stock_level: item.min_stock_level,
-      notes:           item.notes || '',
-    });
-    setShowForm(true);
-  };
+const openEdit = (item: InventoryItem) => {
+  setEditingItem(item);
+  setFormData({
+    item_name:       item.item_name,
+    category_id:     String(item.category_id),
+    property_id:     String(item.property_id),
+    quantity:        item.quantity,
+    unit_price:      item.unit_price,
+    min_stock_level: item.min_stock_level,
+    notes:           item.notes || '',
+    vendor_name:     item.vendor_name || '',
+    purchase_date:   item.purchase_date ? new Date(item.purchase_date).toISOString().split('T')[0] : '',
+  });
+  setShowForm(true);
+};
 
   const handleSubmit = async () => {
     if (!formData.item_name || !formData.category_id || !formData.property_id) {
@@ -592,26 +645,29 @@ const handleExport = () => {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>
-                      <TableHead className="py-2 px-3 text-xs">Item Name</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Category</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Qty</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Unit Price</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Total Value</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
+                     <TableHead className="py-2 px-3 text-xs">Asset ID</TableHead>
+<TableHead className="py-2 px-3 text-xs">Item Name</TableHead>
+<TableHead className="py-2 px-3 text-xs">Category</TableHead>
+<TableHead className="py-2 px-3 text-xs">Property</TableHead>
+<TableHead className="py-2 px-3 text-xs">Vendor</TableHead>
+<TableHead className="py-2 px-3 text-xs">Purchase Date</TableHead>
+<TableHead className="py-2 px-3 text-xs">Unit Price</TableHead>
+<TableHead className="py-2 px-3 text-xs">Status</TableHead>
+<TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
                     </TableRow>
 
                     {/* Column search */}
                     <TableRow className="bg-gray-50/80">
                       {[
-                        { key: 'item_name',  ph: 'Search name…' },
-                        { key: 'category',   ph: 'Search cat…' },
-                        { key: 'property',   ph: 'Search prop…' },
-                        { key: 'quantity',   ph: 'Qty…' },
-                        { key: 'unit_price', ph: 'Price…' },
-                        { key: null,         ph: '' },
-                        { key: 'status',     ph: 'ok/low/out' },
+  { key: null,         ph: '' },           // asset_id
+  { key: 'item_name',  ph: 'Search name…' },
+  { key: 'category',   ph: 'Search cat…' },
+  { key: 'property',   ph: 'Search prop…' },
+  { key: null,         ph: '' },           // vendor
+  { key: null,         ph: '' },           // purchase date
+  { key: 'unit_price', ph: 'Price…' },
+  { key: 'status',     ph: 'available/assigned' },
+
                       ].map((col, idx) => (
                         <TableCell key={idx} className="py-1 px-2">
                           {col.key ? (
@@ -643,55 +699,82 @@ const handleExport = () => {
                           <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
                         </TableCell>
                       </TableRow>
-                    ) : filteredItems.map(item => {
-                      const total = item.quantity * item.unit_price;
-                      return (
-                        <TableRow key={item.id} className="hover:bg-gray-50">
-                          <TableCell className="py-2 px-3 text-xs font-medium">{item.item_name}</TableCell>
-                          <TableCell className="py-2 px-3 text-xs text-gray-600">{item.category_name || '-'}</TableCell>
-                          <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[160px] truncate">
-                            {item.property_full_name || '-'}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs font-semibold">
-                            <span className={
-                              item.quantity === 0 ? 'text-red-600' :
-                              item.quantity <= item.min_stock_level ? 'text-orange-600' : 'text-gray-800'
-                            }>
-                              {item.quantity}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs">
-                            ₹{Number(item.unit_price).toLocaleString('en-IN')}
-                          </TableCell>
-                          <TableCell className="py-2 px-3 text-xs font-semibold text-gray-800">
-                            ₹{total.toLocaleString('en-IN')}
-                          </TableCell>
-                          <TableCell className="py-2 px-3">{stockBadge(item)}</TableCell>
-                          <TableCell className="py-2 px-3">
-                            <div className="flex justify-end gap-1">
-                                  {can('edit_assets') && (
+                  ) : groupedItems.map((group: any) => {
+  const isExpanded = expandedGroups.has(group.key);
+  return (
+    <React.Fragment key={group.key}>
+      {/* Parent/summary row */}
+      <TableRow
+        className="hover:bg-gray-50 cursor-pointer bg-blue-50/30"
+        onClick={() => toggleGroup(group.key)}
+      >
+        <TableCell className="py-2 px-3">
+          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </TableCell>
+        <TableCell className="py-2 px-3 text-xs font-semibold">{group.item_name}</TableCell>
+        <TableCell className="py-2 px-3 text-xs text-gray-600">{group.category_name || '-'}</TableCell>
+        <TableCell className="py-2 px-3 text-xs text-gray-600">{group.property_full_name || '-'}</TableCell>
+        <TableCell className="py-2 px-3 text-xs text-gray-400">-</TableCell>
+        <TableCell className="py-2 px-3 text-xs text-gray-400">-</TableCell>
+        <TableCell className="py-2 px-3 text-xs font-bold">
+          ₹{Number(group.unit_price).toLocaleString('en-IN')}
+        </TableCell>
+        <TableCell className="py-2 px-3">
+          <Badge className="bg-indigo-100 text-indigo-700 text-[9px] px-1.5">
+            {group.total_quantity} units
+          </Badge>
+        </TableCell>
+        <TableCell className="py-2 px-3"></TableCell>
+      </TableRow>
 
-                              <Button size="sm" variant="ghost"
-                                className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                onClick={() => openEdit(item)} title="Edit">
-                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </Button>
-                                  )}
-                                      {can('delete_assets') && (
-
-                              <Button size="sm" variant="ghost"
-                                className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                                onClick={() => handleDelete(item.id)} title="Delete">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                                      )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+      {/* Expanded child rows — individual assets */}
+      {isExpanded && group.assets.map((item: any) => (
+        <TableRow key={item.id} className="bg-gray-50/50 hover:bg-gray-100">
+          <TableCell className="py-1.5 px-3"></TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px] font-mono text-blue-700 pl-6">
+            ↳ {item.asset_id || '-'}
+          </TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px] text-gray-500">{item.category_name || '-'}</TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px] text-gray-500">{item.property_full_name || '-'}</TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px] text-gray-500">{item.vendor_name || '-'}</TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px] text-gray-500">
+            {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString('en-IN') : '-'}
+          </TableCell>
+          <TableCell className="py-1.5 px-3 text-[11px]">
+            ₹{Number(item.unit_price).toLocaleString('en-IN')}
+          </TableCell>
+          <TableCell className="py-1.5 px-3">
+            <Badge className={`text-[9px] px-1.5 ${
+              item.asset_status === 'assigned' ? 'bg-blue-100 text-blue-700' :
+              item.asset_status === 'maintenance' ? 'bg-orange-100 text-orange-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {item.asset_status || 'available'}
+            </Badge>
+          </TableCell>
+          <TableCell className="py-1.5 px-3">
+            <div className="flex justify-end gap-1">
+              {can('edit_assets') && (
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
+                  onClick={(e) => { e.stopPropagation(); openEdit(item); }}>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </Button>
+              )}
+              {can('delete_assets') && (
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                  onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </React.Fragment>
+  );
+})}
                   </TableBody>
                 </Table>
               </div>
@@ -978,155 +1061,141 @@ const handleExport = () => {
 
       <div>
         <SH icon={<Package className="h-3 w-3" />} title="Item Info" />
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+       <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+  {/* Category Dropdown (using inventoryMappings) */}
+  <div>
+    <label className={L}>Category <span className="text-red-400">*</span></label>
+    <Select
+      value={formData.category_id}
+      onValueChange={(v) => {
+        const selected = inventoryMappings.find((m) => m.category_id === v);
+        setFormData((prev) => ({
+          ...prev,
+          category_id: v,
+          category_name: selected?.category_name || '',
+          item_name: '', // reset item when category changes
+        }));
+      }}
+    >
+      <SelectTrigger className={F}>
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent className="max-h-[300px]">
+        {inventoryMappings.map((m) => (
+          <SelectItem key={m.category_id} value={m.category_id} className={SI}>
+            {m.category_name}
+          </SelectItem>
+        ))}
+        {inventoryMappings.length === 0 && (
+          <SelectItem value="none" disabled>No categories found</SelectItem>
+        )}
+      </SelectContent>
+    </Select>
+  </div>
 
-          {/* Searchable Item Name Dropdown */}
-          <div className="col-span-2">
-            <label className={L}>Item Name <span className="text-red-400">*</span></label>
-            <Select 
-              value={formData.item_name}
-              onValueChange={v => {
-                setFormData(p => ({ ...p, item_name: v }));
-                setItemSearchTerm('');
-              }}
-            >
-              <SelectTrigger className={F}>
-                <SelectValue placeholder="Select purchased item" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                <div className="sticky top-0 bg-white p-2 border-b z-10">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                    <Input
-                      placeholder="Search items..."
-                      className="pl-7 h-7 text-xs"
-                      value={itemSearchTerm}
-                      onChange={(e) => setItemSearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </div>
-                <div className="py-1">
-                  {purchasedItems
-                    .filter(item => item.label.toLowerCase().includes(itemSearchTerm.toLowerCase()))
-                    .map((item, idx) => (
-                      <SelectItem key={idx} value={item.value} className={SI}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  {purchasedItems.filter(item => 
-                    item.label.toLowerCase().includes(itemSearchTerm.toLowerCase())
-                  ).length === 0 && (
-                    <div className="px-2 py-3 text-center">
-                      <p className="text-xs text-gray-400">No items found</p>
-                    </div>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
-          </div>
+  {/* Item Name Dropdown (based on selected category) */}
+  <div>
+    <label className={L}>Item Name <span className="text-red-400">*</span></label>
+    {(() => {
+      const selectedCategory = inventoryMappings.find(
+        (m) => m.category_id === formData.category_id
+      );
+      const subcategories = selectedCategory?.subcategories || [];
 
-          {/* Searchable Category Dropdown */}
-          <div>
-            <label className={L}>Category <span className="text-red-400">*</span></label>
-            <Select 
-              value={formData.category_id}
-              onValueChange={v => {
-                const selected = categories.find(c => String(c.id) === v);
-                setFormData(p => ({ ...p, category_id: v, category_name: selected?.name || '' }));
-                setCategorySearchTerm('');
-              }}
-            >
-              <SelectTrigger className={F}>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                <div className="sticky top-0 bg-white p-2 border-b z-10">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                    <Input
-                      placeholder="Search categories..."
-                      className="pl-7 h-7 text-xs"
-                      value={categorySearchTerm}
-                      onChange={(e) => setCategorySearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </div>
-                <div className="py-1">
-                  {categories.length > 0 ? (
-                    categories
-                      .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
-                      .map(c => (
-                        <SelectItem key={c.id} value={String(c.id)} className={SI}>
-                          {c.name}
-                        </SelectItem>
-                      ))
-                  ) : (
-                    <SelectItem value="__none__" disabled className={SI}>
-                      No categories — add values to "Category" in Masters &gt; Properties
-                    </SelectItem>
-                  )}
-                  {categories.length > 0 && categories.filter(c => 
-                    c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
-                  ).length === 0 && (
-                    <div className="px-2 py-3 text-center">
-                      <p className="text-xs text-gray-400">No categories found</p>
-                    </div>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
-          </div>
+      if (subcategories.length > 0) {
+        return (
+          <Select
+            value={formData.item_name}
+            onValueChange={(v) =>
+              setFormData((prev) => ({ ...prev, item_name: v }))
+            }
+          >
+            <SelectTrigger className={F}>
+              <SelectValue placeholder="Select item" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {subcategories.map((s) => (
+                <SelectItem
+                  key={s.subcategory_id}
+                  value={s.subcategory_name}
+                  className={SI}
+                >
+                  {s.subcategory_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      } else {
+        // Free‑text input if no subcategories are defined
+        return (
+          <Input
+            className={F}
+            placeholder="Enter item name"
+            value={formData.item_name}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, item_name: e.target.value }))
+            }
+          />
+        );
+      }
+    })()}
+  </div>
 
-          {/* Searchable Property Dropdown */}
-          <div>
-            <label className={L}>Property <span className="text-red-400">*</span></label>
-            <Select 
-              value={formData.property_id}
-              onValueChange={v => {
-                const selected = properties.find(p => String(p.id) === v);
-                setFormData(p => ({ ...p, property_id: v, property_name: selected?.name || '' }));
-                setPropertySearchTerm('');
-              }}
-            >
-              <SelectTrigger className={F}>
-                <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
-                <SelectValue placeholder="Select property" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                <div className="sticky top-0 bg-white p-2 border-b z-10">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                    <Input
-                      placeholder="Search properties..."
-                      className="pl-7 h-7 text-xs"
-                      value={propertySearchTerm}
-                      onChange={(e) => setPropertySearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </div>
-                <div className="py-1">
-                  {properties
-                    .filter(p => p.name.toLowerCase().includes(propertySearchTerm.toLowerCase()))
-                    .map(p => (
-                      <SelectItem key={p.id} value={String(p.id)} className={SI}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  {properties.filter(p => 
-                    p.name.toLowerCase().includes(propertySearchTerm.toLowerCase())
-                  ).length === 0 && (
-                    <div className="px-2 py-3 text-center">
-                      <p className="text-xs text-gray-400">No properties found</p>
-                    </div>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
+  {/* Property Dropdown (unchanged, but now spans both columns) */}
+  <div className="col-span-2">
+    <label className={L}>Property <span className="text-red-400">*</span></label>
+    <Select
+      value={formData.property_id}
+      onValueChange={(v) => {
+        const selected = properties.find((p) => String(p.id) === v);
+        setFormData((prev) => ({
+          ...prev,
+          property_id: v,
+          property_name: selected?.name || '',
+        }));
+        setPropertySearchTerm('');
+      }}
+    >
+      <SelectTrigger className={F}>
+        <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
+        <SelectValue placeholder="Select property" />
+      </SelectTrigger>
+      <SelectContent className="max-h-[300px]">
+        <div className="sticky top-0 bg-white p-2 border-b z-10">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Input
+              placeholder="Search properties..."
+              className="pl-7 h-7 text-xs"
+              value={propertySearchTerm}
+              onChange={(e) => setPropertySearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
+        <div className="py-1">
+          {properties
+            .filter((p) =>
+              p.name.toLowerCase().includes(propertySearchTerm.toLowerCase())
+            )
+            .map((p) => (
+              <SelectItem key={p.id} value={String(p.id)} className={SI}>
+                {p.name}
+              </SelectItem>
+            ))}
+          {properties.filter((p) =>
+            p.name.toLowerCase().includes(propertySearchTerm.toLowerCase())
+          ).length === 0 && (
+            <div className="px-2 py-3 text-center">
+              <p className="text-xs text-gray-400">No properties found</p>
+            </div>
+          )}
+        </div>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
       </div>
 
       <div>

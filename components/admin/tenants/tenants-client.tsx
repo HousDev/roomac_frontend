@@ -3238,13 +3238,13 @@ const totals = useMemo(() => {
           {/* ── TABLE CONTAINER WITH SINGLE HORIZONTAL SCROLL ── */}
  <div className="flex-1 min-h-0">
   <div className="overflow-auto" style={{ overflowX: "auto", overflowY: "auto", height: "calc(100vh - 250px)" }}>
-    <table className="border-collapse border border-gray-200" style={{ minWidth: "800px", width: "100%" }}>
+<table className="border-separate border-spacing-0 border border-gray-200" style={{ minWidth: "800px", width: "100%" }}>
       <thead className="bg-gray-100 border-b border-gray-200" style={{ position: "sticky", top: 0, zIndex: 30 }}>
         {/* ── Column Title Row ── */}
         <tr className="border-b border-gray-200">
           {/* Sticky: checkbox */}
-          <th className="bg-gray-50 w-8 px-2 py-2 text-center border-r border-gray-200 border-b">
-            <button onClick={toggleSelectAll} className="flex items-center justify-center w-4 h-4 mx-auto">
+<th className="bg-gray-50 w-8 px-2 py-2 text-center border-r border-gray-200 border-b static lg:sticky lg:left-0 lg:z-40">
+     <button onClick={toggleSelectAll} className="flex items-center justify-center w-4 h-4 mx-auto">
               {selectedTenantIds.length === tenants.length && tenants.length > 0 ? (
                 <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
               ) : (
@@ -3253,15 +3253,16 @@ const totals = useMemo(() => {
             </button>
           </th>
           {/* Sticky: ACTIONS */}
-          <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-16 border-r border-gray-200 border-b">
-            ACTIONS
-          </th>
-          <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b">STATUS</th>
+       <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-24 border-r border-gray-200 border-b static lg:sticky lg:left-8 lg:z-40">
+  ACTIONS
+</th>
+
+<th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b static lg:sticky lg:left-[128px] lg:z-40">STATUS</th>
 
           {/* Sticky: NAME */}
-          <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 border-b">
-            NAME
-          </th>
+       <th className="bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40 border-r border-gray-200 border-b static lg:sticky lg:left-[272px] lg:z-40">
+  NAME
+</th>
           {/* Scrollable columns */}
           <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-14 border-r border-gray-200 border-b">CONTACT</th>
           <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-20 border-r border-gray-200 border-b">CHECK-IN DATE</th>
@@ -3280,9 +3281,9 @@ const totals = useMemo(() => {
 
         {/* ── Search Inputs Row ── */}
         <tr className="border-t border-gray-200 bg-white">
-          <td className="bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200" />
-          <td className="bg-white px-2 py-1.5 border-r border-gray-200" />
-          <td className="px-2 py-1.5 border-r border-gray-200">
+<td className="bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200 static lg:sticky lg:left-0 lg:z-40" />
+<td className="bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:left-8 lg:z-40" />
+<td className="bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:left-[128px] lg:z-40">
             <Input
               placeholder="Status..."
               value={columnSearch.status}
@@ -3290,7 +3291,7 @@ const totals = useMemo(() => {
               className="h-6 text-[10px] w-full border-gray-200"
             />
           </td>
-          <td className="bg-white px-1 py-1 border-r border-gray-200">
+<td className="bg-white px-1 py-1 border-r border-gray-200 static lg:sticky lg:left-[272px] lg:z-40">
             <Input
               placeholder="Name..."
               value={columnSearch.name}
@@ -3555,7 +3556,7 @@ const totalRefunded = payments
                 className={`border-b border-gray-200 hover:bg-blue-50 transition-colors group ${rowBg}`}
               >
                 {/* ── Sticky: Checkbox ── */}
-                <td className={`${rowBg} group-hover:bg-blue-50 w-8 px-2 py-2 text-center border-r border-gray-200`}>
+<td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
                   <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
                     {selectedTenantIds.includes(String(tenant.id)) ? (
                       <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
@@ -3566,7 +3567,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── Sticky: Actions ── */}
-                <td className={`${rowBg} group-hover:bg-blue-100/40 px-1 py-2 border-r border-gray-200 bg-white`}>
+<td className={`${rowBg} group-hover:bg-blue-100  px-1 py-2 border-r border-gray-200 bg-white static lg:sticky lg:left-8 lg:z-10`}>
                   <div className="flex items-center justify-center gap-1.5">
                    {/* Share credentials icon */}
 <button
@@ -3648,7 +3649,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── STATUS (now scrollable) ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+<td className={`${rowBg} group-hover:bg-blue-100 px-2 py-2 static lg:sticky lg:left-[128px] lg:z-10`} style={{ boxShadow: " inset -1px 0 0 0 #e5e7eb" }}>
                   <div className="flex whitespace-nowrap gap-1">
                     <Badge className={`text-[7px] px-1.5 py-0 h-4 font-semibold ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
                       {tenant.is_active ? "Active" : "Inactive"}
@@ -3675,7 +3676,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── NAME ── */}
-                <td className={`${rowBg} group-hover:bg-blue-50/60 px-1 py-1 border-r border-gray-200`}>
+<td className={`${rowBg} group-hover:bg-blue-100  px-1 py-1 border-r border-gray-200 static lg:sticky lg:left-[272px] lg:z-10`}>
                   <Link href={`/admin/tenants/${tenant.id}`} className="flex items-center gap-1.5">
                     {tenant.photo_url ? (
                       <img src={tenant.photo_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />
@@ -3716,7 +3717,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── Contact ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
                   <div className="text-[10px] text-gray-700 whitespace-nowrap">
                     <a href={`tel:${tenant.country_code || ""}${tenant.phone || ""}`} className="hover:text-blue-600">
                       {tenant.country_code} {tenant.phone}
@@ -3725,7 +3726,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── Check-in Date ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
                   <div className="text-[10px] text-gray-700 whitespace-nowrap">
                     {checkInDate}
                   </div>
@@ -3733,7 +3734,7 @@ const totalRefunded = payments
 
                 {/* ── Vacated Date ── */}
                 {(activeTab === "vacated" || activeTab === "deleted") && (
-                  <td className="px-2 py-2 text-[10px] text-gray-600 whitespace-nowrap border-r border-gray-200">
+                  <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 text-[10px] text-gray-600 whitespace-nowrap border-r border-gray-200">
                    {(tenant.has_vacated || tenant.is_vacated) && vacateRecord?.requested_vacate_date ? (
                       new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
                         day: "2-digit",
@@ -3745,7 +3746,7 @@ const totalRefunded = payments
                 )}
 
                 {/* ── Property & Room ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
                   {(() => {
                     // For vacated tab: show OLD room from vacate record
                     // For all tenants tab: show current assignment
@@ -3783,25 +3784,28 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── Monthly Rent ── */}
-                <td className="px-2 py-2 whitespace-nowrap border-r border-gray-200">
-                  {isPartner ? (
-                    <div className="text-[10px] text-gray-400 italic">
-                      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-[11px] font-semibold text-green-600">
-                        ₹{monthlyRent.toLocaleString()}
-                      </div>
-                      {monthlyRent === 0 && (
-                        <div className="text-[9px] text-gray-400">Not set</div>
-                      )}
-                    </>
-                  )}
-                </td>
+               <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 whitespace-nowrap border-r border-gray-200">
+  {isPartner ? (
+    <div className="text-[10px] text-gray-400 italic">
+      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ""}
+    </div>
+  ) : (
+    <div className="flex items-center gap-1">
+      <span className="text-[11px] font-semibold text-green-600">
+        ₹{monthlyRent.toLocaleString()}
+      </span>
+
+      {monthlyRent === 0 && (
+        <span className="text-[9px] text-gray-400">
+          Not set
+        </span>
+      )}
+    </div>
+  )}
+</td>
 
                 {/* ── Security Deposit ── */}
-                <td className="px-2 py-2 whitespace-nowrap border-r border-gray-200">
+                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 whitespace-nowrap border-r border-gray-200">
                   {isPartner ? (
                     <div className="text-[10px] text-gray-400 italic">
                       Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
@@ -3822,7 +3826,7 @@ const totalRefunded = payments
 
                 {/* ── REFUND AMOUNT (vacated/deleted tab only) ── */}
                 {(activeTab === "vacated" || activeTab === "deleted") && (
-                  <td className={`${rowBg} group-hover:bg-blue-50/60 px-1 py-1.5 border-r border-gray-200 whitespace-nowrap`}
+                  <td className={`${rowBg} group-hover:bg-blue-100 px-1 py-1.5 border-r border-gray-200 whitespace-nowrap`}
                     style={{ width: "80px" }}>
                     {refundableAmount > 0 ? (
                       <>
@@ -3847,7 +3851,7 @@ const totalRefunded = payments
                 )}
 
                 {/* ── Payments (includes refund info and pending deposit badge) ── */}
-<td className="px-2 py-2 border-r border-gray-200">
+<td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
   {isPartner ? (
     <div className="text-[10px] text-gray-400 italic whitespace-nowrap">
       Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
@@ -3927,7 +3931,7 @@ const totalRefunded = payments
 </td>
 
                 {/* ── Location ── */}
-                <td className="px-2 py-2 border-r border-gray-200">
+                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
                   <div className="text-[10px] text-gray-500 whitespace-nowrap">
                     {[tenant.city, tenant.state].filter(Boolean).join(", ") || "—"}
                   </div>

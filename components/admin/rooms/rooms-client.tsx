@@ -69,6 +69,8 @@ interface FilterState {
   search: string;
   property_ids: string[];
   room_types: string[];
+    sharing_types: string[];
+
   gender_preferences: string[];
   amenities: string[];
   has_attached_bathroom: boolean | undefined;
@@ -81,8 +83,19 @@ interface FilterState {
   max_capacity: number;
   is_active: boolean;
   floors: number[];
+  available_from_date: string;
+  available_to_date: string;
 }
 
+// Safely normalize MySQL boolean-ish values (handles 0/1, "0"/"1", true/false, Buffer)
+const toBool = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  if (typeof val === "boolean") return val;
+  if (typeof val === "number") return val === 1;
+  if (typeof val === "string") return val === "1" || val.toLowerCase() === "true";
+  if (Buffer.isBuffer?.(val)) return val[0] === 1;
+  return Boolean(val);
+};
 export default function RoomsClient({
   initialRooms,
   initialProperties,
@@ -493,12 +506,12 @@ export default function RoomsClient({
       if (!room) return false;
 
       // Property filter
-      const propertyIds = advancedFilters?.property_ids ?? [];
-      if (propertyIds.length > 0) {
-        if (!propertyIds.some((id) => String(id) === String(room.property_id))) {
-          return false;
-        }
-      }
+     const propertyIds = advancedFilters?.property_ids ?? [];
+if (propertyIds.length > 0) {
+  if (!propertyIds.some((id) => String(id) === String(room.property_id))) {
+    return false;
+  }
+}
 
       // Room type filter
       const roomTypes = Array.isArray(advancedFilters?.room_types)
@@ -506,6 +519,15 @@ export default function RoomsClient({
         : [];
       if (roomTypes.length > 0) {
         if (!roomTypes.includes(room.room_type) && !roomTypes.includes(room.sharing_type)) {
+          return false;
+        }
+      }
+        // Sharing type filter
+      const sharingTypes = Array.isArray((advancedFilters as any)?.sharing_types)
+        ? (advancedFilters as any).sharing_types
+        : [];
+      if (sharingTypes.length > 0) {
+        if (!sharingTypes.includes(room.sharing_type)) {
           return false;
         }
       }
@@ -523,25 +545,26 @@ export default function RoomsClient({
       }
 
       // Availability filter
-      if (
-        advancedFilters?.availability_status &&
-        advancedFilters.availability_status !== "any"
-      ) {
-        const occupied = room.occupied_beds || 0;
-        const total = room.total_bed || 0;
-        if (
-          advancedFilters.availability_status === "available" &&
-          occupied !== 0
-        )
-          return false;
-        if (
-          advancedFilters.availability_status === "partial" &&
-          (occupied === 0 || occupied >= total)
-        )
-          return false;
-        if (advancedFilters.availability_status === "full" && occupied < total)
-          return false;
-      }
+   // Availability filter
+// Availability filter
+if (
+  advancedFilters?.availability_status &&
+  advancedFilters.availability_status !== "any"
+) {
+  const occupied = Number(room.occupied_beds) || 0;
+  const total = Number(room.total_bed) || 0;
+  const status = advancedFilters.availability_status;
+
+  if (status === "available" && occupied >= total) {
+    return false; // must have at least one free bed
+  }
+  if (status === "partial" && (occupied === 0 || occupied >= total)) {
+    return false; // must be partially occupied
+  }
+  if (status === "full" && occupied !== 0) {
+    return false; // must be completely empty
+  }
+}
 
       // Amenities filter
       const advAmenities = advancedFilters?.amenities ?? [];
@@ -551,41 +574,72 @@ export default function RoomsClient({
       }
 
       // Floor filter
-if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
-  if (!advancedFilters.floors.includes(room.floor)) {
-    return false;
-  }
+ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
+        if (!advancedFilters.floors.map(String).includes(String(room.floor))) {
+          return false;
+        }
+      }
+
+
+
+      // Available From/To date range filter
+if (advancedFilters?.available_from_date || advancedFilters?.available_to_date) {
+  const rangeStart = advancedFilters.available_from_date
+    ? new Date(advancedFilters.available_from_date)
+    : new Date();
+  rangeStart.setHours(0, 0, 0, 0);
+
+  const rangeEnd = advancedFilters.available_to_date
+    ? new Date(advancedFilters.available_to_date)
+    : new Date(advancedFilters.available_from_date || advancedFilters.available_to_date);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  const beds = room.bed_assignments || [];
+  const hasMatchingBed = beds.some((b: any) => {
+    if (!b.available_from_date) return false;
+    const d = new Date(b.available_from_date);
+    return d >= rangeStart && d <= rangeEnd;
+  });
+
+  if (!hasMatchingBed) return false;
 }
 
-      // Boolean filters
-      if (
-        advancedFilters?.has_attached_bathroom !== undefined &&
-        advancedFilters.has_attached_bathroom !== null
-      ) {
-        if (
-          room.has_attached_bathroom !== advancedFilters.has_attached_bathroom
-        )
-          return false;
-      }
-      if (
-        advancedFilters?.has_balcony !== undefined &&
-        advancedFilters.has_balcony !== null
-      ) {
-        if (room.has_balcony !== advancedFilters.has_balcony) return false;
-      }
-      if (
-        advancedFilters?.has_ac !== undefined &&
-        advancedFilters.has_ac !== null
-      ) {
-        if (room.has_ac !== advancedFilters.has_ac) return false;
-      }
-      if (
-        advancedFilters?.allow_couples !== undefined &&
-        advancedFilters.allow_couples !== null
-      ) {
-        if (room.allow_couples !== advancedFilters.allow_couples) return false;
-      }
 
+
+     // Boolean filters
+// Boolean filters
+if (
+  advancedFilters?.has_attached_bathroom !== undefined &&
+  advancedFilters.has_attached_bathroom !== null
+) {
+  if (toBool(room.has_attached_bathroom) !== toBool(advancedFilters.has_attached_bathroom))
+    return false;
+}
+if (
+  advancedFilters?.has_balcony !== undefined &&
+  advancedFilters.has_balcony !== null
+) {
+  if (toBool(room.has_balcony) !== toBool(advancedFilters.has_balcony)) return false;
+}
+if (
+  advancedFilters?.has_ac !== undefined &&
+  advancedFilters.has_ac !== null
+) {
+  if (toBool(room.has_ac) !== toBool(advancedFilters.has_ac)) return false;
+}
+if (
+  advancedFilters?.allow_couples !== undefined &&
+  advancedFilters.allow_couples !== null &&
+  advancedFilters.allow_couples === true
+) {
+  const roomPrefs = Array.isArray(room.room_gender_preference)
+    ? room.room_gender_preference
+    : [];
+  const isCoupleRoom =
+    toBool(room.allow_couples) ||
+    roomPrefs.some((p) => String(p).toLowerCase().includes("couple"));
+  if (!isCoupleRoom) return false;
+}
       // Rent range
       if (
         advancedFilters?.min_rent !== undefined &&
@@ -747,6 +801,111 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
     [],
   );
 
+
+  const enrichRoomsWithAvailabilityInfo = useCallback(async (roomsData: RoomResponse[]) => {
+  const propertyIds = [...new Set(roomsData.map(r => r.property_id))];
+  const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
+
+  const vacateByBedId: Record<number, any> = {};
+  const noticeByBedId: Record<number, any> = {};
+  const preAssignByBedId: Record<number, any> = {};
+
+  await Promise.all(propertyIds.map(async (propId) => {
+    // 1. Vacate requests
+    try {
+      const vacateRes = await fetch(`/api/admin/vacate-requests?property_id=${propId}&limit=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const vacateData = await vacateRes.json();
+      if (vacateData.success && Array.isArray(vacateData.data)) {
+        vacateData.data.forEach((req: any) => {
+          const isCompleted = req.vacate_status === 'completed' || req.vacate_status === 'cancelled';
+          if (!isCompleted && req.bed_id && req.expected_vacate_date) {
+            if (!vacateByBedId[req.bed_id]) {
+              vacateByBedId[req.bed_id] = {
+                date: req.expected_vacate_date,
+                status: req.vacate_status,
+                tenantName: req.tenant_name,
+              };
+            }
+          }
+        });
+      }
+    } catch (e) { console.error(e); }
+
+    // 2. Active notice periods (real endpoint from noticePeriodRequestRoutes.js)
+    try {
+      const noticeRes = await fetch(`/api/notice-period-requests/availability/active?property_id=${propId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const noticeData = await noticeRes.json();
+      if (noticeData.success && Array.isArray(noticeData.data)) {
+        noticeData.data.forEach((n: any) => {
+          // Only use as availability signal if there isn't already an explicit vacate request for this bed
+          if (n.bed_assignment_id && n.notice_period_date) {
+  if (!noticeByBedId[n.bed_assignment_id]) {
+    noticeByBedId[n.bed_assignment_id] = {
+      date: n.notice_period_date,
+      tenantName: n.tenant_name,
+      noticeId: n.notice_id,
+    };
+  }
+}
+        });
+      }
+    } catch (e) { console.error("Error loading notice periods:", e); }
+
+    // 3. Pre-assignments on beds
+    try {
+      const bedsRes = await fetch(`/api/rooms/bed-assignments?property_id=${propId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const bedsData = await bedsRes.json();
+      if (bedsData.success && Array.isArray(bedsData.data)) {
+        bedsData.data.forEach((b: any) => {
+          if (b.pre_assigned_tenant_id) {
+            preAssignByBedId[b.id] = {
+              tenantId: b.pre_assigned_tenant_id,
+              rent: b.pre_assigned_rent,
+              deposit: b.pre_assigned_security_deposit,
+              isCouple: !!b.pre_assigned_is_couple,
+            };
+          }
+        });
+      }
+    } catch (e) { console.error(e); }
+  }));
+
+return roomsData.map((room) => ({
+  ...room,
+  bed_assignments: (room.bed_assignments || []).map((bed: any) => {
+    const vacate = vacateByBedId[bed.id];
+    const notice = noticeByBedId[bed.id];
+    // Earliest of the two dates, whichever exists
+    const dates = [vacate?.date, notice?.date].filter(Boolean) as string[];
+    const availableFromDate = dates.length
+      ? dates.reduce((earliest, d) => (new Date(d) < new Date(earliest) ? d : earliest))
+      : null;
+    const availableFromSource = vacate && notice
+      ? 'both'
+      : vacate ? 'vacate_request' : notice ? 'notice_period' : null;
+
+    return {
+      ...bed,
+      expected_vacate_date: vacate?.date || null,
+      vacate_status: vacate?.status || null,
+      notice_period_date: notice?.date || null,
+      notice_id: notice?.noticeId || null,
+      vacating_tenant_name: vacate?.tenantName || notice?.tenantName || null,
+      available_from_date: availableFromDate,
+      available_from_source: availableFromSource,
+      pre_assigned_tenant_id: preAssignByBedId[bed.id]?.tenantId || null,
+      pre_assigned_info: preAssignByBedId[bed.id] || null,
+    };
+  }),
+}));
+}, []);
+
   // Fetch rooms with advanced filters
   const fetchFilteredRooms = useCallback(
     async (filters: FilterState) => {
@@ -755,22 +914,22 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
 
         const processedFilters = {
           ...filters,
+          availability_status: filters.availability_status || 'any', 
           min_rent: Number(filters.min_rent),
           max_rent: Number(filters.max_rent),
           min_capacity: Number(filters.min_capacity),
           max_capacity: Number(filters.max_capacity),
           page: currentPage,
-          limit: itemsPerPage,
+         limit: 1000,
         };
 
         // ✅ Use the API function that includes auth token
         const result = await getFilteredRooms(processedFilters);
 
         if (result && result.success) {
-          const roomsWithTenants = await enrichRoomsWithTenantNames(
-            result.data,
-          );
-          setRooms(roomsWithTenants);
+          const roomsWithTenants = await enrichRoomsWithTenantNames(result.data);
+        const roomsWithAvailability = await enrichRoomsWithAvailabilityInfo(roomsWithTenants);
+        setRooms(roomsWithAvailability);
           const totalPages = Math.ceil(result.pagination?.total / itemsPerPage);
           if (currentPage > totalPages && totalPages > 0) {
             setCurrentPage(totalPages);
@@ -822,8 +981,8 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
 
       // ✅ Enrich rooms with tenant names
       const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
-      setRooms(roomsWithTenants);
-    } catch (error) {
+const roomsWithAvailability = await enrichRoomsWithAvailabilityInfo(roomsWithTenants);
+setRooms(roomsWithAvailability);    } catch (error) {
       console.error("Error refreshing rooms:", error);
       toast.error("Failed to refresh rooms");
     } finally {
@@ -857,6 +1016,14 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
     },
     [fetchFilteredRooms],
   );
+
+//   const handleFilterChange = useCallback(
+//   (filters: FilterState) => {
+//     setAdvancedFilters(filters);
+//     setCurrentPage(1);
+//   },
+//   [],
+// );
 
   // Inside your RoomsClient component, replace the handleExport function:
 
@@ -1354,8 +1521,8 @@ if (advancedFilters?.floors && advancedFilters.floors.length > 0) {
           });
 
           const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
-          setRooms(roomsWithTenants);
-        } catch (error) {
+const roomsWithAvailability = await enrichRoomsWithAvailabilityInfo(roomsWithTenants);
+setRooms(roomsWithAvailability);        } catch (error) {
           console.error("Error loading rooms:", error);
           toast.error("Failed to load rooms");
         } finally {
@@ -1781,6 +1948,7 @@ const handleSelectVacatingBed = useCallback(async (bedAssignmentId: number, room
                         search: "",
                         property_ids: [],
                         room_types: [],
+                        sharing_types: [],
                         gender_preferences: [],
                         amenities: [],
                         floors: [],
@@ -1793,7 +1961,7 @@ const handleSelectVacatingBed = useCallback(async (bedAssignmentId: number, room
                         min_capacity: 1,
                         max_capacity: 10,
                         is_active: true,
-                        availability_status: "any" as const,
+availability_status: "" as const,
                       };
                       handleFilterChange(DEFAULT_FILTERS);
                     }}

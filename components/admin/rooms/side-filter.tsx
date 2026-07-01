@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { consumeMasters } from "@/lib/masterApi";
+import { getActiveNoticePeriods } from "@/lib/noticePeriodApi";
 
 // ---------- TYPES ----------
 interface SimpleRoom {
@@ -50,7 +51,21 @@ interface FilterState {
   min_capacity: number;
   max_capacity: number;
   is_active: boolean;
-  availability_status: 'any' | 'available' | 'partial' | 'full';
+  available_from_date: string;
+  available_to_date: string;
+availability_status?: 'any' | 'available' | 'partial' | 'full' | '';  }
+
+interface VacatingSoonItem {
+  bed_assignment_id: number;
+  room_id: number;
+  bed_number: number;
+  room_number: string;
+  tenant_name: string;
+  vacate_date: string;
+  vacate_status: string;
+  source: 'vacate_request' | 'notice_period';
+  notice_id?: number;
+  title?: string;
 }
 
 interface FilterData {
@@ -77,8 +92,7 @@ const DEFAULT_FILTERS: FilterState = {
   min_capacity: 1,
   max_capacity: 10,
   is_active: true,
-  availability_status: 'any',
-};
+availability_status: '',};
 
 const colors = { primary: '#004ab0', secondary: '#f9bd07' };
 
@@ -99,8 +113,8 @@ export default function SideFilter({
   
   // Available From filter state
   const [availableFromDate, setAvailableFromDate] = useState<string>("");
-  const [vacatingSoonBeds, setVacatingSoonBeds] = useState<any[]>([]);
-  const [loadingVacating, setLoadingVacating] = useState(false);
+const [availableToDate, setAvailableToDate] = useState<string>("");
+  const [vacatingSoonBeds, setVacatingSoonBeds] = useState<VacatingSoonItem[]>([]);  const [loadingVacating, setLoadingVacating] = useState(false);
 
   // Feature options
   const featureOptions = [
@@ -110,9 +124,13 @@ export default function SideFilter({
     { id: 'allow_couples', label: 'Couples Allowed', icon: Heart },
   ];
 
-  const availableFloors = useMemo(() => {
+ const availableFloors = useMemo(() => {
     const floorsSet = new Set<string>();
-    rooms.forEach(room => {
+    const propertyId = filters.property_ids[0];
+    const targetRooms = propertyId
+      ? rooms.filter(r => String(r.property_id) === propertyId)
+      : rooms;
+    targetRooms.forEach(room => {
       if (room.floor !== undefined && room.floor !== null) {
         floorsSet.add(String(room.floor));
       }
@@ -123,6 +141,35 @@ export default function SideFilter({
       return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB;
     });
   }, [rooms]);
+
+  // Rooms filtered by property only (for room type / sharing type counts)
+const roomsFilteredByProperty = useMemo(() => {
+  const propertyId = filters.property_ids[0];
+  return propertyId ? rooms.filter(r => String(r.property_id) === propertyId) : rooms;
+}, [rooms, filters.property_ids, (filters as any).sharing_types, filters.room_types]);
+
+// Rooms filtered by property + sharing_type (for gender counts)
+const roomsFilteredByPropertyAndSharing = useMemo(() => {
+  const sharingTypes = (filters as any).sharing_types as string[] | undefined;
+  if (!sharingTypes?.length) return roomsFilteredByProperty;
+  return roomsFilteredByProperty.filter(r => sharingTypes.includes((r as any).sharing_type));
+}, [roomsFilteredByProperty, filters]);
+
+// Rooms filtered by property + sharing + room_type (for gender counts)
+const roomsFilteredByPropertySharingAndRoomType = useMemo(() => {
+  const roomTypes = filters.room_types;
+  if (!roomTypes?.length) return roomsFilteredByPropertyAndSharing;
+  return roomsFilteredByPropertyAndSharing.filter(r => 
+    roomTypes.includes(r.room_type) || roomTypes.includes((r as any).sharing_type)
+  );
+}, [roomsFilteredByPropertyAndSharing, filters.room_types]);
+
+const coupleRoomsCount = useMemo(() => {
+  return roomsFilteredByPropertySharingAndRoomType.filter((r: any) => {
+    const prefs = Array.isArray(r.room_gender_preference) ? r.room_gender_preference : [];
+    return prefs.includes('couples') || prefs.includes('couple') || Boolean(r.allow_couples) === true;
+  }).length;
+}, [roomsFilteredByPropertySharingAndRoomType]);
 
   useEffect(() => {
     fetchFilterData();
@@ -156,21 +203,40 @@ export default function SideFilter({
 
   // Availability counts
   const availabilityCounts = useMemo(() => {
-    const propertyId = filters.property_ids[0];
-    const targetRooms = propertyId
-      ? rooms.filter(r => String(r.property_id) === propertyId)
-      : rooms;
-    const counts = { available: 0, partial: 0, full: 0 };
-    for (const room of targetRooms) {
-      const occupied = room.occupied_beds || 0;
-      const total = room.total_bed || 0;
-      if (occupied === 0) counts.available++;
-      else if (occupied >= total) counts.full++;
-      else counts.partial++;
-    }
-    return counts;
-  }, [rooms, filters.property_ids]);
+  const propertyId = filters.property_ids[0];
+  const targetRooms = propertyId
+    ? rooms.filter(r => String(r.property_id) === propertyId)
+    : rooms;
 
+  let empty = 0;      // completely empty (occupied === 0)
+  let partial = 0;    // partially occupied (0 < occupied < total)
+
+  for (const room of targetRooms) {
+    const occupied = Number(room.occupied_beds) || 0;
+    const total = Number(room.total_bed) || 0;
+    if (occupied === 0) {
+      empty++;
+    } else if (occupied < total) {
+      partial++;
+    }
+  }
+
+  return {
+    available: empty + partial,  // any room with at least one free bed
+    partial: partial,
+    full: empty,                 // "Full" means completely empty (as per your requirement)
+  };
+}, [rooms, filters.property_ids]);
+
+
+const totalRooms = useMemo(() => {
+  const propertyId = filters.property_ids[0];
+  const targetRooms = propertyId
+    ? rooms.filter(r => String(r.property_id) === propertyId)
+    : rooms;
+  // Count rooms that have at least one empty bed
+  return targetRooms.filter(room => room.occupied_beds < room.total_bed).length;
+}, [rooms, filters.property_ids]);
   // Property summary
   const propertyStats = useMemo(() => {
     const propertyId = filters.property_ids[0];
@@ -205,12 +271,16 @@ export default function SideFilter({
     onFilterChange(DEFAULT_FILTERS);
     setAvailableFromDate("");
     setVacatingSoonBeds([]);
+    setAvailableToDate("");
+
   };
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.property_ids.length) count++;
     if (filters.room_types.length) count++;
+        if ((filters as any).sharing_types?.length) count++;
+
     if (filters.gender_preferences.length) count++;
     if (filters.amenities.length) count++;
     if (filters.floors.length) count++;
@@ -219,13 +289,15 @@ export default function SideFilter({
     if (filters.has_ac !== undefined) count++;
     if (filters.allow_couples !== undefined) count++;
     if (filters.min_rent > 0 || filters.max_rent < 100000) count++;
-    if (filters.availability_status !== 'any') count++;
+if (filters.availability_status && filters.availability_status !== 'any') count++;
     if (availableFromDate) count++;
     return count;
   }, [filters, availableFromDate]);
 
-const loadVacatingSoonBeds = async (date: string) => {
-  if (!date) {
+  // ─── Load both vacate requests AND active notice-period requests ───────────
+// ─── Load both vacate requests AND active notice-period requests, within a date range ───
+const loadVacatingSoonBeds = async (fromDate: string, toDate: string) => {
+  if (!fromDate && !toDate) {
     setVacatingSoonBeds([]);
     return;
   }
@@ -234,42 +306,40 @@ const loadVacatingSoonBeds = async (date: string) => {
     const propertyId = filters.property_ids[0];
     const token = localStorage.getItem("auth_token") || localStorage.getItem("admin_token");
 
-    let url = '/api/admin/vacate-requests?';
-    const params = new URLSearchParams();
-    
-    if (propertyId) {
-      params.append('property_id', propertyId);
-    }
-    params.append('limit', '100');
-    
-    const response = await fetch(
-      `${url}${params.toString()}`,
-      { 
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          "Content-Type": "application/json" 
-        } 
-      }
-    );
-    const result = await response.json();
+    // ── Build the date range. If only "From" is given, treat it as a single-day
+    // lookup (range end = same day). If only "To" is given, range starts from today. ──
+    const rangeStart = fromDate ? new Date(fromDate) : new Date();
+    rangeStart.setHours(0, 0, 0, 0);
 
-    if (result.success && Array.isArray(result.data)) {
-      const targetDate = new Date(date);
-      targetDate.setHours(23, 59, 59, 999);
-      
-      const filtered = result.data
+    const rangeEnd = toDate ? new Date(toDate) : new Date(fromDate || toDate);
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    const isInRange = (dateStr: string) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d >= rangeStart && d <= rangeEnd;
+    };
+
+    // ── 1. Vacate requests ───────────────────────────────────────────────
+    const vacateParams = new URLSearchParams();
+    if (propertyId) vacateParams.append('property_id', propertyId);
+    vacateParams.append('limit', '100');
+
+    const vacateResponse = await fetch(
+      `/api/admin/vacate-requests?${vacateParams.toString()}`,
+      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+    );
+    const vacateResult = await vacateResponse.json();
+
+    let fromVacateRequests: VacatingSoonItem[] = [];
+    if (vacateResult.success && Array.isArray(vacateResult.data)) {
+      fromVacateRequests = vacateResult.data
         .filter((req: any) => {
           if (!req.expected_vacate_date) return false;
-          
-          // ✅ Skip completed, cancelled, or rejected requests
           const skipStatuses = ['completed', 'cancelled', 'rejected'];
           if (skipStatuses.includes(req.vacate_status)) return false;
-          
-          // ✅ Skip if bed is already available (pre-assigned tenant swapped in)
           if (req.is_available === true || req.is_available === 1) return false;
-          
-          const vacateDate = new Date(req.expected_vacate_date);
-          return vacateDate <= targetDate;
+          return isInRange(req.expected_vacate_date);
         })
         .map((req: any) => ({
           bed_assignment_id: req.bed_id,
@@ -279,11 +349,42 @@ const loadVacatingSoonBeds = async (date: string) => {
           tenant_name: req.tenant_name,
           vacate_date: req.expected_vacate_date,
           vacate_status: req.vacate_status,
+          source: 'vacate_request' as const,
         }));
-      
-      console.log('🔍 Filtered vacating beds:', filtered);
-      setVacatingSoonBeds(filtered);
     }
+
+    // ── 2. Active notice-period requests ─────────────────────────────────
+    let fromNoticePeriods: VacatingSoonItem[] = [];
+    try {
+      const noticeResult = await getActiveNoticePeriods(propertyId);
+      if (noticeResult.success && Array.isArray(noticeResult.data)) {
+        fromNoticePeriods = noticeResult.data
+          .filter((n) => isInRange(n.notice_period_date))
+          .map((n) => ({
+            bed_assignment_id: n.bed_assignment_id,
+            room_id: n.room_id,
+            bed_number: n.bed_number,
+            room_number: n.room_number,
+            tenant_name: n.tenant_name,
+            vacate_date: n.notice_period_date,
+            vacate_status: 'notice_pending',
+            source: 'notice_period' as const,
+          }));
+      }
+    } catch (noticeErr) {
+      console.error("Error loading notice periods:", noticeErr);
+    }
+
+    // ── Merge, de-duplicating by bed_assignment_id ───────────────────────
+    // If a bed already has an explicit vacate request, prefer that over the
+    // notice-period entry (it's the more advanced/authoritative state).
+    // ── Merge — show both vacate requests and notice periods, even for the same bed ──
+const merged: VacatingSoonItem[] = [...fromVacateRequests, ...fromNoticePeriods];
+merged.sort((a, b) => new Date(a.vacate_date).getTime() - new Date(b.vacate_date).getTime());
+
+
+    console.log('🔍 Merged vacating/notice beds:', merged);
+    setVacatingSoonBeds(merged);
   } catch (err) {
     console.error("Error loading vacating beds:", err);
   } finally {
@@ -292,8 +393,8 @@ const loadVacatingSoonBeds = async (date: string) => {
 };
 
 useEffect(() => {
-  loadVacatingSoonBeds(availableFromDate);
-}, [availableFromDate, filters.property_ids]); 
+  loadVacatingSoonBeds(availableFromDate, availableToDate);
+}, [availableFromDate, availableToDate, filters.property_ids]);
 
   // Active features for badge display
   const activeFeatures = featureOptions.filter(f => filters[f.id as keyof FilterState] === true);
@@ -333,19 +434,7 @@ useEffect(() => {
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-5">
 
-              {/* Property summary */}
-              {propertyStats && (
-                <div className="bg-blue-50 rounded-lg p-2 text-xs border border-blue-100">
-                  <p className="font-semibold text-blue-800 mb-1 flex items-center gap-1">
-                    <Building2 className="h-3 w-3" /> Property Summary
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div><span className="text-[10px] text-gray-600">Rooms</span><p className="font-bold text-blue-700 text-sm">{propertyStats.totalRooms}</p></div>
-                    <div><span className="text-[10px] text-gray-600">Total Beds</span><p className="font-bold text-blue-700 text-sm">{propertyStats.totalBeds}</p></div>
-                    <div><span className="text-[10px] text-gray-600">Available Beds</span><p className="font-bold text-green-600 text-sm">{propertyStats.availableBeds}</p></div>
-                  </div>
-                </div>
-              )}
+             
 
               {/* 2-column grid for dropdowns */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -380,14 +469,50 @@ useEffect(() => {
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
-                      {(masterRoomTypes.length ? masterRoomTypes : filterData.roomTypes).map(type => {
-                        const label = typeof type === 'object' && 'name' in type ? type.name : (type as any).label;
-                        return (
-                          <SelectItem key={(type as any).id || label} value={label}>
-                            <span className="text-xs">{label}</span>
-                          </SelectItem>
-                        );
-                      })}
+{(masterRoomTypes.length ? masterRoomTypes : filterData.roomTypes).map(type => {
+  const label = typeof type === 'object' && 'name' in type ? type.name : (type as any).label;
+  
+  // Count from property-filtered rooms
+  const dynamicCount = roomsFilteredByProperty.filter(
+    r => r.room_type === label
+  ).length;
+  
+  return (
+    <SelectItem key={(type as any).id || label} value={label}>
+      <div className="flex justify-between w-full items-center gap-2">
+        <span className="text-xs">{label}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+      </div>
+    </SelectItem>
+  );
+})}
+                    </SelectContent>
+                  </Select>
+                </div>
+                 {/* Sharing Type */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium flex items-center gap-1">
+                    <DoorOpen className="h-3 w-3" /> Sharing Type
+                  </Label>
+                   <Select value={filters.sharing_types?.[0] || 'all'} onValueChange={(v) => handleSelectChange('sharing_types' as any, v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                   {filterData.roomTypes.map(type => {
+  // Count from property-filtered rooms
+  const dynamicCount = roomsFilteredByProperty.filter(
+    r => String((r as any).sharing_type) === String(type.value)
+  ).length;
+  
+  return (
+    <SelectItem key={type.value} value={type.value}>
+      <div className="flex justify-between w-full items-center gap-2">
+        <span className="text-xs capitalize">{type.label}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+      </div>
+    </SelectItem>
+  );
+})}
                     </SelectContent>
                   </Select>
                 </div>
@@ -401,33 +526,57 @@ useEffect(() => {
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any Gender" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any Gender</SelectItem>
-                      {filterData.genderPreferences.map(g => (
-                        <SelectItem key={g.value} value={g.value}>
-                          <div className="flex justify-between w-full items-center gap-2">
-                            <span className="text-xs">{g.label}</span>
-                            <Badge variant="outline" className="text-[10px] px-1.5">{g.count}</Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
+{filterData.genderPreferences
+  .filter(g => g.value !== 'couples' && g.value !== 'couple')
+  .map(g => {
+    const dynamicCount = roomsFilteredByPropertySharingAndRoomType.filter(r => {
+      const prefs = Array.isArray(r.room_gender_preference) 
+        ? r.room_gender_preference 
+        : [];
+      return prefs.includes(g.value);
+    }).length;
+    
+    return (
+      <SelectItem key={g.value} value={g.value}>
+        <div className="flex justify-between w-full items-center gap-2">
+          <span className="text-xs">{g.label}</span>
+          <Badge variant="outline" className="text-[10px] px-1.5">{dynamicCount}</Badge>
+        </div>
+      </SelectItem>
+    );
+  })}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Availability */}
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-medium flex items-center gap-1">
-                    <Bed className="h-3 w-3" /> Availability
-                  </Label>
-                  <Select value={filters.availability_status} onValueChange={(v) => handleFilterChange('availability_status', v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any Availability</SelectItem>
-                      <SelectItem value="available">Available ({availabilityCounts.available} rooms)</SelectItem>
-                      <SelectItem value="partial">Partial ({availabilityCounts.partial} rooms)</SelectItem>
-                      <SelectItem value="full">Full ({availabilityCounts.full} rooms)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Availability */}
+<div className="space-y-1">
+  <Label className="text-[11px] font-medium flex items-center gap-1">
+    <Bed className="h-3 w-3" /> Availability
+  </Label>
+<Select 
+  value={filters.availability_status}
+  onValueChange={(v) => handleFilterChange('availability_status', v)}
+>
+  <SelectTrigger className="h-8 text-xs">
+    <SelectValue placeholder="Select Availability" />
+  </SelectTrigger>
+  <SelectContent>
+    {/* "All" option – no count */}
+    <SelectItem value="any">All Availability</SelectItem>
+    {/* Specific options with counts */}
+    <SelectItem value="available">
+      Available ({availabilityCounts.available} rooms)
+    </SelectItem>
+    <SelectItem value="partial">
+      Partial ({availabilityCounts.partial} rooms)
+    </SelectItem>
+    <SelectItem value="full">
+      Full ({availabilityCounts.full} rooms)  {/* "Full" means completely empty */}
+    </SelectItem>
+  </SelectContent>
+</Select>
+</div>
 
                 {/* Floor Filter */}
                 {availableFloors.length > 0 && (
@@ -447,8 +596,12 @@ useEffect(() => {
                             <div className="flex justify-between w-full items-center gap-2">
                               <span className="text-xs">{floor}</span>
                               <Badge variant="outline" className="text-[10px] px-1.5">
-                                {rooms.filter(r => String(r.floor) === String(floor)).length} rooms
-                              </Badge>
+{rooms.filter(r => {
+  const matchesFloor = String(r.floor) === String(floor);
+  const propertyId = filters.property_ids[0];
+  const matchesProperty = propertyId ? String(r.property_id) === propertyId : true;
+  return matchesFloor && matchesProperty;
+}).length} rooms                              </Badge>
                             </div>
                           </SelectItem>
                         ))}
@@ -483,43 +636,94 @@ useEffect(() => {
                     </SelectContent>
                   </Select>
                 </div>
+      <div className="flex items-end h-full pb-1">
+  <div className="flex items-center justify-between w-full h-8">
+    <div className="flex items-center gap-1">
+      <input
+        type="checkbox"
+        id="couple-booking"
+        checked={filters.allow_couples === true}
+        onChange={(e) =>
+          handleFilterChange(
+            "allow_couples",
+            e.target.checked ? true : undefined
+          )
+        }
+        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
 
+      <Label
+        htmlFor="couple-booking"
+        className="flex items-center gap-1 text-[11px] font-medium whitespace-nowrap cursor-pointer"
+      >
+        <Heart className="h-3 w-3" />
+        Couple Room
+      </Label>
+    </div>
+
+    <Badge
+      variant="outline"
+      className="ml-2 shrink-0 text-[9px] px-2.5 py-0 h-5"
+    >
+      {coupleRoomsCount} rooms
+    </Badge>
+  </div>
+</div>
               </div>
 
               {/* ============================================ */}
               {/* AVAILABLE FROM DATE FILTER - NEW SECTION */}
               {/* ============================================ */}
-              <div className="border-t border-gray-200 pt-4 mt-2">
+<div className="border-t border-gray-200 pt-4 mt-2">
                 <div className="space-y-3">
                   <Label className="text-[11px] font-medium flex items-center gap-1 text-amber-700">
                     <Calendar className="h-3.5 w-3.5" /> Available From (Date)
                   </Label>
                   <p className="text-[9px] text-gray-500 -mt-1">
-                    Find beds that will be available on or before the selected date
+                    Find beds that will be available on or before the selected date — includes confirmed vacate requests and pending notice periods
                   </p>
                   
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={availableFromDate}
-                      onChange={(e) => setAvailableFromDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
-                      className="flex-1 border rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                    {availableFromDate && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-gray-400 hover:text-gray-600"
-                        onClick={() => setAvailableFromDate("")}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+  <div>
+    <Label className="text-[10px] text-gray-500 mb-1 block">From</Label>
+<input
+  type="date"
+  value={availableFromDate}
+  onChange={(e) => {
+    setAvailableFromDate(e.target.value);
+    handleFilterChange('available_from_date', e.target.value);
+  }}
+  min={new Date().toISOString().split("T")[0]}
+  className="w-full border rounded-lg px-2 py-1.5 text-xs"
+/>
+  </div>
+  <div>
+    <Label className="text-[10px] text-gray-500 mb-1 block">To</Label>
+<input
+  type="date"
+  value={availableToDate}
+  onChange={(e) => {
+    setAvailableToDate(e.target.value);
+    handleFilterChange('available_to_date', e.target.value);
+  }}
+  min={availableFromDate || new Date().toISOString().split("T")[0]}
+  className="w-full border rounded-lg px-2 py-1.5 text-xs"
+/>
+  </div>
+</div>
+{(availableFromDate || availableToDate) && (
+  <Button variant="ghost" size="sm" className="h-7 text-[10px] text-gray-400" onClick={() => {
+    setAvailableFromDate("");
+    setAvailableToDate("");
+    handleFilterChange('available_from_date', '');
+    handleFilterChange('available_to_date', '');
+  }}>
+    <X className="h-3 w-3 mr-1" /> Clear range
+  </Button>
+)}
 
-                  {/* Vacating Soon Beds List */}
-                  {availableFromDate && (
+                  {/* Vacating Soon / Notice Pending Beds List */}
+                  {(availableFromDate || availableToDate) && (
                     <div className="mt-2">
                       {loadingVacating ? (
                         <div className="flex items-center justify-center py-4">
@@ -528,11 +732,13 @@ useEffect(() => {
                         </div>
                       ) : vacatingSoonBeds.length === 0 ? (
                         <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <Bed className="h-6 w-6 text-gray-300 mx-auto mb-1" />
-                          <p className="text-xs text-gray-500">
-                            No beds vacating by {new Date(availableFromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </p>
-                        </div>
+    <Bed className="h-6 w-6 text-gray-300 mx-auto mb-1" />
+    <p className="text-xs text-gray-500">
+      No beds vacating {availableFromDate && availableToDate
+        ? `between ${new Date(availableFromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} and ${new Date(availableToDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : `by ${new Date(availableFromDate || availableToDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+    </p>
+  </div>
                       ) : (
                         <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
                           <p className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
@@ -541,17 +747,27 @@ useEffect(() => {
                           </p>
                           {vacatingSoonBeds.map((bed) => (
                             <button
-                              key={bed.bed_assignment_id}
+                              key={`${bed.source}-${bed.bed_assignment_id}`}
                               onClick={() => {
                                 onSelectVacatingBed?.(bed.bed_assignment_id, bed.room_id);
                                 onOpenChange(false);
                               }}
-                              className="w-full text-left p-2 bg-amber-50 border border-amber-200 rounded-lg"
+                              className={`w-full text-left p-2 rounded-lg border ${
+                                bed.source === 'notice_period'
+                                  ? 'bg-blue-50 border-blue-200'
+                                  : 'bg-amber-50 border-amber-200'
+                              }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="p-1 bg-white rounded border border-amber-200">
-                                    <Bed className="h-3 w-3 text-amber-600" />
+                                  <div className={`p-1 bg-white rounded border ${
+                                    bed.source === 'notice_period' ? 'border-blue-200' : 'border-amber-200'
+                                  }`}>
+                                    {bed.source === 'notice_period' ? (
+                                      <FileWarning className="h-3 w-3 text-blue-600" />
+                                    ) : (
+                                      <Bed className="h-3 w-3 text-amber-600" />
+                                    )}
                                   </div>
                                   <div>
                                     <span className="text-xs font-medium text-gray-800">
@@ -562,12 +778,22 @@ useEffect(() => {
                                     </p>
                                   </div>
                                 </div>
-                                <Badge className="bg-amber-100 text-amber-700 text-[9px] border-0 flex-shrink-0">
+                                <Badge
+                                  className={`text-[9px] border-0 flex-shrink-0 ${
+                                    bed.source === 'notice_period'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
                                   {new Date(bed.vacate_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                                 </Badge>
                               </div>
-                              <div className="mt-1 text-[9px] text-amber-600">
-                                Click to manage this bed
+                              <div className={`mt-1 text-[9px] ${
+                                bed.source === 'notice_period' ? 'text-blue-600' : 'text-amber-600'
+                              }`}>
+                                {bed.source === 'notice_period'
+                                  ? 'Notice period sent — click to manage this bed'
+                                  : 'Click to manage this bed'}
                               </div>
                             </button>
                           ))}
