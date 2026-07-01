@@ -1,18 +1,17 @@
 // app/admin/notice-period-requests/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { Building2, ChevronDown, Trash2 } from "lucide-react";
 import { 
   Eye, 
   AlertCircle, 
@@ -22,7 +21,6 @@ import {
   Mail, 
   Calendar, 
   ArrowUpDown,
-  MoreVertical,
   CheckCircle,
   XCircle,
   Clock,
@@ -36,18 +34,9 @@ import {
   getAdminNoticePeriodRequests,
   createNoticePeriodRequest,
   deleteNoticePeriodRequest,
-  getAdminUnseenCount,
   type NoticePeriodRequest
 } from "@/lib/noticePeriodApi";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/authContext";
 
 interface Tenant {
@@ -58,25 +47,33 @@ interface Tenant {
   property_name?: string;
   room_number?: string | number;
   bed_number?: string | number;
-  current_assignment?: {
-    room_number: string;
-    property_name: string;
-    bed_number: number;
-  };
+}
+
+interface Property {
+  id: number;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  active_tenants?: number;
 }
 
 export default function NoticePeriodRequestsPage() {
   const [requests, setRequests] = useState<NoticePeriodRequest[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<NoticePeriodRequest | null>(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingProperties, setLoadingProperties] = useState(false);
+  const [loadingTenants, setLoadingTenants] = useState(false);
   const [sortField, setSortField] = useState<keyof NoticePeriodRequest>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const { can } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
-const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
 
   // Search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -102,9 +99,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const tenantSearchRef = useRef<HTMLInputElement>(null);
   const tenantDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Load data on mount
   useEffect(() => {
     loadRequests();
-    loadTenants();
+    fetchProperties();
   }, []);
 
   // Handle click outside to close dropdown
@@ -119,27 +117,25 @@ const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   }, []);
 
   // Filter tenants based on search
-// Filter tenants based on search - FIXED VERSION
-const getFilteredTenants = () => {
-  if (!tenantSearch.trim()) return tenants;
-  const query = tenantSearch.toLowerCase();
-  return tenants.filter(tenant => {
-    // Safely convert all values to strings before calling toLowerCase
-    const fullName = String(tenant.full_name || '').toLowerCase();
-    const email = String(tenant.email || '').toLowerCase();
-    const phone = String(tenant.phone || '');
-    const propertyName = String(tenant.property_name || '').toLowerCase();
-    const roomNumber = String(tenant.room_number || '').toLowerCase();
-    const bedNumber = String(tenant.bed_number || '');
-    
-    return fullName.includes(query) ||
-           email.includes(query) ||
-           phone.includes(query) ||
-           propertyName.includes(query) ||
-           roomNumber.includes(query) ||
-           bedNumber.includes(query);
-  });
-};
+  const getFilteredTenants = () => {
+    if (!tenantSearch.trim()) return tenants;
+    const query = tenantSearch.toLowerCase();
+    return tenants.filter(tenant => {
+      const fullName = String(tenant.full_name || '').toLowerCase();
+      const email = String(tenant.email || '').toLowerCase();
+      const phone = String(tenant.phone || '');
+      const propertyName = String(tenant.property_name || '').toLowerCase();
+      const roomNumber = String(tenant.room_number || '').toLowerCase();
+      const bedNumber = String(tenant.bed_number || '');
+      
+      return fullName.includes(query) ||
+             email.includes(query) ||
+             phone.includes(query) ||
+             propertyName.includes(query) ||
+             roomNumber.includes(query) ||
+             bedNumber.includes(query);
+    });
+  };
 
   const loadRequests = async () => {
     try {
@@ -157,32 +153,98 @@ const getFilteredTenants = () => {
     }
   };
 
-const loadTenants = async () => {
-  try {
-    // Use the existing /api/tenants endpoint with a larger page size to get all tenants
-    const res = await fetch("/api/tenants?page=1&pageSize=1000&is_active=true");
-    const data = await res.json();
-    if (data.success) {
-      // Transform the data to include room details from current_assignment
-      const transformedTenants = data.data.map((tenant: any) => ({
-        id: tenant.id,
-        full_name: tenant.full_name,
-        email: tenant.email,
-        phone: tenant.phone,
-        // Get room details from current_assignment
-        room_number: tenant.current_assignment?.room_number || 'N/A',
-        property_name: tenant.current_assignment?.property_name || 'N/A',
-        bed_number: tenant.current_assignment?.bed_number || 'N/A',
-        // Keep the original assignment object if needed
-        current_assignment: tenant.current_assignment || null
-      }));
-      setTenants(transformedTenants);
+  // ✅ FIXED: Fetch properties using direct API call
+  const fetchProperties = async () => {
+    try {
+      setLoadingProperties(true);
+      console.log("🔍 Fetching properties...");
+      
+      // Use the properties endpoint from your notice-period API
+      const response = await fetch('/api/notice-period-requests/properties', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log("📡 Response status:", response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("📦 Properties data:", data);
+      
+      if (data.success && data.data) {
+        setProperties(data.data);
+        console.log(`✅ Loaded ${data.data.length} properties`);
+      } else {
+        console.error("❌ Failed to fetch properties:", data.message);
+        setProperties([]);
+        toast.error(data.message || "Failed to fetch properties");
+      }
+    } catch (error) {
+      console.error("❌ Error fetching properties:", error);
+      setProperties([]);
+      toast.error("Failed to load properties. Please refresh the page.");
+    } finally {
+      setLoadingProperties(false);
     }
-  } catch (error) {
-    console.error('Error loading tenants:', error);
-    setTenants([]);
-  }
-};
+  };
+
+  // ✅ FIXED: Fetch tenants by property
+  const fetchTenantsByProperty = async (propertyId: string) => {
+    if (!propertyId) {
+      setTenants([]);
+      return;
+    }
+    
+    try {
+      setLoadingTenants(true);
+      console.log(`🔍 Fetching tenants for property ${propertyId}...`);
+      
+      const response = await fetch(`/api/notice-period-requests/properties/${propertyId}/tenants`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log("📡 Response status:", response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("📦 Tenants data:", data);
+      
+      if (data.success && data.data) {
+        const transformedTenants = data.data.map((tenant: any) => ({
+          id: tenant.id,
+          full_name: tenant.full_name,
+          email: tenant.email,
+          phone: tenant.phone,
+          room_number: tenant.room_number || 'N/A',
+          property_name: tenant.property_name || 'N/A',
+          bed_number: tenant.bed_number || 'N/A'
+        }));
+        setTenants(transformedTenants);
+        console.log(`✅ Loaded ${transformedTenants.length} tenants`);
+      } else {
+        console.error("❌ Failed to fetch tenants:", data.message);
+        setTenants([]);
+        toast.error(data.message || "Failed to fetch tenants");
+      }
+    } catch (error) {
+      console.error("❌ Error fetching tenants:", error);
+      setTenants([]);
+      toast.error("Failed to load tenants. Please try again.");
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
 
   const handleViewRequest = (request: NoticePeriodRequest) => {
     setSelectedRequest(request);
@@ -210,8 +272,11 @@ const loadTenants = async () => {
         setShowCreateDialog(false);
         resetForm();
         loadRequests();
+        setSelectedPropertyId("");
+        setSelectedTenant("");
+        setTenants([]);
       } else {
-        toast.error(result.message);
+        toast.error(result.message || "Failed to send request");
       }
     } catch (error) {
       console.error("Failed to create request:", error);
@@ -242,6 +307,8 @@ const loadTenants = async () => {
     setTitle("");
     setDescription("");
     setNoticeDate("");
+    setSelectedPropertyId("");
+    setTenants([]);
   };
 
   const handleSort = (field: keyof NoticePeriodRequest) => {
@@ -280,10 +347,8 @@ const loadTenants = async () => {
     
     try {
       setBulkActionLoading(true);
-      
       const deletePromises = Array.from(selectedRequests).map(id => deleteNoticePeriodRequest(id));
       await Promise.all(deletePromises);
-      
       toast.success(`Successfully deleted ${selectedRequests.size} requests`);
       setSelectedRequests(new Set());
       setShowBulkDeleteDialog(false);
@@ -364,12 +429,14 @@ const loadTenants = async () => {
       bgColor: "bg-blue-600",
     }
   ];
-const currentPageItems = itemsPerPage === 9999
-  ? filteredRequests
-  : filteredRequests.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage
-    );
+
+  const currentPageItems = itemsPerPage === 9999
+    ? filteredRequests
+    : filteredRequests.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      );
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -381,9 +448,7 @@ const currentPageItems = itemsPerPage === 9999
 
   return (
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
-
-
- {/* Stats Cards */}
+      {/* Stats Cards */}
       <div className="sticky top-36 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
         {stats.map((stat, index) => (
           <Card key={index} className={`bg-gradient-to-br from-${stat.bgColor.split('-')[1]}-50 to-${stat.bgColor.split('-')[1]}-100 border-0 shadow-sm`}>
@@ -405,20 +470,25 @@ const currentPageItems = itemsPerPage === 9999
           </Card>
         ))}
       </div>
-      {/* Header with Title and Create Button */}
+
+      {/* Header with Create Button */}
       <div className="sticky top-28 z-10 flex justify-end items-end mb-4">
         {can('manage_notice_period') && (
           <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className=" bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:from-blue-700 hover:to-blue-800"
+            onClick={() => {
+              setShowCreateDialog(true);
+              // Refresh properties when dialog opens
+              if (properties.length === 0) {
+                fetchProperties();
+              }
+            }}
+            className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-blue-800"
           >
             <Plus className="h-4 w-4 mr-2" />
             Notice Period
           </Button>
         )}
       </div>
-
-     
 
       {/* Bulk Actions Bar */}
       {can('delete_requests') && selectedRequests.size > 0 && (
@@ -470,302 +540,298 @@ const currentPageItems = itemsPerPage === 9999
               </Button>
             </div>
           ) : (
-          <div className="relative">
-  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-    selectedRequests.size > 0
-      ? 'max-h-[210px] md:max-h-[350px]'
-      : 'max-h-[280px] md:max-h-[370px]'
-  }`}>
-    <table className="w-full min-w-[900px] table-fixed border-collapse">
+            <div className="relative">
+              <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+                selectedRequests.size > 0
+                  ? 'max-h-[210px] md:max-h-[350px]'
+                  : 'max-h-[280px] md:max-h-[370px]'
+              }`}>
+                <table className="w-full min-w-[900px] table-fixed border-collapse">
+                  <thead className="sticky top-0 z-[25]">
+                    <tr className="bg-white border-b-2 border-blue-200">
+                      {/* Checkbox */}
+                      <th className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-200 text-left">
+                        {can('delete_requests') && (
+                          <div className="py-2 flex justify-center">
+                            <Checkbox
+                              checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
+                              onCheckedChange={handleSelectAll}
+                              aria-label="Select all"
+                            />
+                          </div>
+                        )}
+                      </th>
 
-      <thead className="sticky top-0 z-[25]">
-        <tr className="bg-white border-b-2 border-blue-200">
+                      {/* ID */}
+                      <th className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
+                            <span className="font-semibold text-gray-700 text-xs">ID</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Input
+                            placeholder="Search..."
+                            className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                            value={searchFilters.id}
+                            onChange={(e) => handleSearchChange('id', e.target.value)}
+                          />
+                        </div>
+                      </th>
 
-          {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-200 text-left">
-            {can('delete_requests') && (
-              <div className="py-2 flex justify-center">
-                <Checkbox
-                  checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                />
+                      {/* Actions */}
+                      <th className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
+                        <div className="py-2 px-2">
+                          <span className="font-semibold text-gray-700 text-xs">Actions</span>
+                        </div>
+                      </th>
+
+                      {/* Tenant */}
+                      <th className="md:sticky md:left-[200px] z-[30] w-[180px] bg-white border-r border-gray-200 text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <span className="font-semibold text-gray-700 text-xs">Tenant</span>
+                          <Input
+                            placeholder="Search..."
+                            className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                            value={searchFilters.tenant}
+                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
+                          />
+                        </div>
+                      </th>
+
+                      {/* Title */}
+                      <th className="w-[200px] bg-white border-r border-gray-200 text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('title')}>
+                            <span className="font-semibold text-gray-700 text-xs">Title</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Input
+                            placeholder="Search..."
+                            className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
+                            value={searchFilters.title}
+                            onChange={(e) => handleSearchChange('title', e.target.value)}
+                          />
+                        </div>
+                      </th>
+
+                      {/* Status */}
+                      <th className="w-[120px] bg-white border-r border-gray-200 text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <span className="font-semibold text-gray-700 text-xs">Status</span>
+                          <Select
+                            value={searchFilters.status}
+                            onValueChange={(value) => handleSearchChange('status', value)}
+                          >
+                            <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+                              <SelectValue placeholder="All..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="unseen">Unseen</SelectItem>
+                              <SelectItem value="seen">Seen</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </th>
+
+                      {/* Notice Date */}
+                      <th className="w-[130px] bg-white border-r border-gray-200 text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('notice_period_date')}>
+                            <span className="font-semibold text-gray-700 text-xs">Notice Date</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <div className="h-6 mt-1.5" />
+                        </div>
+                      </th>
+
+                      {/* Sent On */}
+                      <th className="w-[130px] bg-white text-left">
+                        <div className="space-y-1.5 py-2 px-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                            <span className="font-semibold text-gray-700 text-xs">Sent On</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <input
+                            type="date"
+                            style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
+                            value={searchFilters.date}
+                            onChange={(e) => handleSearchChange('date', e.target.value)}
+                          />
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {currentPageItems.map((request, index) => (
+                      <tr
+                        key={request.id}
+                        className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="md:sticky md:left-0 z-[20] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
+                          {can('delete_requests') && (
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={selectedRequests.has(request.id)}
+                                onCheckedChange={() => handleSelectRequest(request.id)}
+                                aria-label={`Select request ${request.id}`}
+                              />
+                            </div>
+                          )}
+                        </td>
+
+                        {/* ID */}
+                        <td className="md:sticky md:left-[40px] z-[20] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                            <span className="truncate">#{request.id}</span>
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="md:sticky md:left-[120px] z-[20] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
+                          <div className="flex items-center gap-0.5 flex-nowrap">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewRequest(request)}
+                              className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                              title="View Details"
+                            >
+                              <Eye className="h-3 w-3 text-blue-500" />
+                            </Button>
+                            {can('delete_requests') && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(request.id)}
+                                className="h-6 w-6 p-0 hover:bg-red-100 flex-shrink-0"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Tenant */}
+                        <td className="md:sticky md:left-[200px] z-[20] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
+                          <div className="flex items-center gap-1">
+                            <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                              <User className="h-3 w-3 text-blue-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium truncate">{request.tenant_name || 'Unknown'}</div>
+                              <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
+                                <Mail className="h-2 w-2 flex-shrink-0" />
+                                {request.tenant_email || 'No email'}
+                              </div>
+                              {request.property_name && (
+                                <div className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
+                                  <Building className="h-2 w-2 flex-shrink-0" />
+                                  {request.property_name}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Title */}
+                        <td className={`w-[200px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                          <div className="text-xs font-medium truncate text-gray-800">{request.title}</div>
+                          {request.description && (
+                            <div className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{request.description}</div>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                          <div className="transform transition-transform hover:scale-105">
+                            {getSeenBadge(request.is_seen)}
+                          </div>
+                        </td>
+
+                        {/* Notice Date */}
+                        <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+                          <div className="text-xs font-medium whitespace-nowrap">
+                            {new Date(request.notice_period_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </div>
+                        </td>
+
+                        {/* Sent On */}
+                        <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
+                          <div className="text-xs font-medium whitespace-nowrap">
+                            {new Date(request.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </div>
+                          <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                            {new Date(request.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </th>
 
-          {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                <span className="font-semibold text-gray-700 text-xs">ID</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input
-                placeholder="Search..."
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.id}
-                onChange={(e) => handleSearchChange('id', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Actions - 80px sticky */}
-          <th className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Actions</span>
-            </div>
-          </th>
-
-          {/* Tenant - 180px sticky */}
-          <th className="md:sticky md:left-[200px] z-[30] w-[180px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-              <Input
-                placeholder="Search..."
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.tenant}
-                onChange={(e) => handleSearchChange('tenant', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Title - 200px */}
-          <th className="w-[200px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('title')}>
-                <span className="font-semibold text-gray-700 text-xs">Title</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input
-                placeholder="Search..."
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.title}
-                onChange={(e) => handleSearchChange('title', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Status - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Status</span>
-              <Select
-                value={searchFilters.status}
-                onValueChange={(value) => handleSearchChange('status', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="unseen">Unseen</SelectItem>
-                  <SelectItem value="seen">Seen</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Notice Date - 130px */}
-          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('notice_period_date')}>
-                <span className="font-semibold text-gray-700 text-xs">Notice Date</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <div className="h-6 mt-1.5" />
-            </div>
-          </th>
-
-          {/* Sent On - 130px */}
-          <th className="w-[130px] bg-white text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                <span className="font-semibold text-gray-700 text-xs">Sent On</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <input
-                type="date"
-                style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
-                value={searchFilters.date}
-                onChange={(e) => handleSearchChange('date', e.target.value)}
-              />
-            </div>
-          </th>
-
-        </tr>
-      </thead>
-
-      <tbody>
-        {currentPageItems.map((request, index) => (
-          <tr
-            key={request.id}
-            className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
-              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
-            }`}
-          >
-            {/* Checkbox */}
-            <td className="md:sticky md:left-0 z-[20] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
-              {can('delete_requests') && (
-                <div className="flex justify-center">
-                  <Checkbox
-                    checked={selectedRequests.has(request.id)}
-                    onCheckedChange={() => handleSelectRequest(request.id)}
-                    aria-label={`Select request ${request.id}`}
-                  />
-                </div>
-              )}
-            </td>
-
-            {/* ID */}
-            <td className="md:sticky md:left-[40px] z-[20] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
-                <span className="truncate">#{request.id}</span>
-              </div>
-            </td>
-
-            {/* Actions */}
-            <td className="md:sticky md:left-[120px] z-[20] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
-              <div className="flex items-center gap-0.5 flex-nowrap">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleViewRequest(request)}
-                  className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
-                  title="View Details"
-                >
-                  <Eye className="h-3 w-3 text-blue-500" />
-                </Button>
-                {can('delete_requests') && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(request.id)}
-                    className="h-6 w-6 p-0 hover:bg-red-100 flex-shrink-0"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
-                )}
-              </div>
-            </td>
-
-            {/* Tenant */}
-            <td className="md:sticky md:left-[200px] z-[20] w-[180px] bg-white border-r border-gray-100 py-2 px-2">
-              <div className="flex items-center gap-1">
-                <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
-                  <User className="h-3 w-3 text-blue-600" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium truncate">{request.tenant_name || 'Unknown'}</div>
-                  <div className="text-[10px] text-gray-500 truncate flex items-center gap-0.5">
-                    <Mail className="h-2 w-2 flex-shrink-0" />
-                    {request.tenant_email || 'No email'}
-                  </div>
-                  {request.property_name && (
-                    <div className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
-                      <Building className="h-2 w-2 flex-shrink-0" />
-                      {request.property_name}
+              {/* Pagination */}
+              <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
+                    <span className="text-gray-500 whitespace-nowrap">
+                      {filteredRequests.length} requests
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="hidden sm:inline text-gray-600">Rows:</span>
+                      <Select
+                        value={String(itemsPerPage)}
+                        onValueChange={(val) => {
+                          setItemsPerPage(Number(val));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-[58px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="9999">All</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+                  </div>
+                  <div className="flex items-center justify-between sm:justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="h-7 px-2 text-[11px]"
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+                      {itemsPerPage === 9999 ? '1/1' : `${currentPage}/${Math.ceil(filteredRequests.length / itemsPerPage) || 1}`}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      disabled={itemsPerPage === 9999 || currentPage >= Math.ceil(filteredRequests.length / itemsPerPage)}
+                      className="h-7 px-2 text-[11px]"
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </td>
-
-            {/* Title */}
-            <td className={`w-[200px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              <div className="text-xs font-medium truncate text-gray-800">{request.title}</div>
-              {request.description && (
-                <div className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{request.description}</div>
-              )}
-            </td>
-
-            {/* Status */}
-            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              <div className="transform transition-transform hover:scale-105">
-                {getSeenBadge(request.is_seen)}
-              </div>
-            </td>
-
-            {/* Notice Date */}
-            <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              <div className="text-xs font-medium whitespace-nowrap">
-                {new Date(request.notice_period_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </div>
-            </td>
-
-            {/* Sent On */}
-            <td className={`w-[130px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
-              <div className="text-xs font-medium whitespace-nowrap">
-                {new Date(request.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </div>
-              <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                {new Date(request.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </td>
-
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-
-  {/* Pagination */}
-  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
-        <span className="text-gray-500 whitespace-nowrap">
-          {filteredRequests.length} requests
-        </span>
-        <div className="flex items-center gap-1">
-          <span className="hidden sm:inline text-gray-600">Rows:</span>
-          <Select
-            value={String(itemsPerPage)}
-            onValueChange={(val) => {
-              setItemsPerPage(Number(val));
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="h-7 w-[58px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-  <SelectItem value="10">10</SelectItem>
-  <SelectItem value="25">25</SelectItem>
-  <SelectItem value="50">50</SelectItem>
-  <SelectItem value="100">100</SelectItem>
-  <SelectItem value="9999">All</SelectItem>
-</SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex items-center justify-between sm:justify-end gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-          className="h-7 px-2 text-[11px]"
-        >
-          Prev
-        </Button>
-       <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
-          {itemsPerPage === 9999 ? '1/1' : `${currentPage}/${Math.ceil(filteredRequests.length / itemsPerPage) || 1}`}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => prev + 1)}
-          disabled={itemsPerPage === 9999 || currentPage >= Math.ceil(filteredRequests.length / itemsPerPage)}
-          className="h-7 px-2 text-[11px]"
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  </div>
-</div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -778,6 +844,13 @@ const currentPageItems = itemsPerPage === 9999
           setTenantSearch("");
           setIsTenantDropdownOpen(false);
         } else {
+          // Refresh properties when dialog opens
+          if (properties.length === 0) {
+            fetchProperties();
+          }
+          setSelectedPropertyId("");
+          setSelectedTenant("");
+          setTenants([]);
           setTimeout(() => {
             if (tenantSearchRef.current) {
               tenantSearchRef.current.focus();
@@ -786,8 +859,6 @@ const currentPageItems = itemsPerPage === 9999
         }
       }}>
         <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          
-          {/* Header */}
           <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
@@ -813,63 +884,124 @@ const currentPageItems = itemsPerPage === 9999
             </DialogDescription>
           </DialogHeader>
 
-          {/* Form */}
           <form onSubmit={handleCreateRequest} className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-            
-            {/* Tenant Selection with Search */}
+            {/* Select Property & Tenant */}
             <div className="border rounded-md p-3">
               <h4 className="text-xs font-semibold flex items-center gap-1 mb-3 text-blue-600">
-                <User className="h-3 w-3" />
-                Select Tenant
+                <Building2 className="h-3 w-3" />
+                Select Property & Tenant
               </h4>
               
-              <div className="relative" ref={tenantDropdownRef}>
-                {/* Selected Tenant Display */}
-                {/* Selected Tenant Display */}
-<div
-  className="w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors"
-  onClick={() => {
-    setIsTenantDropdownOpen(!isTenantDropdownOpen);
-    setTimeout(() => {
-      if (tenantSearchRef.current && !isTenantDropdownOpen) {
-        tenantSearchRef.current.focus();
-      }
-    }, 50);
-  }}
->
-  <div className="flex flex-col flex-1 min-w-0">
-    {selectedTenant ? (
-      <>
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
-          <span className="text-sm font-medium truncate">
-            {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
-          </span>
-        </div>
-        {/* Show room, property, bed details for selected tenant */}
-        {(() => {
-          const selected = tenants.find(t => t.id.toString() === selectedTenant);
-          if (selected) {
-            return (
-              <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
-                <span className="bg-blue-50 px-1.5 py-0.5 rounded">R- {selected.room_number || 'N/A'}</span>
-                <span className="bg-purple-50 px-1.5 py-0.5 rounded">{selected.property_name || 'N/A'}</span>
-                <span className="bg-green-50 px-1.5 py-0.5 rounded">B- {selected.bed_number || 'N/A'}</span>
+              {/* Property Selection */}
+              <div className="mb-3">
+                <Label className="text-xs font-medium">
+                  Property <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedPropertyId}
+                  onValueChange={(value) => {
+                    setSelectedPropertyId(value);
+                    setSelectedTenant("");
+                    setTenantSearch("");
+                    fetchTenantsByProperty(value);
+                  }}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-sm">
+                    <SelectValue placeholder={loadingProperties ? "Loading properties..." : "Select property..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingProperties ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <span className="text-sm text-gray-500">Loading...</span>
+                      </div>
+                    ) : properties.length === 0 ? (
+                      <div className="py-4 text-center text-sm text-gray-500">
+                        No properties found
+                      </div>
+                    ) : (
+                      properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3 w-3 text-gray-400" />
+                            <span>{property.name}</span>
+                            {property.active_tenants !== undefined && (
+                              <span className="text-xs text-gray-400">
+                                ({property.active_tenants} tenants)
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {!loadingProperties && properties.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    No properties available. Please add a property first.
+                  </p>
+                )}
               </div>
-            );
-          }
-          return null;
-        })()}
-      </>
-    ) : (
-      <span className="text-sm text-gray-400">Select a tenant...</span>
-    )}
-  </div>
-  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
-</div>
+              
+              {/* Tenant Selection with Search */}
+              <div className="relative" ref={tenantDropdownRef}>
+                <div
+                  className={`w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors ${
+                    !selectedPropertyId ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  onClick={() => {
+                    if (!selectedPropertyId) {
+                      toast.info("Please select a property first");
+                      return;
+                    }
+                    if (tenants.length === 0) {
+                      toast.info("No tenants found in this property");
+                      return;
+                    }
+                    setIsTenantDropdownOpen(!isTenantDropdownOpen);
+                    setTimeout(() => {
+                      if (tenantSearchRef.current && !isTenantDropdownOpen) {
+                        tenantSearchRef.current.focus();
+                      }
+                    }, 50);
+                  }}
+                >
+                  <div className="flex flex-col flex-1 min-w-0">
+                    {selectedTenant ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
+                          </span>
+                        </div>
+                        {(() => {
+                          const selected = tenants.find(t => t.id.toString() === selectedTenant);
+                          if (selected) {
+                            return (
+                              <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                                <span className="bg-blue-50 px-1.5 py-0.5 rounded">R- {selected.room_number || 'N/A'}</span>
+                                <span className="bg-green-50 px-1.5 py-0.5 rounded">B- {selected.bed_number || 'N/A'}</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </>
+                    ) : (
+                      <span className="text-sm text-gray-400">
+                        {loadingTenants ? "Loading tenants..." : 
+                         !selectedPropertyId ? "Select property first" :
+                         tenants.length === 0 ? "No tenants in this property" :
+                         "Select a tenant..."}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
 
                 {/* Dropdown with Search */}
-                {isTenantDropdownOpen && (
+                {isTenantDropdownOpen && selectedPropertyId && tenants.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-80 overflow-hidden">
                     {/* Search Input */}
                     <div className="p-2 border-b sticky top-0 bg-white">
@@ -889,60 +1021,41 @@ const currentPageItems = itemsPerPage === 9999
                     
                     {/* Tenants List */}
                     <div className="max-h-64 overflow-y-auto">
-  {getFilteredTenants().length === 0 ? (
-    <div className="p-4 text-center text-sm text-gray-500">
-      No tenants found
-    </div>
-  ) : (
-    getFilteredTenants().map((tenant) => (
-      <div
-        key={tenant.id}
-        className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
-          selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-        }`}
-        onClick={() => {
-          setSelectedTenant(tenant.id.toString());
-          setIsTenantDropdownOpen(false);
-          setTenantSearch("");
-        }}
-      >
-        <div className="flex flex-col">
-          {/* Tenant Name - Main display */}
-          <p className="font-medium text-sm text-gray-900 flex items-center gap-2">
-            <User className="h-3.5 w-3.5 text-blue-500" />
-            {tenant.full_name}
-          </p>
-          
-          {/* Room & Property Info - Show as badges */}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-100">
-              R-{tenant.room_number || 'N/A'}
-            </span>
-            <span className="text-xs bg-purple-50 px-2 py-0.5 rounded-full text-purple-700 border border-purple-100">
-              {tenant.property_name || 'N/A'}
-            </span>
-            <span className="text-xs bg-green-50 px-2 py-0.5 rounded-full text-green-700 border border-green-100">
-              B-{tenant.bed_number || 'N/A'}
-            </span>
-          </div>
-          
-          {/* Email & Phone - Small secondary info */}
-          {/* <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
-            <span className="flex items-center gap-0.5">
-              <Mail className="h-2.5 w-2.5" />
-              {tenant.email}
-            </span>
-            {tenant.phone && (
-              <span className="flex items-center gap-0.5">
-                📞 {tenant.phone}
-              </span>
-            )}
-          </div> */}
-        </div>
-      </div>
-    ))
-  )}
-</div>
+                      {getFilteredTenants().length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No tenants match your search
+                        </div>
+                      ) : (
+                        getFilteredTenants().map((tenant) => (
+                          <div
+                            key={tenant.id}
+                            className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
+                              selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                            }`}
+                            onClick={() => {
+                              setSelectedTenant(tenant.id.toString());
+                              setIsTenantDropdownOpen(false);
+                              setTenantSearch("");
+                            }}
+                          >
+                            <div className="flex flex-col">
+                              <p className="font-medium text-sm text-gray-900 flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-blue-500" />
+                                {tenant.full_name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-100">
+                                  R-{tenant.room_number || 'N/A'}
+                                </span>
+                                <span className="text-xs bg-green-50 px-2 py-0.5 rounded-full text-green-700 border border-green-100">
+                                  B-{tenant.bed_number || 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1033,8 +1146,6 @@ const currentPageItems = itemsPerPage === 9999
       {/* View Request Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          
-          {/* Header */}
           <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
@@ -1057,8 +1168,6 @@ const currentPageItems = itemsPerPage === 9999
 
           {selectedRequest && (
             <div className="p-4 sm:p-5 space-y-3 max-h-[80vh] overflow-y-auto">
-
-              {/* Status */}
               <div className="flex flex-wrap gap-2 bg-gray-50 px-3 py-2 rounded-md text-xs">
                 <div className="flex items-center gap-1">
                   <span className="text-gray-500">Status:</span>
@@ -1066,13 +1175,11 @@ const currentPageItems = itemsPerPage === 9999
                 </div>
               </div>
 
-              {/* Tenant Info */}
               <div className="border rounded-md p-3">
                 <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
                   <User className="h-3 w-3" />
                   Tenant Information
                 </h4>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                   <div>
                     <span className="text-gray-500">Name</span>
@@ -1081,7 +1188,6 @@ const currentPageItems = itemsPerPage === 9999
                       {selectedRequest.tenant_name}
                     </p>
                   </div>
-
                   <div>
                     <span className="text-gray-500">Email</span>
                     <p className="flex items-center gap-1 truncate">
@@ -1089,7 +1195,6 @@ const currentPageItems = itemsPerPage === 9999
                       {selectedRequest.tenant_email || "N/A"}
                     </p>
                   </div>
-
                   <div>
                     <span className="text-gray-500">Property</span>
                     <p className="flex items-center gap-1 truncate">
@@ -1100,13 +1205,11 @@ const currentPageItems = itemsPerPage === 9999
                 </div>
               </div>
 
-              {/* Request Details */}
               <div className="border rounded-md p-3">
                 <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
                   <FileText className="h-3 w-3" />
                   Request Details
                 </h4>
-
                 <div className="space-y-2 text-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1126,7 +1229,6 @@ const currentPageItems = itemsPerPage === 9999
                       </p>
                     </div>
                   </div>
-
                   {selectedRequest.description && (
                     <div>
                       <span className="text-gray-500">Description</span>
@@ -1135,7 +1237,6 @@ const currentPageItems = itemsPerPage === 9999
                       </div>
                     </div>
                   )}
-
                   <div>
                     <span className="text-gray-500">Sent On</span>
                     <p className="flex items-center gap-1">

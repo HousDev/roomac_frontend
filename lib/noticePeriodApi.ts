@@ -15,6 +15,21 @@ export interface NoticePeriodRequest {
   room_number?: string;
 }
 
+export interface ActiveNoticePeriod {
+  notice_id: number;
+  tenant_id: number;
+  title: string;
+  notice_period_date: string;
+  created_at: string;
+  tenant_name: string;
+  bed_assignment_id: number;
+  bed_number: number;
+  room_id: number;
+  room_number: string;
+  property_id: number;
+  property_name: string;
+}
+
 // Admin API functions
 export const getAdminNoticePeriodRequests = async (
   page: number = 1,
@@ -140,5 +155,21 @@ export const markNoticePeriodAsSeen = async (
   } catch (error) {
     console.error("Failed to mark request as seen:", error);
     return { success: false, message: "Failed to mark as seen" };
+  }
+};
+
+export const getActiveNoticePeriods = async (
+  propertyId?: string
+): Promise<{ success: boolean; data: ActiveNoticePeriod[] }> => {
+  try {
+    const params = propertyId ? `?property_id=${propertyId}` : "";
+    const res = await request<any>(
+      `/api/notice-period-requests/availability/active${params}`,
+      { method: "GET" }
+    );
+    return res;
+  } catch (error) {
+    console.error("Failed to fetch active notice periods:", error);
+    return { success: false, data: [] };
   }
 };

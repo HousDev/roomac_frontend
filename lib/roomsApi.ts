@@ -25,6 +25,7 @@ export type RoomPayload = {
 };
 
 export interface BedAssignment {
+  available_from_date: string | number | Date;
   id: number;
   room_id: number;
   bed_number: number;
@@ -45,6 +46,7 @@ export interface BedAssignment {
   pre_assigned_rent?: number | null;
   pre_assigned_security_deposit?: number | null;
   pre_assigned_is_couple?: boolean;
+  
 }
 
 export type RoomResponse = {

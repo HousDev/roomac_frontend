@@ -199,39 +199,90 @@ const RoomCard = memo(({
       {/* CONTENT SECTION - Your original design */}
       <div className="p-5">
         {/* Property Info */}
-        <div className="mb-3">
-          <div className="flex items-start gap-1.5 mb-1">
-            <Building2 className="h-3.5 w-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 text-xs truncate">{room.property_name}</p>
-              <p className="text-[10px] text-gray-500 truncate">{room.property_address}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
-            <div className="flex items-center gap-0.5 bg-gray-50 px-1.5 py-0.5 rounded">
-              <Building className="h-3 w-3" />
-              <span>{room.floor || 'G'}</span>
-            </div>
-{!!room.has_attached_bathroom && (
-              <div className="flex items-center gap-0.5 bg-blue-50 px-1.5 py-0.5 rounded">
-                <Bath className="h-3 w-3 text-blue-500" />
-                <span>Bath</span>
-              </div>
-            )}
-            {!!room.has_ac && (
-              <div className="flex items-center gap-0.5 bg-cyan-50 px-1.5 py-0.5 rounded">
-                <Wind className="h-3 w-3 text-cyan-500" />
-                <span>AC</span>
-              </div>
-            )}
-            {!!room.has_balcony && (
-              <div className="flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded">
-                <Sun className="h-3 w-3 text-amber-500" />
-                <span>Balcony</span>
-              </div>
-            )}
-          </div>
-        </div>
+<div className="mb-3">
+  <div className="flex items-start gap-1.5 mb-1">
+    <Building2 className="h-3.5 w-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-1 flex-wrap">
+        <p className="font-semibold text-gray-900 text-xs truncate">{room.property_name}</p>
+        {(() => {
+  const beds = room.bed_assignments || [];
+  const becomingAvailable = beds.filter((b: any) => b.available_from_date);
+  const preAssignedBeds = beds.filter((b: any) => b.pre_assigned_tenant_id);
+
+  if (becomingAvailable.length === 0 && preAssignedBeds.length === 0) return null;
+
+  const earliest = becomingAvailable.length
+    ? becomingAvailable.reduce((e: any, b: any) =>
+        new Date(b.available_from_date) < new Date(e.available_from_date) ? b : e,
+      )
+    : null;
+
+  // Earliest date among pre-assigned beds specifically, so the pre-assigned badge always carries a date
+  const earliestPreAssigned = preAssignedBeds.length
+    ? preAssignedBeds.reduce((e: any, b: any) =>
+        new Date(b.available_from_date || 0) < new Date(e.available_from_date || 0) ? b : e,
+      )
+    : null;
+
+  return (
+    <>
+      {earliest && (
+        <Badge
+          className={`text-[9px] px-1.5 py-0 h-4 font-medium border ${
+            earliest.available_from_source === 'notice_period'
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-amber-100 text-amber-700 border-amber-200'
+          }`}
+          title={
+            earliest.available_from_source === 'notice_period'
+              ? `${becomingAvailable.length} bed(s) — notice period given, vacate not yet confirmed`
+              : `${becomingAvailable.length} bed(s) vacating`
+          }
+        >
+          Avail {new Date(earliest.available_from_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+        </Badge>
+      )}
+      {preAssignedBeds.length > 0 && (
+        <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[9px] px-1.5 py-0 h-4 font-medium">
+          {preAssignedBeds.length} pre-assigned
+          {earliestPreAssigned?.available_from_date && (
+            <> · {new Date(earliestPreAssigned.available_from_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</>
+          )}
+        </Badge>
+      )}
+    </>
+  );
+})()}
+      </div>
+      <p className="text-[10px] text-gray-500 truncate">{room.property_address}</p>
+    </div>
+  </div>
+  <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
+    <div className="flex items-center gap-0.5 bg-gray-50 px-1.5 py-0.5 rounded">
+      <Building className="h-3 w-3" />
+      <span>{room.floor || 'G'}</span>
+    </div>
+    {!!room.has_attached_bathroom && (
+      <div className="flex items-center gap-0.5 bg-blue-50 px-1.5 py-0.5 rounded">
+        <Bath className="h-3 w-3 text-blue-500" />
+        <span>Bath</span>
+      </div>
+    )}
+    {!!room.has_ac && (
+      <div className="flex items-center gap-0.5 bg-cyan-50 px-1.5 py-0.5 rounded">
+        <Wind className="h-3 w-3 text-cyan-500" />
+        <span>AC</span>
+      </div>
+    )}
+    {!!room.has_balcony && (
+      <div className="flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded">
+        <Sun className="h-3 w-3 text-amber-500" />
+        <span>Balcony</span>
+      </div>
+    )}
+  </div>
+</div>
 
         {/* OCCUPANCY BAR - COMPACT */}
         <div className="mb-3">

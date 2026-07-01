@@ -682,6 +682,17 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
     }
   };
 
+  const fetchFullTenant = async (tenantId: number) => {
+    try {
+      const response = await fetch(`/api/tenants/${tenantId}`);
+      const result = await response.json();
+      return result.success ? result.data : null;
+    } catch (error) {
+      console.error("Error fetching full tenant:", error);
+      return null;
+    }
+  };
+
 const fetchPartnerDetails = async (tenantId: number) => {
   try {
     setLoadingTenants(true);
@@ -711,9 +722,46 @@ const fetchPartnerDetails = async (tenantId: number) => {
       bedAssignment?.is_couple === 1 ||
       bedAssignment?.is_couple === "1";
 
-    setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
-
+    // ✅ NEW: bedAssignment.is_couple / tenant.partner_tenant_id are sticky —
+    // they survive the partner's vacate. Confirm the partner is actually
+    // still housed before treating this as a live couple vacate.
+    let partnerStillActive = false;
     if (hasPartner && isCurrentlyCoupleBooking) {
+      const partnerFull = await fetchFullTenant(partnerTenantId);
+      partnerStillActive =
+        !!partnerFull &&
+        partnerFull.is_active === true &&
+        !!partnerFull.current_assignment &&
+        partnerFull.current_assignment.is_vacated !== true;
+    }
+
+    const isRealCoupleVacate = hasPartner && isCurrentlyCoupleBooking && partnerStillActive;
+    setIsCoupleBooking(isRealCoupleVacate);
+
+    if (!isRealCoupleVacate) {
+      // ✅ Solo vacate: partner already gone (or never existed) —
+      // only this one tenant gets a vacate record.
+      console.log(
+        hasPartner
+          ? `ℹ️ Partner ${partnerTenantId} has vacated — treating as solo vacate`
+          : "ℹ️ No partner — solo vacate",
+      );
+      setTenantsToVacate([
+        {
+          id: tenant.id,
+          full_name: tenant.full_name,
+          email: tenant.email || "",
+          phone: tenant.phone || "",
+          gender: tenant.gender || "",
+          is_primary: tenant.is_primary_tenant === 1,
+          selected: true,
+          is_checked_disabled: false,
+        },
+      ]);
+      return;
+    }
+
+    {
       const partner = await fetchRawTenant(partnerTenantId);
 
       if (partner) {
@@ -822,21 +870,22 @@ const fetchPartnerDetails = async (tenantId: number) => {
           },
         ]);
       }
-    } else {
-      // Not a couple booking - single tenant
-      setTenantsToVacate([
-        {
-          id: tenant.id,
-          full_name: tenant.full_name,
-          email: tenant.email || "",
-          phone: tenant.phone || "",
-          gender: tenant.gender || "",
-          is_primary: tenant.is_primary_tenant === 1,
-          selected: true,
-          is_checked_disabled: false,
-        },
-      ]);
-    }
+    } 
+    // else {
+    //   // Not a couple booking - single tenant
+    //   setTenantsToVacate([
+    //     {
+    //       id: tenant.id,
+    //       full_name: tenant.full_name,
+    //       email: tenant.email || "",
+    //       phone: tenant.phone || "",
+    //       gender: tenant.gender || "",
+    //       is_primary: tenant.is_primary_tenant === 1,
+    //       selected: true,
+    //       is_checked_disabled: false,
+    //     },
+    //   ]);
+    // }
   } catch (error) {
     console.error("Error fetching partner details:", error);
     toast.error("Failed to load tenant details");
