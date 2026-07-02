@@ -158,9 +158,17 @@ export const getInventoryStats = async (): Promise<InventoryStatsResponse> => {
   return request<InventoryStatsResponse>("/api/inventory/stats", { method: "GET" });
 };
 
-export const getAvailableAssets = async (item_name: string): Promise<{
+export const getAvailableAssets = async (
+  item_name: string,
+  property_id?: string,
+  qty?: number
+): Promise<{
   success: boolean;
+  count: number;
   data: { asset_id: string; item_name: string; property_name: string; vendor_name: string; purchase_date: string }[]
 }> => {
-  return request(`/api/inventory/available-assets?item_name=${encodeURIComponent(item_name)}`, { method: 'GET' });
+  const q = new URLSearchParams({ item_name });
+  if (property_id) q.append('property_id', property_id);
+  if (qty) q.append('qty', String(qty));
+  return request(`/api/inventory/available-assets?${q}`, { method: 'GET' });
 };

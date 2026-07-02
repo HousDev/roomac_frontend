@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Edit,
   Smartphone,
-  Mail
+  Mail,
+  Share2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
 import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
 import { request } from '@/lib/api';
+import { FaWhatsapp } from 'react-icons/fa';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -59,6 +61,7 @@ interface InspectionItem {
   condition_at_movein: string;
   condition_at_moveout: string;
   penalty_amount: number;
+  asset_id?: string; 
   notes?: string;
 }
 
@@ -211,6 +214,7 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const { can } = useAuth(); // ← ADD THIS
+  const [isPropertyDropdownOpen, setIsPropertyDropdownOpen] = useState(false);
 
   const [stats, setStats] = useState({
     total: 0, completed: 0, approved: 0, pending: 0, active: 0, cancelled: 0,
@@ -242,7 +246,7 @@ const [totalPages, setTotalPages] = useState(1);
     inspector_name: '',
     total_penalty: 0,
     notes: '',
-    status: 'Pending'
+    status: 'Completed'
   };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -370,6 +374,7 @@ const [totalPages, setTotalPages] = useState(1);
           condition_at_movein: item.condition_at_movein,
           condition_at_moveout: item.condition_at_movein, // Default to same as move-in
           penalty_amount: 0,
+          asset_id: item.asset_id || '',
           notes: ''
         }));
         setInspectionItems(items);
@@ -574,6 +579,7 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
   condition_at_movein: item.condition_at_movein || 'Good',
   condition_at_moveout: item.condition_at_moveout || item.condition_at_movein || 'Good',
   penalty_amount: parseFloat(String(item.penalty_amount)) || 0,
+  asset_id: item.asset_id || '',
   notes: item.notes || ''
 }));
       
@@ -634,6 +640,7 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
           condition_at_movein: item.condition_at_movein,
           condition_at_moveout: item.condition_at_moveout,
           penalty_amount: item.penalty_amount || 0,
+          asset_id: item.asset_id || '',
           notes: item.notes || ''
         }))
       };
@@ -648,27 +655,46 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
 }
 
 // Update asset status in inventory based on move-out condition
+// Update asset status in inventory based on move-out condition
+console.log('Updating asset statuses for items:', inspectionItems.map(i => ({ 
+  name: i.item_name, 
+  asset_id: i.asset_id, 
+  condition: i.condition_at_moveout 
+})));
+
+
+const shouldUpdateAssets = ['Pending','Completed', 'Approved'].includes(payload.status || '');
+
 for (const item of inspectionItems) {
-  if (item.asset_id) {
-    let newStatus = 'available';
-    if (item.condition_at_moveout === 'Missing') {
-      newStatus = 'missing';
-    } else if (item.condition_at_moveout === 'Damaged') {
-      newStatus = 'damaged';
-    } else {
-      newStatus = 'available'; // released back to available on move-out
-    }
-    try {
-      await request('/api/inventory/assign-asset', {
-        method: 'POST',
-        body: JSON.stringify({ asset_id: item.asset_id, status: newStatus })
-      });
-    } catch (e) {
-      console.error('Asset status update error:', e);
-    }
+  if (!item.asset_id || String(item.asset_id).trim() === '') continue;
+  if (!shouldUpdateAssets) continue;
+
+  let newStatus: string;
+  if (item.condition_at_moveout === 'Damaged') {
+    newStatus = 'damaged';
+  } else if (item.condition_at_moveout === 'Missing') {
+    newStatus = 'missing';
+  } else {
+    newStatus = 'available';
+  }
+
+  console.log(`Updating asset ${item.asset_id} → ${newStatus}`);
+
+  try {
+    const res = await request('/api/inventory/assign-asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        asset_id: String(item.asset_id).trim(), 
+        status: newStatus,
+        tenant_id: null
+      })
+    });
+    console.log(`Asset ${item.asset_id} updated to ${newStatus}:`, res);
+  } catch (e) {
+    console.error(`Asset status update error for ${item.asset_id}:`, e);
   }
 }
-
 setShowForm(false);
 await loadAll();
     } catch (err: any) {
@@ -1587,8 +1613,7 @@ const activeCount = [
 
     <Card className="border rounded-lg shadow-sm overflow-hidden">
       {/* ── Table ── */}
-      <div className="flex flex-col h-[380px] sm:h-[520px]">
-        <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '380px' : '520px' }}>        <div className="overflow-auto flex-1 min-h-0">
           <table
             className="border-collapse text-[11px] font-sans"
             style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}
@@ -1900,138 +1925,96 @@ const activeCount = [
   </main>
 
         {/* ── FILTER DRAWER ────────────────────────────────────────────── */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
-        )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {activeCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {(['all', 'Completed', 'Approved', 'Pending', 'Active', 'Cancelled'] as StatusType[]).map(s => (
-                  <label key={s} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${statusFilter === s ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="status" value={s} checked={statusFilter === s}
-                      onChange={() => setStatusFilter(s)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusFilter === s ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium">{s === 'all' ? 'All Statuses' : s}</span>
-                    {statusFilter === s && (
-                      <span className="ml-auto">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-gray-100" />
-           <div>
-  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-    <Building className="h-3 w-3 text-indigo-500" /> Property
-  </p>
-  
-  {/* Search input for properties */}
-  <div className="relative mb-2">
-    <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
-    <Input
-      placeholder="Search properties..."
-      className="pl-7 h-7 text-xs"
-      value={propertyFilterSearchTerm}
-      onChange={(e) => setPropertyFilterSearchTerm(e.target.value)}
-    />
-  </div>
-  
-  <div className="space-y-1 max-h-[200px] overflow-y-auto">
-    <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-      ${propertyFilter === 'all' ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-      <input type="radio" name="prop" value="all" checked={propertyFilter === 'all'}
-        onChange={() => setPropertyFilter('all')} className="sr-only" />
-      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === 'all' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-      <span className="text-[12px] font-medium">All Properties</span>
-      {propertyFilter === 'all' && (
-        <span className="ml-auto">
-          <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+     {sidebarOpen && (
+  <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
+)}
+<aside className={`fixed top-0 right-0 h-full z-40 w-[85vw] sm:w-96 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {activeCount > 0 && (
+        <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+          {activeCount} active
         </span>
       )}
-    </label>
-    
-    {properties
-      .filter(p => p.name.toLowerCase().includes(propertyFilterSearchTerm.toLowerCase()))
-      .map(p => (
-        <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-          ${propertyFilter === p.id ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-          <input type="radio" name="prop" value={p.id} checked={propertyFilter === p.id}
-            onChange={() => setPropertyFilter(p.id)} className="sr-only" />
-          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? 'bg-blue-500' : 'bg-gray-300'}`} />
-          <span className="text-[12px] font-medium truncate">{p.name}</span>
-          {propertyFilter === p.id && (
-            <span className="ml-auto flex-shrink-0">
-              <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
-          )}
-        </label>
-      ))}
-      
-    {/* Show message if no results */}
-    {properties.filter(p => p.name.toLowerCase().includes(propertyFilterSearchTerm.toLowerCase())).length === 0 && (
-      <div className="px-2 py-3 text-center">
-        <p className="text-xs text-gray-400">No properties found</p>
-      </div>
-    )}
+    </div>
+    <div className="flex items-center gap-2">
+      {activeCount > 0 && (
+        <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+          Clear all
+        </button>
+      )}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
   </div>
-</div>
-          </div>
 
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
+  <div className="flex-1 overflow-y-auto p-4">
+    <div className="grid grid-cols-2 gap-3">
+      {/* Status Dropdown */}
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
+        </p>
+        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusType)}>
+          <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="Approved">Approved</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Property Dropdown */}
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <Building className="h-3 w-3 text-indigo-500" /> Property
+        </p>
+        <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+          <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+            <SelectValue placeholder="Select property" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Properties</SelectItem>
+            {properties.map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  </div>
+
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button
+      onClick={clearFilters}
+      disabled={!activeCount}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      Clear All
+    </button>
+    <button
+      onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
+    >
+      Apply & Close
+    </button>
+  </div>
+</aside>
       </div>
 
       {/* ══ ADD / EDIT DIALOG ════════════════════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Inspection' : 'New Move-Out Inspection'}</h2>
               <p className="text-xs text-blue-100">
@@ -2325,8 +2308,8 @@ const activeCount = [
       {/* ══ VIEW DIALOG ══════════════════════════════════════════════════════ */}
       {viewItem && (
         <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
-          <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-3 flex items-center justify-between rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold">Move-Out Inspection Report</h2>
                 <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
@@ -2347,7 +2330,7 @@ const activeCount = [
       onClick={() => setShowSharePopup(p => !p)}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[11px] font-medium transition-colors"
     >
-      <MessageCircle className="h-3.5 w-3.5" />
+      <Share2 className="h-3.5 w-3.5" />
       <span>Share</span>
     </button>
 
@@ -2367,7 +2350,7 @@ const activeCount = [
       className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left"
     >
       <div className="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center">
-        <MessageCircle className="h-3.5 w-3.5 text-white" />
+        <FaWhatsapp className="h-3.5 w-3.5 text-white" />
       </div>
       <div>
         <p className="text-[11px] font-semibold text-gray-800">WhatsApp</p>
