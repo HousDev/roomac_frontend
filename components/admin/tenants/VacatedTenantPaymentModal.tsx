@@ -369,7 +369,15 @@ export function VacatedTenantPaymentModal({
   };
 
   // ✅ ALL original logic preserved
-  const handleSubmit = async () => {
+ const handleSubmit = async () => {
+    const cleanTenantId = typeof tenant.id === "string" && tenant.id.includes("-")
+    ? parseInt(tenant.id.split("-")[0], 10)
+    : tenant.id;
+
+  if (!Number.isFinite(Number(cleanTenantId))) {
+    toast.error("Invalid tenant reference — please close and reopen this dialog.");
+    return;
+  }
     setLoading(true);
     try {
       const data = {
@@ -384,9 +392,9 @@ export function VacatedTenantPaymentModal({
 
       let response;
       if (type === "refund") {
-        response = await processVacatedTenantRefund(tenant.id, data);
+        response = await processVacatedTenantRefund(cleanTenantId, data); // ✅ Uses cleanTenantId
       } else {
-        response = await processVacatedTenantPayment(tenant.id, data);
+        response = await processVacatedTenantPayment(cleanTenantId, data); // ✅ Uses cleanTenantId
       }
 
       if (response.success) {

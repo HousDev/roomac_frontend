@@ -71,6 +71,7 @@ import { EditBedModal } from "@/components/admin/rooms/EditBedModal";
 import Swal from "sweetalert2";
 import MySwal from "@/app/utils/swal";
 import React from "react";
+import { getActiveNoticePeriods } from "@/lib/noticePeriodApi";
 
 interface BedManagementDialogProps {
   room: any;
@@ -1436,14 +1437,13 @@ if (propertyId) {
     }
 
     // 2. Notice periods (fallback — only fills beds with no vacate request)
+    // ✅ Use the same helper SideFilter uses instead of a raw fetch — the raw
+    // fetch was likely failing auth silently (success:false, no throw), so
+    // no notice-period entries ever made it into vacateMap.
     try {
-      const noticeRes = await fetch(
-        `/api/notice-period-requests/availability/active?property_id=${propertyId}`,
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-      );
-      const noticeData = await noticeRes.json();
-      if (noticeData.success && Array.isArray(noticeData.data)) {
-        noticeData.data.forEach((n: any) => {
+      const noticeResult = await getActiveNoticePeriods(propertyId.toString());
+      if (noticeResult.success && Array.isArray(noticeResult.data)) {
+        noticeResult.data.forEach((n) => {
           if (n.bed_assignment_id && n.notice_period_date && !vacateMap[n.bed_assignment_id]) {
             vacateMap[n.bed_assignment_id] = {
               date: n.notice_period_date,
@@ -1453,6 +1453,8 @@ if (propertyId) {
             };
           }
         });
+      } else {
+        console.warn("⚠️ Notice periods fetch returned no data:", noticeResult);
       }
     } catch (noticeErr) {
       console.error("❌ Could not fetch notice periods:", noticeErr);

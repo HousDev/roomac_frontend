@@ -9,6 +9,7 @@ export interface NoticePeriodRequest {
   title: string;
   description: string;
   notice_period_date: string;
+  status: 'active' | 'completed' | 'cancelled'; 
   is_seen: number;
   created_at: string;
   property_name?: string;

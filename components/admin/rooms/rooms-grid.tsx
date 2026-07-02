@@ -240,7 +240,7 @@ const RoomCard = memo(({
               : `${becomingAvailable.length} bed(s) vacating`
           }
         >
-          Avail {new Date(earliest.available_from_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+          Available from {new Date(earliest.available_from_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
         </Badge>
       )}
       {preAssignedBeds.length > 0 && (

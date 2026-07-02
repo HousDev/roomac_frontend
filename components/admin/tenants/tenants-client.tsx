@@ -1419,26 +1419,32 @@ const flattenedRows = useMemo(() => {
 }, [flattenedRows, currentPage, pageSize]);
 
     // Add handlers
-    const handleVacatedTenantRefund = useCallback(
-      (tenant: Tenant, refundAmount: number, vacateRecordId?: number) => {
-        setSelectedVacatedTenant(tenant);
-        setPaymentModalAmount(refundAmount);
-        setPaymentModalType("refund");
-        setVacateRecordId(vacateRecordId || null);
-        setPaymentModalOpen(true);
-      },
-      [],
-    );
+   const handleVacatedTenantRefund = useCallback(
+  (tenant: Tenant, refundAmount: number, vacateRecordId?: number) => {
+    // ✅ Always normalize here — never trust the caller to have done it.
+    // Vacated-tab rows are flattened per vacate_record and may carry a
+    // synthetic id like "66-vr-90"; original_id always holds the real one.
+    const realId = (tenant as any).original_id ?? tenant.id;
+    setSelectedVacatedTenant({ ...tenant, id: realId });
+    setPaymentModalAmount(refundAmount);
+    setPaymentModalType("refund");
+    setVacateRecordId(vacateRecordId || null);
+    setPaymentModalOpen(true);
+  },
+  [],
+);
 
-    const handleVacatedTenantPayment = useCallback(
-      (tenant: Tenant, paymentAmount: number) => {
-        setSelectedVacatedTenant(tenant);
-        setPaymentModalAmount(paymentAmount);
-        setPaymentModalType("payment");
-        setPaymentModalOpen(true);
-      },
-      [],
-    );
+const handleVacatedTenantPayment = useCallback(
+  (tenant: Tenant, paymentAmount: number, vacateRecordId?: number) => {
+    const realId = (tenant as any).original_id ?? tenant.id;
+    setSelectedVacatedTenant({ ...tenant, id: realId });
+    setPaymentModalAmount(paymentAmount);
+    setPaymentModalType("payment");
+    setVacateRecordId(vacateRecordId || null); // was missing here too — see below
+    setPaymentModalOpen(true);
+  },
+  [],
+);
 
     const handlePaymentModalSuccess = useCallback(async () => {
       // Force refresh the tenants data
@@ -1799,13 +1805,7 @@ const flattenedRows = useMemo(() => {
                 variant="outline"
                 size="sm"
                 className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600"
-                onClick={() =>
-                  handleVacatedTenantRefund(
-                    tenant,
-                    refundableAmount,
-                    vacateRecord?.id,
-                  )
-                }
+                onClick={() => handleVacatedTenantRefund(tenant, refundableAmount, vacateRecord?.id)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
                 Pay Refund ₹{refundableAmount.toLocaleString()}
@@ -1817,12 +1817,12 @@ const flattenedRows = useMemo(() => {
                 size="sm"
                 className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-600"
                 onClick={() =>
-                  handleVacatedTenantPayment(
-                    tenant,
-                    Math.abs(refundableAmount),
-                    vacateRecord?.id,
-                  )
-                }
+  handleVacatedTenantPayment(
+    tenant,
+    Math.abs(refundableAmount),
+    vacateRecord?.id,
+  )
+}
               >
                 <IndianRupee className="w-2.5 h-2.5 mr-1" />
                 Receive Payment ₹
@@ -3556,21 +3556,23 @@ const totalRefunded = payments
   style={{ borderBottom: "1px solid #e5e7eb" }}
 >
                 {/* ── Sticky: Checkbox ── */}
+
 <td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-b border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
-                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
-                    {selectedTenantIds.includes(String(tenant.id)) ? (
-                  <button onClick={() =>
-    toggleSelection(String((tenant as any).original_id || tenant.id))
-  } className="flex items-center justify-center w-4 h-4 mx-auto">
-                   {selectedTenantIds.includes(
-  String((tenant as any).original_id || tenant.id).split("-vr-")[0]
-) ? (
-                      <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                    ) : (
-                      <Square className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400" />
-                    )}
-                  </button>
-                </td>
+  <button
+    onClick={() =>
+      toggleSelection(String((tenant as any).original_id || tenant.id))
+    }
+    className="flex items-center justify-center w-4 h-4 mx-auto"
+  >
+    {selectedTenantIds.includes(
+      String((tenant as any).original_id || tenant.id)
+    ) ? (
+      <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+    ) : (
+      <Square className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400" />
+    )}
+  </button>
+</td>
 
                 
 
@@ -3891,8 +3893,12 @@ const totalRefunded = payments
               size="sm"
               className="h-5 px-2 text-[9px] bg-green-100 text-green-700 border-green-200 hover:bg-green-400 whitespace-nowrap rounded-md"
               onClick={() =>
-                handleVacatedTenantRefund(tenant, remainingRefund, vacateRecord?.id)
-              }
+  handleVacatedTenantRefund(
+    { ...tenant, id: tenant.original_id ?? tenant.id },
+    remainingRefund,
+    vacateRecord?.id,
+  )
+}
             >
               <Shield className="w-2.5 h-2.5 mr-1 flex-shrink-0" />
               Pay ₹{remainingRefund.toLocaleString()}
