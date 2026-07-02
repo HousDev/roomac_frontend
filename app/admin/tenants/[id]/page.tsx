@@ -309,6 +309,25 @@ function OverviewTab({
     securityDeposit: assignment?.security_deposit || tenant.security_deposit || 0,
   };
 
+  // ✅ Previous stay (only relevant when tenant is NOT currently active)
+  const previousStay = isActuallyVacated && vacateRecord ? {
+  property: vacateRecord.property_name || "—",
+  room: vacateRecord.room_number || "—",
+  bed: vacateRecord.bed_number || "—",
+  sharingType: vacateRecord.sharing_type || "—",
+  rent: Number(vacateRecord.rent_amount || 0),
+  securityDeposit: Number(vacateRecord.security_deposit_amount || 0),
+  checkIn: vacateRecord.stay_check_in_date,
+  checkOut: vacateRecord.requested_vacate_date,
+  totalPenalty: Number(vacateRecord.total_penalty_amount || 0),
+  lockinPenalty: Number(vacateRecord.lockin_penalty_amount || 0),
+  noticePenalty: Number(vacateRecord.notice_penalty_amount || 0),
+  inspectionPenalty: Number(vacateRecord.inspection_penalty_amount || 0),
+  refundAmount: Number(vacateRecord.refundable_amount || 0),
+  refundStatus: vacateRecord.status,
+  vacateReason: vacateRecord.vacate_reason_value || "—",
+} : null;
+
   const getOccupationIcon = (cat: string) => {
     switch (cat) {
       case "Working Professional": return <BriefcaseBusiness size={11} />;
@@ -425,28 +444,86 @@ const rentVal = (() => {
   })();
 
   // ─── Print / PDF helpers ──────────────────────────────────────────────
-  const buildPrintHTML = () => {
-    const rentValDisplay = (() => {
-      if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
-      if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
-      if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
-      return "N/A";
-    })();
+// ─── Print (basic summary) ──────────────────────────────────────────────
+const buildBasicPrintHTML = () => {
+  const rentValDisplay = (() => {
+    if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
+    if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
+    if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
+    return "N/A";
+  })();
+  const roomDisplay = (() => {
+    if (hasActiveAssignment && assignment) return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
+    if (isActuallyVacated && vacateRecord) return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
+    if (tenant.bed_number) return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
+    return "Not Assigned";
+  })();
 
-    const roomDisplay = (() => {
-      if (hasActiveAssignment && assignment) {
-        return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
-      }
-      if (isActuallyVacated && vacateRecord) {
-        return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
-      }
-      if (tenant.bed_number) {
-        return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
-      }
-      return "Not Assigned";
-    })();
+  return `<!DOCTYPE html><html><head><title>Tenant Summary · ${tenant.full_name}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px}
+  .header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #f3f4f6}
+  .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900;flex-shrink:0}
+  .header-info h1{font-size:18px;font-weight:900;margin-bottom:3px}
+  .header-info .meta{font-size:10px;color:#6b7280}
+  .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;margin-left:6px}
+  .badge-green{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+  .section{margin-bottom:18px}
+  .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;border-bottom:1.5px solid #f3f4f6;padding-bottom:4px;margin-bottom:8px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid #f9fafb}
+  .row:last-child{border:0}
+  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
+  .val{font-size:11px;font-weight:600;color:#111;text-align:right}
+  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+</style></head><body>
+<div class="header">
+  <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
+  <div class="header-info">
+    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} <span class="badge badge-green">${currentStay.isActive ? "Active" : "Inactive"}</span></h1>
+    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; ${currentStay.property || "—"} · ${roomDisplay}</div>
+  </div>
+</div>
+<div class="section">
+  <div class="section-title">Basic Details</div>
+  <div class="row"><span class="lbl">Full Name</span><span class="val">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</span></div>
+  <div class="row"><span class="lbl">Phone</span><span class="val">${tenant.country_code || ""} ${tenant.phone || "—"}</span></div>
+  <div class="row"><span class="lbl">Email</span><span class="val">${tenant.email || "—"}</span></div>
+</div>
+<div class="section">
+  <div class="section-title">Stay Summary</div>
+  <div class="row"><span class="lbl">Property</span><span class="val">${currentStay.property || "—"}</span></div>
+  <div class="row"><span class="lbl">Room / Bed</span><span class="val">${roomDisplay}</span></div>
+  <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentValDisplay}</span></div>
+  <div class="row"><span class="lbl">Check-in</span><span class="val">${currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN") : "—"}</span></div>
+</div>
+<div class="footer"><span>Roomac Co-Living Management System</span><span>Generated ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"})}</span></div>
+</body></html>`;
+};
 
-    return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
+// ─── Full profile (used for PDF + Download) ─────────────────────────────
+const buildFullPrintHTML = () => {
+  const rentValDisplay = (() => {
+    if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
+    if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
+    if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
+    return "N/A";
+  })();
+
+  const roomDisplay = (() => {
+    if (hasActiveAssignment && assignment) {
+      return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
+    }
+    if (isActuallyVacated && vacateRecord) {
+      return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
+    }
+    if (tenant.bed_number) {
+      return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
+    }
+    return "Not Assigned";
+  })();
+
+  return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px}
@@ -494,6 +571,11 @@ const rentVal = (() => {
     <div class="row"><span class="lbl">Phone</span><span class="val">${tenant.emergency_contact_phone || "—"}</span></div>
     <div class="row"><span class="lbl">Relation</span><span class="val">${tenant.emergency_contact_relation || "—"}</span></div>
   </div>` : ""}
+  <div class="section">
+    <div class="section-title">Account Status</div>
+    <div class="row"><span class="lbl">Portal Access</span><span class="val">${tenant.portal_access_enabled ? "Enabled" : "Disabled"}</span></div>
+    <div class="row"><span class="lbl">Login Credentials</span><span class="val">${tenant.has_credentials ? "Configured" : "Not Set"}</span></div>
+  </div>
 </div>
 <div>
   <div class="section">
@@ -501,9 +583,26 @@ const rentVal = (() => {
     <div class="row"><span class="lbl">Property</span><span class="val">${currentStay.property || "—"}</span></div>
     <div class="row"><span class="lbl">Room / Bed</span><span class="val">${roomDisplay}</span></div>
     <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentValDisplay}</span></div>
+    <div class="row"><span class="lbl">Security Deposit</span><span class="val">${formatINR(securityDeposit)}</span></div>
     <div class="row"><span class="lbl">Check-in</span><span class="val">${currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN") : "—"}</span></div>
     ${isActuallyVacated && currentStay.checkOut ? `<div class="row"><span class="lbl">Vacated On</span><span class="val">${new Date(currentStay.checkOut).toLocaleDateString("en-IN")}</span></div>` : ""}
   </div>
+  <div class="section">
+    <div class="section-title">Occupation</div>
+    <div class="row"><span class="lbl">Category</span><span class="val">${tenant.occupation_category || "—"}</span></div>
+    <div class="row"><span class="lbl">Occupation</span><span class="val">${tenant.occupation || "—"}</span></div>
+    <div class="row"><span class="lbl">Organization</span><span class="val">${tenant.organization || "—"}</span></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Terms &amp; Conditions</div>
+    <div class="row"><span class="lbl">Lock-in Period</span><span class="val">${tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"}</span></div>
+    <div class="row"><span class="lbl">Notice Period</span><span class="val">${tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"}</span></div>
+  </div>
+  ${paymentSummary ? `<div class="section">
+    <div class="section-title">Payment Summary</div>
+    <div class="row"><span class="lbl">Total Paid</span><span class="val" style="color:#059669">₹${Number((isActuallyVacated ? paymentSummary.total_rent_paid : paymentSummary.total_paid) || 0).toLocaleString("en-IN")}</span></div>
+    <div class="row"><span class="lbl">Total Pending</span><span class="val">₹${Number(paymentSummary.total_pending || 0).toLocaleString("en-IN")}</span></div>
+  </div>` : ""}
   ${isActuallyVacated && vacateRecord ? `<div class="section">
     <div class="section-title">Vacate Details</div>
     <div class="row"><span class="lbl">Penalty</span><span class="val">₹${Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</span></div>
@@ -515,28 +614,28 @@ const rentVal = (() => {
 </div>
 <div class="footer"><span>Roomac Co-Living Management System</span><span>Generated ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"})}</span></div>
 </body></html>`;
-  };
+};
 
-  const handlePrintProfile = () => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(buildPrintHTML());
-    w.document.close();
-    w.print();
-  };
+const handlePrintProfile = () => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(buildBasicPrintHTML());
+  w.document.close();
+  w.print();
+};
 
-  const handlePDFProfile = () => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const html = buildPrintHTML().replace("</style>", `
+const handlePDFProfile = () => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const html = buildFullPrintHTML().replace("</style>", `
     @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     @page { margin: 16mm; size: A4; }
   </style>`);
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 400);
-  };
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); w.close(); }, 400);
+};
 
   return (
     <div className="space-y-3">
@@ -702,8 +801,9 @@ const rentVal = (() => {
 
         {/* Right Main */}
         <div className="lg:col-span-2 space-y-3">
-          {/* Current Stay */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          {/* Current Stay — only for active tenants */}
+          {currentStay.isActive && (
+<div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-md bg-[#1B3FA0] flex items-center justify-center text-white"><Home size={11} /></div>
@@ -757,6 +857,57 @@ const rentVal = (() => {
               </div>
             )}
           </div>
+            )}
+
+            {/* Previous Stay — only for vacated tenants */}
+          {!currentStay.isActive && previousStay && (
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-gray-500 flex items-center justify-center text-white"><History size={11} /></div>
+                  <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Previous Stay</span>
+                </div>
+                <BadgePill variant="red"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Vacated</BadgePill>
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                {[
+                  { label: "Property", value: previousStay.property, wide: true },
+                  { label: "Room / Bed", value: `Room ${previousStay.room} · Bed ${previousStay.bed}` },
+                  { label: "Sharing Type", value: previousStay.sharingType },
+                  { label: "Monthly Rent", value: <span className="font-black text-emerald-600">{formatINR(previousStay.rent)}</span> },
+                  { label: "Check-in", value: previousStay.checkIn ? new Date(previousStay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
+                  { label: "Vacated On", value: previousStay.checkOut ? new Date(previousStay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
+                  { label: "Security Deposit", value: <span className="font-black text-amber-600">{formatINR(previousStay.securityDeposit)}</span> },
+                  { label: "Penalty Applied", value: <span className="font-black text-red-600">{formatINR(previousStay.totalPenalty)}</span> },
+                  { label: "Refund Amount", value: <span className="font-black text-emerald-600">{formatINR(previousStay.refundAmount)}</span> },
+                ].map(({ label, value, wide }: any) => (
+                  <div key={label} className={wide ? "col-span-2 sm:col-span-1" : ""}>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
+                    <div className="text-xs font-semibold text-gray-800" style={fontStyle}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mx-4 mb-4 bg-red-50 rounded-lg border border-red-100 px-3 py-2.5">
+  <div className="flex items-center gap-2 mb-1.5">
+    <LogOut size={11} className="text-red-500" />
+    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider" style={fontStyle}>Vacate Details</span>
+    <BadgePill variant="amber">{previousStay.refundStatus || "Pending"}</BadgePill>
+  </div>
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2.5">
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Lock-in Penalty</p><p className="text-xs font-bold text-gray-800">₹{previousStay.lockinPenalty.toLocaleString()}</p></div>
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Notice Penalty</p><p className="text-xs font-bold text-gray-800">₹{previousStay.noticePenalty.toLocaleString()}</p></div>
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Inspection Penalty</p><p className="text-xs font-bold text-gray-800">₹{previousStay.inspectionPenalty.toLocaleString()}</p></div>
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Total Penalty</p><p className="text-xs font-bold text-red-600">₹{previousStay.totalPenalty.toLocaleString()}</p></div>
+  </div>
+  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund Status</p><p className="text-xs font-bold text-amber-700">{previousStay.refundStatus || "—"}</p></div>
+    <div><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Refund Amt</p><p className="text-xs font-bold text-emerald-600">₹{previousStay.refundAmount.toLocaleString()}</p></div>
+    <div className="col-span-2 sm:col-span-1"><p className="text-[9px] text-red-400 font-bold uppercase" style={fontStyle}>Reason</p><p className="text-xs text-gray-700">{previousStay.vacateReason}</p></div>
+  </div>
+</div>
+            </div>
+          )}
+          
 
           {/* Personal + Contact + Occupation + Terms — 2x2 grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1305,8 +1456,8 @@ function HistoryTab({ tenant }: { tenant: any }) {
   // Normalize into the shape the rest of this component renders, while
   // pulling display fields (property/room/bed/rent/penalty amounts) from
   // either the vacateRecord (past stays) or the tenant/assignment (current).
-  const allStays = [...rawStayHistory]
-    .map((stay: any) => {
+const allStays = [...rawStayHistory]
+    .map((stay) => {
       const vr = stay.vacateRecord;
       const isVacatedRecord = !stay.isCurrent;
 
@@ -1332,6 +1483,31 @@ function HistoryTab({ tenant }: { tenant: any }) {
 
       const refundInfo = stay.refundStatusInfo || { status: null, isFullyRefunded: false, isPartialRefund: false };
 
+      // ✅ Couple/partner info is per-stay: past stays use the vacate_records
+      // snapshot (partner_tenant_id / is_couple_booking / sharing_type as
+      // they were AT THAT TIME), never the live tenants row — because the
+      // live row is reset to solo once a couple vacates and would otherwise
+      // wrongly show old stays as "Single" or with a stale/missing partner.
+      const stayIsCouple = isVacatedRecord
+        ? !!vr?.is_couple_booking
+        : (tenant.is_couple_booking === true || tenant.is_couple_booking === 1);
+
+      const stayPartner = isVacatedRecord
+        ? (vr?.partner_full_name
+            ? {
+                name: vr.partner_full_name,
+                phone: `${vr.partner_country_code || ""} ${vr.partner_phone || ""}`.trim(),
+                relation: "Spouse",
+              }
+            : null)
+        : (tenant.partner_full_name
+            ? {
+                name: tenant.partner_full_name,
+                phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(),
+                relation: tenant.partner_relationship || "Spouse",
+              }
+            : null);
+
       return {
         id: stay.isCurrent ? "current" : `vacate-${stay.vacateRecordId}`,
         stayNumber: stay.stayNumber,
@@ -1342,7 +1518,10 @@ function HistoryTab({ tenant }: { tenant: any }) {
         property,
         room,
         bed,
-        stayType: tenant.is_couple_booking ? "Couple" : "Single",
+        stayType: stayIsCouple ? "Couple" : "Single",
+      sharingType: isVacatedRecord
+  ? (vr?.sharing_type || null)
+  : (tenant.current_assignment?.sharing_type || tenant.current_assignment?.room?.sharing_type || null),
         monthlyRent,
         securityDeposit,
         checkIn: stay.checkIn,
@@ -1373,22 +1552,26 @@ function HistoryTab({ tenant }: { tenant: any }) {
           : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
         noticePenaltyType: vr?.notice_penalty_type || tenant.notice_penalty_type || "fixed",
         noticePenaltyAmount: Number(vr?.notice_penalty_amount || tenant.notice_penalty_amount || 0),
-        partner: tenant.partner_full_name
-          ? {
-              name: tenant.partner_full_name,
-              phone: `${tenant.partner_country_code || ""} ${tenant.partner_phone || ""}`.trim(),
-              relation: tenant.partner_relationship || "Spouse",
-            }
-          : null,
+        partner: stayPartner,
       };
     })
-    .sort((a, b) => b.stayNumber - a.stayNumber); // most recent first
+    .sort((a, b) => b.stayNumber - a.stayNumber);
 
-  const stayTypeCfg: Record<string, { bg: string; text: string; ring: string; icon: React.ReactNode }> = {
-    Single: { bg: "bg-blue-500", text: "text-blue-700", ring: "ring-blue-200", icon: <User size={10} /> },
-    Sharing: { bg: "bg-teal-500", text: "text-teal-700", ring: "ring-teal-200", icon: <Users size={10} /> },
-    Couple: { bg: "bg-rose-500", text: "text-rose-700", ring: "ring-rose-200", icon: <Heart size={10} /> },
-  };
+  // Dynamic styling for whatever sharing_type comes back from the DB —
+// no hardcoded list of room types.
+const SHARING_TYPE_PALETTE = [
+  { bg: "bg-blue-500",   text: "text-blue-700",   ring: "ring-blue-200" },
+  { bg: "bg-teal-500",   text: "text-teal-700",   ring: "ring-teal-200" },
+  { bg: "bg-violet-500", text: "text-violet-700", ring: "ring-violet-200" },
+  { bg: "bg-amber-500",  text: "text-amber-700",  ring: "ring-amber-200" },
+  { bg: "bg-cyan-500",   text: "text-cyan-700",   ring: "ring-cyan-200" },
+];
+function getSharingTypeStyle(rawType: string | null | undefined) {
+  const type = (rawType || "single").toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < type.length; i++) hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
+  return SHARING_TYPE_PALETTE[hash % SHARING_TYPE_PALETTE.length];
+}
 
   const typeColor: Record<string, string> = {
     rent: "bg-blue-100 text-blue-700",
@@ -1407,26 +1590,146 @@ function HistoryTab({ tenant }: { tenant: any }) {
     refund: "Refund",
   };
 
-  const doPrint = (stay: any) => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
-    <style>body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:2px}.sub{color:#6b7280;font-size:11px;margin-bottom:22px}h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:4px;margin:18px 0 8px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;margin-bottom:10px}.lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700}.val{font-size:12px;font-weight:700;margin-top:1px}.ft{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}</style>
-    </head><body><h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-    <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
-    <h2>Stay Details</h2><div class="g2">
-    <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
-    <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
-    <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
-    <div><div class="lbl">Rent</div><div class="val">₹${stay.monthlyRent.toLocaleString("en-IN")}</div></div>
-    <div><div class="lbl">Check-in</div><div class="val">${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}</div></div>
-    <div><div class="lbl">Check-out</div><div class="val">${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div></div>
-    <div><div class="lbl">Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
-    <div><div class="lbl">Refund</div><div class="val">₹${(stay.refundAmount ?? 0).toLocaleString("en-IN")} (${stay.refundStatus ?? "N/A"})</div></div>
-    </div><div class="ft">Roomac Co-Living Management System</div></body></html>`);
-    w.document.close();
-    w.print();
-  };
+const buildStayPrintSections = (stay: any) => {
+  const stayPayments = [
+    ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
+  ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
+
+  const paymentRows = stayPayments.length
+    ? stayPayments.map((p: any) => `<tr>
+        <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
+        <td>₹${Number(p.amount || 0).toLocaleString("en-IN")}</td>
+        <td>${typeDisplay[p.payment_type] || p.payment_type || "—"}</td>
+        <td>${p.payment_mode || "—"}</td>
+        <td>${p.status || "—"}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No payment records</td></tr>`;
+
+  const docs = [
+    { label: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url },
+    { label: "Address Proof", type: tenant.address_proof_type, number: tenant.address_proof_number, url: tenant.address_proof_url },
+    { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
+  ];
+  const docsHtml = docs.map(d => `<div class="doc-card">
+      <div class="lbl">${d.label}</div>
+      <div class="val">${d.url ? "Uploaded" : "Not Uploaded"}</div>
+      ${d.type ? `<div class="sub">${d.type}</div>` : ""}
+      ${d.number ? `<div class="sub">#${d.number}</div>` : ""}
+    </div>`).join("");
+
+  return `
+    <h2>Stay Details</h2>
+    <div class="g2">
+      <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
+      <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
+      <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
+      <div><div class="lbl">Sharing</div><div class="val">${stay.sharingType || "—"}</div></div>
+      <div><div class="lbl">Rent</div><div class="val">₹${stay.monthlyRent.toLocaleString("en-IN")}</div></div>
+      <div><div class="lbl">Check-in</div><div class="val">${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}</div></div>
+      <div><div class="lbl">Check-out</div><div class="val">${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div></div>
+    </div>
+
+    <h2>Payments</h2>
+    <table class="ptable"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Mode</th><th>Status</th></tr></thead>
+    <tbody>${paymentRows}</tbody></table>
+    <div class="g2">
+      <div><div class="lbl">Total Rent Paid</div><div class="val">₹${(stay.totalRentPaidThisStay || 0).toLocaleString("en-IN")}</div></div>
+      <div><div class="lbl">Total Penalty</div><div class="val">₹${(stay.totalPenalty || 0).toLocaleString("en-IN")}</div></div>
+    </div>
+
+    <h2>Documents</h2>
+    <div class="docs">${docsHtml}</div>
+
+    <h2>Security Deposit</h2>
+    <div class="g2">
+      <div><div class="lbl">Security Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
+      <div><div class="lbl">Deposit Paid</div><div class="val">₹${(stay.depositPaid || 0).toLocaleString("en-IN")}</div></div>
+      ${stay.isVacatedRecord ? `
+      <div><div class="lbl">Refund Amount</div><div class="val">₹${(stay.refundAmount || 0).toLocaleString("en-IN")}</div></div>
+      <div><div class="lbl">Total Refunded</div><div class="val">₹${(stay.totalRefunded || 0).toLocaleString("en-IN")}</div></div>
+      <div class="g2full"><div class="lbl">Refund Status</div><div class="val">${stay.refundStatus || "N/A"}</div></div>` : ""}
+    </div>
+
+    <h2>Terms &amp; Penalties</h2>
+    <div class="g2">
+      <div><div class="lbl">Lock-in Period</div><div class="val">${stay.lockInPeriod}</div></div>
+      <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of rent` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+      <div><div class="lbl">Notice Period</div><div class="val">${stay.noticePeriod}</div></div>
+      <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of rent` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+      ${stay.isVacatedRecord ? `<div class="g2full"><div class="lbl">Vacate Reason</div><div class="val">${stay.vacateReason}</div></div>` : ""}
+    </div>
+
+    ${stay.partner ? `
+    <h2>Partner Details</h2>
+    <div class="g2">
+      <div><div class="lbl">Name</div><div class="val">${stay.partner.name}</div></div>
+      <div><div class="lbl">Phone</div><div class="val">${stay.partner.phone}</div></div>
+      <div><div class="lbl">Relation</div><div class="val">${stay.partner.relation}</div></div>
+    </div>` : ""}
+  `;
+};
+
+const STAY_PRINT_STYLE = `
+  body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px}
+  h1{font-size:18px;font-weight:900;margin-bottom:2px}
+  .sub{color:#6b7280;font-size:11px;margin-bottom:22px}
+  h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:4px;margin:18px 0 8px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;margin-bottom:10px}
+  .g2full{grid-column:span 2}
+  .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700}
+  .val{font-size:12px;font-weight:700;margin-top:1px}
+  .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+  .ptable th{text-align:left;font-size:9px;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:4px 6px}
+  .ptable td{padding:4px 6px;border-bottom:1px solid #f3f4f6}
+  .docs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .doc-card{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;min-width:120px}
+  .doc-card .lbl{margin-bottom:2px}
+  .doc-card .val{font-size:11px}
+  .doc-card .sub{font-size:9px;color:#9ca3af;margin-top:2px}
+  .ft{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}
+`;
+
+const doPrint = (stay: any) => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
+  <style>${STAY_PRINT_STYLE}</style></head><body>
+  <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
+  <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+  ${buildStayPrintSections(stay)}
+  <div class="ft">Roomac Co-Living Management System</div></body></html>`);
+  w.document.close();
+  w.print();
+};
+
+
+const doPrintAll = () => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const sections = allStays.map(stay => `
+    <div class="stay-block">
+      <h1>Stay #${stay.stayNumber}${stay.isCurrent ? " (Current)" : ""}</h1>
+      <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
+      ${buildStayPrintSections(stay)}
+    </div>
+    <div class="page-break"></div>
+  `).join("");
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
+  <style>${STAY_PRINT_STYLE}
+    .page-break{page-break-after:always}
+    .cover{margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #f3f4f6}
+    .cover h1{font-size:22px}
+  </style></head><body>
+  <div class="cover">
+    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} — Complete Stay History</h1>
+    <div class="sub">ID: ${tenant.id} · ${allStays.length} stay(s) · Generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+  </div>
+  ${sections}
+  </body></html>`);
+  w.document.close();
+  w.print();
+};
 
   const doDownload = (stay: any) => {
     const csv = [
@@ -1499,7 +1802,7 @@ function HistoryTab({ tenant }: { tenant: any }) {
 
       <div className="flex justify-end">
         <button
-          onClick={() => allStays.forEach(s => doPrint(s))}
+         onClick={doPrintAll}
           className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-gray-200 rounded-lg text-[9px] sm:text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
           style={fontStyle}
         >
@@ -1511,7 +1814,8 @@ function HistoryTab({ tenant }: { tenant: any }) {
       <div className="relative space-y-2.5">
         <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-gray-200 hidden lg:block" />
         {allStays.map(stay => {
-          const cfg = stayTypeCfg[stay.stayType] ?? stayTypeCfg.Single;
+         const sharingCfg = getSharingTypeStyle(stay.sharingType);
+const isCoupleOccupancy = stay.stayType === "Couple";
           const isOpen = expandedStay === stay.id;
           const section = sectionMap[stay.id] ?? "payments";
 
@@ -1540,12 +1844,22 @@ function HistoryTab({ tenant }: { tenant: any }) {
               <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
                 {/* Stay header */}
                 <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
-                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${cfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
+                 <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${sharingCfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       <span className="text-[10px] sm:text-xs font-bold text-gray-900" style={fontStyle}>{stay.property}</span>
-                      <span className={`inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-white ${cfg.text} ${cfg.ring}`}>{cfg.icon}{stay.stayType}</span>
-                      {stay.isCurrent && (
+                      {stay.sharingType && (
+  <span className={`inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-white ${sharingCfg.text} ${sharingCfg.ring}`}>
+    <BedDouble size={9} />
+    {stay.sharingType.charAt(0).toUpperCase() + stay.sharingType.slice(1)}
+  </span>
+)}
+{/* {isCoupleOccupancy && (
+  <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-rose-50 text-rose-700 ring-rose-200">
+    <Heart size={10} /> Couple
+  </span>
+)} */}
+{stay.isCurrent && (
                         <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                           <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500" />Current
                         </span>
@@ -2172,28 +2486,39 @@ const loadTenant = async () => {
 
       setTenant(tenantData);
 
-      if (tenantData.partner_full_name) {
-        setPartnerDetails({
-          salutation: tenantData.partner_salutation || "Mr.",
-          full_name: tenantData.partner_full_name || "",
-          country_code: tenantData.partner_country_code || "",
-          phone: tenantData.partner_phone || "",
-          email: tenantData.partner_email || "",
-          gender: tenantData.partner_gender || "",
-          date_of_birth: tenantData.partner_date_of_birth || "",
-          address: tenantData.partner_address || "",
-          occupation: tenantData.partner_occupation || "",
-          organization: tenantData.partner_organization || "",
-          relationship: tenantData.partner_relationship || "Spouse",
-          id_proof_type: tenantData.partner_id_proof_type || "",
-          id_proof_number: tenantData.partner_id_proof_number || "",
-          id_proof_url: tenantData.partner_id_proof_url || null,
-          address_proof_type: tenantData.partner_address_proof_type || "",
-          address_proof_number: tenantData.partner_address_proof_number || "",
-          address_proof_url: tenantData.partner_address_proof_url || null,
-          photo_url: tenantData.partner_photo_url || null,
-        });
-      }
+      // Partner tab is for the CURRENT pairing only — a vacated tenant's
+// partner_full_name comes from the vacate-record snapshot (for Stay
+// History), but shouldn't leak into the top-level Partner tab.
+const isCurrentlyCoupled =
+  tenantData.is_active &&
+  (tenantData.is_couple_booking === true || tenantData.is_couple_booking === 1) &&
+  !!assignmentData &&
+  !assignmentData.is_vacated;
+
+if (isCurrentlyCoupled && tenantData.partner_full_name) {
+  setPartnerDetails({
+    salutation: tenantData.partner_salutation || "Mr.",
+    full_name: tenantData.partner_full_name || "",
+    country_code: tenantData.partner_country_code || "",
+    phone: tenantData.partner_phone || "",
+    email: tenantData.partner_email || "",
+    gender: tenantData.partner_gender || "",
+    date_of_birth: tenantData.partner_date_of_birth || "",
+    address: tenantData.partner_address || "",
+    occupation: tenantData.partner_occupation || "",
+    organization: tenantData.partner_organization || "",
+    relationship: tenantData.partner_relationship || "Spouse",
+    id_proof_type: tenantData.partner_id_proof_type || "",
+    id_proof_number: tenantData.partner_id_proof_number || "",
+    id_proof_url: tenantData.partner_id_proof_url || null,
+    address_proof_type: tenantData.partner_address_proof_type || "",
+    address_proof_number: tenantData.partner_address_proof_number || "",
+    address_proof_url: tenantData.partner_address_proof_url || null,
+    photo_url: tenantData.partner_photo_url || null,
+  });
+} else {
+  setPartnerDetails(null);
+}
     } else {
       setError("Failed to load tenant details");
     }

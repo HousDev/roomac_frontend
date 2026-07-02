@@ -77,12 +77,8 @@ export default function NoticePeriodRequestsPage() {
 
   // Search filters
   const [searchFilters, setSearchFilters] = useState({
-    id: '',
-    tenant: '',
-    title: '',
-    status: 'all',
-    date: ''
-  });
+  id: '', tenant: '', title: '', status: 'all', requestStatus: 'all', date: ''
+});
 
   // Bulk actions
   const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
@@ -375,6 +371,20 @@ export default function NoticePeriodRequestsPage() {
     );
   };
 
+  const getStatusBadge = (status: string) => {
+  const map: Record<string, { label: string; className: string }> = {
+    active: { label: "Active", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    completed: { label: "Completed", className: "bg-green-50 text-green-700 border-green-200" },
+    cancelled: { label: "Cancelled", className: "bg-gray-100 text-gray-500 border-gray-200" },
+  };
+  const cfg = map[status] || map.active;
+  return (
+    <Badge variant="outline" className={`${cfg.className} flex items-center gap-1 px-2 py-1`}>
+      {cfg.label}
+    </Badge>
+  );
+};
+
   // Sort requests
   const sortedRequests = [...requests].sort((a, b) => {
     const aValue = a[sortField];
@@ -398,6 +408,9 @@ export default function NoticePeriodRequestsPage() {
       (searchFilters.status === 'unseen' && request.is_seen === 0);
     const matchesDate = !searchFilters.date || 
       new Date(request.created_at).toISOString().split('T')[0] === searchFilters.date;
+    const matchesRequestStatus = searchFilters.requestStatus === 'all' ||
+  request.status === searchFilters.requestStatus;
+// add matchesRequestStatus to the return in filteredRequests
     
     return matchesId && matchesTenant && matchesTitle && matchesStatus && matchesDate;
   });
@@ -660,6 +673,26 @@ export default function NoticePeriodRequestsPage() {
                           />
                         </div>
                       </th>
+
+                      <th className="w-[110px] bg-white border-r border-gray-200 text-left">
+  <div className="space-y-1.5 py-2 px-2">
+    <span className="font-semibold text-gray-700 text-xs">Request Status</span>
+    <Select
+      value={searchFilters.requestStatus}
+      onValueChange={(value) => handleSearchChange('requestStatus', value)}
+    >
+      <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
+        <SelectValue placeholder="All..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All</SelectItem>
+        <SelectItem value="active">Active</SelectItem>
+        <SelectItem value="completed">Completed</SelectItem>
+        <SelectItem value="cancelled">Cancelled</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</th>
                     </tr>
                   </thead>
 
@@ -771,6 +804,10 @@ export default function NoticePeriodRequestsPage() {
                             {new Date(request.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
+
+                        <td className={`w-[110px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
+  {getStatusBadge(request.status)}
+</td>
                       </tr>
                     ))}
                   </tbody>

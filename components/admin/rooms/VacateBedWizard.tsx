@@ -302,70 +302,35 @@ useEffect(() => {
     }
   }, [lockinStatus, lockinAcceptedByTenant, noticeGivenByTenant]);
 
-  const fetchInspectionPenalty = async (tenantName: string) => {
-    setLoadingPenalty(true);
-    try {
-      // Use tenant name instead of ID
-      const response = await fetch(
-        `/api/move-out-inspections?tenant_name=${encodeURIComponent(tenantName)}`,
-      );
-      const result = await response.json();
+const fetchInspectionPenalty = async (tenantId: number, checkInDate: string) => {
+  setLoadingPenalty(true);
+  try {
+    const url = `/api/move-out-inspections/penalty/tenant/${tenantId}${
+      checkInDate ? `?check_in_date=${encodeURIComponent(checkInDate)}` : ""
+    }`;
+    const response = await fetch(url);
+    const result = await response.json();
 
-      if (result.success && result.data && result.data.length > 0) {
-        // ✅ An inspection record exists (regardless of penalty amount)
-        setInspectionConducted(true);
-
-        // Get the latest inspection
-        const inspection = result.data[0];
-        let items = [];
-        let totalPenalty = 0;
-
-        if (
-          inspection.inspection_items &&
-          Array.isArray(inspection.inspection_items)
-        ) {
-          items = inspection.inspection_items.map((item: any) => ({
-            item_name: item.item_name,
-            category: item.category,
-            condition_at_movein: item.condition_at_movein,
-            condition_at_moveout: item.condition_at_moveout,
-            penalty_amount: parseFloat(item.penalty_amount) || 0,
-          }));
-          totalPenalty = items.reduce(
-            (sum: number, item: any) => sum + item.penalty_amount,
-            0,
-          );
-        }
-
-        setInspectionPenalty({
-          total_penalty: totalPenalty,
-          items: items,
-          has_inspection: items.length > 0 && totalPenalty > 0,
-        });
-
-        if (totalPenalty > 0) {
-          console.log(`💰 Inspection penalty found: ₹${totalPenalty}`);
-        }
-      } else {
-        setInspectionConducted(false);
-        setInspectionPenalty({
-          total_penalty: 0,
-          items: [],
-          has_inspection: false,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching inspection penalty:", error);
-      setInspectionConducted(false);
+    if (result.success && result.data && result.data.items?.length > 0) {
+      setInspectionConducted(true);
       setInspectionPenalty({
-        total_penalty: 0,
-        items: [],
-        has_inspection: false,
+        total_penalty: result.data.total_penalty,
+        items: result.data.items,
+        has_inspection: result.data.items.length > 0 && result.data.total_penalty > 0,
       });
-    } finally {
-      setLoadingPenalty(false);
+    } else {
+      setInspectionConducted(!!result.data?.inspection_id);
+      setInspectionPenalty({ total_penalty: 0, items: [], has_inspection: false });
     }
-  };
+  } catch (error) {
+    console.error("Error fetching inspection penalty:", error);
+    setInspectionConducted(false);
+    setInspectionPenalty({ total_penalty: 0, items: [], has_inspection: false });
+  } finally {
+    setLoadingPenalty(false);
+  }
+};
+
 
   // Add handler for receive payment
   const handleReceivePayment = useCallback((amount: number) => {
@@ -1025,9 +990,9 @@ if (hasPartner && isCurrentlyCoupleBooking) {
       initialDataLoadedRef.current = true;
 
       // In loadInitialData function, after setting initialData:
-      if (data.bedAssignment && data.bedAssignment.tenant_name) {
-        await fetchInspectionPenalty(data.bedAssignment.tenant_name);
-      }
+      if (data.bedAssignment && data.bedAssignment.tenant_id) {
+  await fetchInspectionPenalty(data.bedAssignment.tenant_id, data.bedAssignment.check_in_date);
+}
 
       if (data.bedAssignment) {
         const deposit =
