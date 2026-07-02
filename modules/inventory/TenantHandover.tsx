@@ -46,7 +46,8 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
 import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
-
+import { getAvailableAssets } from '@/lib/assestsApi';
+import { request } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface HandoverItem {
@@ -203,6 +204,19 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const { can } = useAuth(); // ← ADD THIS
+  // ── Pagination state (client-side) ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
+
+
+// ── Advanced date filters ──
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
+const [moveInFrom, setMoveInFrom] = useState('');
+const [moveInTo, setMoveInTo] = useState('');
 
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
@@ -558,19 +572,45 @@ const handleTenantSelect = async (tenantId: string) => {
     }));
   };
 
-  // ── Filtered rows ─────────────────────────────────────────────────────────
-  const filteredItems = useMemo(() => {
-    return handovers.filter(h => {
-      const cs = colSearch;
-      const n = !cs.tenant_name || h.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
-      const p = !cs.property_name || h.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
-      const r = !cs.room_number || h.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
-      const s = !cs.status || h.status?.toLowerCase().includes(cs.status.toLowerCase());
-      const d = !cs.handover_date || fmt(h.handover_date).includes(cs.handover_date);
-      return n && p && r && s && d;
-    });
-  }, [handovers, colSearch]);
+const filteredItems = useMemo(() => {
+  return handovers.filter(h => {
+    const cs = colSearch;
+    const n = !cs.tenant_name || h.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
+    const p = !cs.property_name || h.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
+    const r = !cs.room_number || h.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
+    const s = !cs.status || h.status?.toLowerCase().includes(cs.status.toLowerCase());
+    const d = !cs.handover_date || fmt(h.handover_date).includes(cs.handover_date);
 
+    // Status & property filters (dropdowns)
+    const statusOk = statusFilter === 'all' || h.status === statusFilter;
+    const propertyOk = propertyFilter === 'all' || h.property_id === propertyFilter;
+
+    // Date ranges (handover date)
+    const handoverDateOk = (dateFrom && dateTo)
+      ? (h.handover_date >= dateFrom && h.handover_date <= dateTo)
+      : true;
+    const moveInDateOk = (moveInFrom && moveInTo)
+      ? (h.move_in_date >= moveInFrom && h.move_in_date <= moveInTo)
+      : true;
+
+    return n && p && r && s && d && statusOk && propertyOk && handoverDateOk && moveInDateOk;
+  });
+}, [handovers, colSearch, statusFilter, propertyFilter, dateFrom, dateTo, moveInFrom, moveInTo]);
+
+
+const paginatedItems = useMemo(() => {
+  if (pageSize === "All") return filteredItems;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredItems.slice(start, start + (pageSize as number));
+}, [filteredItems, currentPage, pageSize]);
+
+useEffect(() => {
+  setTotalItems(filteredItems.length);
+  setTotalPages(pageSize === "All" ? 1 : Math.ceil(filteredItems.length / (pageSize as number)));
+  if (currentPage > Math.ceil(filteredItems.length / (pageSize === "All" ? filteredItems.length : pageSize as number))) {
+    setCurrentPage(1);
+  }
+}, [filteredItems, pageSize]);
   // ── Bulk Selection ─────────────────────────────────────────────────────────
   const toggleSelectAll = () => {
     if (selectAll) {
@@ -641,24 +681,57 @@ const handleTenantSelect = async (tenantId: string) => {
     }
     if (currentStep === 1) { setCurrentStep(2); return; }
 
-    setSubmitting(true);
-    try {
-      const payload = {
-        ...formData,
-        // FIX: Ensure numbers are sent as numbers
-        security_deposit: safeNum(formData.security_deposit),
-        rent_amount: safeNum(formData.rent_amount),
-        handover_items: handoverItems,
-      };
-      if (editingItem) {
-        await updateHandover(editingItem.id, payload);
-        toast.success('Handover updated successfully');
-      } else {
-        await createHandover(payload);
-        toast.success('Handover created successfully');
+   setSubmitting(true);
+try {
+  // Auto-assign available asset IDs for each item
+  const itemsWithAssets: HandoverItem[] = [];
+  for (const item of handoverItems) {
+    if (!item.asset_id && item.item_name) {
+      try {
+        const res = await getAvailableAssets(item.item_name);
+        const available = res.data || [];
+        if (available.length > 0) {
+          itemsWithAssets.push({ ...item, asset_id: available[0].asset_id });
+        } else {
+          itemsWithAssets.push(item);
+        }
+      } catch {
+        itemsWithAssets.push(item);
       }
-      setShowForm(false);
-      await loadAll();
+    } else {
+      itemsWithAssets.push(item);
+    }
+  }
+
+  const payload = {
+    ...formData,
+    security_deposit: safeNum(formData.security_deposit),
+    rent_amount: safeNum(formData.rent_amount),
+    handover_items: itemsWithAssets,
+  };
+
+  if (editingItem) {
+    await updateHandover(editingItem.id, payload);
+    toast.success('Handover updated successfully');
+  } else {
+    await createHandover(payload);
+    // Mark assigned asset IDs as 'assigned' in inventory
+    for (const item of itemsWithAssets) {
+      if (item.asset_id) {
+        try {
+          await request('/api/inventory/assign-asset', {
+            method: 'POST',
+            body: JSON.stringify({ asset_id: item.asset_id, status: 'assigned' })
+          });
+        } catch (e) {
+          console.error('Asset assign error:', e);
+        }
+      }
+    }
+    toast.success('Handover created successfully');
+  }
+  setShowForm(false);
+  await loadAll();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save handover');
     } finally {
@@ -1366,10 +1439,24 @@ const handleVerifyOTP = async () => {
     setHandoverItems(p => p.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
   };
 
-  const hasFilters = statusFilter !== 'all' || propertyFilter !== 'all';
-  const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const activeCount = [statusFilter !== 'all', propertyFilter !== 'all'].filter(Boolean).length;
-  const clearFilters = () => { setStatusFilter('all'); setPropertyFilter('all'); };
+const hasFilters = statusFilter !== 'all' || propertyFilter !== 'all' || !!dateFrom || !!dateTo || !!moveInFrom || !!moveInTo;  const hasColSearch = Object.values(colSearch).some(v => v !== '');
+  const activeFilterCount = [
+  statusFilter !== 'all',
+  propertyFilter !== 'all',
+  !!dateFrom,
+  !!dateTo,
+  !!moveInFrom,
+  !!moveInTo,
+].filter(Boolean).length;
+
+const clearFilters = () => {
+  setStatusFilter('all');
+  setPropertyFilter('all');
+  setDateFrom('');
+  setDateTo('');
+  setMoveInFrom('');
+  setMoveInTo('');
+};
   const clearColSearch = () => setColSearch({ tenant_name: '', property_name: '', room_number: '', status: '', handover_date: '' });
 
   // FIX: safeNum for totalValue to prevent NaN display
@@ -1382,314 +1469,572 @@ const handleVerifyOTP = async () => {
     <div className="bg-gray-50 ">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div className="sticky top-20 z-10">
-         {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total Handovers" value={stats.total}
-              icon={FileText} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Active" value={stats.active}
-              icon={Boxes} color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Confirmed" value={stats.confirmed}
-              icon={ShieldCheck} color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100" />
-            <StatCard title="Pending" value={stats.pending}
-              icon={AlertTriangle} color="bg-amber-600" bg="bg-gradient-to-br from-amber-50 to-amber-100" />
-          </div>
-        </div>
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-<button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeCount > 0 && (
-                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
-                  {activeCount}
-                </span>
-              )}
-            </button>
-  {can('export_tenant_handover') && (
+    <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-            <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-  )}
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total Handovers"
+        value={stats.total}
+        icon={FileText}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
+      <StatCard
+        title="Active"
+        value={stats.active}
+        icon={Boxes}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
+      <StatCard
+        title="Confirmed"
+        value={stats.confirmed}
+        icon={ShieldCheck}
+        color="bg-emerald-600"
+        bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+      />
+      <StatCard
+        title="Pending"
+        value={stats.pending}
+        icon={AlertTriangle}
+        color="bg-amber-600"
+        bg="bg-gradient-to-br from-amber-50 to-amber-100"
+      />
+    </div>
 
-            
-  {can('create_tenant_handover') && (
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+      
 
-            <button onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className=" xs:inline">Add Handover</span>
-            </button>
-  )}
-          </div>
-        </div>
+      <button
+        onClick={() => setSidebarOpen((o) => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
+        ${
+          sidebarOpen || activeFilterCount > 0
+            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+        }`}
+      >
+        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Filters</span>
 
-       
-      </div>
+        {activeFilterCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+            ${
+              sidebarOpen || activeFilterCount > 0
+                ? "bg-white text-blue-600"
+                : "bg-blue-600 text-white"
+            }`}
+          >
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {can("export_tenant_handover") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_tenant_handover") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Add Handover</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
-      <div className="relative">
-        <main className="p-0 sm:p-0">
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                All Handovers ({filteredItems.length})
-                {selectedItems.size > 0 && (
-                  <span className="ml-2 text-blue-600 text-xs">({selectedItems.size} selected)</span>
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                {selectedItems.size > 0 && (
-                  <Button size="sm" variant="destructive"
-                    className="h-7 text-[10px] px-2 bg-red-600 hover:bg-red-700"
-                    onClick={handleBulkDelete}>
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete Selected ({selectedItems.size})
-                  </Button>
-                )}
-                {hasColSearch && (
-                  <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold">
-                    Clear Search
-                  </button>
-                )}
-              </div>
-            </div>
-
-<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[350px] md:max-h-[460px]'
-    : 'max-h-[350px] md:max-h-[460px]'
-}`}>              <div className="min-w-[1000px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 text-xs w-8">
-                        <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
-                          {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Tenant</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Phone</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Room/Bed</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Move-In</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Handover Date</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Deposit</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Total</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Items</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                    </TableRow>
-
-                    <TableRow className="bg-gray-50/80">
-                      <TableCell className="py-1 px-2" />
-                      {[
-                        { key: 'tenant_name', ph: 'Search tenant…' },
-                        { key: null, ph: '' },
-                        { key: 'property_name', ph: 'Search prop…' },
-                        { key: 'room_number', ph: 'Room…' },
-                        { key: null, ph: '' },
-                        { key: 'handover_date', ph: 'Date…' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: 'status', ph: 'Status…' },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(p => ({ ...p, [col.key!]: e.target.value }))}
-                              className="h-6 text-[10px]"
-                            />
-                          ) : <div />}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={12} className="text-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading handovers…</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={12} className="text-center py-12">
-                          <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No handovers found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.map(h => (
-                      <TableRow key={h.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3">
-                          <button onClick={() => toggleSelectItem(h.id)} className="p-1 hover:bg-gray-200 rounded">
-                            {selectedItems.has(h.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" /> : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                          </button>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-medium">{h.tenant_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{h.tenant_phone}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[140px] truncate">{h.property_name}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">
-                          {h.room_number}{h.bed_number ? ` / ${h.bed_number}` : ''}
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{fmt(h.move_in_date)}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{fmt(h.handover_date)}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-semibold text-gray-800">{money(h.security_deposit)}</TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-semibold text-gray-800">
-                          {money(safeNum(h.security_deposit) + safeNum(h.rent_amount))}
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs">
-                          <Badge className="bg-blue-100 text-blue-700 text-[9px] px-1.5">
-                            {h.handover_items?.length || 0} items
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <Badge className={`text-[9px] px-1.5 ${statusColor(h.status)}`}>{h.status}</Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <div className="flex justify-end gap-1">
-                               {can('view_tenant_handover') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => setViewItem(h)} title="View">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                               )}
-                                  {can('edit_tenant_handover') && (
- 
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
-                              onClick={() => openEdit(h)} title="Edit">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                                  )}
-                                      {can('delete_tenant_handover') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                              onClick={() => handleDelete(h.id, h.tenant_name)} title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                                      )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </Card>
-        </main>
-
-        {/* ── FILTER DRAWER ────────────────────────────────────────────── */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
-        )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {activeCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
+   <div className="relative">
+  <main className="p-0 sm:p-0">
+    {/* ── Bulk Selection Bar (outside Card) ── */}
+    {selectedItems.size > 0 && (
+      <div className="px-0 pb-2">
+        <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px] bg-white">
+          <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
+            {selectedItems.size} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectedItems(new Set()); setSelectAll(false); }}
+              className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
+            >
+              Clear
+            </button>
+            {can('delete_tenant_handover') && (
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete {selectedItems.size}
               </button>
-            </div>
+            )}
           </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {(['all', 'Active', 'Confirmed', 'Completed', 'Pending', 'Cancelled'] as StatusType[]).map(s => (
-                  <label key={s} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${statusFilter === s ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="status" value={s} checked={statusFilter === s}
-                      onChange={() => setStatusFilter(s)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusFilter === s ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium">{s === 'all' ? 'All Statuses' : s}</span>
-                    {statusFilter === s && (
-                      <span className="ml-auto">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-gray-100" />
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Building className="h-3 w-3 text-indigo-500" /> Property
-              </p>
-              <div className="space-y-1">
-                {[{ id: 'all', name: 'All Properties' }, ...properties].map(p => (
-                  <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${propertyFilter === p.id ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="prop" value={p.id} checked={propertyFilter === p.id}
-                      onChange={() => setPropertyFilter(p.id)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium truncate">{p.name}</span>
-                    {propertyFilter === p.id && (
-                      <span className="ml-auto flex-shrink-0">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
+        </div>
       </div>
+    )}
+
+    <Card className="border rounded-lg shadow-sm overflow-hidden">
+      {/* ── Table ── */}
+      <div className="flex flex-col h-[380px] sm:h-[520px]">
+        <div className="overflow-auto flex-1 min-h-0">
+          <table
+            className="border-collapse text-[11px] font-sans"
+            style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}
+          >
+            <colgroup>
+              <col style={{ width: "34px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "70px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "90px" }} />
+            </colgroup>
+
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-200 border-b border-gray-300">
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSelectAll(checked);
+                      setSelectedItems(checked ? new Set(filteredItems.map(i => i.id)) : new Set());
+                    }}
+                    className="w-3.5 h-3.5 cursor-pointer"
+                  />
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Phone</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Move-In</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Handover</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Deposit</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Items</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </th>
+              </tr>
+
+              <tr className="bg-white border-b border-gray-300">
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Search…"
+                    value={colSearch.tenant_name || ''}
+                    onChange={e => setColSearch(p => ({ ...p, tenant_name: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Search prop…"
+                    value={colSearch.property_name || ''}
+                    onChange={e => setColSearch(p => ({ ...p, property_name: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Room…"
+                    value={colSearch.room_number || ''}
+                    onChange={e => setColSearch(p => ({ ...p, room_number: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Date…"
+                    value={colSearch.handover_date || ''}
+                    onChange={e => setColSearch(p => ({ ...p, handover_date: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Status…"
+                    value={colSearch.status || ''}
+                    onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1" />
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={12} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Loading handovers…</p>
+                  </td>
+                </tr>
+              ) : paginatedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="text-center py-12">
+                    <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-500">No handovers found</p>
+                    <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedItems.map(h => (
+                  <tr key={h.id} className="hover:bg-gray-50 border-b border-slate-200">
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(h.id)}
+                        onChange={() => {
+                          const newSet = new Set(selectedItems);
+                          if (newSet.has(h.id)) newSet.delete(h.id);
+                          else newSet.add(h.id);
+                          setSelectedItems(newSet);
+                          setSelectAll(newSet.size === filteredItems.length && filteredItems.length > 0);
+                        }}
+                        className="w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-medium text-slate-800 border-r border-slate-200">
+                      {h.tenant_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {h.tenant_phone}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 truncate max-w-[140px] border-r border-slate-200">
+                      {h.property_name}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {h.room_number}{h.bed_number ? ` / ${h.bed_number}` : ''}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {fmt(h.move_in_date)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+                      {fmt(h.handover_date)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 text-right border-r border-slate-200">
+                      {money(h.security_deposit)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 text-right border-r border-slate-200">
+                      {money(safeNum(h.security_deposit) + safeNum(h.rent_amount))}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                      <Badge className="bg-blue-100 text-blue-700 text-[9px] px-1.5">
+                        {h.handover_items?.length || 0}
+                      </Badge>
+                    </td>
+                    <td className="px-1.5 py-1.5 border-r border-slate-200">
+                      <Badge className={`text-[9px] px-1.5 ${statusColor(h.status)}`}>
+                        {h.status}
+                      </Badge>
+                    </td>
+                    <td className="px-1.5 py-1.5 text-right">
+                      <div className="flex justify-end gap-0.5">
+                        {can('view_tenant_handover') && (
+                          <button
+                            title="View"
+                            className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                            onClick={() => setViewItem(h)}
+                          >
+                            <Eye size={12} />
+                          </button>
+                        )}
+                        {can('edit_tenant_handover') && (
+                          <button
+                            title="Edit"
+                            className="w-6 h-6 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                            onClick={() => openEdit(h)}
+                          >
+                            <Edit size={12} />
+                          </button>
+                        )}
+                        {can('delete_tenant_handover') && (
+                          <button
+                            title="Delete"
+                            className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                            onClick={() => handleDelete(h.id, h.tenant_name)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Footer: pagination ── */}
+      {!loading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Show</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(val) => {
+                const newSize = val === "All" ? "All" : Number(val);
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                <SelectValue>{pageSize}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>entries</span>
+            <span className="ml-2">
+              Showing {paginatedItems.length > 0 ? ((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1 : 0}–
+              {Math.min(
+                (pageSize === "All" ? totalItems : currentPage * (pageSize as number)),
+                totalItems
+              )} of {totalItems}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum = i + 1;
+              if (totalPages > 5) {
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum} size="sm"
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`h-6 w-6 p-0 text-[10px] ${currentPage === pageNum ? "bg-blue-600 text-white border-blue-600" : ""}`}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  </main>
+
+  {/* ── FILTER SIDEBAR (dropdowns + advanced filters) ── */}
+  {sidebarOpen && (
+    <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
+  )}
+  <aside
+    className={`fixed top-0 right-0 h-full z-40 w-[85vw] sm:w-96 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}
+  >
+    <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-white" />
+        <span className="text-sm font-semibold text-white">Filters</span>
+        {activeFilterCount > 0 && (
+          <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+            {activeFilterCount} active
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {activeFilterCount > 0 && (
+          <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+            Clear all
+          </button>
+        )}
+        <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
+    <div className="flex-1 overflow-y-auto p-4">
+      <div className="grid grid-cols-2 gap-3">
+        {/* Status */}
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
+          </p>
+          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+            <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Confirmed">Confirmed</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Property */}
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <Building className="h-3 w-3 text-indigo-500" /> Property
+          </p>
+          <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+            <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+              <SelectValue placeholder="Select property" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Properties</SelectItem>
+              {properties.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Date Range – spans both columns */}
+        <div className="col-span-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 text-rose-500" /> Handover Date Range
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-7 text-[10px]"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-7 text-[10px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Move-In Date Range – spans both columns */}
+        <div className="col-span-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 text-emerald-500" /> Move-In Date Range
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+              <Input
+                type="date"
+                value={moveInFrom}
+                onChange={(e) => setMoveInFrom(e.target.value)}
+                className="h-7 text-[10px]"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+              <Input
+                type="date"
+                value={moveInTo}
+                onChange={(e) => setMoveInTo(e.target.value)}
+                className="h-7 text-[10px]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+      <button
+        onClick={clearFilters}
+        disabled={!activeFilterCount}
+        className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Clear All
+      </button>
+      <button
+        onClick={() => setSidebarOpen(false)}
+        className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
+      >
+        Apply & Close
+      </button>
+    </div>
+  </aside>
+</div>
 
       {/* ══ ADD / EDIT DIALOG ════════════════════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
@@ -2146,14 +2491,11 @@ const handleVerifyOTP = async () => {
               </div>
 
               {/* Asset ID */}
-              <div className="col-span-2">
-                <Input 
-                  className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
-                  placeholder="Asset ID"
-                  value={item.asset_id || ''}
-                  onChange={e => updateHandoverItemField(idx, 'asset_id', e.target.value)} 
-                />
-              </div>
+             <div className="col-span-2">
+  <div className="h-6 px-2 bg-blue-50 border border-blue-200 rounded-md flex items-center text-[10px] font-mono text-blue-700">
+    {item.asset_id ? item.asset_id : <span className="text-gray-400">Auto-assigned</span>}
+  </div>
+</div>
 
               {/* Delete Button */}
               <div className="col-span-1 flex justify-center">

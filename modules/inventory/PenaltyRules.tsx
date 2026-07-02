@@ -5,6 +5,8 @@ import {
   Plus, Trash2, Search, Loader2, X, Download,
   Filter, ChevronDown, ChevronUp, AlertTriangle,
   Scale, IndianRupee, Gavel, RefreshCw, Edit,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +114,9 @@ export function PenaltyRules() {
   const [editingRule, setEditingRule] = useState<PenaltyRule | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // ── Bulk selection state ──
+const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+const [selectAll, setSelectAll] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
     const { can } = useAuth(); // ← ADD THIS
 
@@ -139,7 +144,12 @@ export function PenaltyRules() {
     description: '',
   };
   const [formData, setFormData] = useState(emptyForm);
-
+// ── Pagination state (client‑side) ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
   // ── Load Categories from Master ───────────────────────────────────────────
   const loadCategories = useCallback(async () => {
     try {
@@ -230,6 +240,20 @@ export function PenaltyRules() {
     });
   }, [rules, colSearch]);
 
+
+  const paginatedRules = useMemo(() => {
+  if (pageSize === "All") return filteredRules;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredRules.slice(start, start + (pageSize as number));
+}, [filteredRules, currentPage, pageSize]);
+
+useEffect(() => {
+  setTotalItems(filteredRules.length);
+  setTotalPages(pageSize === "All" ? 1 : Math.ceil(filteredRules.length / (pageSize as number)));
+  if (currentPage > Math.ceil(filteredRules.length / (pageSize === "All" ? filteredRules.length : pageSize as number))) {
+    setCurrentPage(1);
+  }
+}, [filteredRules, pageSize]);
   // ── CRUD Operations ───────────────────────────────────────────────────────
   const openAdd = () => {
     setEditingRule(null);
@@ -305,34 +329,35 @@ export function PenaltyRules() {
     }
   };
 
-  const handleBulkDelete = async (rulesToDelete: PenaltyRule[]) => {
-    if (rulesToDelete.length === 0) return;
-    
-    const result = await Swal.fire({
-      title: 'Delete Multiple Rules?',
-      text: `You are about to delete ${rulesToDelete.length} penalty rules. This cannot be undone!`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete them!',
-      cancelButtonText: 'Cancel',
-    });
+ const handleBulkDelete = async () => {
+  if (selectedItems.size === 0) return;
 
-    if (!result.isConfirmed) return;
+  const result = await Swal.fire({
+    title: 'Delete Multiple Rules?',
+    text: `You are about to delete ${selectedItems.size} penalty rules. This cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete them!',
+    cancelButtonText: 'Cancel',
+  });
 
-    try {
-      setSubmitting(true);
-      // Since bulk delete might not be supported, delete one by one
-      await Promise.all(rulesToDelete.map(rule => penaltyRulesApi.delete(rule.id)));
-      await loadRules();
-      toast.success(`${rulesToDelete.length} rules deleted successfully`);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to delete rules');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  if (!result.isConfirmed) return;
+
+  try {
+    setSubmitting(true);
+    await Promise.all([...selectedItems].map(id => penaltyRulesApi.delete(id)));
+    await loadRules();
+    setSelectedItems(new Set());
+    setSelectAll(false);
+    toast.success(`${selectedItems.size} rules deleted successfully`);
+  } catch (err: any) {
+    toast.error(err.message || 'Failed to delete rules');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,8 +596,9 @@ const handleExport = () => {
 
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
   const hasFilters = categoryFilter !== 'all';
-  const activeFilterCount = [hasFilters].filter(Boolean).length;
-
+const activeFilterCount = [
+  categoryFilter !== 'all',
+].filter(Boolean).length;
   const clearFilters = () => {
     setCategoryFilter('all');
   };
@@ -592,238 +618,385 @@ const handleExport = () => {
     <div className="bg-gray-50 ">
 
       {/* ── HEADER — fully responsive ────────────────────────────────────── */}
-      <div className="sticky top-20 z-10">
- {/* Stats row */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard 
-              title="Total Rules" 
-              value={stats.total_rules}
-              icon={Gavel} 
-              color="bg-blue-600" 
-              bg="bg-gradient-to-br from-blue-50 to-blue-100" 
-            />
-            <StatCard 
-              title="Categories" 
-              value={stats.categories_count}
-              icon={Scale} 
-              color="bg-purple-600" 
-              bg="bg-gradient-to-br from-purple-50 to-purple-100" 
-            />
-            <StatCard 
-              title="Max Penalty" 
-              value={currencyFormatter.format(stats.max_penalty)}
-              icon={IndianRupee} 
-              color="bg-red-600" 
-              bg="bg-gradient-to-br from-red-50 to-red-100" 
-            />
-            {/* <StatCard 
-              title="Min Penalty" 
-              value={currencyFormatter.format(stats.min_penalty)}
-              icon={IndianRupee} 
-              color="bg-green-600" 
-              bg="bg-gradient-to-br from-green-50 to-green-100" 
-            /> */}
-            <StatCard 
-              title="Avg Penalty" 
-              value={currencyFormatter.format(stats.avg_penalty)}
-              icon={AlertTriangle} 
-              color="bg-orange-600" 
-              bg="bg-gradient-to-br from-orange-50 to-orange-100" 
-            />
-          </div>
-        </div>
-        {/* Top row: title + actions */}
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
+   <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-          {/* Action buttons */}
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total Rules"
+        value={stats.total_rules}
+        icon={Gavel}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
- {/* Refresh */}
-            <button
-              onClick={loadRules}
-              disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            {/* Filter */}
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className={`
-                inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white font-medium transition-colors
-                ${sidebarOpen || hasFilters
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}
-              `}
-            >
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className={`
-                  h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}
-                `}>
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+      <StatCard
+        title="Categories"
+        value={stats.categories_count}
+        icon={Scale}
+        color="bg-purple-600"
+        bg="bg-gradient-to-br from-purple-50 to-purple-100"
+      />
 
-            {/* Export */}
-                        {can('export_penalty_rules') && (
+      <StatCard
+        title="Max Penalty"
+        value={currencyFormatter.format(stats.max_penalty)}
+        icon={IndianRupee}
+        color="bg-red-600"
+        bg="bg-gradient-to-br from-red-50 to-red-100"
+      />
 
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors"
-            >
-              <Download className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-                        )}
+      <StatCard
+        title="Avg Penalty"
+        value={currencyFormatter.format(stats.avg_penalty)}
+        icon={AlertTriangle}
+        color="bg-orange-600"
+        bg="bg-gradient-to-br from-orange-50 to-orange-100"
+      />
+    </div>
 
-           
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
 
-            {/* Add Rule */}
-            {can('create_penalty_rules') && (
+      {/* Filter */}
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "border-gray-200"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Filters</span>
 
-            <button
-              onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden xs:inline sm:inline">New Rule</span>
-            </button>
-            )}
-          </div>
-        </div>
+        {activeFilterCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+              ${
+                sidebarOpen || hasFilters
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-600 text-white"
+              }`}
+          >
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
 
-       
-      </div>
+      {/* Export */}
+      {can("export_penalty_rules") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {/* Add Rule */}
+      {can("create_penalty_rules") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>New Rule</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
       <div className="relative">
+  <main className="p-0 sm:p-0">
+    {/* ── Bulk Selection Bar (outside Card) ── */}
+    {selectedItems.size > 0 && (
+      <div className="px-0 pb-2">
+        <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px] bg-white">
+          <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
+            {selectedItems.size} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectedItems(new Set()); setSelectAll(false); }}
+              className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
+            >
+              Clear
+            </button>
+            {can('delete_penalty_rules') && (
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete {selectedItems.size}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
-        {/* Table area */}
-        <main className="p-0 sm:p-0">
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                Penalty Rules ({filteredRules.length})
-              </span>
-              {hasColSearch && (
-                <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold">
-                  Clear Search
-                </button>
+    <Card className="border rounded-lg shadow-sm overflow-hidden">
+      {/* ── Table ── */}
+      <div className="flex flex-col h-[380px] sm:h-[520px]">
+        <div className="overflow-auto flex-1 min-h-0">
+          <table
+            className="border-collapse text-[11px] font-sans"
+            style={{ tableLayout: "fixed", minWidth: "900px", width: "100%" }}
+          >
+            <colgroup>
+              <col style={{ width: "34px" }} />    {/* checkbox */}
+              <col style={{ width: "150px" }} />   {/* Item Category */}
+              <col style={{ width: "120px" }} />   {/* From Condition */}
+              <col style={{ width: "120px" }} />   {/* To Condition */}
+              <col style={{ width: "110px" }} />   {/* Penalty Amount */}
+              <col style={{ width: "200px" }} />   {/* Description */}
+              <col style={{ width: "90px" }} />    {/* Actions */}
+            </colgroup>
+
+            {/* ── STICKY THEAD ── */}
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-200 border-b border-gray-300">
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSelectAll(checked);
+                      setSelectedItems(checked ? new Set(filteredRules.map(i => i.id)) : new Set());
+                    }}
+                    className="w-3.5 h-3.5 cursor-pointer"
+                  />
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Item Category</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">From Condition</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">To Condition</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Penalty Amount</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Description</span>
+                </th>
+                <th className="px-1.5 py-1.5 text-right bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </th>
+              </tr>
+
+              {/* Search row */}
+              <tr className="bg-white border-b border-gray-300">
+                <td className="p-1 border-r border-gray-200" />
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Search category…"
+                    value={colSearch.item_category || ''}
+                    onChange={e => setColSearch(p => ({ ...p, item_category: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="From…"
+                    value={colSearch.from_condition || ''}
+                    onChange={e => setColSearch(p => ({ ...p, from_condition: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="To…"
+                    value={colSearch.to_condition || ''}
+                    onChange={e => setColSearch(p => ({ ...p, to_condition: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Amount…"
+                    value={colSearch.penalty_amount || ''}
+                    onChange={e => setColSearch(p => ({ ...p, penalty_amount: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0 text-right"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder="Description…"
+                    value={colSearch.description || ''}
+                    onChange={e => setColSearch(p => ({ ...p, description: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1" />
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Loading penalty rules…</p>
+                  </td>
+                </tr>
+              ) : paginatedRules.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12">
+                    <Gavel className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-500">No penalty rules found</p>
+                    <p className="text-xs text-gray-400 mt-1">Click "New Rule" to create one</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedRules.map((rule) => (
+                  <tr key={rule.id} className="hover:bg-gray-50 border-b border-slate-200">
+                    <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(rule.id)}
+                        onChange={() => {
+                          const newSet = new Set(selectedItems);
+                          if (newSet.has(rule.id)) newSet.delete(rule.id);
+                          else newSet.add(rule.id);
+                          setSelectedItems(newSet);
+                          setSelectAll(newSet.size === filteredRules.length && filteredRules.length > 0);
+                        }}
+                        className="w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-medium border-r border-slate-200">
+                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0.5 font-medium">
+                        {rule.item_category}
+                      </Badge>
+                    </td>
+                    <td className="px-1.5 py-1.5 border-r border-slate-200">
+                      {getConditionBadge(rule.from_condition)}
+                    </td>
+                    <td className="px-1.5 py-1.5 border-r border-slate-200">
+                      {getConditionBadge(rule.to_condition)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] font-bold text-red-600 text-right border-r border-slate-200">
+                      {currencyFormatter.format(rule.penalty_amount)}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-[11px] text-gray-600 truncate max-w-[200px] border-r border-slate-200">
+                      {rule.description || '-'}
+                    </td>
+                    <td className="px-1.5 py-1.5 text-right">
+                      <div className="flex justify-end gap-0.5">
+                        {can('edit_penalty_rules') && (
+                          <button
+                            title="Edit"
+                            className="w-6 h-6 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                            onClick={() => openEdit(rule)}
+                          >
+                            <Edit size={12} />
+                          </button>
+                        )}
+                        {can('delete_penalty_rules') && (
+                          <button
+                            title="Delete"
+                            className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                            onClick={() => handleDelete(rule)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
-            </div>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-<div className="overflow-auto rounded-b-lg transition-all duration-300 max-h-[350px] md:max-h-[460px]">              <div className="min-w-[900px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 text-xs"> Item Category</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">From Condition</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">To Condition</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Penalty Amount</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Description</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                    </TableRow>
+      {/* ── Footer: pagination ── */}
+      {!loading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Show</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(val) => {
+                const newSize = val === "All" ? "All" : Number(val);
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                <SelectValue>{pageSize}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>entries</span>
+            <span className="ml-2">
+              Showing {paginatedRules.length > 0 ? ((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1 : 0}–
+              {Math.min(
+                (pageSize === "All" ? totalItems : currentPage * (pageSize as number)),
+                totalItems
+              )} of {totalItems}
+            </span>
+          </div>
 
-                    {/* Column search */}
-                    <TableRow className="bg-gray-50/80">
-                      {[
-                        { key: 'item_category', ph: 'Search category…' },
-                        { key: 'from_condition', ph: 'From…' },
-                        { key: 'to_condition', ph: 'To…' },
-                        { key: 'penalty_amount', ph: 'Amount…' },
-                        { key: 'description', ph: 'Description…' },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input 
-                              placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(prev => ({ ...prev, [col.key!]: e.target.value }))}
-                              className="h-6 text-[10px]"
-                            />
-                          ) : <div />}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading penalty rules…</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredRules.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12">
-                          <Gavel className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No penalty rules found</p>
-                          <p className="text-xs text-gray-400 mt-1">Click "New Rule" to create one</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredRules.map(rule => (
-                      <TableRow key={rule.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3 text-xs font-medium">
-                          <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0.5 font-medium">
-                            {rule.item_category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          {getConditionBadge(rule.from_condition)}
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          {getConditionBadge(rule.to_condition)}
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs font-bold text-red-600">
-                          {currencyFormatter.format(rule.penalty_amount)}
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[200px] truncate">
-                          {rule.description || '-'}
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <div className="flex justify-end gap-1">
-                             {can('edit_penalty_rules') && (
-
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => openEdit(rule)} 
-                              title="Edit"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                             )}
-                               {can('delete_penalty_rules') && (
-
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                              onClick={() => handleDelete(rule)} 
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                               )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </Card>
-        </main>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum = i + 1;
+              if (totalPages > 5) {
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum} size="sm"
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`h-6 w-6 p-0 text-[10px] ${currentPage === pageNum ? "bg-blue-600 text-white border-blue-600" : ""}`}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  </main>
 
         {/* ── RIGHT-SIDE SLIDE-IN FILTER DRAWER ──────────────────────────── */}
 

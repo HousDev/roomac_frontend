@@ -2601,7 +2601,7 @@ const totals = useMemo(() => {
     {/* HEADER */}
     <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <SlidersHorizontal className="w-4 h-4 text-white" />
+        <Filter className="w-4 h-4 text-white" />
         <span className="text-sm font-semibold text-white">Advanced Filters</span>
         {activeFiltersCount > 0 && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
@@ -3557,6 +3557,8 @@ const totalRefunded = payments
 >
                 {/* ── Sticky: Checkbox ── */}
 <td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-b border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
+                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
+                    {selectedTenantIds.includes(String(tenant.id)) ? (
                   <button onClick={() =>
     toggleSelection(String((tenant as any).original_id || tenant.id))
   } className="flex items-center justify-center w-4 h-4 mx-auto">

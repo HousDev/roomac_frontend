@@ -128,6 +128,13 @@ export function Settlements() {
 const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
   const { can } = useAuth(); // ← ADD THIS
 
+  // ── Pagination state (client‑side) ──
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -181,6 +188,21 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
       (!cs.status           || s.status?.toLowerCase().includes(cs.status.toLowerCase()))
     );
   }), [settlements, colSearch]);
+
+  const paginatedItems = useMemo(() => {
+  if (pageSize === "All") return filteredItems;
+  const start = (currentPage - 1) * (pageSize as number);
+  return filteredItems.slice(start, start + (pageSize as number));
+}, [filteredItems, currentPage, pageSize]);
+
+useEffect(() => {
+  setTotalItems(filteredItems.length);
+  setTotalPages(pageSize === "All" ? 1 : Math.ceil(filteredItems.length / (pageSize as number)));
+  // Reset to page 1 if current page is out of range
+  if (currentPage > Math.ceil(filteredItems.length / (pageSize === "All" ? filteredItems.length : pageSize as number))) {
+    setCurrentPage(1);
+  }
+}, [filteredItems, pageSize]);
 
   const toggleAll = () => {
     if (selectAll) setSelectedItems(new Set()); else setSelectedItems(new Set(filteredItems.map(s => s.id)));
@@ -537,211 +559,418 @@ const handleExport = () => {
     <div className="bg-gray-50 ">
 
       {/* HEADER */}
-      <div className="sticky top-20 z-10">
+   <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-          <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <StatCard title="Total"             value={stats.total}             icon={IndianRupee}       color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100"/>
-          <StatCard title="Pending"           value={stats.pending}           icon={AlertTriangle} color="bg-amber-600"   bg="bg-gradient-to-br from-amber-50 to-amber-100"/>
-          <StatCard title="Paid / Completed"  value={stats.paid}              icon={ShieldCheck}   color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100"/>
-          <StatCard title="Total Refunds"     value={money(stats.totalRefund)} icon={Banknote}     color="bg-indigo-600"  bg="bg-gradient-to-br from-indigo-50 to-indigo-100"/>
-        </div>
-        <div className="px-0 sm:px-0 pt-0 pb-2 flex justify-end gap-1.5">
-           <button onClick={loadAll} disabled={loading}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}/>
-          </button>
-          <button onClick={() => setSidebarOpen(o => !o)}
-            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-              ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600' : 'bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200 hover:bg-gray-50'}`}>
-            <Filter className="h-3.5 w-3.5"/><span className="hidden sm:inline">Filters</span>
-          </button>
-                    {can('export_settlements') && (
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total"
+        value={stats.total}
+        icon={IndianRupee}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
-          <button onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium">
-            <Download className="h-3.5 w-3.5"/><span className="hidden sm:inline">Export</span>
-          </button>
-                    )}
-         
-          {can('create_settlements') && (
+      <StatCard
+        title="Pending"
+        value={stats.pending}
+        icon={AlertTriangle}
+        color="bg-amber-600"
+        bg="bg-gradient-to-br from-amber-50 to-amber-100"
+      />
 
-          <button onClick={openAdd}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm">
-            <Plus className="h-3.5 w-3.5"/>New Settlement
-          </button>
-          )}
-        </div>
+      <StatCard
+        title="Paid / Completed"
+        value={stats.paid}
+        icon={ShieldCheck}
+        color="bg-emerald-600"
+        bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+      />
 
-      
-      </div>
+      <StatCard
+        title="Total Refunds"
+        value={money(stats.totalRefund)}
+        icon={Banknote}
+        color="bg-indigo-600"
+        bg="bg-gradient-to-br from-indigo-50 to-indigo-100"
+      />
+    </div>
+
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+      <button
+        onClick={() => setSidebarOpen((o) => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Filters</span>
+      </button>
+
+      {can("export_settlements") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_settlements") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>New Settlement</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* TABLE */}
-      <div className="relative p-0 sm:p-0">
-        <Card className="border rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-            <span className="text-sm font-semibold text-gray-700">
-              All Settlements ({filteredItems.length})
-              {selectedItems.size > 0 && <span className="ml-2 text-blue-600 text-xs">({selectedItems.size} selected)</span>}
-            </span>
-            <div className="flex items-center gap-2">
-              {selectedItems.size > 0 && (
-                <Button size="sm" variant="destructive" className="h-7 text-[10px] px-2" onClick={handleBulkDelete}>
-                  <Trash2 className="h-3 w-3 mr-1"/>Delete ({selectedItems.size})
-                </Button>
-              )}
-              {hasColSearch && <button onClick={clearCol} className="text-[10px] text-blue-600 font-semibold">Clear Search</button>}
-            </div>
-          </div>
-
-<div
-  className="overflow-auto rounded-b-lg transition-all duration-300"
-  style={{
-    maxHeight: selectedItems.size > 0
-      ? (window.innerWidth >= 768 ? '460px' : '360px')
-      : (window.innerWidth >= 768 ? '460px' : '360px')
-  }}
->            <table className="w-full text-[11px] border-collapse" style={{ minWidth: '1380px' }}>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-50 border-b-2 border-gray-200">
-                  <th className="py-2 px-2 w-8">
-                    <button onClick={toggleAll} className="p-1 hover:bg-gray-200 rounded">
-                      {selectAll ? <CheckSquare className="h-3.5 w-3.5 text-blue-600"/> : <Square className="h-3.5 w-3.5 text-gray-400"/>}
-                    </button>
-                  </th>
-                  {([
-                    ['Tenant Name',      130],['Phone',          105],['Property',        130],
-                    ['Room',             65], ['Settlement Date', 105],['Security Deposit',105],
-                    ['Penalties',        90], ['Penalty Discount',105],['Outstg. Rent',    90],
-                    ['Total Deductions', 105],['Refund Amount',   105],['Method',          95],
-                    ['Status',           80], ['Actions',         82],
-                  ] as [string, number][]).map(([label, w]) => (
-                    <th key={label} style={{ minWidth: w, width: w }}
-                      className="py-2 px-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-500 whitespace-nowrap">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-                <tr className="bg-white border-b border-gray-100">
-                  <td className="py-1 px-2"/>
-                  {([
-                    ['tenant_name',     'Name…'     ],
-                    ['tenant_phone',    'Phone…'    ],
-                    ['property_name',   'Property…' ],
-                    ['room_number',     'Room…'     ],
-                    ['settlement_date', 'Date…'     ],
-                    ['security_deposit','Deposit…'  ],
-                    ['penalties',       'Penalties…'],
-                    ['penalty_discount','Discount…' ],
-                    ['outstanding_rent','Rent…'     ],
-                    ['total_deductions','Deductions…'],
-                    ['refund_amount',   'Refund…'   ],
-                    ['payment_method',  'Method…'   ],
-                    ['status',          'Status…'   ],
-                  ] as [string, string][]).map(([key, ph], i) => (
-                    <td key={i} className="py-1 px-2">
-                      <input placeholder={ph} value={colSearch[key as keyof typeof colSearch]}
-                        onChange={e => setColSearch(p => ({ ...p, [key]: e.target.value }))}
-                        className="w-full h-6 px-2 rounded border border-gray-200 bg-gray-50 text-[10px] focus:outline-none focus:border-blue-400 focus:bg-white"/>
-                    </td>
-                  ))}
-                  <td className="py-1 px-2"/>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={15} className="text-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2"/>
-                    <p className="text-xs text-gray-500">Loading…</p>
-                  </td></tr>
-                ) : filteredItems.length === 0 ? (
-                  <tr><td colSpan={15} className="text-center py-12">
-                    <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3"/>
-                    <p className="text-sm font-medium text-gray-500">No settlements found</p>
-                  </td></tr>
-                ) : filteredItems.map((s, idx) => (
-                  <tr key={s.id}
-                    className={`border-b border-gray-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                    <td className="py-2 px-2">
-                      <button onClick={() => toggleOne(s.id)} className="p-1 hover:bg-gray-200 rounded">
-                        {selectedItems.has(s.id) ? <CheckSquare className="h-3.5 w-3.5 text-blue-600"/> : <Square className="h-3.5 w-3.5 text-gray-400"/>}
-                      </button>
-                    </td>
-                    <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap">{s.tenant_name}</td>
-                    <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{s.tenant_phone}</td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">
-                      <span className="block max-w-[128px] truncate" title={s.property_name}>{s.property_name}</span>
-                    </td>
-<td className="py-2 px-2 text-gray-600 whitespace-nowrap">{s.room_number}{s.bed_number ? `/${s.bed_number}` : ''}</td>                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{fmt(s.settlement_date)}</td>
-                    <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap">{money(s.security_deposit)}</td>
-                    <td className="py-2 px-2 text-red-600 whitespace-nowrap">{money(s.penalties)}</td>
-                    <td className="py-2 px-2 text-emerald-600 font-medium whitespace-nowrap">{money(s.penalty_discount)}</td>
-                    <td className="py-2 px-2 text-orange-500 whitespace-nowrap">{money(s.outstanding_rent)}</td>
-                    <td className="py-2 px-2 font-bold text-orange-700 whitespace-nowrap">{money(s.total_deductions)}</td>
-                    <td className="py-2 px-2 font-bold text-emerald-700 whitespace-nowrap">{money(s.refund_amount)}</td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{s.payment_method}</td>
-                    <td className="py-2 px-2 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-semibold \${statusColor(s.status)}`}>{s.status}</span>
-                    </td>
-                    <td className="py-2 px-2 whitespace-nowrap">
-                      <div className="flex items-center gap-0.5">
-                         {can('view_settlements') && (
-
-                        <button onClick={() => setViewItem(s)} title="View"
-                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
-                          <Eye className="h-3.5 w-3.5"/>
-                        </button>
-                         )}
-                           {can('edit_settlements') && (
-
-                        <button onClick={() => openEdit(s)} title="Edit"
-                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors">
-                          <Edit className="h-3.5 w-3.5"/>
-                        </button>
-                           )}
-                             {can('delete_settlements') && (
-
-                        <button onClick={() => handleDelete(s.id, s.tenant_name)} title="Delete"
-                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5"/>
-                        </button>
-                             )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        {/* FILTER SIDEBAR */}
-        {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)}/>}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 bg-white shadow-2xl flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between">
-            <span className="text-sm font-semibold text-white flex items-center gap-2"><Filter className="h-4 w-4"/>Filters</span>
-            <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white"><X className="h-4 w-4"/></button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Status</p>
-            <div className="space-y-1">
-              {(['all','Pending','Processing','Paid','Completed','Cancelled'] as StatusType[]).map(s => (
-                <label key={s} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                  ${statusFilter === s ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                  <input type="radio" checked={statusFilter === s} onChange={() => setStatusFilter(s)} className="sr-only"/>
-                  <span className={`h-2 w-2 rounded-full ${statusFilter === s ? 'bg-blue-500' : 'bg-gray-300'}`}/>
-                  <span className="text-[12px] font-medium">{s === 'all' ? 'All' : s}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={() => setStatusFilter('all')} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] text-gray-600 disabled:opacity-40">Clear</button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold">Apply & Close</button>
-          </div>
-        </aside>
+     <div className="relative p-0 sm:p-0">
+  {/* ── Bulk Selection Bar (outside Card) ── */}
+  {selectedItems.size > 0 && (
+    <div className="px-0 pb-2">
+      <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-3 py-2 min-h-[44px] bg-white">
+        <span className="font-bold text-[#1A2B6D] text-sm whitespace-nowrap">
+          {selectedItems.size} selected
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setSelectedItems(new Set()); setSelectAll(false); }}
+            className="text-xs text-[#8892A4] hover:text-gray-600 px-2 py-1"
+          >
+            Clear
+          </button>
+          {can('delete_settlements') && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete {selectedItems.size}
+            </button>
+          )}
+        </div>
       </div>
+    </div>
+  )}
+
+  <Card className="border rounded-lg shadow-sm">
+    {/* ── Table ── */}
+    <div className="flex flex-col h-[380px] sm:h-[520px]">
+      <div className="overflow-auto flex-1 min-h-0">
+        <table
+          className="border-collapse text-[11px] font-sans"
+          style={{ tableLayout: "fixed", minWidth: "1380px", width: "100%" }}
+        >
+          <colgroup>
+            <col style={{ width: "34px" }} />
+            <col style={{ width: "130px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "130px" }} />
+            <col style={{ width: "65px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "90px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "90px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "105px" }} />
+            <col style={{ width: "95px" }} />
+            <col style={{ width: "80px" }} />
+            <col style={{ width: "82px" }} />
+          </colgroup>
+
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gray-200 border-b border-gray-300">
+              <th className="py-2 px-2 text-center border-r border-gray-300 bg-gray-200">
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSelectAll(checked);
+                    setSelectedItems(checked ? new Set(filteredItems.map(i => i.id)) : new Set());
+                  }}
+                  className="w-3.5 h-3.5 cursor-pointer"
+                />
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant Name</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Phone</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Settlement Date</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Security Deposit</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Penalties</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Penalty Discount</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Outstg. Rent</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Total Deductions</span>
+              </th>
+              <th className="py-2 px-2 text-right border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Refund Amount</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method</span>
+              </th>
+              <th className="py-2 px-2 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              </th>
+              <th className="py-2 px-2 text-right bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+              </th>
+            </tr>
+
+            {/* Search row */}
+            <tr className="bg-white border-b border-gray-300">
+              <td className="p-1 border-r border-gray-200" />
+              {[
+                ['tenant_name', 'Name…'],
+                ['tenant_phone', 'Phone…'],
+                ['property_name', 'Property…'],
+                ['room_number', 'Room…'],
+                ['settlement_date', 'Date…'],
+                ['security_deposit', 'Deposit…'],
+                ['penalties', 'Penalties…'],
+                ['penalty_discount', 'Discount…'],
+                ['outstanding_rent', 'Rent…'],
+                ['total_deductions', 'Deductions…'],
+                ['refund_amount', 'Refund…'],
+                ['payment_method', 'Method…'],
+                ['status', 'Status…'],
+              ].map(([key, ph], i) => (
+                <td key={i} className="p-1 border-r border-gray-200">
+                  <input
+                    placeholder={ph}
+                    value={colSearch[key as keyof typeof colSearch] || ''}
+                    onChange={e => setColSearch(p => ({ ...p, [key]: e.target.value }))}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+              ))}
+              <td className="p-1" />
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={15} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Loading settlements…</p>
+                </td>
+              </tr>
+            ) : paginatedItems.length === 0 ? (
+              <tr>
+                <td colSpan={15} className="text-center py-12">
+                  <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-500">No settlements found</p>
+                  <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                </td>
+              </tr>
+            ) : (
+              paginatedItems.map((s, idx) => (
+                <tr
+                  key={s.id}
+                  className={`hover:bg-gray-50 border-b border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
+                >
+                  <td className="py-2 px-2 text-center border-r border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(s.id)}
+                      onChange={() => {
+                        const newSet = new Set(selectedItems);
+                        if (newSet.has(s.id)) newSet.delete(s.id);
+                        else newSet.add(s.id);
+                        setSelectedItems(newSet);
+                        setSelectAll(newSet.size === filteredItems.length && filteredItems.length > 0);
+                      }}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
+                  </td>
+                  <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap border-r border-slate-200">
+                    {s.tenant_name}
+                  </td>
+                  <td className="py-2 px-2 text-gray-500 whitespace-nowrap border-r border-slate-200">
+                    {s.tenant_phone}
+                  </td>
+                  <td className="py-2 px-2 text-gray-600 whitespace-nowrap border-r border-slate-200">
+                    <span className="block max-w-[128px] truncate" title={s.property_name}>{s.property_name}</span>
+                  </td>
+                  <td className="py-2 px-2 text-gray-600 whitespace-nowrap border-r border-slate-200">
+                    {s.room_number}{s.bed_number ? `/${s.bed_number}` : ''}
+                  </td>
+                  <td className="py-2 px-2 text-gray-600 whitespace-nowrap border-r border-slate-200">
+                    {fmt(s.settlement_date)}
+                  </td>
+                  <td className="py-2 px-2 font-semibold text-gray-800 text-right border-r border-slate-200">
+                    {money(s.security_deposit)}
+                  </td>
+                  <td className="py-2 px-2 text-red-600 text-right border-r border-slate-200">
+                    {money(s.penalties)}
+                  </td>
+                  <td className="py-2 px-2 text-emerald-600 font-medium text-right border-r border-slate-200">
+                    {money(s.penalty_discount)}
+                  </td>
+                  <td className="py-2 px-2 text-orange-500 text-right border-r border-slate-200">
+                    {money(s.outstanding_rent)}
+                  </td>
+                  <td className="py-2 px-2 font-bold text-orange-700 text-right border-r border-slate-200">
+                    {money(s.total_deductions)}
+                  </td>
+                  <td className="py-2 px-2 font-bold text-emerald-700 text-right border-r border-slate-200">
+                    {money(s.refund_amount)}
+                  </td>
+                  <td className="py-2 px-2 text-gray-600 whitespace-nowrap border-r border-slate-200">
+                    {s.payment_method}
+                  </td>
+                  <td className="py-2 px-2 whitespace-nowrap border-r border-slate-200">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-semibold ${statusColor(s.status)}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td className="py-2 px-2 whitespace-nowrap text-right">
+                    <div className="flex justify-end gap-0.5">
+                      {can('view_settlements') && (
+                        <button
+                          title="View"
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                          onClick={() => setViewItem(s)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {can('edit_settlements') && (
+                        <button
+                          title="Edit"
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
+                          onClick={() => openEdit(s)}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {can('delete_settlements') && (
+                        <button
+                          title="Delete"
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
+                          onClick={() => handleDelete(s.id, s.tenant_name)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ── Footer: pagination ── */}
+    {!loading && totalItems > 0 && (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span>Show</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(val) => {
+              const newSize = val === "All" ? "All" : Number(val);
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+              <SelectValue>{pageSize}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span>entries</span>
+          <span className="ml-2">
+            Showing {paginatedItems.length > 0 ? ((currentPage - 1) * (pageSize === "All" ? totalItems : pageSize)) + 1 : 0}–
+            {Math.min(
+              (pageSize === "All" ? totalItems : currentPage * (pageSize as number)),
+              totalItems
+            )} of {totalItems}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm" variant="outline"
+            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </Button>
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNum = i + 1;
+            if (totalPages > 5) {
+              if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
+            }
+            return (
+              <Button
+                key={pageNum} size="sm"
+                variant={currentPage === pageNum ? "default" : "outline"}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`h-6 w-6 p-0 text-[10px] ${currentPage === pageNum ? "bg-blue-600 text-white border-blue-600" : ""}`}
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+          <Button
+            size="sm" variant="outline"
+            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )}
+  </Card>
+</div>
 
       {/* ADD / EDIT DIALOG */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>

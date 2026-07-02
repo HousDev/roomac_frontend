@@ -218,7 +218,7 @@ export const createStaffFormData = (data: any): FormData => {
 // Fetch roles from masters
 export async function fetchRoles() {
   try {
-    const response = await consumeMasters({ tab: 'Roles', type: 'Role' });
+    const response = await consumeMasters({ tab: 'Common', type: 'Role' });
     
     if (response?.success && Array.isArray(response.data)) {
       return response.data.map((item: any) => ({
@@ -236,7 +236,7 @@ export async function fetchRoles() {
 // Fetch departments from masters
 export async function fetchDepartments() {
   try {
-    const response = await consumeMasters({ tab: 'Departments', type: 'Department' });
+    const response = await consumeMasters({ tab: 'Common', type: 'Department' });
     
     if (response?.success && Array.isArray(response.data)) {
       return response.data.map((item: any) => ({
