@@ -1253,6 +1253,13 @@ export async function processVacatedTenantRefund(
   });
 }
 
+export async function toggleTenantPortalAccess(id: string | number, enabled: boolean) {
+  return request(`/api/tenants/${id}/portal-access`, {
+    method: "PATCH",
+    body: JSON.stringify({ portal_access_enabled: enabled }),
+  });
+}
+
 export async function processVacatedTenantPayment(
   tenantId: string | number,
   data: {

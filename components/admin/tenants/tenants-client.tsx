@@ -1,4 +1,4 @@
- // components/admin/tenants/tenants-client.tsx
+// components/admin/tenants/tenants-client.tsx
   "use client";
   import { useCallback, useEffect, useMemo, useState, useRef } from "react";
   import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +77,7 @@
     getTenant,
     processVacatedTenantPayment,
     processVacatedTenantRefund,
+    toggleTenantPortalAccess,
   } from "@/lib/tenantApi";
   import {
     Select,
@@ -250,13 +251,14 @@ const [pendingRefundStatus, setPendingRefundStatus] = useState("");
     }, []);
 
     const toggleSelectAll = useCallback(() => {
-      if (selectedTenantIds.length === tenants.length && tenants.length > 0) {
-        setSelectedTenantIds([]);
-      } else {
-        const allIds = tenants.map((tenant) => String(tenant.id));
-        setSelectedTenantIds(allIds);
-      }
-    }, [tenants, selectedTenantIds]);
+  if (selectedTenantIds.length > 0) {
+    setSelectedTenantIds([]);
+  } else {
+    // tenants is useState — always safe to reference, declared at top
+    const realIds = [...new Set(tenants.map((t) => String(t.id)))];
+    setSelectedTenantIds(realIds);
+  }
+}, [tenants, selectedTenantIds]);
 
     // In tenants-client.tsx, inside the loadTenants function
     const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
@@ -830,26 +832,22 @@ const clearSidebarFilters = useCallback(() => {
     );
 
     // Toggle portal access for single tenant
-    const handleTogglePortalAccess = useCallback(
-      async (tenant: Tenant) => {
-        try {
-          const res = await updateTenantSimple(tenant.id as any, {
-            portal_access_enabled: !tenant.portal_access_enabled,
-          });
-          if (res?.success) {
-            toast.success(
-              `Portal access ${!tenant.portal_access_enabled ? "enabled" : "disabled"}`,
-            );
-            loadTenants();
-          } else {
-            toast.error(res?.message || "Failed to update portal access");
-          }
-        } catch {
-          toast.error("Failed to update portal access");
-        }
-      },
-      [loadTenants],
-    );
+const handleTogglePortalAccess = useCallback(
+  async (tenant: Tenant) => {
+    try {
+      const res = await toggleTenantPortalAccess(tenant.id as any, !tenant.portal_access_enabled);
+      if (res?.success) {
+        toast.success(`Portal access ${!tenant.portal_access_enabled ? "enabled" : "disabled"}`);
+        loadTenants();
+      } else {
+        toast.error(res?.message || "Failed to update portal access");
+      }
+    } catch {
+      toast.error("Failed to update portal access");
+    }
+  },
+  [loadTenants],
+);
 
    const handleSuccess = useCallback(
   async (updatedData?: Tenant) => {
@@ -3559,14 +3557,20 @@ const totalRefunded = payments
 >
                 {/* ── Sticky: Checkbox ── */}
 <td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-b border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
-                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
-                    {selectedTenantIds.includes(String(tenant.id)) ? (
+                  <button onClick={() =>
+    toggleSelection(String((tenant as any).original_id || tenant.id))
+  } className="flex items-center justify-center w-4 h-4 mx-auto">
+                   {selectedTenantIds.includes(
+  String((tenant as any).original_id || tenant.id).split("-vr-")[0]
+) ? (
                       <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
                     ) : (
                       <Square className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400" />
                     )}
                   </button>
                 </td>
+
+                
 
                 {/* ── Sticky: Actions ── */}
 <td className={`${rowBg} group-hover:bg-blue-100 px-1 py-2 border-r border-b border-gray-200 bg-white static lg:sticky lg:left-8 lg:z-10`}>
@@ -4996,6 +5000,11 @@ const totalRefunded = payments
     onOpenChange={setReassignModalOpen}
     tenant={reassignTarget}
     onSuccess={loadTenants}
+    onEditTenant={(t) => {
+      setReassignModalOpen(false);
+      setSelectedTenant(t);
+      setIsEditDialogOpen(true);    
+    }}
   />
 )}
           
