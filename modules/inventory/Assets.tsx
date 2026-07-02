@@ -42,6 +42,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from "@/context/authContext";
 import { getInventoryMappingsGrouped } from "@/lib/categorySubcategoryMapApi";
 import { getSettings, getSettingValue } from "@/lib/settingsApi"; // optional
+import { FaWhatsapp } from 'react-icons/fa';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InventoryItem {
@@ -211,12 +212,11 @@ useEffect(() => {
   const [formData, setFormData] = useState(emptyForm);
 
   // ── Loaders ──────────────────────────────────────────────────────────────────
-  const loadAll = useCallback(async () => {
+ const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [res, statsRes] = await Promise.all([
         getInventory({
-          stock_status: stockFilter !== 'all' ? stockFilter as any : undefined,
           category_id: categoryFilter !== 'all' ? categoryFilter : undefined,
           property_id: propertyFilter !== 'all' ? propertyFilter : undefined,
           page: 1,
@@ -234,7 +234,7 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  }, [stockFilter, categoryFilter, propertyFilter]);
+  }, [ categoryFilter, propertyFilter]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -289,19 +289,11 @@ const filteredItems = useMemo(() => {
     const propOk = !cs.property || (item.property_full_name || '').toLowerCase().includes(cs.property.toLowerCase());
     const priceOk = !cs.unit_price || String(item.unit_price).includes(cs.unit_price);
 
-    const isLow = item.quantity <= item.min_stock_level && item.quantity > 0;
-    const isOut = item.quantity === 0;
 
     // Sidebar filters (dropdowns) – compare by ID
     const categoryFilterOk = categoryFilter === 'all' || (item.category_name || '') === categoryFilter;
     const propertyFilterOk = propertyFilter === 'all' || String(item.property_id) === String(propertyFilter);
-    const stockFilterOk = stockFilter === 'all'
-      ? true
-      : stockFilter === 'low_stock'
-        ? isLow
-        : stockFilter === 'out_of_stock'
-          ? isOut
-          : true;
+ 
 
     const dateOk = dateFrom && dateTo
       ? (item.purchase_date || '') >= dateFrom && (item.purchase_date || '') <= dateTo
@@ -310,16 +302,16 @@ const filteredItems = useMemo(() => {
     const assetStatusOk = assetStatusFilter === 'all' || item.asset_status === assetStatusFilter;
     const vendorFilterOk = vendorFilter === 'all' || item.vendor_name === vendorFilter;
 
-    return nameOk && catOk && propOk && priceOk &&
-           categoryFilterOk && propertyFilterOk && stockFilterOk &&
-           dateOk && assetStatusOk && vendorFilterOk;
+   return nameOk && catOk && propOk && priceOk &&
+       categoryFilterOk && propertyFilterOk &&
+       dateOk && assetStatusOk && vendorFilterOk;
   });
 }, [allItems, colSearch, categoryFilter, propertyFilter, stockFilter,
     dateFrom, dateTo, assetStatusFilter, vendorFilter]);
 
   // ── Grouping ────────────────────────────────────────────────────────────────
  // ── Grouping ────────────────────────────────────────────────────────────────
-  const groupedItems = useMemo(() => {
+const groupedItems = useMemo(() => {
     const groups: Record<string, any> = {};
     filteredItems.forEach(item => {
       const key = `${item.item_name}__${item.property_id}`;
@@ -332,18 +324,37 @@ const filteredItems = useMemo(() => {
           total_quantity: 0,
           total_value: 0,
           unit_price: item.unit_price,
+          min_stock_level: item.min_stock_level,
+          available_count: 0,
           assets: [],
         };
       }
       groups[key].total_quantity += item.quantity || 1;
       groups[key].total_value += (item.quantity || 1) * item.unit_price;
+      if (item.asset_status === 'available' || !item.asset_status) {
+        groups[key].available_count += item.quantity || 1;
+      }
       groups[key].assets.push(item);
     });
+
+    Object.values(groups).forEach((g: any) => {
+  const totalAssets = g.assets.length;
+  const availablePercent = totalAssets > 0 ? (g.available_count / totalAssets) * 100 : 0;
+  
+  if (g.available_count === 0) {
+    g.stock_status = 'out_of_stock';
+  } else if (availablePercent <= 50) {
+    g.stock_status = 'low_stock';
+  } else {
+    g.stock_status = 'ok';
+  }
+});
+
     return Object.values(groups);
   }, [filteredItems]);
 
   // ── Qty / Status search (post-grouping) ───────────────────────────────────
-  const searchedGroups = useMemo(() => {
+const searchedGroups = useMemo(() => {
     return groupedItems.filter((group: any) => {
       const qtyOk = !colSearch.quantity ||
         String(group.total_quantity).includes(colSearch.quantity);
@@ -356,9 +367,11 @@ const filteredItems = useMemo(() => {
           return label.toLowerCase().includes(colSearch.status.toLowerCase());
         });
 
-      return qtyOk && stOk;
+      const stockFilterOk = stockFilter === 'all' ? true : group.stock_status === stockFilter;
+
+      return qtyOk && stOk && stockFilterOk;
     });
-  }, [groupedItems, colSearch.quantity, colSearch.status]);
+  }, [groupedItems, colSearch.quantity, colSearch.status, stockFilter]);
 
   // ── Paginated groups ──────────────────────────────────────────────────────
   const paginatedGroups = useMemo(() => {
@@ -631,8 +644,16 @@ const handleDeleteAsset = async (id: string) => {
   };
 
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const hasFilters = stockFilter !== 'all' || categoryFilter !== 'all' || propertyFilter !== 'all';
- const activeFilterCount = [
+const hasFilters =
+  stockFilter !== 'all' ||
+  categoryFilter !== 'all' ||
+  propertyFilter !== 'all' ||
+  assetStatusFilter !== 'all' ||
+  vendorFilter !== 'all' ||
+  !!dateFrom ||
+  !!dateTo; 
+  
+  const activeFilterCount = [
   stockFilter !== 'all',
   categoryFilter !== 'all',
   propertyFilter !== 'all',
@@ -655,11 +676,12 @@ const clearColSearch = () => setColSearch({
   item_name: '', category: '', property: '', vendor: '',
   unit_price: '', quantity: '', status: '',
 });
-  const statusBadgeStyle = (status?: string) => {
-    if (status === 'assigned') return { bg: '#DBEAFE', text: '#1D4ED8' };
-    if (status === 'maintenance') return { bg: '#FFEDD5', text: '#C2410C' };
-    return { bg: '#DCFCE7', text: '#166534' };
-  };
+const statusBadgeStyle = (status?: string) => {
+  if (status === 'assigned') return { bg: '#DBEAFE', text: '#1D4ED8' };
+  if (status === 'damaged') return { bg: '#FEE2E2', text: '#991B1B' };   // red background, dark red text
+  if (status === 'missing') return { bg: '#FEF2F2', text: '#DC2626' };   // light red background, bright red text
+  return { bg: '#DCFCE7', text: '#166534' }; // available (green)
+};
  const printGroupSummary = (group: any) => {
   if (!group) return;
 
@@ -1065,7 +1087,7 @@ const handleCopyLink = () => {
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
           >
             <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="hidden xs:inline sm:inline">Add Item</span>
+            <span className="">Add Item</span>
           </button>
         )}
       </div>
@@ -1101,8 +1123,7 @@ const handleCopyLink = () => {
            
 
             {/* ── Table ── */}
-        <div className="flex flex-col h-[500px] sm:h-[520px]">
-  <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '430px' : '520px' }}>  <div className="overflow-auto flex-1 min-h-0">
     <table
       className="border-collapse text-[11px] font-sans"
       style={{ tableLayout: "fixed", minWidth: "1100px", width: "100%" }}
@@ -1531,18 +1552,18 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <AlertCircle className="h-3 w-3 text-purple-500" /> Asset Status
       </p>
-      <Select value={assetStatusFilter} onValueChange={(val) => setAssetStatusFilter(val)}>
-        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
-          <SelectValue placeholder="Select status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="available">Available</SelectItem>
-          <SelectItem value="assigned">Assigned</SelectItem>
-          <SelectItem value="maintenance">Maintenance</SelectItem>
-          <SelectItem value="damaged">Damaged</SelectItem>
-        </SelectContent>
-      </Select>
+    <Select value={assetStatusFilter} onValueChange={(val) => setAssetStatusFilter(val)}>
+  <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+    <SelectValue placeholder="Select status" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Status</SelectItem>
+    <SelectItem value="available">Available</SelectItem>
+    <SelectItem value="assigned">Assigned</SelectItem>
+    <SelectItem value="missing">Missing</SelectItem>
+    <SelectItem value="damaged">Damaged</SelectItem>
+  </SelectContent>
+</Select>
     </div>
 
     {/* Vendor */}
@@ -1790,7 +1811,7 @@ const handleCopyLink = () => {
           className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left"
         >
           <div className="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="h-3.5 w-3.5 text-white" />
+            <FaWhatsapp className="h-3.5 w-3.5 text-white" />
           </div>
           <div>
             <p className="text-[11px] font-semibold text-gray-800">WhatsApp</p>
@@ -2002,7 +2023,7 @@ const handleCopyLink = () => {
       {/* ══ Add / Edit Dialog (unchanged) ══ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
         <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Item' : 'Add Inventory Item'}</h2>
               <p className="text-xs text-blue-100">Fill in the details below</p>

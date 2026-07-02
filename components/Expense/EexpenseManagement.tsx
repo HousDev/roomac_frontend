@@ -3272,11 +3272,15 @@ onClick={() => openReceiptPreview(viewItem)}
        <div id="receipt-print-area" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm relative overflow-hidden">
   
   {/* ─── WATERMARK: full site name, diagonal (bottom-left to top-right) ─── */}
-  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
   <span
-    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-               text-[90px] font-black text-slate-200/50
-               whitespace-nowrap"
+    className="font-black leading-none whitespace-nowrap"
+    style={{
+      fontSize: "min(10vw, 56px)",
+      letterSpacing: "0.02em",
+      color: "rgba(100, 116, 139, 0.09)",
+      transform: "rotate(-30deg)",
+    }}
   >
     {siteSettings.siteName?.split(" ")[0]}
   </span>

@@ -9,8 +9,10 @@ import {
   Edit2,
   Edit,
   Mail,
+  Share,
 } from 'lucide-react';
 // import { getAvailableAssets } from '@/lib/assetsApi'; // adjust path
+import { getInventoryMappingsGrouped } from '@/lib/categorySubcategoryMapApi';
 
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -48,6 +50,9 @@ import { useAuth } from '@/context/authContext';
 import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
 import { getAvailableAssets } from '@/lib/assestsApi';
 import { request } from '@/lib/api';
+import { FaWhatsapp } from 'react-icons/fa';
+import { getSettings, getSettingValue } from "@/lib/settingsApi";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface HandoverItem {
@@ -210,7 +215,13 @@ const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState<number | "All">(25);
 const [totalItems, setTotalItems] = useState(0);
 const [totalPages, setTotalPages] = useState(1);
-
+const [siteSettings, setSiteSettings] = useState({
+  siteName: "ROOMAC",
+  logo: "",
+  phone: "",
+  email: "",
+  address: "",
+});
 
 // ── Advanced date filters ──
 const [dateFrom, setDateFrom] = useState('');
@@ -238,6 +249,12 @@ const [moveInTo, setMoveInTo] = useState('');
     tenant_name: '', property_name: '', room_number: '', status: '', handover_date: '',
   });
 const [availableAssets, setAvailableAssets] = useState<Record<string, string[]>>({});
+const [inventoryMappings, setInventoryMappings] = useState <
+  { category_id: string; category_name: string; subcategories: { subcategory_id: string; subcategory_name: string }[] }[]
+>([]);
+const [itemStockMap, setItemStockMap] = useState<Record<string, number>>({});
+
+
   const emptyForm = {
     tenant_id: '', tenant_name: '', tenant_phone: '', tenant_email: '',
     property_id: '', property_name: '', room_number: '', bed_number: '',
@@ -254,6 +271,8 @@ const [availableAssets, setAvailableAssets] = useState<Record<string, string[]>>
   });
   const [handoverItems, setHandoverItems] = useState<HandoverItem[]>([emptyHandoverItem()]);
 
+
+  
   // ── Load categories ────────────────────────────────────────────────────────
   const loadCategories = useCallback(async () => {
     try {
@@ -289,6 +308,37 @@ const [availableAssets, setAvailableAssets] = useState<Record<string, string[]>>
     }
   }, []);
 
+  const loadInventoryMappings = useCallback(async () => {
+  try {
+    const res = await getInventoryMappingsGrouped();
+    setInventoryMappings(res?.data || []);
+  } catch (err) {
+    console.error('Could not load inventory mappings:', err);
+  }
+}, []);
+
+
+const getSubcategoriesForCategory = (categoryName: string) => {
+  if (!categoryName) return [];
+  const mapping = inventoryMappings.find(
+    m => m.category_name.trim().toLowerCase() === categoryName.trim().toLowerCase()
+  );
+  return mapping?.subcategories || [];
+};
+
+
+const fetchItemStock = async (itemName: string): Promise<number> => {
+  if (!itemName || !formData.property_id) return 0;
+  try {
+    const res = await getAvailableAssets(itemName, formData.property_id);
+    const count = res.data?.length || 0;
+    setItemStockMap(prev => ({ ...prev, [itemName]: count }));
+    return count;
+  } catch (e) {
+    console.error('Failed to fetch stock for', itemName, e);
+    return 0;
+  }
+};
   const onVerifyOTP = useCallback(
       async (e: React.FormEvent) => {
         e.preventDefault();
@@ -438,13 +488,15 @@ const handleResendOTP = async () => {
 
 const loadTenants = useCallback(async () => {
   try {
-    // ✅ Increase pageSize to 1000 to get all tenants
-    // Also remove is_active filter to get all tenants (including inactive if needed)
-    const res = await listTenants({ pageSize: 1000, is_active: true });
+    // ✅ Only active (non-vacated) tenants for handover
+    const res = await listTenants({ pageSize: 1000, is_active: true, vacate_status: 'active' });
     const list = res?.data || [];
     const arr = Array.isArray(list) ? list : [];
-    
-    setTenants(arr.map((t: any) => ({
+
+    // Extra safety filter — exclude any tenant flagged as vacated even if API missed it
+    const activeOnly = arr.filter((t: any) => !t.has_vacated && !t.is_vacated);
+
+    setTenants(activeOnly.map((t: any) => ({
       id: String(t.id),
       name: t.full_name || '',
       phone: t.phone || '',
@@ -470,14 +522,34 @@ const loadTenants = useCallback(async () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadCategories();
-    loadTenants();
-    loadProperties();
-    loadPurchasedItems();
-  }, []);
+ useEffect(() => {
+  loadCategories();
+  loadTenants();
+  loadProperties();
+  loadPurchasedItems();
+  loadInventoryMappings();
+}, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+
+  useEffect(() => {
+  const fetchSettings = async () => {
+    try {
+      const settings = await getSettings();
+      setSiteSettings({
+        siteName: getSettingValue(settings, "site_name", "ROOMAC"),
+        logo: getSettingValue(settings, "logo_header", ""),
+        phone: getSettingValue(settings, "contact_phone", ""),
+        email: getSettingValue(settings, "contact_email", ""),
+        address: getSettingValue(settings, "contact_address", ""),
+      });
+    } catch {
+      // fallback defaults already set
+    }
+  };
+  fetchSettings();
+}, []);
 
   // ── Fetch property deposit ────────────────────────────────────────────────
   const fetchPropertyDeposit = async (propertyId: string) => {
@@ -679,29 +751,70 @@ useEffect(() => {
       toast.error('Tenant, property and room are required');
       return;
     }
-    if (currentStep === 1) { setCurrentStep(2); return; }
+   if (currentStep === 1) { setCurrentStep(2); return; }
+
+  // ── FINAL STOCK VALIDATION before submit ──
+  for (const item of handoverItems) {
+    if (!item.item_name) continue;
+    const stock = itemStockMap[item.item_name] ?? await fetchItemStock(item.item_name);
+   if ((item.quantity || 1) > stock) {
+  toast.error(`"${item.item_name}" only ${stock} unit(s) available in this property. Please reduce quantity.`);
+  return;
+}
+if (stock === 0) {
+  toast.error(`"${item.item_name}" is not available in this property.`);
+  return;
+}
+  }
 
    setSubmitting(true);
 try {
   // Auto-assign available asset IDs for each item
-  const itemsWithAssets: HandoverItem[] = [];
-  for (const item of handoverItems) {
-    if (!item.asset_id && item.item_name) {
-      try {
-        const res = await getAvailableAssets(item.item_name);
-        const available = res.data || [];
-        if (available.length > 0) {
-          itemsWithAssets.push({ ...item, asset_id: available[0].asset_id });
-        } else {
-          itemsWithAssets.push(item);
-        }
-      } catch {
-        itemsWithAssets.push(item);
+ // Auto-assign available asset IDs per item — qty-aware + property-specific
+const itemsWithAssets: HandoverItem[] = [];
+const stockWarnings: string[] = [];
+
+for (const item of handoverItems) {
+  const qty = item.quantity || 1;
+  const propertyId = formData.property_id;
+
+  if (!item.item_name) {
+    itemsWithAssets.push(item);
+    continue;
+  }
+
+  try {
+    const res = await getAvailableAssets(item.item_name, propertyId, qty);
+    const available = res.data || [];
+
+    if (available.length === 0) {
+      stockWarnings.push(`❌ ${item.item_name}: No stock available in this property`);
+      itemsWithAssets.push(item);
+    } else if (available.length < qty) {
+      stockWarnings.push(`⚠️ ${item.item_name}: Only ${available.length} of ${qty} available`);
+      // assign what we have — expand item rows for each asset
+      available.forEach((a: any) => {
+        itemsWithAssets.push({ ...item, quantity: 1, asset_id: a.asset_id });
+      });
+      // remaining qty without asset
+      for (let i = available.length; i < qty; i++) {
+        itemsWithAssets.push({ ...item, quantity: 1, asset_id: undefined });
       }
     } else {
-      itemsWithAssets.push(item);
+      // enough stock — assign one row per asset
+      available.forEach((a: any) => {
+        itemsWithAssets.push({ ...item, quantity: 1, asset_id: a.asset_id });
+      });
     }
+  } catch {
+    itemsWithAssets.push(item);
   }
+}
+
+// Show stock warnings before proceeding
+if (stockWarnings.length > 0) {
+  stockWarnings.forEach(w => toast.warning(w));
+}
 
   const payload = {
     ...formData,
@@ -716,18 +829,23 @@ try {
   } else {
     await createHandover(payload);
     // Mark assigned asset IDs as 'assigned' in inventory
-    for (const item of itemsWithAssets) {
-      if (item.asset_id) {
-        try {
-          await request('/api/inventory/assign-asset', {
-            method: 'POST',
-            body: JSON.stringify({ asset_id: item.asset_id, status: 'assigned' })
-          });
-        } catch (e) {
-          console.error('Asset assign error:', e);
-        }
-      }
+    // Mark assigned asset IDs as 'assigned' in inventory
+for (const item of itemsWithAssets) {
+  if (item.asset_id && item.asset_id.trim() !== '') {
+    try {
+      await request('/api/inventory/assign-asset', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          asset_id: item.asset_id, 
+          status: 'assigned',
+          tenant_id: formData.tenant_id || null
+        })
+      });
+    } catch (e) {
+      console.error('Asset assign error:', e);
     }
+  }
+}
     toast.success('Handover created successfully');
   }
   setShowForm(false);
@@ -1324,41 +1442,294 @@ const handleExport = () => {
   };
 
 const handlePrint = () => {
-  const printContent = document.getElementById('handover-report-print');
-  if (!printContent) return;
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  if (!viewItem) return;
 
-  const styles = Array.from(document.styleSheets)
-    .map(sheet => {
-      try {
-        return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
-      } catch { return ''; }
-    }).join('\n');
+  const secDep = safeNum(viewItem.security_deposit);
+  const rentAmt = safeNum(viewItem.rent_amount);
+  const totalAmt = secDep + rentAmt;
 
-  printWindow.document.write(`
+  const receiptNo = `HO-${String(viewItem.id).padStart(4, '0')}-${(() => {
+    const d = viewItem.handover_date ? new Date(viewItem.handover_date) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${mm}${d.getFullYear()}`;
+  })()}`;
+
+  const itemsRows = (viewItem.handover_items || [])
+    .map(
+      (i, idx) => `
+      <tr>
+        <td class="c">${idx + 1}</td>
+        <td class="b">${i.item_name}</td>
+        <td>${i.category}</td>
+        <td class="r">${i.quantity}</td>
+        <td class="r">${i.condition_at_movein}</td>
+        <td>${i.notes || '—'}</td>
+      </tr>`
+    )
+    .join('');
+
+  const statusBg = viewItem.status === 'Completed' || viewItem.status === 'Confirmed' ? '#DCFCE7' :
+                    viewItem.status === 'Pending' ? '#FEF3C7' : '#FEF2F2';
+  const statusColor = viewItem.status === 'Completed' || viewItem.status === 'Confirmed' ? '#166534' :
+                    viewItem.status === 'Pending' ? '#92400E' : '#991B1B';
+
+  const win = window.open('', '_blank', 'width=800,height=900');
+  if (!win) return;
+
+  win.document.write(`
     <html>
       <head>
-        <title>Tenant Handover Document</title>
-        <style>${styles}</style>
+        <title>Handover - ${viewItem.tenant_name}</title>
         <style>
-          body { background: white; padding: 20px; }
-          .no-print { display: none !important; }
-          @media print { body { margin: 10mm; } }
+          * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
+          body { background: #F4F6FB; padding: 24px; color: #1e293b; }
+          .sheet {
+            max-width: 720px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #E2E8F4;
+            box-shadow: 0 4px 24px rgba(26,43,109,0.08);
+            padding: 18px 22px;
+            position: relative;
+            overflow: hidden;
+          }
+          /* ── SINGLE CENTERED WATERMARK ── */
+          .watermark-single {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            user-select: none;
+            overflow: hidden;
+            z-index: 0;
+          }
+          .watermark-single span {
+            font-weight: 900;
+            line-height: 1;
+            white-space: nowrap;
+            font-size: min(10vw, 56px);
+            letter-spacing: 0.02em;
+            color: rgba(100, 116, 139, 0.09);
+            transform: rotate(-30deg);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .head {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #E2E8F4;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            position: relative;
+            z-index: 1;
+          }
+          .head .logo { width: 112px; flex-shrink: 0; }
+          .head .logo img { height: 44px; max-width: 110px; object-fit: contain; }
+          .head .center { flex: 1; text-align: center; }
+          .head .center .brand { font-size: 17px; font-weight: 800; color: #1e293b; }
+          .head .center .sub { font-size: 12.5px; font-weight: 700; color: #3B5BDB; margin-top: 1px; }
+          .head .right { width: 112px; text-align: right; font-size: 9.5px; color: #94a3b8; }
+          .head .right .label { display: block; font-weight: 600; color: #64748b; }
+          .head .right .val { font-size: 10px; color: #94a3b8; }
+
+          .meta-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #F8FAFF;
+            border: 1px solid #E2E8F4;
+            border-radius: 6px;
+            padding: 7px 12px;
+            margin-bottom: 12px;
+            font-size: 10px;
+            color: #94a3b8;
+            position: relative;
+            z-index: 1;
+          }
+          .meta-bar div span { display: block; font-weight: 700; color: #1e293b; font-size: 12px; margin-top: 2px; }
+          .status-chip {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            background: ${statusBg};
+            color: ${statusColor};
+          }
+
+          .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin-bottom: 14px; position: relative; z-index: 1; }
+          .field .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: #94a3b8; font-weight: 700; }
+          .field .value { font-size: 12px; font-weight: 600; margin-top: 2px; color: #1e293b; }
+
+          .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 5px; position: relative; z-index: 1; }
+
+          table { width: 100%; border-collapse: collapse; position: relative; z-index: 1; margin-bottom: 14px; }
+          thead th {
+            background: #F1F5F9;
+            color: #475569;
+            font-size: 10px;
+            text-align: left;
+            font-weight: 700;
+            padding: 6px 8px;
+            border: 1px solid #E2E8F4;
+          }
+          tbody td {
+            padding: 6px 8px;
+            font-size: 11.5px;
+            border: 1px solid #E2E8F4;
+            color: #374151;
+          }
+          td.b { font-weight: 600; color: #1e293b; }
+          td.c, th.c { text-align: center; }
+          td.r, th.r { text-align: right; }
+
+          .totals { margin-left: auto; width: 260px; position: relative; z-index: 1; }
+          .totals .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 15px;
+            font-weight: 800;
+            color: #1e293b;
+            border-top: 2px solid #1e293b;
+          }
+
+          .notes-box {
+            background: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #92400E;
+            margin: 10px 0;
+            position: relative;
+            z-index: 1;
+          }
+
+          .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 22px;
+            position: relative;
+            z-index: 1;
+          }
+          .sig-block { text-align: center; }
+          .sig-line { border-bottom: 1px solid #94A3B8; margin-bottom: 6px; padding-bottom: 26px; }
+          .sig-name { font-size: 11px; font-weight: 700; color: #1e293b; }
+          .sig-label { font-size: 8.5px; color: #94a3b8; margin-top: 1px; }
+          .sig-date { font-size: 8px; color: #b0b7c3; margin-top: 1px; }
+
+          .foot {
+            text-align: center;
+            font-size: 9.5px;
+            color: #94a3b8;
+            border-top: 1px solid #E2E8F4;
+            padding-top: 10px;
+            margin-top: 14px;
+            position: relative;
+            z-index: 1;
+          }
+          .foot .thanks { font-size: 10.5px; font-weight: 700; color: #3B5BDB; margin-bottom: 2px; }
+
+          @media print {
+            body { background: #fff; padding: 0; }
+            .sheet { box-shadow: none; border: none; border-radius: 0; }
+          }
         </style>
       </head>
       <body>
-        <div style="text-align:center; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
-          <h1 style="font-size:18px; font-weight:700; color:#1e3a8a; margin:0;">Tenant Handover Document</h1>
-          <p style="font-size:11px; color:#6b7280; margin:4px 0 0 0;">${viewItem?.tenant_name} — ${viewItem?.property_name}</p>
+        <div class="sheet">
+          <!-- SINGLE CENTERED WATERMARK -->
+          <div class="watermark-single">
+            <span>${siteSettings.siteName?.split(' ')[0] || 'ROOMAC'}</span>
+          </div>
+          <div class="head">
+            <div class="logo">${siteSettings.logo ? `<img src="${siteSettings.logo}" />` : ''}</div>
+            <div class="center">
+              <div class="brand">${siteSettings.siteName}</div>
+              <div class="sub">Handover Document</div>
+            </div>
+            <div class="right">
+              <span class="label">Document No.</span>
+              <span class="val">${receiptNo}</span>
+            </div>
+          </div>
+
+          <div class="meta-bar">
+            <div>HANDOVER DATE<span>${fmt(viewItem.handover_date)}</span></div>
+            <div>PROPERTY<span>${viewItem.property_name || '—'}</span></div>
+            <div style="text-align:right;">STATUS<span><span class="status-chip">${viewItem.status?.toUpperCase()}</span></span></div>
+          </div>
+
+          <div class="grid3">
+            <div class="field"><div class="label">Tenant</div><div class="value">${viewItem.tenant_name}</div></div>
+            <div class="field"><div class="label">Phone</div><div class="value">${viewItem.tenant_phone}</div></div>
+            <div class="field"><div class="label">Email</div><div class="value">${viewItem.tenant_email || '—'}</div></div>
+            <div class="field"><div class="label">Room/Bed</div><div class="value">${viewItem.room_number}${viewItem.bed_number ? ' / ' + viewItem.bed_number : ''}</div></div>
+            <div class="field"><div class="label">Move-In Date</div><div class="value">${fmt(viewItem.move_in_date)}</div></div>
+            <div class="field"><div class="label">Inspector</div><div class="value">${viewItem.inspector_name || '—'}</div></div>
+          </div>
+
+          ${itemsRows ? `
+          <div class="section-title">Item Checklist</div>
+          <table>
+            <thead><tr><th class="c">#</th><th>Item</th><th>Category</th><th class="r">Qty</th><th class="r">Condition</th><th>Notes</th></tr></thead>
+            <tbody>${itemsRows}</tbody>
+          </table>` : ''}
+
+          <div class="totals">
+            <div class="row">
+              <span>Security Deposit</span>
+              <span>${pdfMoney(secDep)}</span>
+            </div>
+            <div class="row" style="border-top-color:#E2E8F4;">
+              <span>Rent Amount</span>
+              <span>${pdfMoney(rentAmt)}</span>
+            </div>
+            <div class="row">
+              <span>Total Value</span>
+              <span>${pdfMoney(totalAmt)}</span>
+            </div>
+          </div>
+
+          ${viewItem.notes ? `<div class="notes-box"><strong>Notes:</strong> ${viewItem.notes}</div>` : ''}
+
+          <div class="signatures">
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="sig-name">${viewItem.tenant_name}</div>
+              <div class="sig-label">Tenant Signature</div>
+              <div class="sig-date">Date: ${fmt(viewItem.handover_date)}</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="sig-name">${viewItem.inspector_name || '—'}</div>
+              <div class="sig-label">Inspector/Manager</div>
+              <div class="sig-date">Date: ${fmt(viewItem.handover_date)}</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="sig-name">Witness</div>
+              <div class="sig-label">Witness Signature</div>
+              <div class="sig-date">Date: __________</div>
+            </div>
+          </div>
+
+          <div class="foot">
+            ${siteSettings.phone || siteSettings.email ? `<p>${siteSettings.phone ? `Tel: ${siteSettings.phone}` : ''}${siteSettings.phone && siteSettings.email ? ' | ' : ''}${siteSettings.email ? `Email: ${siteSettings.email}` : ''}</p>` : ''}
+            <p class="thanks" style="margin-top:4px;">Powered by ${siteSettings.siteName}</p>
+            <p style="margin-top:2px;">Generated on ${new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
         </div>
-        ${printContent.innerHTML}
       </body>
     </html>
   `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => { printWindow.print(); printWindow.close(); }, 800);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
 };
   // ── OTP ───────────────────────────────────────────────────────────────────
   const handleInitiateOTP = async () => {
@@ -1591,8 +1962,7 @@ const clearFilters = () => {
 
     <Card className="border rounded-lg shadow-sm overflow-hidden">
       {/* ── Table ── */}
-      <div className="flex flex-col h-[380px] sm:h-[520px]">
-        <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>        <div className="overflow-auto flex-1 min-h-0">
           <table
             className="border-collapse text-[11px] font-sans"
             style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}
@@ -2039,7 +2409,7 @@ const clearFilters = () => {
       {/* ══ ADD / EDIT DIALOG ════════════════════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Handover' : 'New Tenant Handover'}</h2>
               <p className="text-xs text-blue-100">
@@ -2109,7 +2479,7 @@ const clearFilters = () => {
                        t.phone.includes(tenantSearchTerm))
           .map(t => (
             <SelectItem key={t.id} value={String(t.id)} className={SI}>
-              {t.name} — {t.phone}
+              {t.name}
             </SelectItem>
           ))}
         
@@ -2339,129 +2709,99 @@ const clearFilters = () => {
         text-[9px] sm:text-[11px] 
         font-bold text-gray-600 uppercase tracking-wider
       ">
-<div className="col-span-3 break-words leading-tight flex items-center gap-1">
-  <span className="text-[9px]">#</span> ITEM NAME *
-</div>
-        <div className="col-span-3 break-words leading-tight">CATEGORY</div>
+        <div className="col-span-1 text-center">Sr.</div>
+        <div className="col-span-2 break-words leading-tight">CATEGORY</div>
+        <div className="col-span-3 break-words leading-tight flex items-center gap-1">
+          <span>ITEM NAME *</span>
+        </div>
         <div className="col-span-2 break-words leading-tight">CONDITION</div>
         <div className="col-span-1 text-center break-words">QTY</div>
-        <div className="col-span-2 break-words leading-tight">ASSET ID</div>
+        <div className="col-span-2 break-words leading-tight">NOTES</div>
         <div className="col-span-1 text-center"></div>
       </div>
 
       {/* Single Card Container for ALL items */}
       <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-        {/* Items List - without any separators */}
         {handoverItems.map((item, idx) => (
           <div key={idx}>
             {/* Main Row */}
             <div className="grid grid-cols-12 gap-2 items-center p-2">
               
-              {/* Item Name */}
-      <div className="col-span-3 flex items-center gap-2">
+              {/* Serial Number */}
+              <div className="col-span-1 flex justify-center">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
-          {idx + 1}
-        </span>
-                {purchasedItems.length > 0 ? (
-                  <Select
-                    value={item.item_name}
-                    onValueChange={v => {
-                      updateHandoverItemField(idx, 'item_name', v);
-                      setPurchasedItemSearchTerm('');
-                    }}
-                  >
-                    <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-                      <SelectValue placeholder="Item name" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      <div className="sticky top-0 bg-white p-2 border-b z-10">
-                        <div className="relative">
-                          <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                          <Input
-                            placeholder="Search items..."
-                            className="pl-7 h-7 text-xs"
-                            value={purchasedItemSearchTerm}
-                            onChange={(e) => setPurchasedItemSearchTerm(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                      <div className="py-1">
-                        {purchasedItems
-                          .filter(pi => pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase()))
-                          .map((pi, i) => (
-                            <SelectItem key={i} value={pi.value} className="text-xs">{pi.label}</SelectItem>
-                          ))}
-                        {purchasedItems.filter(pi => 
-                          pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase())
-                        ).length === 0 && (
-                          <div className="px-2 py-3 text-center">
-                            <p className="text-xs text-gray-400">No items found</p>
-                          </div>
-                        )}
-                      </div>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                 <Select
-  value={item.asset_id || ''}
-  onValueChange={async (v) => {
-    updateHandoverItemField(idx, 'asset_id', v);
-  }}
-  onOpenChange={async (open) => {
-    if (open && item.item_name && !availableAssets[item.item_name]) {
-      try {
-        const res = await getAvailableAssets(item.item_name);
-        setAvailableAssets(prev => ({
-          ...prev,
-          [item.item_name]: res.data.map(a => a.asset_id)
-        }));
-      } catch (e) {
-        console.error('Failed to load assets', e);
-      }
-    }
-  }}
->
-  <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-    <SelectValue placeholder="Asset ID" />
-  </SelectTrigger>
-  <SelectContent>
-    {(availableAssets[item.item_name] || []).length === 0 ? (
-      <div className="px-2 py-3 text-center">
-        <p className="text-xs text-gray-400">No available assets</p>
-      </div>
-    ) : (
-      (availableAssets[item.item_name] || []).map(assetId => (
-        <SelectItem key={assetId} value={assetId} className="text-xs">
-          {assetId}
-        </SelectItem>
-      ))
-    )}
-  </SelectContent>
-</Select>
-                )}
+                  {idx + 1}
+                </span>
               </div>
 
               {/* Category */}
-              <div className="col-span-3">
-                <Select value={item.category} onValueChange={v => updateHandoverItemField(idx, 'category', v)}>
+              <div className="col-span-2">
+                <Select
+                  value={item.category}
+                  onValueChange={v => {
+                    updateHandoverItemField(idx, 'category', v);
+                    updateHandoverItemField(idx, 'item_name', '');
+                  }}
+                >
                   <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.length > 0 ? (
-                      categories.map(c => (
-                        <SelectItem key={c.id} value={c.name} className="text-xs">{c.name}</SelectItem>
+                    {inventoryMappings.length > 0 ? (
+                      inventoryMappings.map(c => (
+                        <SelectItem key={c.category_id} value={c.category_name} className="text-xs">
+                          {c.category_name}
+                        </SelectItem>
                       ))
                     ) : (
-                      ['Furniture', 'Electronics', 'Mattress', 'Bedding', 'Utensils', 'Appliances', 'Other'].map(c => (
-                        <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                      categories.map(c => (
+                        <SelectItem key={c.id} value={c.name} className="text-xs">{c.name}</SelectItem>
                       ))
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Item Name */}
+              <div className="col-span-3">
+                {(() => {
+                  const subcats = getSubcategoriesForCategory(item.category);
+                  if (subcats.length > 0) {
+                    return (
+                      <Select
+                        value={item.item_name}
+                        onValueChange={async (v) => {
+                          updateHandoverItemField(idx, 'item_name', v);
+                          const stock = await fetchItemStock(v);
+                          if (item.quantity > stock) {
+                            toast.error(`Only ${stock} "${v}" available in this property.`);
+                            updateHandoverItemField(idx, 'quantity', stock > 0 ? stock : 1);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+                          <SelectValue placeholder="Item name" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {subcats.map(s => (
+                            <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-xs">
+                              {s.subcategory_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  return (
+                    <Input
+                      placeholder="Select category first"
+                      className="h-6 text-xs border-gray-200 bg-gray-50 w-full"
+                      value={item.item_name}
+                      disabled={!item.category}
+                      onChange={e => updateHandoverItemField(idx, 'item_name', e.target.value)}
+                    />
+                  );
+                })()}
               </div>
 
               {/* Condition */}
@@ -2486,16 +2826,29 @@ const clearFilters = () => {
                   min={1} 
                   className="h-6 text-xs text-center border-gray-200 bg-gray-50 w-full"
                   value={item.quantity}
-                  onChange={e => updateHandoverItemField(idx, 'quantity', parseInt(e.target.value) || 1)} 
+                  onChange={async e => {
+                    let qty = parseInt(e.target.value) || 1;
+                    if (item.item_name) {
+                      const stock = itemStockMap[item.item_name] ?? await fetchItemStock(item.item_name);
+                      if (qty > stock) {
+                        toast.error(`Only ${stock} unit(s) of "${item.item_name}" available, cannot assign ${qty}.`);
+                        qty = stock > 0 ? stock : 1;
+                      }
+                    }
+                    updateHandoverItemField(idx, 'quantity', qty);
+                  }} 
                 />
               </div>
 
-              {/* Asset ID */}
-             <div className="col-span-2">
-  <div className="h-6 px-2 bg-blue-50 border border-blue-200 rounded-md flex items-center text-[10px] font-mono text-blue-700">
-    {item.asset_id ? item.asset_id : <span className="text-gray-400">Auto-assigned</span>}
-  </div>
-</div>
+              {/* Notes */}
+              <div className="col-span-2">
+                <Input 
+                  className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
+                  placeholder="Notes (optional)"
+                  value={item.notes || ''}
+                  onChange={e => updateHandoverItemField(idx, 'notes', e.target.value)} 
+                />
+              </div>
 
               {/* Delete Button */}
               <div className="col-span-1 flex justify-center">
@@ -2508,27 +2861,17 @@ const clearFilters = () => {
                 </button>
               </div>
             </div>
-
-            {/* Second Row - Notes (Full Width) */}
-            <div className="px-2 pb-2 pt-0">
-              <Input 
-                className="h-7 text-xs border-gray-200 bg-gray-50 w-full" 
-                placeholder="Notes (Optional)"
-                value={item.notes || ''}
-                onChange={e => updateHandoverItemField(idx, 'notes', e.target.value)} 
-              />
-            </div>
           </div>
         ))}
       </div>
 
-      {/* Add Item Button */}
+      {/* Add Item Button - compact, left-aligned */}
       <button 
         type="button" 
         onClick={addHandoverItem}
-        className="w-full py-2.5 border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+        className="w-auto px-2 py-1 border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
       >
-        <Plus className="h-3.5 w-3.5" /> Add Item
+        <Plus className="h-2.5 w-2.5" /> Add Item
       </button>
 
       {/* Total */}
@@ -2572,8 +2915,8 @@ const clearFilters = () => {
       {/* ══ VIEW DIALOG ══════════════════════════════════════════════════════ */}
       {viewItem && (
         <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
-    <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+    <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold">Handover Document</h2>
                 <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
@@ -2594,7 +2937,7 @@ const clearFilters = () => {
       onClick={() => setShowSharePopup(p => !p)}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[11px] font-medium transition-colors"
     >
-      <MessageCircle className="h-3.5 w-3.5" />
+      <Share2 className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">Share</span>
     </button>
 
@@ -2609,7 +2952,7 @@ const clearFilters = () => {
           className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left"
         >
           <div className="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="h-3.5 w-3.5 text-white" />
+            <FaWhatsapp className="h-3.5 w-3.5 text-white" />
           </div>
           <div>
             <p className="text-[11px] font-semibold text-gray-800">WhatsApp</p>
@@ -2647,7 +2990,7 @@ const clearFilters = () => {
   {/* Print — Blue */}
   <button
     onClick={handlePrint}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
   >
     <Printer className="h-3.5 w-3.5" />
     <span className="hidden sm:inline">Print Page</span>

@@ -1723,7 +1723,7 @@ const clearFilters = () => {
           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Add Purchase</span>
+          <span className="">Add Purchase</span>
         </button>
       )}
     </div>
@@ -1762,8 +1762,7 @@ const clearFilters = () => {
 
           <Card className="border rounded-lg shadow-sm overflow-hidden">
             {/* ── Table ── */}
-            <div className="flex flex-col h-[500px] sm:h-[520px]">
-              <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>              <div className="overflow-auto flex-1 min-h-0">
                 <table
                   className="border-collapse text-[11px] font-sans"
                   style={{ tableLayout: "fixed", minWidth: "1100px", width: "100%" }}
@@ -2245,7 +2244,7 @@ const clearFilters = () => {
         }}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">New Material Purchase</h2>
               <p className="text-xs text-blue-100">
@@ -2767,8 +2766,8 @@ const clearFilters = () => {
           }
         }}
       >
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">
                 Edit Material Purchase
@@ -3082,7 +3081,7 @@ const clearFilters = () => {
           if (!v) setShowPaymentModal(false);
         }}
       >
-        <DialogContent className="max-w-3xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="max-w-2xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
           <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
             <div>
               <h2 className="text-base font-semibold">Add Payment</h2>
@@ -3269,8 +3268,8 @@ const clearFilters = () => {
           if (!v) setShowDetailsModal(false);
         }}
       >
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">Purchase Details</h2>
               <p className="text-xs text-emerald-100">
@@ -3294,7 +3293,7 @@ const clearFilters = () => {
                 onClick={() =>
                   selectedPurchase && handlePrint(selectedPurchase)
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
               >
                 <Printer className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Print Page</span>

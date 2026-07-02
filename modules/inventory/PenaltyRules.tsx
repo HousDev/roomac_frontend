@@ -660,7 +660,7 @@ const activeFilterCount = [
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
 
       {/* Filter */}
-      <button
+      {/* <button
         onClick={() => setSidebarOpen(o => !o)}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
           ${
@@ -684,7 +684,7 @@ const activeFilterCount = [
             {activeFilterCount}
           </span>
         )}
-      </button>
+      </button> */}
 
       {/* Export */}
       {can("export_penalty_rules") && (
@@ -745,8 +745,7 @@ const activeFilterCount = [
 
     <Card className="border rounded-lg shadow-sm overflow-hidden">
       {/* ── Table ── */}
-      <div className="flex flex-col h-[380px] sm:h-[520px]">
-        <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>        <div className="overflow-auto flex-1 min-h-0">
           <table
             className="border-collapse text-[11px] font-sans"
             style={{ tableLayout: "fixed", minWidth: "900px", width: "100%" }}
@@ -1084,10 +1083,10 @@ const activeFilterCount = [
             </div>
 
             {/* Divider */}
-            <div className="border-t border-gray-100" />
+            {/* <div className="border-t border-gray-100" /> */}
 
             {/* ── Quick Stats ────────────────────────────────────────────── */}
-            <div>
+            {/* <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <AlertTriangle className="h-3 w-3 text-orange-500" /> Quick Stats
               </p>
@@ -1109,7 +1108,7 @@ const activeFilterCount = [
                   <span className="text-xs font-bold text-orange-600">{currencyFormatter.format(stats.avg_penalty)}</span>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Drawer footer */}
@@ -1135,7 +1134,7 @@ const activeFilterCount = [
       <Dialog open={showModal} onOpenChange={v => { if (!v) setShowModal(false); }}>
         <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
 
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingRule ? 'Edit Penalty Rule' : 'Create Penalty Rule'}</h2>
               <p className="text-xs text-blue-100">Define penalty for condition changes</p>

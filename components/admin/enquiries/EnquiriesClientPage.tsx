@@ -306,7 +306,7 @@ useEffect(() => { setCurrentPage(1); }, [columnFilters, statusFilter, searchTerm
 
     const timeoutId = setTimeout(() => {
       loadData(true);
-    }, 800);
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [statusFilter, searchTerm, loadData]);
@@ -361,7 +361,9 @@ return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMa
       }
 
       return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch;    });
-  }, [enquiries, columnFilters]);
+  }, [enquiries, columnFilters, dateFilters]);
+
+
   const paginatedEnquiries = useMemo(() => {
   if (itemsPerPage === "All") return filteredEnquiries;
   const start = (currentPage - 1) * (itemsPerPage as number);
@@ -674,14 +676,12 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
   }, [loadData]);
 
   // Clear all column filters
-  const clearColumnFilters = () => {
+const clearColumnFilters = () => {
     setColumnFilters({
-      name: "",
+      name: "", phone: "", email: "",
       contact: "",
-      property: "",
-      moveInDate: "",
-      status: "",
-      created: ""
+      property: "", moveInDate: "",
+      status: "", created: "", assignedTo: ""
     });
   };
 
@@ -1656,18 +1656,7 @@ useEffect(() => {
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-        {/* Search */}
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
-            <Search className="w-3 h-3" /> Search
-          </Label>
-          <Input
-            placeholder="Search by name, phone, email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-8 text-xs"
-          />
-        </div>
+      
 
         {/* Status Dropdown */}
         <div className="space-y-1">
