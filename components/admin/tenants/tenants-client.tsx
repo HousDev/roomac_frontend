@@ -3557,6 +3557,8 @@ const totalRefunded = payments
 >
                 {/* ── Sticky: Checkbox ── */}
 <td className={`${rowBg} group-hover:bg-blue-100 w-8 px-2 py-2 text-center border-r border-b border-gray-200 static lg:sticky lg:left-0 lg:z-10`}>
+                  <button onClick={() => toggleSelection(String(tenant.id))} className="flex items-center justify-center w-4 h-4 mx-auto">
+                    {selectedTenantIds.includes(String(tenant.id)) ? (
                   <button onClick={() =>
     toggleSelection(String((tenant as any).original_id || tenant.id))
   } className="flex items-center justify-center w-4 h-4 mx-auto">
