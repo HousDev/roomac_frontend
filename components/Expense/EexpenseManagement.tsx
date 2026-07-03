@@ -79,6 +79,11 @@ const catColors: Record<string, { bg: string; text: string; dot: string }> = {
 };
 const getCatColor = (cat: string) => catColors[cat] || catColors.Other;
 
+
+const isFromMaterialPurchase = (exp: any) =>
+  exp?.added_by_name === 'From Material Purchase' ||
+  exp?.notes?.includes('Auto-generated from Material Purchase');
+  
 const newItem = () => ({
   id: Date.now() + Math.random(),
   name: "",
@@ -1228,10 +1233,18 @@ function openEdit(exp: any) {
     }
   }
   
-const matchedCategory = categories.find((c: any) => c.name === exp.category_name);
-const resolvedCategoryId = matchedCategory 
-  ? String(matchedCategory.id) 
-  : (parseInt(exp.category_id) ? String(exp.category_id) : "");
+const matchedCategory = categories.find(
+  (c: any) =>
+    c.name?.trim().toLowerCase() === (exp.category_name || '').trim().toLowerCase()
+);
+
+// Prefer exp.category_id (now correctly set by the backend fix above),
+// fall back to name-matched category, then empty
+const resolvedCategoryId = exp.category_id
+  ? String(exp.category_id)
+  : matchedCategory
+    ? String(matchedCategory.id)
+    : "";
 isInitializingEdit.current = true; // useEffect ko ek baar skip karo
 setForm({
     property_id: String(exp.property_id),
@@ -1992,12 +2005,12 @@ useEffect(() => {
       </div>
 
       {/* RIGHT - Action Buttons */}
-     <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-11">
+     <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-5">
   {/* Add Expense - First on mobile */}
   {can("create_expenses") && (
     <button
       onClick={openAdd}
-      className="order-1 sm:order-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
+      className="order-4 sm:order-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
     >
       <Plus size={14} />
       Add Expense
@@ -2007,7 +2020,7 @@ useEffect(() => {
   {/* Filter - Second on mobile */}
   <button
     onClick={() => setFilterPanelOpen(true)}
-    className="order-2 sm:order-1 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
+    className="order-2 sm:order-2 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
   >
     <Filter size={14} />
     <span className="hidden sm:inline">Filters</span>
@@ -2037,7 +2050,7 @@ useEffect(() => {
   {can("create_expenses") && (
     <button
       onClick={() => setShowImportModal(true)}
-      className="order-4 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
+      className="order-3 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap hover:bg-slate-50"
     >
       <UploadIcon size={14} />
       <span className="hidden sm:inline">Import</span>
@@ -2324,26 +2337,59 @@ useEffect(() => {
   )}
 </td>
                     {/* Category */}
-                    <td className="px-1.5 py-1.5 border-r border-slate-100">
-                      {exp.category_name ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
-                          style={{ background: cc.bg, color: cc.text }}
-                        >
-                          <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: cc.dot }} />
-                          <span className="truncate">{exp.category_name}</span>
-                        </span>
-                      ) : <span className="text-slate-400">—</span>}
-                    </td>
+                   {/* Category */}
+<td className="px-1.5 py-1.5 border-r border-slate-100">
+  {(() => {
+    const categories = [
+      ...new Set(
+        (exp.items || [])
+          .map((i: any) => i.category || i.category_name)
+          .filter(Boolean)
+      ),
+    ];
+
+    const cat = categories[0] || exp.category_name;
+
+    if (!cat) return <span className="text-slate-400">—</span>;
+
+    const color = getCatColor(cat);
+
+    return (
+      <div className="flex items-center gap-1 min-w-0">
+        <span
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+          style={{ background: color.bg, color: color.text }}
+        >
+          <span
+            className="w-1 h-1 rounded-full"
+            style={{ background: color.dot }}
+          />
+          {cat}
+        </span>
+
+        {categories.length > 1 && (
+          <span className="text-[9px] text-slate-400 whitespace-nowrap">
+            +{categories.length - 1} more
+          </span>
+        )}
+      </div>
+    );
+  })()}
+</td>
 
                     {/* Sub Category */}
-                    <td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100">
-                      {exp.sub_category_name ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-slate-100 text-slate-600 truncate max-w-full">
-                          {exp.sub_category_name}
-                        </span>
-                      ) : <span className="text-slate-400">—</span>}
-                    </td>
+                   {/* Sub Category */}
+<td className="px-1.5 py-1.5 text-[10px] text-slate-500 border-r border-slate-100">
+  {isFromMaterialPurchase(exp) ? (
+    <span className="text-slate-400">—</span>
+  ) : exp.sub_category_name ? (
+    <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-slate-100 text-slate-600 truncate">
+      {exp.sub_category_name}
+    </span>
+  ) : (
+    <span className="text-slate-400">—</span>
+  )}
+</td>
 
                     {/* Vendor */}
                     <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-100 truncate">
@@ -2547,54 +2593,93 @@ useEffect(() => {
             <div className="overflow-x-auto">
               <div className="min-w-[520px]">
                 {/* Table header */}
-                <div className="grid grid-cols-[30px_1fr_120px_80px_90px_35px] gap-1.5 border-b border-slate-100 bg-slate-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-blue-600">
+                {/* <div className="grid grid-cols-[30px_1fr_120px_80px_90px_35px] gap-1.5 border-b border-slate-100 bg-slate-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-blue-600">
                   <div>#</div>
                   <div>Item Name</div>
                   <div>Sub Category</div>
                   <div>Qty</div>
                   <div>Unit Price</div>
                   <div></div>
-                </div>
+                </div> */}
 
-                {/* Item rows */}
-                {form.items.map((item: any, idx: number) => (
-                  <div
-                    key={item.id}
-                    className={`grid grid-cols-[30px_1fr_120px_80px_90px_35px] items-center gap-1.5 px-2 py-1 ${
-                      idx < form.items.length - 1 ? "border-b border-slate-50" : ""
-                    } ${idx % 2 === 1 ? "bg-slate-50/50" : "bg-white"}`}
-                  >
-                    <div className="text-center text-[10px] font-semibold text-blue-600">{idx + 1}</div>
+             {(() => {
+  const isMP = editId && isFromMaterialPurchase({ notes: form.notes, added_by_name: form.added_by_name });
+const gridCols = isMP
+  ? "grid-cols-[30px_1fr_120px_70px_80px_35px]"
+  : "grid-cols-[30px_1fr_120px_80px_90px_35px]";
+  return (
+    <div className={`grid ${gridCols} gap-1.5 border-b border-slate-100 bg-slate-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-blue-600`}>
+      <div>#</div>
+      <div>Item Name</div>
+    {isMP ? (
+  <div>Category</div>
+) : (
+  <div>Sub Category</div>
+)}
+      <div>Qty</div>
+      <div>Unit Price</div>
+      <div></div>
+    </div>
+  );
+})()}
 
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={item.name || ""}
-                        onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                        placeholder="Item name"
-                        list={`items-list-${item.id}`}
-                        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      />
-                      <datalist id={`items-list-${item.id}`}>
-                        {purchasedItems.map((pi) => (
-                          <option key={pi} value={pi} />
-                        ))}
-                      </datalist>
-                    </div>
+              {form.items.map((item: any, idx: number) => {
+  const isMP = editId && isFromMaterialPurchase({ notes: form.notes, added_by_name: form.added_by_name });
+const gridCols = isMP
+  ? "grid-cols-[30px_1fr_120px_70px_80px_35px]"
+  : "grid-cols-[30px_1fr_120px_80px_90px_35px]";
+  return (
+  <div
+    key={item.id}
+    className={`grid ${gridCols} items-center gap-1.5 px-2 py-1 ${
+      idx < form.items.length - 1 ? "border-b border-slate-50" : ""
+    } ${idx % 2 === 1 ? "bg-slate-50/50" : "bg-white"}`}
+  >
+    <div className="text-center text-[10px] font-semibold text-blue-600">{idx + 1}</div>
 
-                    <select
-                      value={item.sub_category || ""}
-                      onChange={(e) => updateItem(item.id, "sub_category", e.target.value)}
-                      className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    >
-                      <option value="">Select Sub Cat</option>
-                      {item.sub_category && !dynamicSubCategories.find((s) => s.name === item.sub_category) && (
-                        <option value={item.sub_category}>{item.sub_category}</option>
-                      )}
-                      {dynamicSubCategories.map((s) => (
-                        <option key={s.id} value={s.name}>{s.name}</option>
-                      ))}
-                    </select>
+    <div className="relative">
+      <input
+        type="text"
+        value={item.name || ""}
+        onChange={(e) => updateItem(item.id, "name", e.target.value)}
+        placeholder="Item name"
+        list={`items-list-${item.id}`}
+        className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
+      <datalist id={`items-list-${item.id}`}>
+        {purchasedItems.map((pi) => (
+          <option key={pi} value={pi} />
+        ))}
+      </datalist>
+    </div>
+
+    {isMP ? (
+  <div
+    className="h-8 flex items-center px-2 rounded-md bg-slate-100 text-[10px] text-slate-600 truncate"
+    title={item.category || ""}
+  >
+    {item.category || "—"}
+  </div>
+) : (
+  <select
+    value={item.sub_category || ""}
+    onChange={(e) => updateItem(item.id, "sub_category", e.target.value)}
+    className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+  >
+    <option value="">Select Sub Cat</option>
+
+    {item.sub_category &&
+      !dynamicSubCategories.find((s) => s.name === item.sub_category) && (
+        <option value={item.sub_category}>{item.sub_category}</option>
+      )}
+
+    {dynamicSubCategories.map((s) => (
+      <option key={s.id} value={s.name}>
+        {s.name}
+      </option>
+    ))}
+  </select>
+)}
 
                     <input
                       type="number"
@@ -2612,7 +2697,7 @@ useEffect(() => {
                       className="h-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
 
-                    <button
+                  <button
                       onClick={() => removeItem(item.id)}
                       disabled={form.items.length <= 1}
                       className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-red-100 bg-red-50 ${
@@ -2622,7 +2707,8 @@ useEffect(() => {
                       <Trash2 className="h-2.5 w-2.5 text-red-500" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -3043,10 +3129,17 @@ onClick={() => openReceiptPreview(viewItem)}
                 );
               })()}
             </div>
-            <div>
+            {/* <div>
               <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Sub Category</div>
               <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.sub_category_name || "—"}</div>
-            </div>
+            </div> */}
+
+            <div>
+  <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+    {isFromMaterialPurchase(viewItem) ? 'Item' : 'Sub Category'}
+  </div>
+  <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.sub_category_name || "—"}</div>
+</div>
             <div>
               <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Vendor</div>
               <div className="mt-0.5 text-[11px] font-medium text-slate-700">{viewItem.vendor_name || "—"}</div>
@@ -3146,27 +3239,50 @@ onClick={() => openReceiptPreview(viewItem)}
               <table className="w-full min-w-[420px] border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-slate-50">
-                    {["Item Name", "Sub Category", "Qty", "Price", "Amount"].map((h) => (
+                    {/* {["Item Name", "Sub Category", "Qty", "Price", "Amount"].map((h) => (
                       <th key={h} className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left text-[9px] font-bold text-slate-500">{h}</th>
-                    ))}
+                    ))} */}
+
+
+         {(
+  isFromMaterialPurchase(viewItem)
+    ? ["Item Name", "Category", "Qty", "Price", "Amount"]
+    : ["Item Name", "Category", "Sub Category", "Qty", "Price", "Amount"]
+).map((h) => (
+  <th key={h} className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left text-[9px] font-bold text-slate-500">{h}</th>
+))}
                   </tr>
                 </thead>
                 <tbody>
                   {viewItem.items
                     .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name)
                     .map((it: any, idx: number) => (
-                      <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/60">
-                        <td className="px-2 py-1.5 font-semibold text-slate-700">{it.name || it.item_name || "—"}</td>
-                        <td className="px-2 py-1.5 text-slate-500">{it.sub_category || it.sub_category_name || "—"}</td>
-                        <td className="px-2 py-1.5 text-slate-600">{it.qty || it.quantity || "—"}</td>
-                        <td className="px-2 py-1.5 text-slate-600">{fmt(it.price || it.unit_price || 0)}</td>
-                        <td className="px-2 py-1.5 font-bold text-slate-700">
-                          {fmt(Number(it.qty || it.quantity || 0) * Number(it.price || it.unit_price || 0))}
-                        </td>
-                      </tr>
+                     <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/60">
+  <td className="px-2 py-1.5 font-semibold text-slate-700">
+  {it.name || it.item_name || "—"}
+</td>
+
+<td className="px-2 py-1.5 text-slate-600">
+  {it.category || it.category_name || "—"}
+</td>
+
+{!isFromMaterialPurchase(viewItem) && (
+  <td className="px-2 py-1.5 text-slate-500">
+    {it.sub_category || it.sub_category_name || "—"}
+  </td>
+)}
+  <td className="px-2 py-1.5 text-slate-600">{it.qty || it.quantity || "—"}</td>
+  <td className="px-2 py-1.5 text-slate-600">{fmt(it.price || it.unit_price || 0)}</td>
+  <td className="px-2 py-1.5 font-bold text-slate-700">
+    {fmt(Number(it.qty || it.quantity || 0) * Number(it.price || it.unit_price || 0))}
+  </td>
+</tr>
                     ))}
                   <tr className="bg-blue-50">
-                    <td colSpan={4} className="px-2 py-1.5 text-right text-[11px] font-bold text-blue-800">Total:</td>
+                    <td
+  colSpan={isFromMaterialPurchase(viewItem) ? 4 : 5}
+  className="px-2 py-1.5 text-right text-[11px] font-bold text-blue-800"
+>Total:</td>
                     <td className="px-2 py-1.5 text-[12px] font-extrabold text-blue-800">
                       {fmt(
                         viewItem.items
@@ -3356,8 +3472,12 @@ onClick={() => openReceiptPreview(viewItem)}
   {/* ─── DETAILS GRID (Category, Sub Category, Vendor, Added By, Payment Mode, Reference) ─── */}
   <div className="grid grid-cols-3 gap-x-4 gap-y-1 mb-3 text-xs relative z-10">
     <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Category</span><div className="font-medium text-slate-800">{receiptExpense.category_name || '—'}</div></div>
-    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Sub Category</span><div className="font-medium text-slate-800">{receiptExpense.sub_category_name || '—'}</div></div>
-    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Vendor</span><div className="font-medium text-slate-800">{receiptExpense.vendor_name || '—'}</div></div>
+<div>
+  <span className="uppercase text-[9px] text-slate-400 font-semibold">
+    {isFromMaterialPurchase(receiptExpense) ? 'Item' : 'Sub Category'}
+  </span>
+  <div className="font-medium text-slate-800">{receiptExpense.sub_category_name || '—'}</div>
+</div>    <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Vendor</span><div className="font-medium text-slate-800">{receiptExpense.vendor_name || '—'}</div></div>
     <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Added By</span><div className="font-medium text-slate-800">{receiptExpense.added_by_name || '—'}</div></div>
     <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Payment Mode</span><div className="font-medium text-slate-800">{receiptExpense.payment_mode || '—'}</div></div>
     <div><span className="uppercase text-[9px] text-slate-400 font-semibold">Reference</span><div className="font-medium text-slate-800">{receiptExpense.transaction_id || receiptExpense.cheque_no || receiptExpense.upi_id || receiptExpense.card_ref || '—'}</div></div>
@@ -3371,10 +3491,14 @@ onClick={() => openReceiptPreview(viewItem)}
       <thead>
         <tr className="bg-slate-100">
           <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">#</th>
-          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item</th>
-          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
-          <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Sub Category</th>
-          <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Qty</th>
+         <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item Name</th>
+<th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
+{!isFromMaterialPurchase(receiptExpense) && (
+  <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">
+    Sub Category
+  </th>
+)}
+    <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Qty</th>
           <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Price</th>
           <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Amount</th>
         </tr>
@@ -3391,9 +3515,11 @@ onClick={() => openReceiptPreview(viewItem)}
               <td className="border border-slate-300 px-2 py-1 text-slate-600">
                 {receiptExpense.category_name || '—'}
               </td>
-              <td className="border border-slate-300 px-2 py-1 text-slate-500">
-                {item.sub_category || item.sub_category_name || '—'}
-              </td>
+            {!isFromMaterialPurchase(receiptExpense) && (
+  <td className="border border-slate-300 px-2 py-1 text-slate-500">
+    {item.sub_category || item.sub_category_name || '—'}
+  </td>
+)}
               <td className="border border-slate-300 px-2 py-1 text-right text-slate-600">
                 {item.qty || item.quantity || '—'}
               </td>
@@ -3408,7 +3534,10 @@ onClick={() => openReceiptPreview(viewItem)}
       </tbody>
       <tfoot>
         <tr className="bg-blue-50 font-bold">
-          <td colSpan={6} className="border border-slate-300 px-2 py-1 text-right text-blue-700">Total</td>
+          <td
+  colSpan={isFromMaterialPurchase(receiptExpense) ? 5 : 6}
+  className="border border-slate-300 px-2 py-1 text-right text-blue-700"
+>Total</td>
           <td className="border border-slate-300 px-2 py-1 text-right text-blue-700">
             ₹{receiptExpense.items
               .filter((i: any) => i.name || i.item_name || i.sub_category || i.sub_category_name || i.qty || i.quantity || i.price || i.unit_price || i.total_amount)

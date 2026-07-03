@@ -120,6 +120,12 @@ const [selectAll, setSelectAll] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
     const { can } = useAuth(); // ← ADD THIS
 
+
+    const [fromConditionFilter, setFromConditionFilter] = useState('all');
+const [toConditionFilter,   setToConditionFilter]   = useState('all');
+const [minPenaltyFilter,    setMinPenaltyFilter]    = useState('');
+const [maxPenaltyFilter,    setMaxPenaltyFilter]    = useState('');
+
   const [colSearch, setColSearch] = useState({
     item_category: '',
     from_condition: '',
@@ -222,23 +228,30 @@ const [totalPages, setTotalPages] = useState(1);
   }, [loadRules]);
 
   // ── Filtered Rules ────────────────────────────────────────────────────────
-  const filteredRules = useMemo(() => {
-    return rules.filter(rule => {
-      const cs = colSearch;
-      const catOk = !cs.item_category || 
-        rule.item_category?.toLowerCase().includes(cs.item_category.toLowerCase());
-      const fromOk = !cs.from_condition ||
-        rule.from_condition?.toLowerCase().includes(cs.from_condition.toLowerCase());
-      const toOk = !cs.to_condition ||
-        rule.to_condition?.toLowerCase().includes(cs.to_condition.toLowerCase());
-      const amountOk = !cs.penalty_amount ||
-        String(rule.penalty_amount).includes(cs.penalty_amount);
-      const descOk = !cs.description ||
-        (rule.description || '').toLowerCase().includes(cs.description.toLowerCase());
-      
-      return catOk && fromOk && toOk && amountOk && descOk;
-    });
-  }, [rules, colSearch]);
+const filteredRules = useMemo(() => {
+  return rules.filter(rule => {
+    const cs = colSearch;
+    const catOk = !cs.item_category || 
+      rule.item_category?.toLowerCase().includes(cs.item_category.toLowerCase());
+    const fromOk = !cs.from_condition ||
+      rule.from_condition?.toLowerCase().includes(cs.from_condition.toLowerCase());
+    const toOk = !cs.to_condition ||
+      rule.to_condition?.toLowerCase().includes(cs.to_condition.toLowerCase());
+    const amountOk = !cs.penalty_amount ||
+      String(rule.penalty_amount).includes(cs.penalty_amount);
+    const descOk = !cs.description ||
+      (rule.description || '').toLowerCase().includes(cs.description.toLowerCase());
+
+    // ── Sidebar dropdown filters ──
+    const fromFilterOk = fromConditionFilter === 'all' || rule.from_condition === fromConditionFilter;
+    const toFilterOk   = toConditionFilter   === 'all' || rule.to_condition   === toConditionFilter;
+    const minOk = !minPenaltyFilter || rule.penalty_amount >= Number(minPenaltyFilter);
+    const maxOk = !maxPenaltyFilter || rule.penalty_amount <= Number(maxPenaltyFilter);
+
+    return catOk && fromOk && toOk && amountOk && descOk &&
+           fromFilterOk && toFilterOk && minOk && maxOk;
+  });
+}, [rules, colSearch, fromConditionFilter, toConditionFilter, minPenaltyFilter, maxPenaltyFilter]);
 
 
   const paginatedRules = useMemo(() => {
@@ -595,13 +608,28 @@ const handleExport = () => {
   };
 
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const hasFilters = categoryFilter !== 'all';
+ const hasFilters =
+  categoryFilter !== 'all' ||
+  fromConditionFilter !== 'all' ||
+  toConditionFilter !== 'all' ||
+  !!minPenaltyFilter ||
+  !!maxPenaltyFilter;
+
 const activeFilterCount = [
   categoryFilter !== 'all',
+  fromConditionFilter !== 'all',
+  toConditionFilter !== 'all',
+  !!minPenaltyFilter,
+  !!maxPenaltyFilter,
 ].filter(Boolean).length;
-  const clearFilters = () => {
-    setCategoryFilter('all');
-  };
+
+const clearFilters = () => {
+  setCategoryFilter('all');
+  setFromConditionFilter('all');
+  setToConditionFilter('all');
+  setMinPenaltyFilter('');
+  setMaxPenaltyFilter('');
+};
 
   const clearColSearch = () => {
     setColSearch({
@@ -659,32 +687,26 @@ const activeFilterCount = [
     {/* RIGHT - Action Buttons */}
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
 
-      {/* Filter */}
-      {/* <button
-        onClick={() => setSidebarOpen(o => !o)}
-        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
-          ${
-            sidebarOpen || hasFilters
-              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-              : "border-gray-200"
-          }`}
-      >
-        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-        <span className="hidden sm:inline">Filters</span>
-
-        {activeFilterCount > 0 && (
-          <span
-            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-              ${
-                sidebarOpen || hasFilters
-                  ? "bg-white text-blue-600"
-                  : "bg-blue-600 text-white"
-              }`}
-          >
-            {activeFilterCount}
-          </span>
-        )}
-      </button> */}
+     <button
+  onClick={() => setSidebarOpen(o => !o)}
+  className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
+    ${
+      sidebarOpen || hasFilters
+        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+        : "border-gray-200"
+    }`}
+>
+  <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+  <span className="hidden sm:inline">Filters</span>
+  {activeFilterCount > 0 && (
+    <span
+      className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+        ${sidebarOpen || hasFilters ? "bg-white text-blue-600" : "bg-blue-600 text-white"}`}
+    >
+      {activeFilterCount}
+    </span>
+  )}
+</button>
 
       {/* Export */}
       {can("export_penalty_rules") && (
@@ -1046,70 +1068,90 @@ const activeFilterCount = [
           </div>
 
           {/* Drawer content — scrollable */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* ── Category Filter ─────────────────────────────────────────── */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Scale className="h-3 w-3 text-blue-500" /> Category
-              </p>
-              <div className="space-y-1">
-                {[{ id: 'all', name: 'All Categories' }, ...categories].map(c => (
-                  <label key={c.id}
-                    className={`
-                      flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                      ${categoryFilter === c.id
-                        ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                        : 'hover:bg-gray-50 border border-transparent text-gray-700'}
-                    `}
-                  >
-                    <input type="radio" name="cat" value={c.id}
-                      checked={categoryFilter === c.id}
-                      onChange={() => setCategoryFilter(c.id)}
-                      className="sr-only"
-                    />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${categoryFilter === c.id ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium truncate">{c.name}</span>
-                    {categoryFilter === c.id && (
-                      <span className="ml-auto flex-shrink-0">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
+  {/* Category */}
+  <div>
+    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+      <Scale className="h-3 w-3 text-blue-500" /> Category
+    </p>
+    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Categories</SelectItem>
+        {categories.map(c => (
+          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
 
-            {/* Divider */}
-            {/* <div className="border-t border-gray-100" /> */}
+  {/* From Condition */}
+  <div>
+    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+      <AlertTriangle className="h-3 w-3 text-amber-500" /> From Condition
+    </p>
+    <Select value={fromConditionFilter} onValueChange={setFromConditionFilter}>
+      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+        <SelectValue placeholder="Select condition" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Conditions</SelectItem>
+        {CONDITIONS.map(c => (
+          <SelectItem key={c} value={c}>{c}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
 
-            {/* ── Quick Stats ────────────────────────────────────────────── */}
-            {/* <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <AlertTriangle className="h-3 w-3 text-orange-500" /> Quick Stats
-              </p>
-              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-gray-500">Total Rules:</span>
-                  <span className="text-xs font-bold text-gray-800">{stats.total_rules}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-gray-500">Categories:</span>
-                  <span className="text-xs font-bold text-gray-800">{stats.categories_count}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-gray-500">Max Penalty:</span>
-                  <span className="text-xs font-bold text-red-600">{currencyFormatter.format(stats.max_penalty)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-gray-500">Avg Penalty:</span>
-                  <span className="text-xs font-bold text-orange-600">{currencyFormatter.format(stats.avg_penalty)}</span>
-                </div>
-              </div>
-            </div> */}
-          </div>
+  {/* To Condition */}
+  <div>
+    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+      <Gavel className="h-3 w-3 text-orange-500" /> To Condition
+    </p>
+    <Select value={toConditionFilter} onValueChange={setToConditionFilter}>
+      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+        <SelectValue placeholder="Select condition" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Conditions</SelectItem>
+        {CONDITIONS.map(c => (
+          <SelectItem key={c} value={c}>{c}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Penalty Amount Range */}
+  {/* <div>
+    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+      <IndianRupee className="h-3 w-3 text-red-500" /> Penalty Amount (₹)
+    </p>
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <label className="text-[9px] text-gray-500 block mb-0.5">Min</label>
+        <Input
+          type="number" min={0} placeholder="0"
+          value={minPenaltyFilter}
+          onChange={(e) => setMinPenaltyFilter(e.target.value)}
+          className="h-7 text-[10px]"
+        />
+      </div>
+      <div>
+        <label className="text-[9px] text-gray-500 block mb-0.5">Max</label>
+        <Input
+          type="number" min={0} placeholder="Any"
+          value={maxPenaltyFilter}
+          onChange={(e) => setMaxPenaltyFilter(e.target.value)}
+          className="h-7 text-[10px]"
+        />
+      </div>
+    </div>
+  </div> */}
+
+</div>
 
           {/* Drawer footer */}
           <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">

@@ -670,7 +670,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Link, ChevronDown, ChevronUp, Download, Upload, Trash, Package, Receipt } from "lucide-react";
+import { Plus, Edit2, Trash2, Link, ChevronDown, ChevronUp, Download, Upload, Trash, Package, Receipt, File } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import {
@@ -1097,7 +1097,7 @@ export default function CategoryMappingTab() {
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          <Receipt size={14} /> Expense Mapping
+          <File size={14} /> Expense Mapping
         </button>
         <button
           onClick={() => setMapType("inventory")}

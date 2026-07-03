@@ -134,6 +134,12 @@ const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState<number | "All">(25);
 const [totalItems, setTotalItems] = useState(0);
 const [totalPages, setTotalPages] = useState(1);
+const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+const [propertyFilterAdv,   setPropertyFilterAdv]   = useState('all');
+const [settlementDateFrom,  setSettlementDateFrom]  = useState('');
+const [settlementDateTo,    setSettlementDateTo]    = useState('');
+const [moveOutDateFrom,     setMoveOutDateFrom]     = useState('');
+const [moveOutDateTo,       setMoveOutDateTo]       = useState('');
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -169,25 +175,49 @@ const [totalPages, setTotalPages] = useState(1);
       }));
     } catch { toast.error('Could not load handover'); }
   };
+const uniqueProperties = useMemo(
+  () => [...new Set(settlements.map(s => s.property_name).filter(Boolean))],
+  [settlements]
+);
+ const filteredItems = useMemo(() => settlements.filter(s => {
+  const cs = colSearch;
 
-  const filteredItems = useMemo(() => settlements.filter(s => {
-    const cs = colSearch;
-    return (
-      (!cs.tenant_name      || s.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase())) &&
-      (!cs.tenant_phone     || s.tenant_phone?.toLowerCase().includes(cs.tenant_phone.toLowerCase())) &&
-      (!cs.property_name    || s.property_name?.toLowerCase().includes(cs.property_name.toLowerCase())) &&
-      (!cs.room_number      || s.room_number?.toLowerCase().includes(cs.room_number.toLowerCase())) &&
-      (!cs.settlement_date  || fmt(s.settlement_date).includes(cs.settlement_date)) &&
-      (!cs.security_deposit || money(s.security_deposit).includes(cs.security_deposit)) &&
-      (!cs.penalties        || money(s.penalties).includes(cs.penalties)) &&
-      (!cs.penalty_discount || money(s.penalty_discount).includes(cs.penalty_discount)) &&
-      (!cs.outstanding_rent || money(s.outstanding_rent).includes(cs.outstanding_rent)) &&
-      (!cs.total_deductions || money(s.total_deductions).includes(cs.total_deductions)) &&
-      (!cs.refund_amount    || money(s.refund_amount).includes(cs.refund_amount)) &&
-      (!cs.payment_method   || s.payment_method?.toLowerCase().includes(cs.payment_method.toLowerCase())) &&
-      (!cs.status           || s.status?.toLowerCase().includes(cs.status.toLowerCase()))
-    );
-  }), [settlements, colSearch]);
+  const colOk = (
+    (!cs.tenant_name      || s.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase())) &&
+    (!cs.tenant_phone     || s.tenant_phone?.toLowerCase().includes(cs.tenant_phone.toLowerCase())) &&
+    (!cs.property_name    || s.property_name?.toLowerCase().includes(cs.property_name.toLowerCase())) &&
+    (!cs.room_number      || s.room_number?.toLowerCase().includes(cs.room_number.toLowerCase())) &&
+    (!cs.settlement_date  || fmt(s.settlement_date).includes(cs.settlement_date)) &&
+    (!cs.security_deposit || money(s.security_deposit).includes(cs.security_deposit)) &&
+    (!cs.penalties        || money(s.penalties).includes(cs.penalties)) &&
+    (!cs.penalty_discount || money(s.penalty_discount).includes(cs.penalty_discount)) &&
+    (!cs.outstanding_rent || money(s.outstanding_rent).includes(cs.outstanding_rent)) &&
+    (!cs.total_deductions || money(s.total_deductions).includes(cs.total_deductions)) &&
+    (!cs.refund_amount    || money(s.refund_amount).includes(cs.refund_amount)) &&
+    (!cs.payment_method   || s.payment_method?.toLowerCase().includes(cs.payment_method.toLowerCase())) &&
+    (!cs.status           || s.status?.toLowerCase().includes(cs.status.toLowerCase()))
+  );
+
+  const settlementDateOk =
+    (!settlementDateFrom || toDate(s.settlement_date) >= settlementDateFrom) &&
+    (!settlementDateTo   || toDate(s.settlement_date) <= settlementDateTo);
+
+  const moveOutDateOk =
+    (!moveOutDateFrom || toDate(s.move_out_date) >= moveOutDateFrom) &&
+    (!moveOutDateTo   || toDate(s.move_out_date) <= moveOutDateTo);
+
+  const paymentOk  = paymentMethodFilter === 'all' || s.payment_method === paymentMethodFilter;
+  const propertyOk = propertyFilterAdv   === 'all' || s.property_name === propertyFilterAdv;
+
+  return colOk && settlementDateOk && moveOutDateOk && paymentOk && propertyOk;
+}), [
+  settlements, colSearch,
+  settlementDateFrom, settlementDateTo,
+  moveOutDateFrom, moveOutDateTo,
+  paymentMethodFilter, propertyFilterAdv,
+]);
+
+
 
   const paginatedItems = useMemo(() => {
   if (pageSize === "All") return filteredItems;
@@ -550,7 +580,30 @@ const handleExport = () => {
   }
 };
 
-  const hasFilters   = statusFilter !== 'all';
+const hasFilters =
+  statusFilter !== 'all' ||
+  paymentMethodFilter !== 'all' ||
+  propertyFilterAdv !== 'all' ||
+  !!settlementDateFrom || !!settlementDateTo ||
+  !!moveOutDateFrom || !!moveOutDateTo;
+
+const activeFilterCount = [
+  statusFilter !== 'all',
+  paymentMethodFilter !== 'all',
+  propertyFilterAdv !== 'all',
+  !!settlementDateFrom, !!settlementDateTo,
+  !!moveOutDateFrom, !!moveOutDateTo,
+].filter(Boolean).length;
+
+const clearFilters = () => {
+  setStatusFilter('all');
+  setPaymentMethodFilter('all');
+  setPropertyFilterAdv('all');
+  setSettlementDateFrom('');
+  setSettlementDateTo('');
+  setMoveOutDateFrom('');
+  setMoveOutDateTo('');
+};
   const hasColSearch = Object.values(colSearch).some(v => v);
   const clearCol     = () => setColSearch({ tenant_name:'', tenant_phone:'', property_name:'', room_number:'', settlement_date:'', security_deposit:'', penalties:'', penalty_discount:'', outstanding_rent:'', total_deductions:'', refund_amount:'', payment_method:'', status:'' });
 
@@ -599,18 +652,24 @@ const handleExport = () => {
 
     {/* RIGHT - Action Buttons */}
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
-      {/* <button
-        onClick={() => setSidebarOpen((o) => !o)}
-        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-          ${
-            sidebarOpen || hasFilters
-              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
-          }`}
-      >
-        <Filter className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Filters</span>
-      </button> */}
+     <button
+  onClick={() => setSidebarOpen(o => !o)}
+  className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+    ${
+      sidebarOpen || hasFilters
+        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+        : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
+    }`}
+>
+  <Filter className="h-3.5 w-3.5" />
+  <span className="hidden sm:inline">Filters</span>
+  {activeFilterCount > 0 && (
+    <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+      ${sidebarOpen || hasFilters ? "bg-white text-blue-600" : "bg-white/20 text-white"}`}>
+      {activeFilterCount}
+    </span>
+  )}
+</button>
 
       {can("export_settlements") && (
         <button
@@ -970,6 +1029,143 @@ const handleExport = () => {
     )}
   </Card>
 </div>
+
+{sidebarOpen && (
+  <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
+)}
+<aside
+  className={`fixed top-0 right-0 h-full z-40 w-[85vw] sm:w-96 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}
+>
+  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {hasFilters && (
+        <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+          {activeFilterCount} active
+        </span>
+      )}
+    </div>
+    <div className="flex items-center gap-2">
+      {hasFilters && (
+        <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold transition-colors">
+          Clear all
+        </button>
+      )}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white transition-colors">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+
+  <div className="flex-1 overflow-y-auto p-4">
+    <div className="grid grid-cols-2 gap-3">
+
+      {/* Status */}
+      <div className="col-span-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <ShieldCheck className="h-3 w-3 text-emerald-500" /> Status
+        </p>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusType)}>
+          <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Payment Method */}
+      <div className="col-span-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <CreditCard className="h-3 w-3 text-blue-500" /> Payment Method
+        </p>
+        <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+          <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+            <SelectValue placeholder="Select method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Methods</SelectItem>
+            {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Property */}
+      <div className="col-span-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <Building className="h-3 w-3 text-indigo-500" /> Property
+        </p>
+        <Select value={propertyFilterAdv} onValueChange={setPropertyFilterAdv}>
+          <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+            <SelectValue placeholder="Select property" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Properties</SelectItem>
+            {uniqueProperties.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Settlement Date Range */}
+      <div className="col-span-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <Receipt className="h-3 w-3 text-rose-500" /> Settlement Date
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+            <Input type="date" value={settlementDateFrom}
+              onChange={(e) => setSettlementDateFrom(e.target.value)} className="h-7 text-[10px]" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+            <Input type="date" value={settlementDateTo}
+              onChange={(e) => setSettlementDateTo(e.target.value)} className="h-7 text-[10px]" />
+          </div>
+        </div>
+      </div>
+
+      {/* Move-out Date Range */}
+      {/* <div className="col-span-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <Banknote className="h-3 w-3 text-orange-500" /> Move-out Date
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+            <Input type="date" value={moveOutDateFrom}
+              onChange={(e) => setMoveOutDateFrom(e.target.value)} className="h-7 text-[10px]" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+            <Input type="date" value={moveOutDateTo}
+              onChange={(e) => setMoveOutDateTo(e.target.value)} className="h-7 text-[10px]" />
+          </div>
+        </div>
+      </div> */}
+
+    </div>
+  </div>
+
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button
+      onClick={clearFilters}
+      disabled={!hasFilters}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      Clear All
+    </button>
+    <button
+      onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700 transition-colors"
+    >
+      Apply & Close
+    </button>
+  </div>
+</aside>
 
       {/* ADD / EDIT DIALOG */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
