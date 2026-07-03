@@ -151,6 +151,34 @@ function resolveUrl(url: string | null | undefined): string {
   return `${getApiUrl()}${url}`;
 }
 
+// ─── Shared Print Branding (logo header + watermark) ─────────────────────────
+const PRINT_BRAND_STYLE = `
+  .brand-header{display:grid;grid-template-columns:96px 1fr 96px;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1B3FA0}
+  .brand-logo-wrap{display:flex;align-items:center;justify-content:flex-start}
+  .brand-logo{max-width:88px;max-height:88px;object-fit:contain}
+  .brand-center{text-align:center}
+  .brand-name{font-size:20px;font-weight:900;color:#0D2567;letter-spacing:.01em}
+  .brand-sub{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);opacity:.06;z-index:-1;pointer-events:none;width:90%;text-align:center}
+  .watermark span{font-size:64px;font-weight:900;color:#0D2567;white-space:nowrap;display:block}
+  @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+`;
+
+function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
+  return `<div class="brand-header">
+    <div class="brand-logo-wrap">${orgLogo ? `<img class="brand-logo" src="${orgLogo}" alt="logo" onerror="this.style.display='none'"/>` : ""}</div>
+    <div class="brand-center">
+      <div class="brand-name">${orgName}</div>
+      <div class="brand-sub">${subtitle}</div>
+    </div>
+    <div></div>
+  </div>`;
+}
+
+// ✅ Watermark is always the site NAME as text — never the logo image.
+function buildWatermarkHTML(orgLogo: string, orgName: string) {
+  return `<div class="watermark"><span>${orgName}</span></div>`;
+}
 // ─── Primitives ───────────────────────────────────────────────────────────────
 function BadgePill({ children, variant = "gray" }: { children: React.ReactNode; variant?: string }) {
   const v: Record<string, string> = {
@@ -274,20 +302,14 @@ function LoadingSkeleton() {
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({
-  tenant,
-  assignment,
-  payments,
-  paymentSummary,
-  onIdCard,
-  onEdit,
-  copiedEmail,
-  copiedPhone,
-  onCopyEmail,
-  onCopyPhone,
+  tenant, assignment, payments, paymentSummary, onIdCard, onEdit,
+  copiedEmail, copiedPhone, onCopyEmail, onCopyPhone,
+  orgLogo, orgName,
 }: {
   tenant: any; assignment: any; paymentSummary: any; onIdCard: () => void; onEdit: () => void;
   copiedEmail: boolean; copiedPhone: boolean; payments: any[];
   onCopyEmail: () => void; onCopyPhone: () => void;
+  orgLogo: string; orgName: string;
 }) {
   // ✅ FIX: Determine if tenant is actually vacated (not just has vacate history)
   const hasVacateHistory = tenant.vacate_records?.length > 0;
@@ -431,7 +453,16 @@ const rentVal = (() => {
     return Math.max(0, months);
   })();
 
-  const rentPaidTotal = (() => {
+const rentPaidTotal = (() => {
+    // ✅ Prefer summing from stay_history — it's the backend-computed,
+    // partner-merged, per-stay windowed total (same source History tab's
+    // "Lifetime Rent" card uses). paymentSummary alone can under-report
+    // this for shared stays where payments were recorded under the
+    // partner's tenant_id rather than this tenant's own.
+    const stayHistory = tenant.stay_history || [];
+    if (stayHistory.length > 0) {
+      return stayHistory.reduce((sum: number, s: any) => sum + Number(s.totalRentPaid || 0), 0);
+    }
     if (isActuallyVacated) return paymentSummary?.total_rent_paid ?? 0;
     return paymentSummary?.total_paid ?? 0;
   })();
@@ -443,15 +474,8 @@ const rentVal = (() => {
     return `₹${n}`;
   })();
 
-  // ─── Print / PDF helpers ──────────────────────────────────────────────
-// ─── Print (basic summary) ──────────────────────────────────────────────
-const buildBasicPrintHTML = () => {
-  const rentValDisplay = (() => {
-    if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
-    if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
-    if (tenant.monthly_rent) return formatINR(tenant.monthly_rent);
-    return "N/A";
-  })();
+// ─── Print (matches full tenant profile design) ─────────────────────────
+const buildOverviewPrintHTML = () => {
   const roomDisplay = (() => {
     if (hasActiveAssignment && assignment) return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
     if (isActuallyVacated && vacateRecord) return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
@@ -459,50 +483,6 @@ const buildBasicPrintHTML = () => {
     return "Not Assigned";
   })();
 
-  return `<!DOCTYPE html><html><head><title>Tenant Summary · ${tenant.full_name}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px}
-  .header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #f3f4f6}
-  .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900;flex-shrink:0}
-  .header-info h1{font-size:18px;font-weight:900;margin-bottom:3px}
-  .header-info .meta{font-size:10px;color:#6b7280}
-  .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;margin-left:6px}
-  .badge-green{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
-  .section{margin-bottom:18px}
-  .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;border-bottom:1.5px solid #f3f4f6;padding-bottom:4px;margin-bottom:8px}
-  .row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid #f9fafb}
-  .row:last-child{border:0}
-  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
-  .val{font-size:11px;font-weight:600;color:#111;text-align:right}
-  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
-</style></head><body>
-<div class="header">
-  <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
-  <div class="header-info">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} <span class="badge badge-green">${currentStay.isActive ? "Active" : "Inactive"}</span></h1>
-    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; ${currentStay.property || "—"} · ${roomDisplay}</div>
-  </div>
-</div>
-<div class="section">
-  <div class="section-title">Basic Details</div>
-  <div class="row"><span class="lbl">Full Name</span><span class="val">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</span></div>
-  <div class="row"><span class="lbl">Phone</span><span class="val">${tenant.country_code || ""} ${tenant.phone || "—"}</span></div>
-  <div class="row"><span class="lbl">Email</span><span class="val">${tenant.email || "—"}</span></div>
-</div>
-<div class="section">
-  <div class="section-title">Stay Summary</div>
-  <div class="row"><span class="lbl">Property</span><span class="val">${currentStay.property || "—"}</span></div>
-  <div class="row"><span class="lbl">Room / Bed</span><span class="val">${roomDisplay}</span></div>
-  <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentValDisplay}</span></div>
-  <div class="row"><span class="lbl">Check-in</span><span class="val">${currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN") : "—"}</span></div>
-</div>
-<div class="footer"><span>Roomac Co-Living Management System</span><span>Generated ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"})}</span></div>
-</body></html>`;
-};
-
-// ─── Full profile (used for PDF + Download) ─────────────────────────────
-const buildFullPrintHTML = () => {
   const rentValDisplay = (() => {
     if (hasActiveAssignment && assignment?.tenant_rent) return formatINR(assignment.tenant_rent);
     if (isActuallyVacated && vacateRecord?.rent_amount) return formatINR(vacateRecord.rent_amount);
@@ -510,29 +490,24 @@ const buildFullPrintHTML = () => {
     return "N/A";
   })();
 
-  const roomDisplay = (() => {
-    if (hasActiveAssignment && assignment) {
-      return `Room ${assignment.room?.room_number || "—"} · Bed ${assignment.bed_number || "—"}`;
-    }
-    if (isActuallyVacated && vacateRecord) {
-      return `Room ${vacateRecord.room_number || "—"} · Bed ${vacateRecord.bed_number || "—"}`;
-    }
-    if (tenant.bed_number) {
-      return `Room ${tenant.room_number || "—"} · Bed ${tenant.bed_number}`;
-    }
-    return "Not Assigned";
-  })();
+  const depositPaidDisplay = formatINR(paymentSummary?.security_deposit_info?.paid || 0);
+  const lifetimeRentDisplay = formatINR(rentPaidTotal);
+  const stayTypeDisplay = isCoupleBooking ? "Couple" : "Single";
 
   return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px}
-  .header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #f3f4f6}
+  body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
+  ${PRINT_BRAND_STYLE}
+  .header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
   .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900;flex-shrink:0}
   .header-info h1{font-size:18px;font-weight:900;margin-bottom:3px}
   .header-info .meta{font-size:10px;color:#6b7280}
   .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;margin-left:6px}
   .badge-green{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;margin:20px 0;padding:14px 0;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6}
+  .stat-val{font-size:20px;font-weight:900}
+  .stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin-top:2px}
   .section{margin-bottom:18px}
   .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;border-bottom:1.5px solid #f3f4f6;padding-bottom:4px;margin-bottom:8px}
   .row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid #f9fafb}
@@ -540,22 +515,34 @@ const buildFullPrintHTML = () => {
   .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
   .val{font-size:11px;font-weight:600;color:#111;text-align:right}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .vacate-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-top:8px}
+  .vacate-title{font-size:9px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .vacate-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
   .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
 </style></head><body>
+${buildWatermarkHTML(orgLogo, orgName)}
+${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Profile")}
 <div class="header">
   <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
   <div class="header-info">
     <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} <span class="badge badge-green">${currentStay.isActive ? "Active" : "Inactive"}</span></h1>
-    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; ${currentStay.property || "—"} · ${roomDisplay}</div>
+    <div class="meta">ID #${tenant.id} &nbsp;·&nbsp; Member Since ${tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} &nbsp;·&nbsp; ${currentStay.property || "—"} · ${roomDisplay}</div>
   </div>
 </div>
+
+<div class="stats">
+  <div><div class="stat-val" style="color:#2563eb">${staysCount}</div><div class="stat-lbl">Total Stays</div></div>
+  <div><div class="stat-val" style="color:#059669">${lifetimeRentDisplay}</div><div class="stat-lbl">Lifetime Rent</div></div>
+  <div><div class="stat-val" style="color:#d97706">${monthsStayed}</div><div class="stat-lbl">Months Stayed</div></div>
+</div>
+
 <div class="two-col">
 <div>
   <div class="section">
     <div class="section-title">Personal Information</div>
     <div class="row"><span class="lbl">Full Name</span><span class="val">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</span></div>
     <div class="row"><span class="lbl">Gender</span><span class="val">${tenant.gender || "—"}</span></div>
-    <div class="row"><span class="lbl">Date of Birth</span><span class="val">${tenant.date_of_birth ? new Date(tenant.date_of_birth).toLocaleDateString("en-IN") : "—"} (${calcAge(tenant.date_of_birth)} yrs)</span></div>
+    <div class="row"><span class="lbl">Date of Birth</span><span class="val">${tenant.date_of_birth ? `${new Date(tenant.date_of_birth).toLocaleDateString("en-IN")} (${calcAge(tenant.date_of_birth)} yrs)` : "—"}</span></div>
     <div class="row"><span class="lbl">Aadhar</span><span class="val" style="font-family:monospace">${tenant.aadhar_number ?? (tenant.id_proof_type === "Aadhar Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "Aadhar Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
     <div class="row"><span class="lbl">PAN</span><span class="val" style="font-family:monospace">${tenant.pan_number ?? (tenant.id_proof_type === "PAN Card" ? tenant.id_proof_number : null) ?? (tenant.address_proof_type === "PAN Card" ? tenant.address_proof_number : null) ?? "—"}</span></div>
   </div>
@@ -565,51 +552,51 @@ const buildFullPrintHTML = () => {
     <div class="row"><span class="lbl">Phone</span><span class="val">${tenant.country_code || ""} ${tenant.phone || "—"}</span></div>
     <div class="row"><span class="lbl">Address</span><span class="val" style="max-width:200px;text-align:right">${tenant.address || "—"}</span></div>
   </div>
-  ${tenant.emergency_contact_name ? `<div class="section">
-    <div class="section-title">Emergency Contact</div>
-    <div class="row"><span class="lbl">Name</span><span class="val">${tenant.emergency_contact_name}</span></div>
-    <div class="row"><span class="lbl">Phone</span><span class="val">${tenant.emergency_contact_phone || "—"}</span></div>
-    <div class="row"><span class="lbl">Relation</span><span class="val">${tenant.emergency_contact_relation || "—"}</span></div>
-  </div>` : ""}
   <div class="section">
-    <div class="section-title">Account Status</div>
+    <div class="section-title">Account</div>
+    <div class="row"><span class="lbl">Status</span><span class="val">${currentStay.isActive ? "Active" : "Inactive"}</span></div>
     <div class="row"><span class="lbl">Portal Access</span><span class="val">${tenant.portal_access_enabled ? "Enabled" : "Disabled"}</span></div>
-    <div class="row"><span class="lbl">Login Credentials</span><span class="val">${tenant.has_credentials ? "Configured" : "Not Set"}</span></div>
+    <div class="row"><span class="lbl">Login</span><span class="val">${tenant.has_credentials ? "Configured" : "Not Set"}</span></div>
+    ${tenant.credential_email ? `<div class="row"><span class="lbl">Credential Email</span><span class="val">${tenant.credential_email}</span></div>` : ""}
   </div>
 </div>
 <div>
   <div class="section">
-    <div class="section-title">Stay Information</div>
+    <div class="section-title">Current Stay</div>
     <div class="row"><span class="lbl">Property</span><span class="val">${currentStay.property || "—"}</span></div>
     <div class="row"><span class="lbl">Room / Bed</span><span class="val">${roomDisplay}</span></div>
     <div class="row"><span class="lbl">Monthly Rent</span><span class="val" style="color:#059669;font-weight:800">${rentValDisplay}</span></div>
-    <div class="row"><span class="lbl">Security Deposit</span><span class="val">${formatINR(securityDeposit)}</span></div>
+    <div class="row"><span class="lbl">Stay Type</span><span class="val">${stayTypeDisplay}</span></div>
     <div class="row"><span class="lbl">Check-in</span><span class="val">${currentStay.checkIn ? new Date(currentStay.checkIn).toLocaleDateString("en-IN") : "—"}</span></div>
-    ${isActuallyVacated && currentStay.checkOut ? `<div class="row"><span class="lbl">Vacated On</span><span class="val">${new Date(currentStay.checkOut).toLocaleDateString("en-IN")}</span></div>` : ""}
+    <div class="row"><span class="lbl">Check-out</span><span class="val">${isActuallyVacated && currentStay.checkOut ? new Date(currentStay.checkOut).toLocaleDateString("en-IN") : "—"}</span></div>
+    <div class="row"><span class="lbl">Security Deposit</span><span class="val">${formatINR(securityDeposit)}</span></div>
+    <div class="row"><span class="lbl">Deposit Paid</span><span class="val">${depositPaidDisplay}</span></div>
+    ${isActuallyVacated && vacateRecord ? `<div class="vacate-box">
+      <div class="vacate-title">Vacate Details</div>
+      <div class="vacate-grid">
+        <div><div class="lbl">Penalty</div><div class="val" style="text-align:left">₹${Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</div></div>
+        <div><div class="lbl">Refund</div><div class="val" style="text-align:left;color:#059669">₹${Number(vacateRecord.refundable_amount || 0).toLocaleString()}</div></div>
+        <div><div class="lbl">Status</div><div class="val" style="text-align:left">${vacateRecord.status || "—"}</div></div>
+        <div><div class="lbl">Reason</div><div class="val" style="text-align:left">${vacateRecord.vacate_reason_value || "—"}</div></div>
+      </div>
+    </div>` : ""}
   </div>
   <div class="section">
     <div class="section-title">Occupation</div>
-    <div class="row"><span class="lbl">Category</span><span class="val">${tenant.occupation_category || "—"}</span></div>
+    <div class="row"><span class="lbl">Category</span><span class="val">${tenant.occupation_category || "Other"}</span></div>
     <div class="row"><span class="lbl">Occupation</span><span class="val">${tenant.occupation || "—"}</span></div>
     <div class="row"><span class="lbl">Organization</span><span class="val">${tenant.organization || "—"}</span></div>
+    <div class="row"><span class="lbl">Work Mode</span><span class="val">${tenant.work_mode ? tenant.work_mode.charAt(0).toUpperCase() + tenant.work_mode.slice(1) : "—"}</span></div>
+    <div class="row"><span class="lbl">Shift</span><span class="val">${tenant.shift_timing ? tenant.shift_timing.charAt(0).toUpperCase() + tenant.shift_timing.slice(1) : "—"}</span></div>
   </div>
   <div class="section">
     <div class="section-title">Terms &amp; Conditions</div>
     <div class="row"><span class="lbl">Lock-in Period</span><span class="val">${tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"}</span></div>
+    <div class="row"><span class="lbl">Lock-in Penalty</span><span class="val">${tenant.lockin_penalty_amount ? (tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of rent` : formatINR(tenant.lockin_penalty_amount)) : "—"}</span></div>
     <div class="row"><span class="lbl">Notice Period</span><span class="val">${tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"}</span></div>
+    <div class="row"><span class="lbl">Notice Penalty</span><span class="val">${tenant.notice_penalty_amount ? (tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of rent` : formatINR(tenant.notice_penalty_amount)) : "—"}</span></div>
+    <div class="row"><span class="lbl">Penalty Applied</span><span class="val">${isActuallyVacated && vacateRecord ? formatINR(vacateRecord.total_penalty_amount || 0) : "₹0"}</span></div>
   </div>
-  ${paymentSummary ? `<div class="section">
-    <div class="section-title">Payment Summary</div>
-    <div class="row"><span class="lbl">Total Paid</span><span class="val" style="color:#059669">₹${Number((isActuallyVacated ? paymentSummary.total_rent_paid : paymentSummary.total_paid) || 0).toLocaleString("en-IN")}</span></div>
-    <div class="row"><span class="lbl">Total Pending</span><span class="val">₹${Number(paymentSummary.total_pending || 0).toLocaleString("en-IN")}</span></div>
-  </div>` : ""}
-  ${isActuallyVacated && vacateRecord ? `<div class="section">
-    <div class="section-title">Vacate Details</div>
-    <div class="row"><span class="lbl">Penalty</span><span class="val">₹${Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}</span></div>
-    <div class="row"><span class="lbl">Refund</span><span class="val" style="color:#059669">₹${Number(vacateRecord.refundable_amount || 0).toLocaleString()}</span></div>
-    <div class="row"><span class="lbl">Status</span><span class="val">${vacateRecord.status || "—"}</span></div>
-    <div class="row"><span class="lbl">Reason</span><span class="val">${vacateRecord.vacate_reason_value || "—"}</span></div>
-  </div>` : ""}
 </div>
 </div>
 <div class="footer"><span>Roomac Co-Living Management System</span><span>Generated ${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"})}</span></div>
@@ -619,7 +606,7 @@ const buildFullPrintHTML = () => {
 const handlePrintProfile = () => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(buildBasicPrintHTML());
+  w.document.write(buildOverviewPrintHTML());
   w.document.close();
   w.print();
 };
@@ -627,7 +614,7 @@ const handlePrintProfile = () => {
 const handlePDFProfile = () => {
   const w = window.open("", "_blank");
   if (!w) return;
-  const html = buildFullPrintHTML().replace("</style>", `
+  const html = buildOverviewPrintHTML().replace("</style>", `
     @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     @page { margin: 16mm; size: A4; }
   </style>`);
@@ -1431,7 +1418,8 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
 }
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
-function HistoryTab({ tenant }: { tenant: any }) {
+// ─── History Tab ──────────────────────────────────────────────────────────────
+function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string; orgName: string }) {
   const [expandedStay, setExpandedStay] = useState<string | null>(null);
   const [sectionMap, setSectionMap] = useState<Record<string, string>>({});
 
@@ -1456,7 +1444,7 @@ function HistoryTab({ tenant }: { tenant: any }) {
   // Normalize into the shape the rest of this component renders, while
   // pulling display fields (property/room/bed/rent/penalty amounts) from
   // either the vacateRecord (past stays) or the tenant/assignment (current).
-const allStays = [...rawStayHistory]
+  const allStays = [...rawStayHistory]
     .map((stay) => {
       const vr = stay.vacateRecord;
       const isVacatedRecord = !stay.isCurrent;
@@ -1519,9 +1507,9 @@ const allStays = [...rawStayHistory]
         room,
         bed,
         stayType: stayIsCouple ? "Couple" : "Single",
-      sharingType: isVacatedRecord
-  ? (vr?.sharing_type || null)
-  : (tenant.current_assignment?.sharing_type || tenant.current_assignment?.room?.sharing_type || null),
+        sharingType: isVacatedRecord
+          ? (vr?.sharing_type || null)
+          : (tenant.current_assignment?.sharing_type || tenant.current_assignment?.room?.sharing_type || null),
         monthlyRent,
         securityDeposit,
         checkIn: stay.checkIn,
@@ -1558,20 +1546,20 @@ const allStays = [...rawStayHistory]
     .sort((a, b) => b.stayNumber - a.stayNumber);
 
   // Dynamic styling for whatever sharing_type comes back from the DB —
-// no hardcoded list of room types.
-const SHARING_TYPE_PALETTE = [
-  { bg: "bg-blue-500",   text: "text-blue-700",   ring: "ring-blue-200" },
-  { bg: "bg-teal-500",   text: "text-teal-700",   ring: "ring-teal-200" },
-  { bg: "bg-violet-500", text: "text-violet-700", ring: "ring-violet-200" },
-  { bg: "bg-amber-500",  text: "text-amber-700",  ring: "ring-amber-200" },
-  { bg: "bg-cyan-500",   text: "text-cyan-700",   ring: "ring-cyan-200" },
-];
-function getSharingTypeStyle(rawType: string | null | undefined) {
-  const type = (rawType || "single").toLowerCase();
-  let hash = 0;
-  for (let i = 0; i < type.length; i++) hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
-  return SHARING_TYPE_PALETTE[hash % SHARING_TYPE_PALETTE.length];
-}
+  // no hardcoded list of room types.
+  const SHARING_TYPE_PALETTE = [
+    { bg: "bg-blue-500",   text: "text-blue-700",   ring: "ring-blue-200" },
+    { bg: "bg-teal-500",   text: "text-teal-700",   ring: "ring-teal-200" },
+    { bg: "bg-violet-500", text: "text-violet-700", ring: "ring-violet-200" },
+    { bg: "bg-amber-500",  text: "text-amber-700",  ring: "ring-amber-200" },
+    { bg: "bg-cyan-500",   text: "text-cyan-700",   ring: "ring-cyan-200" },
+  ];
+  function getSharingTypeStyle(rawType: string | null | undefined) {
+    const type = (rawType || "single").toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < type.length; i++) hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
+    return SHARING_TYPE_PALETTE[hash % SHARING_TYPE_PALETTE.length];
+  }
 
   const typeColor: Record<string, string> = {
     rent: "bg-blue-100 text-blue-700",
@@ -1590,103 +1578,136 @@ function getSharingTypeStyle(rawType: string | null | undefined) {
     refund: "Refund",
   };
 
-const buildStayPrintSections = (stay: any) => {
-  const stayPayments = [
-    ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
-  ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
+  // ✅ Documents used in print sections — fallback to Aadhar Card label
+  // when no specific proof type is on file.
+  const docs = [
+    { label: "ID Proof", type: tenant.id_proof_type || "Aadhar Card", number: tenant.id_proof_number, url: tenant.id_proof_url },
+    { label: "Address Proof", type: tenant.address_proof_type || "Aadhar Card", number: tenant.address_proof_number, url: tenant.address_proof_url },
+    { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
+  ];
 
-  const paymentRows = stayPayments.length
-    ? stayPayments.map((p: any) => `<tr>
+  const buildStayPrintSections = (stay: any) => {
+    const stayPayments = [
+      ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
+    ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
+
+   const docsRows = docs.map(d => {
+      const uploadedDate = d.url && stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—";
+      return `<tr>
+        <td class="doc-type">${d.label}</td>
+        <td>${d.type || "—"}</td>
+        <td class="doc-number">${d.number || "—"}</td>
+        <td>${d.url
+          ? `<span class="doc-status doc-status-yes">Uploaded</span>`
+          : `<span class="doc-status doc-status-no">Not Uploaded</span>`}</td>
+        <td class="doc-date">${uploadedDate}</td>
+      </tr>`;
+    }).join("");
+
+    const docsHtml = `<table class="doctable">
+      <thead><tr><th>Document</th><th>Type</th><th>Number</th><th>Status</th><th>Uploaded</th></tr></thead>
+      <tbody>${docsRows}</tbody>
+    </table>`;
+
+    return `
+      <h2>Stay Details</h2>
+      <div class="g2">
+        <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
+        <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
+        <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
+        <div><div class="lbl">Rent</div><div class="val">₹${stay.monthlyRent.toLocaleString("en-IN")}</div></div>
+        <div><div class="lbl">Check-in</div><div class="val">${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}</div></div>
+        <div><div class="lbl">Check-out</div><div class="val">${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div></div>
+        <div><div class="lbl">Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
+        ${stay.isVacatedRecord ? `<div><div class="lbl">Refund</div><div class="val">₹${(stay.refundAmount || 0).toLocaleString("en-IN")} (${stay.refundStatus || "N/A"})</div></div>` : ""}
+      </div>
+
+      <h2>Payments</h2>
+      <table class="ptable"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Mode</th><th>Period</th><th>Status</th></tr></thead>
+      <tbody>${stayPayments.length ? stayPayments.map((p: any) => `<tr>
         <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
         <td>₹${Number(p.amount || 0).toLocaleString("en-IN")}</td>
         <td>${typeDisplay[p.payment_type] || p.payment_type || "—"}</td>
         <td>${p.payment_mode || "—"}</td>
+        <td>${p.month ? `${p.month} ${p.year}` : "—"}</td>
         <td>${p.status || "—"}</td>
-      </tr>`).join("")
-    : `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No payment records</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="6" style="text-align:center;color:#9ca3af">No payment records</td></tr>`}</tbody></table>
+      <div class="totalline">Total: <span>₹${(stay.totalRentPaidThisStay || 0).toLocaleString("en-IN")}</span></div>
 
-  const docs = [
-    { label: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url },
-    { label: "Address Proof", type: tenant.address_proof_type, number: tenant.address_proof_number, url: tenant.address_proof_url },
-    { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
-  ];
-  const docsHtml = docs.map(d => `<div class="doc-card">
-      <div class="lbl">${d.label}</div>
-      <div class="val">${d.url ? "Uploaded" : "Not Uploaded"}</div>
-      ${d.type ? `<div class="sub">${d.type}</div>` : ""}
-      ${d.number ? `<div class="sub">#${d.number}</div>` : ""}
-    </div>`).join("");
+      <h2>Documents</h2>
+      ${docsHtml}
 
-  return `
-    <h2>Stay Details</h2>
-    <div class="g2">
-      <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
-      <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
-      <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
-      <div><div class="lbl">Sharing</div><div class="val">${stay.sharingType || "—"}</div></div>
-      <div><div class="lbl">Rent</div><div class="val">₹${stay.monthlyRent.toLocaleString("en-IN")}</div></div>
-      <div><div class="lbl">Check-in</div><div class="val">${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"}</div></div>
-      <div><div class="lbl">Check-out</div><div class="val">${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div></div>
-    </div>
+      <h2>Security Deposit</h2>
+      <div class="g2">
+        <div><div class="lbl">Security Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
+        <div><div class="lbl">Deposit Paid</div><div class="val">₹${(stay.depositPaid || 0).toLocaleString("en-IN")}</div></div>
+        ${stay.isVacatedRecord ? `
+        <div><div class="lbl">Refund Amount</div><div class="val">₹${(stay.refundAmount || 0).toLocaleString("en-IN")}</div></div>
+        <div><div class="lbl">Total Refunded</div><div class="val">₹${(stay.totalRefunded || 0).toLocaleString("en-IN")}</div></div>` : ""}
+      </div>
 
-    <h2>Payments</h2>
-    <table class="ptable"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Mode</th><th>Status</th></tr></thead>
-    <tbody>${paymentRows}</tbody></table>
-    <div class="g2">
-      <div><div class="lbl">Total Rent Paid</div><div class="val">₹${(stay.totalRentPaidThisStay || 0).toLocaleString("en-IN")}</div></div>
-      <div><div class="lbl">Total Penalty</div><div class="val">₹${(stay.totalPenalty || 0).toLocaleString("en-IN")}</div></div>
-    </div>
+      <h2>Terms &amp; Penalties</h2>
+      <div class="g2">
+        <div><div class="lbl">Lock-in Period</div><div class="val">${stay.lockInPeriod}</div></div>
+        <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of rent` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        <div><div class="lbl">Notice Period</div><div class="val">${stay.noticePeriod}</div></div>
+        <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of rent` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        ${stay.isVacatedRecord ? `<div class="g2full"><div class="lbl">Vacate Reason</div><div class="val">${stay.vacateReason}</div></div>` : ""}
+      </div>
 
-    <h2>Documents</h2>
-    <div class="docs">${docsHtml}</div>
-
-    <h2>Security Deposit</h2>
-    <div class="g2">
-      <div><div class="lbl">Security Deposit</div><div class="val">₹${stay.securityDeposit.toLocaleString("en-IN")}</div></div>
-      <div><div class="lbl">Deposit Paid</div><div class="val">₹${(stay.depositPaid || 0).toLocaleString("en-IN")}</div></div>
-      ${stay.isVacatedRecord ? `
-      <div><div class="lbl">Refund Amount</div><div class="val">₹${(stay.refundAmount || 0).toLocaleString("en-IN")}</div></div>
-      <div><div class="lbl">Total Refunded</div><div class="val">₹${(stay.totalRefunded || 0).toLocaleString("en-IN")}</div></div>
-      <div class="g2full"><div class="lbl">Refund Status</div><div class="val">${stay.refundStatus || "N/A"}</div></div>` : ""}
-    </div>
-
-    <h2>Terms &amp; Penalties</h2>
-    <div class="g2">
-      <div><div class="lbl">Lock-in Period</div><div class="val">${stay.lockInPeriod}</div></div>
-      <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of rent` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
-      <div><div class="lbl">Notice Period</div><div class="val">${stay.noticePeriod}</div></div>
-      <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of rent` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
-      ${stay.isVacatedRecord ? `<div class="g2full"><div class="lbl">Vacate Reason</div><div class="val">${stay.vacateReason}</div></div>` : ""}
-    </div>
-
-    ${stay.partner ? `
-    <h2>Partner Details</h2>
-    <div class="g2">
-      <div><div class="lbl">Name</div><div class="val">${stay.partner.name}</div></div>
-      <div><div class="lbl">Phone</div><div class="val">${stay.partner.phone}</div></div>
-      <div><div class="lbl">Relation</div><div class="val">${stay.partner.relation}</div></div>
-    </div>` : ""}
-  `;
-};
+      ${stay.partner ? `
+      <h2>Partner Details</h2>
+      <div class="g2">
+        <div><div class="lbl">Name</div><div class="val">${stay.partner.name}</div></div>
+        <div><div class="lbl">Phone</div><div class="val">${stay.partner.phone}</div></div>
+        <div><div class="lbl">Relation</div><div class="val">${stay.partner.relation}</div></div>
+      </div>` : ""}
+    `;
+  };
 
 const STAY_PRINT_STYLE = `
-  body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px}
-  h1{font-size:18px;font-weight:900;margin-bottom:2px}
-  .sub{color:#6b7280;font-size:11px;margin-bottom:22px}
-  h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:4px;margin:18px 0 8px}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;margin-bottom:10px}
+  body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px;position:relative}
+  ${PRINT_BRAND_STYLE}
+  h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
+  .sub{color:#2563eb;font-size:11px;margin-bottom:22px;font-weight:600}
+  h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:5px;margin:20px 0 10px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:6px 32px;margin-bottom:12px}
   .g2full{grid-column:span 2}
-  .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700}
-  .val{font-size:12px;font-weight:700;margin-top:1px}
+  .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700;margin-bottom:1px}
+  .val{font-size:13px;font-weight:700;color:#111}
+
   .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-  .ptable th{text-align:left;font-size:9px;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:4px 6px}
-  .ptable td{padding:4px 6px;border-bottom:1px solid #f3f4f6}
-  .docs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-  .doc-card{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;min-width:120px}
-  .doc-card .lbl{margin-bottom:2px}
-  .doc-card .val{font-size:11px}
-  .doc-card .sub{font-size:9px;color:#9ca3af;margin-top:2px}
+  .ptable thead tr{background:#f8fafc}
+  .ptable th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 10px}
+  .ptable td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#111}
+  .ptable td:nth-child(2){color:#059669;font-weight:700}
+
+  .doctable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+  .doctable thead tr{background:#f8fafc}
+  .doctable th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 10px}
+  .doctable td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#111}
+  .doc-type{color:#2563eb;font-weight:600}
+  .doc-date{color:#6b7280}
+  .doc-status{font-weight:600}
+  .doc-status-yes{color:#059669}
+  .doc-status-no{color:#dc2626}
+
+  .totalline{font-size:13px;font-weight:800;color:#111;margin:6px 0 4px}
+  .totalline span{color:#059669}
+
   .ft{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}
+
+  /* Print-All specific: separator between stays. Content flows naturally
+     across pages — we don't force each whole stay-block to stay together,
+     since that can push an entire block (and leave the previous page
+     mostly blank) when it doesn't fully fit in the remaining space. Only
+     the section headers avoid breaking right after them. */
+  .stay-block{margin-top:8px}
+  .stay-block + .stay-block{margin-top:36px;padding-top:28px;border-top:3px double #d1d5db}
+  h2{break-after:avoid-page}
+  .doc-type{color:#2563eb;font-weight:600}
+  .doc-number{font-family:monospace;color:#374151}
+  .doc-date{color:#6b7280}
 `;
 
 const doPrint = (stay: any) => {
@@ -1694,6 +1715,8 @@ const doPrint = (stay: any) => {
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
   <style>${STAY_PRINT_STYLE}</style></head><body>
+  ${buildWatermarkHTML(orgLogo, orgName)}
+  ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
   <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
   <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
   ${buildStayPrintSections(stay)}
@@ -1702,27 +1725,29 @@ const doPrint = (stay: any) => {
   w.print();
 };
 
-
+// ✅ Print All: ONE brand header + ONE watermark for the whole document.
+// Stays are separated with a simple divider and flow naturally onto new
+// pages only when content actually overflows (no forced page-break-after).
 const doPrintAll = () => {
   const w = window.open("", "_blank");
   if (!w) return;
-  const sections = allStays.map(stay => `
+  const sections = allStays.map((stay, idx) => `
     <div class="stay-block">
       <h1>Stay #${stay.stayNumber}${stay.isCurrent ? " (Current)" : ""}</h1>
       <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
       ${buildStayPrintSections(stay)}
     </div>
-    <div class="page-break"></div>
   `).join("");
 
   w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
   <style>${STAY_PRINT_STYLE}
-    .page-break{page-break-after:always}
-    .cover{margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #f3f4f6}
+    .cover{margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #f3f4f6}
     .cover h1{font-size:22px}
   </style></head><body>
+  ${buildWatermarkHTML(orgLogo, orgName)}
+  ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
   <div class="cover">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name} — Complete Stay History</h1>
+    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
     <div class="sub">ID: ${tenant.id} · ${allStays.length} stay(s) · Generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
   </div>
   ${sections}
@@ -1802,7 +1827,7 @@ const doPrintAll = () => {
 
       <div className="flex justify-end">
         <button
-         onClick={doPrintAll}
+          onClick={doPrintAll}
           className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-gray-200 rounded-lg text-[9px] sm:text-[10px] font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
           style={fontStyle}
         >
@@ -1814,8 +1839,8 @@ const doPrintAll = () => {
       <div className="relative space-y-2.5">
         <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-gray-200 hidden lg:block" />
         {allStays.map(stay => {
-         const sharingCfg = getSharingTypeStyle(stay.sharingType);
-const isCoupleOccupancy = stay.stayType === "Couple";
+          const sharingCfg = getSharingTypeStyle(stay.sharingType);
+          const isCoupleOccupancy = stay.stayType === "Couple";
           const isOpen = expandedStay === stay.id;
           const section = sectionMap[stay.id] ?? "payments";
 
@@ -1844,22 +1869,17 @@ const isCoupleOccupancy = stay.stayType === "Couple";
               <div className={`bg-white rounded-xl border overflow-hidden transition-all ${isOpen ? "border-gray-200 shadow-md" : "border-gray-100 shadow-sm hover:shadow"}`}>
                 {/* Stay header */}
                 <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3.5 cursor-pointer" onClick={() => setExpandedStay(isOpen ? null : stay.id)}>
-                 <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${sharingCfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${sharingCfg.bg} flex items-center justify-center text-white font-black text-[9px] sm:text-[11px] flex-shrink-0`}>#{stay.stayNumber}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       <span className="text-[10px] sm:text-xs font-bold text-gray-900" style={fontStyle}>{stay.property}</span>
                       {stay.sharingType && (
-  <span className={`inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-white ${sharingCfg.text} ${sharingCfg.ring}`}>
-    <BedDouble size={9} />
-    {stay.sharingType.charAt(0).toUpperCase() + stay.sharingType.slice(1)}
-  </span>
-)}
-{/* {isCoupleOccupancy && (
-  <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-rose-50 text-rose-700 ring-rose-200">
-    <Heart size={10} /> Couple
-  </span>
-)} */}
-{stay.isCurrent && (
+                        <span className={`inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold ring-1 bg-white ${sharingCfg.text} ${sharingCfg.ring}`}>
+                          <BedDouble size={9} />
+                          {stay.sharingType.charAt(0).toUpperCase() + stay.sharingType.slice(1)}
+                        </span>
+                      )}
+                      {stay.isCurrent && (
                         <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                           <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500" />Current
                         </span>
@@ -1983,11 +2003,7 @@ const isCoupleOccupancy = stay.stayType === "Couple";
 
                       {section === "documents" && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {[
-                            { label: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url },
-                            { label: "Address Proof", type: tenant.address_proof_type, number: tenant.address_proof_number, url: tenant.address_proof_url },
-                            { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
-                          ].map(d => (
+                          {docs.map(d => (
                             <div key={d.label} className={`rounded-lg border p-2 sm:p-2.5 ${!d.url ? "border-dashed border-gray-200 bg-gray-50" : "border-gray-100 bg-white"}`}>
                               <div className="flex items-start justify-between gap-1 mb-1">
                                 <FileText size={11} className="sm:size-[13px] text-blue-400" />
@@ -2426,6 +2442,30 @@ export default function TenantDetailPage() {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 const [editInitialTab, setEditInitialTab] = useState<string>("basic");
+const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: string }>({
+  logoUrl: "",
+  orgName: "Roomac Co-Living",
+});
+
+useEffect(() => {
+  (async () => {
+    try {
+      const settings: any = await getSettings(); // already { logo_header: {value...}, ... }
+      if (settings && typeof settings === "object") {
+        const logo =
+          settings.logo_header?.value ||
+          settings.logo_admin_sidebar?.value ||
+          settings.logo_footer?.value ||
+          "";
+        const name = settings.site_name?.value || "Roomac Co-Living";
+        const resolvedLogo = logo ? resolveUrl(logo) : "";
+        setOrgSettings({ logoUrl: resolvedLogo, orgName: name });
+      }
+    } catch (e) {
+      console.error("Failed to load org settings for print branding", e);
+    }
+  })();
+}, []);
 
   useEffect(() => {
     if (tid) loadTenant();
@@ -2811,19 +2851,21 @@ const handleUploadDoc = (docType: string) => {
 
           <div className="p-4">
             {activeTab === "overview" && (
-              <OverviewTab
-                tenant={tenant}
-                assignment={assignment}
-                    paymentSummary={paymentSummary}
- payments={payments} 
-                onIdCard={() => setShowIdCard(true)}
-                onEdit={handleEdit}
-                copiedEmail={copiedEmail}
-                copiedPhone={copiedPhone}
-                onCopyEmail={handleCopyEmail}
-                onCopyPhone={handleCopyPhone}
-              />
-            )}
+  <OverviewTab
+    tenant={tenant}
+    assignment={assignment}
+    paymentSummary={paymentSummary}
+    payments={payments}
+    onIdCard={() => setShowIdCard(true)}
+    onEdit={handleEdit}
+    copiedEmail={copiedEmail}
+    copiedPhone={copiedPhone}
+    onCopyEmail={handleCopyEmail}
+    onCopyPhone={handleCopyPhone}
+    orgLogo={orgSettings.logoUrl}
+    orgName={orgSettings.orgName}
+  />
+)}
 {activeTab === "documents" && (
   <DocumentsTab tenant={tenant} onView={viewDoc} onUpload={handleUploadDoc} />
 )}            {activeTab === "payments" && (
@@ -2837,8 +2879,8 @@ const handleUploadDoc = (docType: string) => {
             )}
             {activeTab === "partner" && <PartnerTab partnerDetails={partnerDetails} onView={viewDoc} />}
 {activeTab === "history" && (
-  <HistoryTab tenant={tenant} />
-)}        </div>
+  <HistoryTab tenant={tenant} orgLogo={orgSettings.logoUrl} orgName={orgSettings.orgName} />
+)}       </div>
         </div>
       </div>
 
