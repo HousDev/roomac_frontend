@@ -991,7 +991,7 @@ if (hasPartner && isCurrentlyCoupleBooking) {
 
       // In loadInitialData function, after setting initialData:
       if (data.bedAssignment && data.bedAssignment.tenant_id) {
-  await fetchInspectionPenalty(data.bedAssignment.tenant_id, data.bedAssignment.check_in_date);
+  await fetchInspectionPenalty(data.bedAssignment.tenant_id, data.bedAssignment.check_in_date?.split("T")[0]);
 }
 
       if (data.bedAssignment) {

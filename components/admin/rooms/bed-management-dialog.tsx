@@ -117,6 +117,7 @@ interface Tenant {
   is_vacated?: boolean;
   partner_is_active?: boolean;
   partner_has_vacated?: boolean;
+  partner_of_assigned_bed_number?: number | null;   // ✅ NEW
 }
 
 interface ApiResult<T = any> {
@@ -266,8 +267,18 @@ function TenantSelectDropdown({
   const [vacatedTenants, setVacatedTenants] = useState<Set<number>>(new Set());
 
   // Filter only unassigned tenants AND NOT partners of already assigned tenants
+  // Filter only unassigned tenants AND NOT partners of already assigned
+  // tenants — UNLESS the partner is linked to THIS SAME bed (i.e. they're
+  // the other half of the couple already occupying this exact bed), in
+  // which case they must remain selectable so the bed's own dropdown can
+  // still assign/re-assign them and pick up their partner details.
   const unassignedTenants = tenants.filter(
-    (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned,
+    (tenant) =>
+      !tenant.is_assigned &&
+      !(
+        tenant.is_partner_of_assigned &&
+        tenant.partner_of_assigned_bed_number !== bedNumber
+      ),
   );
 
   // Filter based on room preferences
@@ -1769,12 +1780,12 @@ const handlePreAssign = async (
         }),
       );
 
-      const propertyRoomsResponse = await request<ApiResult<any>>(
+    const propertyRoomsResponse = await request<ApiResult<any>>(
         `/api/rooms/property/${room.property_id}`
       );
       
       let allAssignedTenantIds = new Set<number>();
-      let assignedCoupleIds = new Set<number>();
+      let coupleIdToBedNumber = new Map<number, number>(); // ✅ was assignedCoupleIds Set
       
       if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
         const propertyRooms = propertyRoomsResponse.data;
@@ -1787,7 +1798,7 @@ const handlePreAssign = async (
               
               const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
               if (assignedTenant?.couple_id) {
-                assignedCoupleIds.add(assignedTenant.couple_id);
+                coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
               }
             }
           }
@@ -1803,7 +1814,7 @@ const handlePreAssign = async (
           allAssignedTenantIds.add(assignment.tenant_id);
           const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
           if (assignedTenant?.couple_id) {
-            assignedCoupleIds.add(assignedTenant.couple_id);
+            coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
           }
         }
       }
@@ -1812,14 +1823,21 @@ const handlePreAssign = async (
         const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
         
         let isPartnerOfAssigned = false;
+        let partnerOfAssignedBedNumber: number | null = null;
+
         if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
-          isPartnerOfAssigned = assignedCoupleIds.has(tenant.couple_id);
+          const bedNum = coupleIdToBedNumber.get(tenant.couple_id);
+          if (bedNum !== undefined) {
+            isPartnerOfAssigned = true;
+            partnerOfAssignedBedNumber = bedNum; // ✅ NEW
+          }
         }
         
         return {
           ...tenant,
           is_assigned: hasActiveAssignment,
           is_partner_of_assigned: isPartnerOfAssigned,
+          partner_of_assigned_bed_number: partnerOfAssignedBedNumber, // ✅ NEW
         };
       });
 
