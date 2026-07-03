@@ -1691,7 +1691,7 @@ useEffect(() => {
         </div>
 
         {/* Name + Contact inline */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-[10px] font-semibold text-gray-500">Name</Label>
             <Input
@@ -1710,7 +1710,7 @@ useEffect(() => {
               className="h-7 text-xs"
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Divider */}
         <div className="border-t border-dashed border-gray-200 pt-2">
