@@ -7,6 +7,8 @@ import {
   CheckSquare, Square, LogOut, UserPlus, X, RefreshCw,
   Filter, Eye, Trash2, Ban, Search, FileText, Loader2,
   ShieldCheck, Building, ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button }  from "@/components/ui/button";
 import { Input }   from "@/components/ui/input";
@@ -83,6 +85,16 @@ export function VisitorLogs() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [guardName, setGuardName] = useState('Security Guard');
 const { can } = useAuth();
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 'All'] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | 'All'>(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
+
+const [entryDateFrom, setEntryDateFrom] = useState('');
+const [entryDateTo, setEntryDateTo] = useState('');
+const [exitDateFrom, setExitDateFrom] = useState('');
+const [exitDateTo, setExitDateTo] = useState('');
 
   // filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -100,33 +112,48 @@ const { can } = useAuth();
   const [stats, setStats] = useState({ total: 0, checked_in: 0, checked_out: 0, overstayed: 0, checked_out_today: 0 });
 
   // ── Load ───────────────────────────────────────────────────────────────
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const filters: any = {};
-      if (statusFilter !== 'all')   filters.status      = statusFilter;
-      if (propertyFilter !== 'all') filters.property_id = propertyFilter;
+const loadAll = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === 'All' ? 999999 : pageSize;
+    const filters: any = { page, limit };
 
-      const [visRes, stRes] = await Promise.all([
-        getVisitors(filters),
-        getVisitorStats(),
-      ]);
-      setLogs(visRes.data || []);
-      setStats({
-        total:            stRes.data.total          || 0,
-        checked_in:       stRes.data.checked_in     || 0,
-        checked_out:      stRes.data.checked_out    || 0,
-        overstayed:       stRes.data.overstayed     || 0,
-        checked_out_today: stRes.data.checked_out_today || 0,
-      });
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to load visitor logs');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, propertyFilter]);
+    // Existing filters
+    if (statusFilter !== 'all') filters.status = statusFilter;
+    if (propertyFilter !== 'all') filters.property_id = propertyFilter;
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+    // ── NEW: Date filters ──
+    if (entryDateFrom) filters.entry_date_from = entryDateFrom;
+    if (entryDateTo)   filters.entry_date_to   = entryDateTo;
+    if (exitDateFrom)  filters.exit_date_from  = exitDateFrom;
+    if (exitDateTo)    filters.exit_date_to    = exitDateTo;
+
+    const [visRes, stRes] = await Promise.all([
+      getVisitors(filters),
+      getVisitorStats(),
+    ]);
+
+    const data = visRes.data || [];
+    setLogs(data);
+    setTotalItems(visRes.pagination?.totalItems ?? data.length);
+    setTotalPages(visRes.pagination?.totalPages ?? Math.ceil(data.length / (pageSize === 'All' ? data.length : pageSize)));
+    setCurrentPage(page);
+
+    setStats({
+      total: stRes.data.total || 0,
+      checked_in: stRes.data.checked_in || 0,
+      checked_out: stRes.data.checked_out || 0,
+      overstayed: stRes.data.overstayed || 0,
+      checked_out_today: stRes.data.checked_out_today || 0,
+    });
+  } catch (err: any) {
+    toast.error(err?.message || 'Failed to load visitor logs');
+  } finally {
+    setLoading(false);
+  }
+}, [statusFilter, propertyFilter, pageSize, currentPage, entryDateFrom, entryDateTo, exitDateFrom, exitDateTo]);
+
+  useEffect(() => { loadAll(1); }, [loadAll]);
 
   // ── Unique properties for filter ───────────────────────────────────────
   const uniqueProperties = useMemo(() => {
@@ -143,19 +170,50 @@ const { can } = useAuth();
   }, [logs]);
 
   // ── Column search filter ───────────────────────────────────────────────
-  const filteredItems = useMemo(() => {
-    return logs.filter(h => {
-      const cs = colSearch;
-      const vn = !cs.visitor_name  || h.visitor_name?.toLowerCase().includes(cs.visitor_name.toLowerCase());
-      const vp = !cs.visitor_phone || h.visitor_phone?.includes(cs.visitor_phone);
-      const tn = !cs.tenant_name   || h.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
-      const pn = !cs.property_name || h.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
-      const rn = !cs.room_number   || h.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
-      const st = !cs.status        || h.status?.toLowerCase().includes(cs.status.toLowerCase());
-      const et = !cs.entry_time    || fmt(h.entry_time).toLowerCase().includes(cs.entry_time.toLowerCase());
-      return vn && vp && tn && pn && rn && st && et;
-    });
-  }, [logs, colSearch]);
+const filteredItems = useMemo(() => {
+  return logs.filter(h => {
+    const cs = colSearch;
+    const vn = !cs.visitor_name  || h.visitor_name?.toLowerCase().includes(cs.visitor_name.toLowerCase());
+    const vp = !cs.visitor_phone || h.visitor_phone?.includes(cs.visitor_phone);
+    const tn = !cs.tenant_name   || h.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
+    const pn = !cs.property_name || h.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
+    const rn = !cs.room_number   || h.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
+    const st = !cs.status        || h.status?.toLowerCase().includes(cs.status.toLowerCase());
+    const et = !cs.entry_time    || fmt(h.entry_time).toLowerCase().includes(cs.entry_time.toLowerCase());
+
+    // ── NEW: Date filters (client‑side) ──
+    let entryOk = true;
+    let exitOk = true;
+    if (entryDateFrom) {
+      const entryDate = new Date(h.entry_time);
+      const from = new Date(entryDateFrom);
+      if (entryDate < from) entryOk = false;
+    }
+    if (entryDateTo) {
+      const entryDate = new Date(h.entry_time);
+      const to = new Date(entryDateTo);
+      to.setHours(23, 59, 59, 999); // include full day
+      if (entryDate > to) entryOk = false;
+    }
+    if (exitDateFrom) {
+      const exitDate = h.exit_time ? new Date(h.exit_time) : null;
+      if (exitDate) {
+        const from = new Date(exitDateFrom);
+        if (exitDate < from) exitOk = false;
+      }
+    }
+    if (exitDateTo) {
+      const exitDate = h.exit_time ? new Date(h.exit_time) : null;
+      if (exitDate) {
+        const to = new Date(exitDateTo);
+        to.setHours(23, 59, 59, 999);
+        if (exitDate > to) exitOk = false;
+      }
+    }
+
+    return vn && vp && tn && pn && rn && st && et && entryOk && exitOk;
+  });
+}, [logs, colSearch, entryDateFrom, entryDateTo, exitDateFrom, exitDateTo]);
 
   // ── Selection ──────────────────────────────────────────────────────────
   const toggleSelectAll = () => {
@@ -183,33 +241,69 @@ const { can } = useAuth();
   };
 
   // ── Bulk check out ─────────────────────────────────────────────────────
-  const handleBulkCheckOut = async () => {
-    if (selectedItems.size === 0) { toast.error('Select visitors first'); return; }
-    if (!guardName) { toast.error('Enter guard name'); return; }
+ const handleBulkCheckOut = async () => {
+  if (selectedItems.size === 0) { toast.error('Select visitors first'); return; }
+  if (!guardName) { toast.error('Enter guard name'); return; }
 
-    const result = await Swal.fire({
-      title: 'Bulk Check Out?',
-      text: `Check out ${selectedItems.size} visitor(s)?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, check out!',
-      width: '360px',
-      customClass: { popup: 'rounded-xl shadow-2xl' },
-    });
-    if (!result.isConfirmed) return;
+  const result = await Swal.fire({
+    title: 'Bulk Check Out?',
+    text: `Check out ${selectedItems.size} visitor(s)?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, check out!',
+    cancelButtonText: 'Cancel',
+    width: '380px',
+    padding: '1.5rem',
+    buttonsStyling: false,
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      title: 'text-lg font-bold text-gray-800',
+      htmlContainer: 'text-sm text-gray-600 my-2',
+      confirmButton: 'px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4',
+    },
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+      if (confirmBtn) {
+        confirmBtn.style.background = '#2563eb';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 20px';
+        confirmBtn.style.borderRadius = '8px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.fontSize = '14px';
+        confirmBtn.style.border = 'none';
+        confirmBtn.style.cursor = 'pointer';
+        confirmBtn.style.display = 'inline-block';
+      }
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 20px';
+        cancelBtn.style.borderRadius = '8px';
+        cancelBtn.style.fontWeight = '600';
+        cancelBtn.style.fontSize = '14px';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.marginRight = '8px';
+      }
+    },
+  });
 
-    try {
-      await bulkCheckOut(Array.from(selectedItems), guardName);
-      toast.success(`${selectedItems.size} visitor(s) checked out`);
-      setSelectedItems(new Set());
-      setSelectAll(false);
-      loadAll();
-    } catch (err: any) {
-      toast.error(err?.message || 'Bulk check out failed');
-    }
-  };
+  if (!result.isConfirmed) return;
+
+  try {
+    await bulkCheckOut(Array.from(selectedItems), guardName);
+    toast.success(`${selectedItems.size} visitor(s) checked out`);
+    setSelectedItems(new Set());
+    setSelectAll(false);
+    loadAll();
+  } catch (err: any) {
+    toast.error(err?.message || 'Bulk check out failed');
+  }
+};
 
   // ── Delete ─────────────────────────────────────────────────────────────
   const handleDelete = async (id: string, name?: string) => {
@@ -667,10 +761,29 @@ const handleExport = () => {
   }
 };
 
-  const hasFilters   = statusFilter !== 'all' || propertyFilter !== 'all';
+const hasFilters = statusFilter !== 'all' ||
+                   propertyFilter !== 'all' ||
+                   !!entryDateFrom ||
+                   !!entryDateTo ||
+                   !!exitDateFrom ||
+                   !!exitDateTo;
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const activeCount  = [statusFilter !== 'all', propertyFilter !== 'all'].filter(Boolean).length;
-  const clearFilters    = () => { setStatusFilter('all'); setPropertyFilter('all'); };
+const activeCount = [
+  statusFilter !== 'all',
+  propertyFilter !== 'all',
+  !!entryDateFrom,
+  !!entryDateTo,
+  !!exitDateFrom,
+  !!exitDateTo,
+].filter(Boolean).length;
+const clearFilters = () => {
+  setStatusFilter('all');
+  setPropertyFilter('all');
+  setEntryDateFrom('');
+  setEntryDateTo('');
+  setExitDateFrom('');
+  setExitDateTo('');
+};
   const clearColSearch  = () => setColSearch({ visitor_name: '', visitor_phone: '', tenant_name: '', property_name: '', room_number: '', status: '', entry_time: '' });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -678,432 +791,629 @@ const handleExport = () => {
 <div className="bg-gray-50 flex flex-col">
 
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <div className="sticky top-20 z-10 ">
-          {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-            <StatCard title="Total Visitors"    value={stats.total}             icon={Users}        color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Checked In"        value={stats.checked_in}        icon={CheckCircle}  color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Overstayed"        value={stats.overstayed}        icon={AlertCircle}  color="bg-red-600"    bg="bg-gradient-to-br from-red-50 to-red-100" />
-            <StatCard title="Checked Out Today" value={stats.checked_out_today} icon={XCircle}      color="bg-gray-600"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
-            <StatCard title="Total Checked Out" value={stats.checked_out}       icon={ShieldCheck}  color="bg-cyan-600"   bg="bg-gradient-to-br from-cyan-50 to-cyan-100" />
-          </div>
-        </div>
-        <div className="px-0 sm:px-0 pt-0  pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
- <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200 hover:bg-gray-50'}`}>
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeCount > 0 && (
-                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
-                  {activeCount}
-                </span>
-              )}
-            </button>
+   <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 flex-1">
+      <StatCard
+        title="Total Visitors"
+        value={stats.total}
+        icon={Users}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
-          {can('export_visitor_logs') && (
-            <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-          )}
+      <StatCard
+        title="Checked In"
+        value={stats.checked_in}
+        icon={CheckCircle}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
 
-           
+      <StatCard
+        title="Overstayed"
+        value={stats.overstayed}
+        icon={AlertCircle}
+        color="bg-red-600"
+        bg="bg-gradient-to-br from-red-50 to-red-100"
+      />
 
-            {can('create_visitor') && (
+      <StatCard
+        title="Checked Out Today"
+        value={stats.checked_out_today}
+        icon={XCircle}
+        color="bg-gray-600"
+        bg="bg-gradient-to-br from-gray-50 to-gray-100"
+      />
 
-            <button onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-cyan-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="xs:inline">New Visitor</span>
-            </button>
-            )}
-          </div>
-        </div>
+      <StatCard
+        title="Total Checked Out"
+        value={stats.checked_out}
+        icon={ShieldCheck}
+        color="bg-cyan-600"
+        bg="bg-gradient-to-br from-cyan-50 to-cyan-100"
+      />
+    </div>
 
-      
-      </div>
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Filters</span>
+
+        {activeCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+              ${
+                sidebarOpen || hasFilters
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-600 text-white"
+              }`}
+          >
+            {activeCount}
+          </span>
+        )}
+      </button>
+
+      {can("export_visitor_logs") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_visitor") && (
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-cyan-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>New Visitor</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* ── BODY ────────────────────────────────────────────────────────── */}
       <div className="relative">
-        <main className="p-0 sm:p-0 ">
+      <main className="p-0 sm:p-0">
 
-          {/* Guard name + bulk actions bar */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-gray-400" />
-              <Input
-                placeholder="Guard name for checkout…"
-                value={guardName}
-                onChange={e => setGuardName(e.target.value)}
-                className="h-7 text-[11px] w-44 border-gray-200 bg-white"
-              />
-            </div>
-            {selectedItems.size > 0 && (
-              <div className="flex items-center gap-1.5 ml-auto flex-wrap">
-                <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded-lg">
-                  {selectedItems.size} selected
-                </span>
-                    {can('checkout_visitor') && (
+  {/* ── Guard name + bulk actions bar (unchanged) ── */}
+  <div className="flex flex-wrap items-center gap-2 mb-3">
+    <div className="flex items-center gap-1.5">
+      <ShieldCheck className="h-3.5 w-3.5 text-gray-400" />
+      <Input
+        placeholder="Guard name for checkout…"
+        value={guardName}
+        onChange={e => setGuardName(e.target.value)}
+        className="h-7 text-[11px] w-44 border-gray-200 bg-white"
+      />
+    </div>
+    {selectedItems.size > 0 && (
+      <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+        <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded-lg">
+          {selectedItems.size} selected
+        </span>
+        {can('checkout_visitor') && (
+          <Button size="sm" onClick={handleBulkCheckOut}
+            className="h-7 text-[10px] px-2.5 bg-blue-600 hover:bg-blue-700 text-white gap-1">
+            <LogOut className="h-3 w-3" /> Bulk Check Out
+          </Button>
+        )}
+        {can('delete_visitor_logs') && (
+          <Button size="sm" variant="destructive" onClick={handleBulkDelete}
+            className="h-7 text-[10px] px-2.5 bg-red-600 hover:bg-red-700 gap-1">
+            <Trash2 className="h-3 w-3" /> Delete Selected
+          </Button>
+        )}
+      </div>
+    )}
+  </div>
 
-                <Button size="sm" onClick={handleBulkCheckOut}
-                  className="h-7 text-[10px] px-2.5 bg-blue-600 hover:bg-blue-700 text-white gap-1">
-                  <LogOut className="h-3 w-3" /> Bulk Check Out
-                </Button>
-                    )}
-                        {can('delete_visitor_logs') && (
+  {/* ── CARD with compact table ── */}
+  <Card className="border rounded-lg shadow-sm overflow-hidden">
+    <div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>
+      <div className="overflow-auto flex-1 min-h-0">
+        <table
+          className="border-collapse text-[11px] font-sans"
+          style={{ tableLayout: 'fixed', minWidth: '1100px', width: '100%' }}
+        >
+          <colgroup>
+            <col style={{ width: '34px' }} />   {/* checkbox */}
+            <col style={{ width: '120px' }} />  {/* Visitor Name */}
+            <col style={{ width: '100px' }} />  {/* Phone */}
+            <col style={{ width: '120px' }} />  {/* Tenant */}
+            <col style={{ width: '130px' }} />  {/* Property */}
+            <col style={{ width: '80px' }} />   {/* Room */}
+            <col style={{ width: '130px' }} />  {/* Entry Time */}
+            <col style={{ width: '130px' }} />  {/* Exit / Expected */}
+            <col style={{ width: '100px' }} />  {/* Purpose */}
+            <col style={{ width: '90px' }} />   {/* Status */}
+            <col style={{ width: '130px' }} />  {/* Actions */}
+          </colgroup>
 
-                <Button size="sm" variant="destructive" onClick={handleBulkDelete}
-                  className="h-7 text-[10px] px-2.5 bg-red-600 hover:bg-red-700 gap-1">
-                  <Trash2 className="h-3 w-3" /> Delete Selected
-                </Button>
+          <thead className="sticky top-0 z-10">
+            {/* Header row */}
+            <tr className="bg-gray-200 border-b border-gray-300">
+              <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                <input
+                  type="checkbox"
+                  checked={selectAll && filteredItems.length > 0}
+                  onChange={toggleSelectAll}
+                  className="w-3.5 h-3.5 cursor-pointer"
+                />
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Visitor</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Phone</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Entry Time</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Exit / Expected</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Purpose</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              </th>
+              <th className="px-1.5 py-1.5 text-right bg-gray-200">
+                <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+              </th>
+            </tr>
+
+            {/* Search row */}
+            <tr className="bg-white border-b border-gray-300">
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.visitor_name}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, visitor_name: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.visitor_phone}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, visitor_phone: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.tenant_name}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, tenant_name: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.property_name}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, property_name: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.room_number}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, room_number: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Search…"
+                  value={colSearch.entry_time}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, entry_time: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200" />
+              <td className="p-1 border-r border-gray-200">
+                <input
+                  placeholder="Status…"
+                  value={colSearch.status}
+                  onChange={(e) => setColSearch(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                />
+              </td>
+              <td className="p-1" />
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={11} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Loading visitor logs…</p>
+                </td>
+              </tr>
+            ) : filteredItems.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="text-center py-12">
+                  <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-500">No visitor logs found</p>
+                  <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                </td>
+              </tr>
+            ) : (
+              filteredItems.map(log => (
+                <tr key={log.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(log.id)}
+                      onChange={() => toggleSelectItem(log.id)}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5 border-r border-slate-200">
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <p className={`text-xs font-semibold ${log.is_blocked ? 'text-red-600' : 'text-gray-800'}`}>
+                          {log.visitor_name}
+                        </p>
+                        {log.is_blocked === 1 && (
+                          <span className="inline-flex items-center gap-0.5 bg-red-100 text-red-700 text-[8px] font-bold px-1 py-0.5 rounded">
+                            <Ban className="h-2 w-2" /> BLOCKED
+                          </span>
                         )}
-              </div>
+                      </div>
+                      {log.qr_code && (
+                        <p className="text-[9px] text-blue-600 font-mono mt-0.5">{log.qr_code}</p>
+                      )}
+                      {log.is_blocked === 1 && log.block_reason && (
+                        <p className="text-[8px] text-red-400 mt-0.5 truncate max-w-[120px]" title={log.block_reason}>
+                          {log.block_reason}
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                    {log.visitor_phone}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-700 font-medium border-r border-slate-200">
+                    {log.tenant_name}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200 truncate max-w-[130px]">
+                    {log.property_name}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                    {log.room_number}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                    {fmt(log.entry_time)}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs border-r border-slate-200">
+                    {log.exit_time ? (
+                      <span className="text-gray-600">{fmt(log.exit_time)}</span>
+                    ) : log.tentative_exit_time ? (
+                      <span className="text-orange-600 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {fmt(log.tentative_exit_time)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                    {log.purpose}
+                  </td>
+                  <td className="px-1.5 py-1.5 border-r border-slate-200">
+                    <Badge className={`text-[9px] px-1.5 font-bold ${statusColor(log.status)}`}>
+                      {statusLabel(log.status)}
+                    </Badge>
+                  </td>
+                  <td className="px-1.5 py-1.5 text-right">
+                    <div className="flex justify-end items-center gap-0.5 flex-nowrap">
+                      {can('view_visitor_logs') && (
+                        <button
+                          title="View"
+                          className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                          onClick={() => setViewItem(log)}
+                        >
+                          <Eye size={12} />
+                        </button>
+                      )}
+                      {can('checkout_visitor') && (log.status === 'checked_in' || log.status === 'overstayed') && !log.is_blocked && (
+                        <button
+                          title="Check Out"
+                          className="w-6 h-6 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-50 flex items-center justify-center transition-colors"
+                          onClick={() => handleCheckOut(log.id)}
+                        >
+                          <LogOut size={12} />
+                        </button>
+                      )}
+                      {can('block_visitor') && log.is_blocked === 1 ? (
+                        <button
+                          title="Unblock Visitor"
+                          className="w-6 h-6 rounded-lg text-green-700 hover:text-green-800 hover:bg-green-100 flex items-center justify-center transition-colors"
+                          onClick={() => handleUnblock(log)}
+                        >
+                          <ShieldCheck size={12} />
+                        </button>
+                      ) : can('block_visitor') ? (
+                        <button
+                          title="Block Visitor"
+                          className="w-6 h-6 rounded-lg text-orange-600 hover:text-orange-700 hover:bg-orange-50 flex items-center justify-center transition-colors"
+                          onClick={() => handleBlock(log)}
+                        >
+                          <Ban size={12} />
+                        </button>
+                      ) : null}
+                      {can('delete_visitor_logs') && (
+                        <button
+                          title="Delete"
+                          className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                          onClick={() => handleDelete(log.id, log.visitor_name)}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Pagination Footer ── */}
+      {!loading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Show</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(val) => {
+                const newSize = val === 'All' ? 'All' : Number(val);
+                setPageSize(newSize as any);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                <SelectValue>{pageSize}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>entries</span>
+            <span className="ml-2">
+              Showing {(currentPage - 1) * (pageSize === 'All' ? totalItems : pageSize) + 1}–
+              {Math.min(currentPage * (pageSize === 'All' ? totalItems : pageSize), totalItems)} of {totalItems}
+            </span>
           </div>
 
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                All Visitor Logs ({filteredItems.length})
-                {selectedItems.size > 0 && (
-                  <span className="ml-2 text-blue-600 text-xs">({selectedItems.size} selected)</span>
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                {hasColSearch && (
-                  <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold hover:underline">
-                    Clear Search
-                  </button>
-                )}
-              </div>
-            </div>
-
-<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[250px] md:max-h-[450px]'
-    : 'max-h-[280px] md:max-h-[400px]'
-}`}>
-  <div className="min-w-[1100px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 text-xs w-8">
-                        <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
-                          {selectAll
-                            ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-                            : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Visitor</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Phone</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Tenant</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Room</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Entry Time</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Exit / Expected</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Purpose</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                    </TableRow>
-
-                    {/* Column search row */}
-                    <TableRow className="bg-gray-50/80">
-                      <TableCell className="py-1 px-2" />
-                      {[
-                        { key: 'visitor_name',  ph: 'Visitor…' },
-                        { key: 'visitor_phone', ph: 'Phone…' },
-                        { key: 'tenant_name',   ph: 'Tenant…' },
-                        { key: 'property_name', ph: 'Property…' },
-                        { key: 'room_number',   ph: 'Room…' },
-                        { key: 'entry_time',    ph: 'Entry…' },
-                        { key: null, ph: '' },
-                        { key: null, ph: '' },
-                        { key: 'status',        ph: 'Status…' },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input
-                              placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(p => ({ ...p, [col.key!]: e.target.value }))}
-                              className="h-6 text-[10px]"
-                            />
-                          ) : <div />}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading visitor logs…</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-12">
-                          <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No visitor logs found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.map(log => (
-                      <TableRow key={log.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3">
-                          <button onClick={() => toggleSelectItem(log.id)} className="p-1 hover:bg-gray-200 rounded">
-                            {selectedItems.has(log.id)
-                              ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-                              : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                          </button>
-                        </TableCell>
-
-                       <TableCell className="py-2 px-3">
-  <div>
-    <div className="flex items-center gap-1">
-      <p className={`text-xs font-semibold ${log.is_blocked ? 'text-red-600' : 'text-gray-800'}`}>
-        {log.visitor_name}
-      </p>
-      {log.is_blocked === 1 && (
-        <span className="inline-flex items-center gap-0.5 bg-red-100 text-red-700 text-[8px] font-bold px-1 py-0.5 rounded">
-          <Ban className="h-2 w-2" /> BLOCKED
-        </span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => loadAll(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum = i + 1;
+              if (totalPages > 5) {
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  size="sm"
+                  variant={currentPage === pageNum ? 'default' : 'outline'}
+                  onClick={() => loadAll(pageNum)}
+                  className={`h-6 w-6 p-0 text-[10px] ${
+                    currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : ''
+                  }`}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => loadAll(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
-    {log.qr_code && (
-      <p className="text-[9px] text-blue-600 font-mono mt-0.5">{log.qr_code}</p>
-    )}
-    {log.is_blocked === 1 && log.block_reason && (
-      <p className="text-[8px] text-red-400 mt-0.5 truncate max-w-[120px]" title={log.block_reason}>
-        {log.block_reason}
-      </p>
-    )}
-  </div>
-</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{log.visitor_phone}</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-700 font-medium">{log.tenant_name}</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[130px] truncate">{log.property_name}</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{log.room_number}</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{fmt(log.entry_time)}</TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs">
-                          {log.exit_time ? (
-                            <span className="text-gray-600">{fmt(log.exit_time)}</span>
-                          ) : log.tentative_exit_time ? (
-                            <span className="text-orange-600 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {fmt(log.tentative_exit_time)}
-                            </span>
-                          ) : <span className="text-gray-400">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">{log.purpose}</TableCell>
-
-                        <TableCell className="py-2 px-3">
-                          <Badge className={`text-[9px] px-1.5 font-bold ${statusColor(log.status)}`}>
-                            {statusLabel(log.status)}
-                          </Badge>
-                        </TableCell>
-<TableCell className="py-2 px-3">
-  <div className="flex justify-end items-center gap-1 flex-nowrap">
-
-    {/* View */}
-    {can('view_visitor_logs') && (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0 flex items-center justify-center text-blue-600 hover:bg-blue-500 rounded-md"
-      onClick={() => setViewItem(log)}
-      title="View"
-    >
-      <Eye className="h-3.5 w-3.5" />
-    </Button>
-    )}
-
-    {/* Check Out — only if active */}
-    {can('checkout_visitor') && (log.status === 'checked_in' || log.status === 'overstayed') && !log.is_blocked && (
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-1.5 flex items-center gap-1 text-green-600 hover:bg-green-500 hover:text-green-700 rounded-md text-[10px]"
-        onClick={() => handleCheckOut(log.id)}
-        title="Check Out"
-      >
-        <LogOut className="h-3.5 w-3.5" />
-        <span className="hidden md:inline">Check Out</span>
-      </Button>
-    )}
-
-    {/* UNBLOCK — show if blocked */}
-    {can('block_visitor') && log.is_blocked === 1 ? (
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-1.5 flex items-center gap-1 text-green-700 hover:bg-green-900 hover:text-green-900 rounded-md text-[10px] border border-green-300 bg-green-50"
-        onClick={() => handleUnblock(log)}
-        title="Unblock Visitor"
-      >
-        <ShieldCheck className="h-3.5 w-3.5" />
-        <span className="hidden md:inline">Unblock</span>
-      </Button>
-    ) : can('block_visitor') ? (
-      /* BLOCK — show if not blocked */
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-1.5 flex items-center gap-1 text-orange-600 hover:bg-orange-500 rounded-md text-[10px]"
-        onClick={() => handleBlock(log)}
-        title="Block Visitor"
-      >
-        <Ban className="h-3.5 w-3.5" />
-        <span className="hidden md:inline">Block</span>
-      </Button>
-    ) : null}
-
-    {/* Delete */}
-        {can('delete_visitor_logs') && (
-
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0 flex items-center justify-center text-red-500 hover:bg-red-500 rounded-md"
-      onClick={() => handleDelete(log.id, log.visitor_name)}
-      title="Delete"
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </Button>
-        )}
-
-  </div>
-</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </Card>
-        </main>
+  </Card>
+</main>
 
         {/* ── FILTER DRAWER ──────────────────────────────────────────── */}
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
         )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-cyan-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {activeCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+       <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
+  transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+  <div className="bg-gradient-to-r from-blue-700 to-cyan-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {hasFilters && (
+        <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+          {activeCount} active
+        </span>
+      )}
+    </div>
+    <div className="flex items-center gap-2">
+      {hasFilters && (
+        <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+          Clear all
+        </button>
+      )}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            {/* Status filter */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {(['all', 'checked_in', 'checked_out', 'overstayed'] as StatusFilter[]).map(s => (
-                  <label key={s} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${statusFilter === s ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="status" value={s} checked={statusFilter === s}
-                      onChange={() => setStatusFilter(s)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusFilter === s ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium">
-                      {s === 'all' ? 'All Statuses' : statusLabel(s)}
-                    </span>
-                    {statusFilter === s && (
-                      <span className="ml-auto">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
+  <div className="flex-1 overflow-y-auto p-4 space-y-5">
+    {/* Status filter - dropdown */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
+      </p>
+      <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusFilter)}>
+        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+          <SelectValue placeholder="Select status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="checked_in">Checked In</SelectItem>
+          <SelectItem value="checked_out">Checked Out</SelectItem>
+          <SelectItem value="overstayed">Overstayed</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
 
-            <div className="border-t border-gray-100" />
+    <div className="border-t border-gray-100" />
 
-            {/* Property filter */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Building className="h-3 w-3 text-indigo-500" /> Property
-              </p>
-              <div className="space-y-1">
-                {[{ id: 'all', name: 'All Properties' }, ...uniqueProperties].map(p => (
-                  <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${propertyFilter === p.id ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="prop" value={p.id} checked={propertyFilter === p.id}
-                      onChange={() => setPropertyFilter(p.id)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium truncate">{p.name}</span>
-                    {propertyFilter === p.id && (
-                      <span className="ml-auto flex-shrink-0">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+    {/* Property filter - dropdown */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <Building className="h-3 w-3 text-indigo-500" /> Property
+      </p>
+      <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+          <SelectValue placeholder="Select property" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Properties</SelectItem>
+          {uniqueProperties.map((p) => (
+            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-cyan-700">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
+    <div className="border-t border-gray-100" />
+
+    {/* Entry Date Range */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <Clock className="h-3 w-3 text-green-500" /> Entry Date
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+          <Input
+            type="date"
+            value={entryDateFrom}
+            onChange={(e) => setEntryDateFrom(e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        </div>
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+          <Input
+            type="date"
+            value={entryDateTo}
+            onChange={(e) => setEntryDateTo(e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Exit Date Range */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <XCircle className="h-3 w-3 text-red-500" /> Exit Date
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
+          <Input
+            type="date"
+            value={exitDateFrom}
+            onChange={(e) => setExitDateFrom(e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        </div>
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
+          <Input
+            type="date"
+            value={exitDateTo}
+            onChange={(e) => setExitDateTo(e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button onClick={clearFilters} disabled={!hasFilters}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+      Clear All
+    </button>
+    <button onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-semibold hover:from-blue-700 hover:to-cyan-700">
+      Apply & Close
+    </button>
+  </div>
+</aside>
       </div>
 
       {/* ══ NEW VISITOR MODAL ══════════════════════════════════════════════ */}
       <Dialog open={showModal} onOpenChange={v => { if (!v) setShowModal(false); }}>
   <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-    <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
       <div>
         <h2 className="text-sm font-semibold">New Visitor Entry</h2>
         <p className="text-[9px] text-blue-100">Register a new visitor</p>
@@ -1129,8 +1439,8 @@ const handleExport = () => {
      {viewItem && (
   <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
     {/* Width badhayi - max-w-4xl (896px) ya max-w-5xl (1024px) */}
-    <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-      <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+    <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
         <div>
           <h2 className="text-base font-semibold">Visitor Details</h2>
           <p className="text-xs text-blue-100">{viewItem.visitor_name} — {viewItem.property_name}</p>
@@ -1140,7 +1450,7 @@ const handleExport = () => {
         </DialogClose>
       </div>
 
-      <div className="p-4 overflow-y-auto max-h-[75vh] space-y-3">
+      <div className="p-2 overflow-y-auto max-h-[75vh] space-y-3">
         {/* Status badge */}
         <div className="flex items-center justify-between">
           <Badge className={`text-[10px] px-2 py-1 font-bold ${statusColor(viewItem.status)}`}>
@@ -1187,34 +1497,7 @@ const handleExport = () => {
             <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
           </div>
         )}
-
-        {/* Action buttons */}
-        <div className="flex gap-2 pt-1 flex-wrap">
-  {can('checkout_visitor') && (viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
-            <Button onClick={() => { handleCheckOut(viewItem.id); setViewItem(null); }}
-              className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5">
-              <LogOut className="h-3.5 w-3.5" /> Check Out Now
-            </Button>
-          )}
-
-  {can('block_visitor') && (viewItem.is_blocked === 1 ? (
-            <Button
-              onClick={() => { handleUnblock(viewItem); setViewItem(null); }}
-              className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" /> Unblock Visitor
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => { handleBlock(viewItem); setViewItem(null); }}
-              className="h-8 text-[11px] border-red-200 text-red-600 hover:bg-red-50 gap-1.5"
-            >
-              <Ban className="h-3.5 w-3.5" /> Block
-            </Button>
-          ))}
-
-          {/* Blocked reason shown in modal */}
+         {/* Blocked reason shown in modal */}
           {viewItem.is_blocked === 1 && viewItem.block_reason && (
             <div className="w-full bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               <p className="text-[9px] font-bold text-red-700">Block Reason</p>
@@ -1224,6 +1507,34 @@ const handleExport = () => {
               )}
             </div>
           )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2 pt-1 flex-wrap">
+  {can('checkout_visitor') && (viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
+            <Button onClick={() => { handleCheckOut(viewItem.id); setViewItem(null); }}
+              className="flex-[2] h-8 text-[11px] bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white gap-1.5">
+              <LogOut className="h-3.5 w-3.5" /> Check Out Now
+            </Button>
+          )}
+
+  {can('block_visitor') && (viewItem.is_blocked === 1 ? (
+            <Button
+              onClick={() => { handleUnblock(viewItem); setViewItem(null); }}
+              className="flex-[2] h-8 text-[11px] bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white gap-1.5"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Unblock Visitor
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => { handleBlock(viewItem); setViewItem(null); }}
+              className="flex-[2] h-8 text-[11px] border-red-200 text-red-600 hover:bg-red-500 gap-1.5"
+            >
+              <Ban className="h-3.5 w-3.5" /> Block
+            </Button>
+          ))}
+
+         
         </div>
       </div>
     </DialogContent>

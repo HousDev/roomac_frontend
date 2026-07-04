@@ -1,7 +1,7 @@
 
 
 // Settlements.tsx
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   Plus, Trash2, Loader2, X, Download, RefreshCw, Filter,
   Eye, Check, ChevronLeft, ChevronRight, Square, CheckSquare,
@@ -126,7 +126,14 @@ export function Settlements() {
   const [formData,      setFormData]      = useState<SettlementPayload>(emptyForm());
   const [stats, setStats] = useState({ total: 0, pending: 0, paid: 0, totalRefund: 0 });
 const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
-  const { can } = useAuth(); // ← ADD THIS
+const [handoverSelectOpen, setHandoverSelectOpen] = useState(false);
+const handoverSearchRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (handoverSelectOpen) {
+    requestAnimationFrame(() => handoverSearchRef.current?.focus());
+  }
+}, [handoverSelectOpen]);  const { can } = useAuth(); // ← ADD THIS
 
   // ── Pagination state (client‑side) ──
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
@@ -1170,7 +1177,7 @@ const clearFilters = () => {
       {/* ADD / EDIT DIALOG */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Settlement' : 'New Settlement'}</h2>
               <p className="text-xs text-blue-100">Step {step} of 2 — {step === 1 ? 'Tenant & Property' : 'Financials & Payment'}</p>
@@ -1196,8 +1203,10 @@ const clearFilters = () => {
               <>
                 <div>
                   <SH icon={<Receipt className="h-3 w-3"/>} title="Active Tenant Handover"/>
-                 <Select 
+             <Select 
   value={formData.handover_id || ''} 
+  open={handoverSelectOpen}
+  onOpenChange={setHandoverSelectOpen}
   onValueChange={(v) => {
     handleHandoverSelect(v);
     setHandoverSearchTerm('');
@@ -1206,7 +1215,11 @@ const clearFilters = () => {
   <SelectTrigger className={F}>
     <SelectValue placeholder="select from active handover tenant"/>
   </SelectTrigger>
-  <SelectContent className="max-h-[300px]">
+  <SelectContent
+    position="popper"
+    sideOffset={4}
+    className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+  >
     {/* Search input */}
     <div className="sticky top-0 bg-white p-2 border-b z-10">
       <div className="relative">
@@ -1214,11 +1227,13 @@ const clearFilters = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <Input
+          ref={handoverSearchRef}
           placeholder="Search handovers..."
           className="pl-7 h-7 text-xs"
           value={handoverSearchTerm}
           onChange={(e) => setHandoverSearchTerm(e.target.value)}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         />
       </div>
     </div>
@@ -1363,7 +1378,7 @@ const clearFilters = () => {
                 </Button>
               )}
               <Button disabled={submitting} onClick={handleSubmit}
-                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center gap-1.5">
+                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white flex items-center justify-center gap-1.5">
                 {submitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin"/>Saving…</>
                   : step === 1 ? <>Next <ChevronRight className="h-3.5 w-3.5"/></>
                   : <><Check className="h-3.5 w-3.5"/>{editingItem ? 'Update' : 'Create'} Settlement</>}
@@ -1378,7 +1393,7 @@ const clearFilters = () => {
 {viewItem && (
   <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
     <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
         <div>
           <h2 className="text-base font-semibold">Settlement Details</h2>
           <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>

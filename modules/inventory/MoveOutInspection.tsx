@@ -1,7 +1,7 @@
 
 
 // MoveOutInspection.tsx
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   FileText, Plus, Trash2, Loader2, X, Download,
   Building, IndianRupee, StickyNote, RefreshCw, Filter, 
@@ -213,6 +213,7 @@ export function MoveOutInspection() {
   const [loadingItems, setLoadingItems] = useState(false);
 const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
 const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
+const handoverSearchRef = useRef<HTMLInputElement>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const { can } = useAuth(); // ← ADD THIS
@@ -1171,162 +1172,222 @@ const handleExport = () => {
   }
 };
   // ── PDF Generation ───────────────────────────────────────────────────────────
-  const handleDownloadPDF = () => {
-    if (!viewItem) return;
+const handleDownloadPDF = () => {
+  if (!viewItem) return;
+  try {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
 
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      let yPos = margin;
+    // ── White header ──
+    const headerHeight = 30;
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
 
-      const docId = String(viewItem.id).substring(0, 8).toUpperCase();
+    const yBase = headerHeight / 2 + 2;
 
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('MOVE-OUT INSPECTION REPORT', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Document ID: ${docId}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
-
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 8;
-
-      // Tenant Info
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Tenant Information', margin, yPos);
-      yPos += 6;
-
-      const tenantInfo = [
-        ['Tenant Name:', viewItem.tenant_name],
-        ['Phone:', viewItem.tenant_phone],
-        ['Email:', viewItem.tenant_email || 'N/A'],
-        ['Property:', viewItem.property_name],
-        ['Room:', `${viewItem.room_number}${viewItem.bed_number ? ` / ${viewItem.bed_number}` : ''}`],
-        ['Move-in Date:', fmt(viewItem.move_in_date)],
-      ];
-
-      doc.setFontSize(10);
-      tenantInfo.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(label, margin, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(value), margin + 40, yPos);
-        yPos += 6;
-      });
-      yPos += 4;
-
-      // Inspection Details
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Inspection Details', margin, yPos);
-      yPos += 6;
-
-      const inspectionInfo = [
-        ['Inspection Date:', fmt(viewItem.inspection_date)],
-        ['Inspector:', viewItem.inspector_name],
-        ['Total Penalty:', pdfMoney(viewItem.total_penalty)],
-        ['Status:', viewItem.status],
-      ];
-
-      doc.setFontSize(10);
-      inspectionInfo.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(label, margin, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(value), margin + 40, yPos);
-        yPos += 6;
-      });
-
-      // Items Table
-      if (viewItem.inspection_items && viewItem.inspection_items.length > 0) {
-        yPos += 4;
-        if (yPos > 250) { doc.addPage(); yPos = margin; }
-
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Inspection Checklist (${viewItem.inspection_items.length} Items)`, margin, yPos);
-        yPos += 8;
-
-        const tableData = viewItem.inspection_items.map((item, idx) => [
-          (idx + 1).toString(),
-          item.item_name,
-          item.category,
-          item.quantity.toString(),
-          item.condition_at_movein,
-          item.condition_at_moveout,
-          pdfMoney(item.penalty_amount),
-          item.notes || '-',
-        ]);
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [['#', 'Item Name', 'Category', 'Qty', 'Move-in', 'Move-out', 'Penalty', 'Notes']],
-          body: tableData,
-          theme: 'grid',
-          headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-          margin: { left: margin, right: margin },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // Notes
-      if (viewItem.notes) {
-        if (yPos > 250) { doc.addPage(); yPos = margin; }
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Additional Notes:', margin, yPos);
-        yPos += 6;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        const notesLines = doc.splitTextToSize(viewItem.notes, pageWidth - 2 * margin);
-        doc.text(notesLines, margin, yPos);
-        yPos += notesLines.length * 5 + 10;
-      }
-
-      // Signatures
-      if (yPos > 250) { doc.addPage(); yPos = margin; }
-      yPos += 10;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 10;
-
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Signatures', margin, yPos);
-      yPos += 10;
-
-      const signatureWidth = (pageWidth - 2 * margin - 20) / 3;
-      const signatures = [
-        { name: viewItem.tenant_name, label: 'Tenant Signature', date: fmt(viewItem.inspection_date) },
-        { name: viewItem.inspector_name, label: 'Inspector/Manager', date: fmt(viewItem.inspection_date) },
-        { name: 'Witness', label: 'Witness Signature', date: '__________' },
-      ];
-
-      signatures.forEach((sig, idx) => {
-        const xPos = margin + idx * (signatureWidth + 10);
-        doc.line(xPos, yPos + 15, xPos + signatureWidth, yPos + 15);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(sig.name, xPos + signatureWidth / 2, yPos + 20, { align: 'center' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(sig.label, xPos + signatureWidth / 2, yPos + 25, { align: 'center' });
-        doc.text(`Date: ${sig.date}`, xPos + signatureWidth / 2, yPos + 30, { align: 'center' });
-      });
-
-      const fileName = `MoveOut_Inspection_${viewItem.tenant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      toast.success('PDF downloaded successfully');
-    } catch (err: any) {
-      console.error('PDF generation error:', err);
-      toast.error('Failed to generate PDF: ' + err.message);
+    // Logo — left
+    if (siteSettings?.logo) {
+      try {
+        const imgProps = doc.getImageProperties(siteSettings.logo);
+        const maxW = 26, maxH = 26;
+        const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+        const imgW = imgProps.width * ratio;
+        const imgH = imgProps.height * ratio;
+        doc.addImage(siteSettings.logo, imgProps.fileType || "PNG", margin + (maxW - imgW) / 2, yBase - imgH / 2, imgW, imgH);
+      } catch (e) {}
     }
-  };
+
+    // Heading — center
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(siteSettings?.siteName || "MOVE-OUT INSPECTION", pageWidth / 2, yBase, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Move-Out Inspection Report", pageWidth / 2, yBase + 6, { align: "center" });
+
+    // Doc ID — right
+    const docId = String(viewItem.id).substring(0, 8).toUpperCase();
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text("Document ID", pageWidth - margin, yBase - 3, { align: "right" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text(docId, pageWidth - margin, yBase + 2, { align: "right" });
+
+    let yPos = headerHeight + 4;
+
+    // ── Meta bar ──
+    const metaHeight = 11;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "S");
+
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "bold");
+    doc.text("INSPECTION DATE", margin + 3, yPos + 4);
+    doc.text("PROPERTY", pageWidth / 2 - 20, yPos + 4);
+    doc.text("STATUS", pageWidth - margin - 30, yPos + 4);
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(fmt(viewItem.inspection_date), margin + 3, yPos + 8.5);
+    doc.text(viewItem.property_name || "—", pageWidth / 2 - 20, yPos + 8.5);
+
+    const statusCol: [number, number, number] =
+      viewItem.status === "Approved" || viewItem.status === "Completed" ? [22, 101, 52] :
+      viewItem.status === "Pending" ? [146, 64, 14] : [153, 27, 27];
+    doc.setTextColor(...statusCol);
+    doc.setFont("helvetica", "bold");
+    doc.text(viewItem.status?.toUpperCase() || "—", pageWidth - margin - 30, yPos + 8.5);
+
+    yPos += metaHeight + 4;
+
+    // ── Tenant / Inspector info ──
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "bold");
+    doc.text("TENANT", margin, yPos);
+    doc.text("PHONE", margin + 60, yPos);
+    doc.text("ROOM/BED", margin + 110, yPos);
+    doc.text("INSPECTOR", margin + 150, yPos);
+
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+    doc.setFont("helvetica", "normal");
+    doc.text(viewItem.tenant_name || "—", margin, yPos + 5);
+    doc.text(viewItem.tenant_phone || "—", margin + 60, yPos + 5);
+    doc.text(`${viewItem.room_number}${viewItem.bed_number ? "/" + viewItem.bed_number : ""}`, margin + 110, yPos + 5);
+    doc.text(viewItem.inspector_name || "—", margin + 150, yPos + 5);
+
+    yPos += 14;
+
+    // ── Items table ──
+    if (viewItem.inspection_items && viewItem.inspection_items.length > 0) {
+      const tableData = viewItem.inspection_items.map((item, idx) => [
+        String(idx + 1),
+        item.item_name,
+        item.category,
+        String(item.quantity),
+        item.condition_at_movein,
+        item.condition_at_moveout,
+        `Rs. ${safeNum(item.penalty_amount).toLocaleString("en-IN")}`,
+        item.notes || "-",
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["#", "Item", "Category", "Qty", "Move-in", "Move-out", "Penalty", "Notes"]],
+        body: tableData,
+        theme: "grid",
+        styles: { fontSize: 7.5, cellPadding: 2, textColor: [51, 65, 85] },
+        headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 7.5 },
+        margin: { left: margin, right: margin },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // ── Total penalty ──
+    doc.setDrawColor(203, 213, 225);
+    doc.line(pageWidth - margin - 62, yPos - 2, pageWidth - margin, yPos - 2);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("Total Penalty", pageWidth - margin - 62, yPos + 3);
+    doc.setTextColor(217, 119, 6);
+    doc.text(pdfMoney(viewItem.total_penalty), pageWidth - margin, yPos + 3, { align: "right" });
+    yPos += 12;
+
+    // ── Diagonal watermark ──
+
+doc.saveGraphicsState();
+doc.setGState(new doc.GState({ opacity: 0.09 }));
+doc.setFont("helvetica", "bold");
+doc.setFontSize(56);
+doc.setTextColor(100, 116, 139);
+
+doc.text(
+  (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
+  pageWidth / 2,
+  pageHeight / 2,
+  {
+    align: "center",
+    angle: 30,
+  }
+);
+
+doc.restoreGraphicsState();
+
+    // ── Notes ──
+    if (viewItem.notes) {
+      doc.setFillColor(254, 252, 232);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 14, 2, 2, "F");
+      doc.setFontSize(7);
+      doc.setTextColor(161, 98, 7);
+      doc.setFont("helvetica", "bold");
+      doc.text("NOTES", margin + 3, yPos + 4);
+      doc.setFontSize(8);
+      doc.setTextColor(113, 63, 18);
+      doc.setFont("helvetica", "normal");
+      const notesLines = doc.splitTextToSize(viewItem.notes, pageWidth - margin * 2 - 6);
+      doc.text(notesLines.slice(0, 2), margin + 3, yPos + 9);
+      yPos += 18;
+    }
+
+    // ── Signatures ──
+    if (yPos > 250) { doc.addPage(); yPos = margin; }
+    yPos += 6;
+    const signatureWidth = (pageWidth - 2 * margin - 20) / 3;
+    const signatures = [
+      { name: viewItem.tenant_name, label: "Tenant Signature" },
+      { name: viewItem.inspector_name, label: "Inspector/Manager" },
+      { name: "Witness", label: "Witness Signature" },
+    ];
+    signatures.forEach((sig, idx) => {
+      const xPos = margin + idx * (signatureWidth + 10);
+      doc.setDrawColor(148, 163, 184);
+      doc.line(xPos, yPos + 12, xPos + signatureWidth, yPos + 12);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 41, 59);
+      doc.text(sig.name || "—", xPos + signatureWidth / 2, yPos + 17, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(sig.label, xPos + signatureWidth / 2, yPos + 22, { align: "center" });
+    });
+    yPos += 30;
+
+    // ── Footer ──
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "normal");
+    const footerParts = [siteSettings.phone && `Tel: ${siteSettings.phone}`, siteSettings.email && `Email: ${siteSettings.email}`].filter(Boolean).join("  |  ");
+    if (footerParts) doc.text(footerParts, pageWidth / 2, yPos, { align: "center" });
+    doc.text(`Powered by ${siteSettings.siteName}`, pageWidth / 2, yPos + 4, { align: "center" });
+    doc.text(`Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, pageWidth / 2, yPos + 8, { align: "center" });
+
+    const fileName = `MoveOut_Inspection_${viewItem.tenant_name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+    doc.save(fileName);
+    toast.success("PDF downloaded successfully");
+  } catch (err: any) {
+    console.error("PDF generation error:", err);
+    toast.error("Failed to generate PDF: " + err.message);
+  }
+};
 
   // ── Share WhatsApp ───────────────────────────────────────────────────────────
   const handleShareWhatsApp = () => {
@@ -2045,7 +2106,7 @@ const activeCount = [
       {/* ══ ADD / EDIT DIALOG ════════════════════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Inspection' : 'New Move-Out Inspection'}</h2>
               <p className="text-xs text-blue-100">
@@ -2058,7 +2119,7 @@ const activeCount = [
                   ${currentStep === 1 ? 'bg-white text-blue-700' : 'bg-blue-500 text-white'}`}>
                   {currentStep > 1 ? <Check className="h-3 w-3" /> : '1'}
                 </span>
-                <div className="h-0.5 w-4 bg-blue-400" />
+                <div className="h-0.5 w-4 bg-blue-200" />
                 <span className={`h-6 w-6 rounded-full text-[10px] font-bold flex items-center justify-center
                   ${currentStep === 2 ? 'bg-white text-blue-700' : 'bg-blue-500 text-white opacity-60'}`}>2</span>
               </div>
@@ -2068,7 +2129,7 @@ const activeCount = [
             </div>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-4">
+          <div className="p-2 overflow-y-auto max-h-[75vh] space-y-4">
 
             {/* ── STEP 1 ── */}
             {currentStep === 1 && (
@@ -2082,18 +2143,21 @@ const activeCount = [
       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
     </div>
   ) : (
-    <Select 
+   <Select 
       value={formData.handover_id} 
       onValueChange={(v) => {
         handleHandoverSelect(v);
         setHandoverSearchTerm('');
+      }}
+      onOpenChange={(open) => {
+        if (open) requestAnimationFrame(() => handoverSearchRef.current?.focus());
       }}
     >
       <SelectTrigger className={F}>
         <User className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
         <SelectValue placeholder="Select active handover" />
       </SelectTrigger>
-      <SelectContent className="max-h-[300px]">
+      <SelectContent position="popper" sideOffset={4} className="max-h-[300px] w-[var(--radix-select-trigger-width)]">
         {/* Search input */}
         <div className="sticky top-0 bg-white p-2 border-b z-10">
           <div className="relative">
@@ -2101,11 +2165,13 @@ const activeCount = [
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <Input
+              ref={handoverSearchRef}
               placeholder="Search handovers..."
               className="pl-7 h-7 text-xs"
               value={handoverSearchTerm}
               onChange={(e) => setHandoverSearchTerm(e.target.value)}
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
@@ -2199,18 +2265,20 @@ const activeCount = [
             )}
 
             {/* ── STEP 2: Item Inspection ── */}
-           {currentStep === 2 && (
+     {currentStep === 2 && (
   <div>
     <SH icon={<FileText className="h-3 w-3" />} title="Item Inspection Checklist" />
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-xs text-amber-800 font-semibold">
+
+    {/* Alert / Summary – more compact */}
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-[11px] text-amber-800 font-semibold">
             Inspect each item and select its condition at move-out. Penalties will be calculated automatically based on condition changes.
           </p>
-          <div className="bg-white rounded-lg p-2 mt-2 border border-amber-200">
-            <div className="text-sm font-bold text-gray-900">
+          <div className="bg-white rounded-md p-1.5 mt-1.5 border border-amber-200">
+            <div className="text-xs font-bold text-gray-900">
               Total Penalty: <span className={formData.total_penalty > 0 ? 'text-red-600' : 'text-green-600'}>
                 {money(formData.total_penalty)}
               </span>
@@ -2220,83 +2288,86 @@ const activeCount = [
       </div>
     </div>
 
-    <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
-  {inspectionItems.map((item, idx) => (
-    <div key={idx} className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-      
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="font-bold text-gray-900 text-sm">{item.item_name}</div>
-          <div className="text-xs text-gray-600 mt-1">
-            Category: <span className="font-semibold">{item.category}</span> |
-            Quantity: <span className="font-semibold">{item.quantity}</span>
+    {/* Items list – reduced gaps and padding */}
+    <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-1">
+      {inspectionItems.map((item, idx) => (
+        <div key={idx} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
+          
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <div className="font-bold text-gray-900 text-sm">{item.item_name}</div>
+              <div className="text-[10px] text-gray-600 mt-0.5">
+                Category: <span className="font-semibold">{item.category}</span> |
+                Qty: <span className="font-semibold">{item.quantity}</span>
+              </div>
+            </div>
+            {item.penalty_amount > 0 && (
+              <Badge className="bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 text-[10px] whitespace-nowrap ml-1">
+                Penalty: {money(item.penalty_amount)}
+              </Badge>
+            )}
           </div>
+
+          {/* Fields – compact grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] font-medium text-gray-600">Condition at Move-in</label>
+              <Badge className={`text-[10px] px-1.5 py-0.5 block w-fit ${conditionColor(item.condition_at_movein)}`}>
+                {item.condition_at_movein}
+              </Badge>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-medium text-gray-600">Condition at Move-out *</label>
+              <Select
+                value={item.condition_at_moveout}
+                onValueChange={v => updateInspectionItem(idx, 'condition_at_moveout', v)}
+              >
+                <SelectTrigger className="h-7 text-[10px]">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONDITIONS.map(c => (
+                    <SelectItem key={c} value={c} className="text-[10px]">{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-medium text-gray-600">Custom Penalty (₹)</label>
+              <Input
+                type="number"
+                min={0}
+                className="h-7 text-[10px]"
+                value={item.penalty_amount}
+                onChange={e =>
+                  updateInspectionItem(idx, 'penalty_amount', parseFloat(e.target.value) || 0)
+                }
+              />
+            </div>
+          </div>
+
+          {/* Notes – compact */}
+          <div className="mt-0">
+            <label className="text-[10px] font-medium text-gray-600">Notes / Damage Description</label>
+            <Input
+              className="h-7 text-[10px] w-full"
+              placeholder="Describe any damage or issues..."
+              value={item.notes || ''}
+              onChange={e => updateInspectionItem(idx, 'notes', e.target.value)}
+            />
+          </div>
+
         </div>
-
-        {item.penalty_amount > 0 && (
-          <Badge className="bg-red-100 text-red-700 border border-red-200 px-2 py-1 text-xs whitespace-nowrap ml-1">
-            Penalty: {money(item.penalty_amount)}
-          </Badge>
-        )}
-      </div>
-
-      {/* Fields */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="text-xs font-medium text-gray-600">Condition at Move-in</label>
-          <Badge className={`text-xs px-2 py-1 block w-fit ${conditionColor(item.condition_at_movein)}`}>
-            {item.condition_at_movein}
-          </Badge>
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-gray-600">Condition at Move-out *</label>
-          <Select
-            value={item.condition_at_moveout}
-            onValueChange={v => updateInspectionItem(idx, 'condition_at_moveout', v)}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {CONDITIONS.map(c => (
-                <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="col-span-2 sm:col-span-1">
-          <label className="text-xs font-medium text-gray-600">Custom Penalty Amount (₹)</label>
-          <Input
-            type="number"
-            min={0}
-            className="h-8 text-xs"
-            value={item.penalty_amount}
-            onChange={e =>
-              updateInspectionItem(idx, 'penalty_amount', parseFloat(e.target.value) || 0)
-            }
-          />
-        </div>
-      </div>
-
-      <div className="mt-3">
-        <label className="text-xs font-medium text-gray-600">Notes / Damage Description</label>
-        <Input
-          className="h-8 text-xs w-full"
-          placeholder="Describe any damage or issues..."
-          value={item.notes || ''}
-          onChange={e => updateInspectionItem(idx, 'notes', e.target.value)}
-        />
-      </div>
-
+      ))}
     </div>
-  ))}
-</div>
 
-    <div className="mt-4">
+    {/* Status – compact */}
+    <div className="mt-2">
       <SH icon={<StickyNote className="h-3 w-3" />} title="Status" color="text-purple-600" />
       <Select value={formData.status} onValueChange={v => setFormData(p => ({ ...p, status: v }))}>
-        <SelectTrigger className="h-8 text-xs">
+        <SelectTrigger className="h-7 text-[10px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -2320,7 +2391,7 @@ const activeCount = [
                 </Button>
               )}
               <Button disabled={submitting || loadingItems} onClick={handleSubmit}
-                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5">
+                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5">
                 {submitting ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</>
                 ) : currentStep === 1 ? (
@@ -2340,7 +2411,7 @@ const activeCount = [
       {viewItem && (
         <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
           <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-3 flex items-center justify-between rounded-t-lg">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold">Move-Out Inspection Report</h2>
                 <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
@@ -2443,13 +2514,13 @@ const activeCount = [
   </div>
 
   {/* Print — Blue */}
-  <button
-    onClick={handlePrint}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
-  >
-    <Printer className="h-3.5 w-3.5" />
-    <span>Print Page</span>
-  </button>
+ <button
+  onClick={() => setShowPrintPreview(true)}
+  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+>
+  <Printer className="h-3.5 w-3.5" />
+  <span>Print</span>
+</button>
 
   {/* Verify — Purple */}
   {viewItem.status !== 'Approved' && (
@@ -2597,11 +2668,202 @@ const activeCount = [
         </Dialog>
       )}
 
+
+      {/* Print Preview Dialog */}
+<Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+  <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
+    <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-2.5 py-2">
+      <div>
+        <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+          <Printer className="h-3.5 w-3.5" />
+          Inspection Report
+        </h2>
+        <p className="text-[10px] leading-tight text-blue-100">
+          {viewItem?.tenant_name} • {viewItem?.property_name}
+        </p>
+      </div>
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 hover:bg-white/30"
+      >
+        <X className="h-3.5 w-3.5 text-white" />
+      </button>
+    </div>
+
+    <div className="flex-1 overflow-y-auto px-3 py-2">
+      {viewItem && (
+        <div id="inspection-receipt-print-area" className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+
+          {/* Watermark */}
+          <div className="pointer-events-none absolute inset-0 z-0 flex select-none items-center justify-center overflow-hidden">
+            <span
+              className="whitespace-nowrap font-black leading-none"
+              style={{ fontSize: "min(10vw, 56px)", letterSpacing: "0.02em", color: "rgba(100, 116, 139, 0.09)", transform: "rotate(-30deg)" }}
+            >
+              {siteSettings.siteName?.split(" ")[0]}
+            </span>
+          </div>
+
+          {/* Header: logo left, name center, doc id right */}
+          <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
+            <div className="w-28 flex-shrink-0">
+              {siteSettings.logo && (
+                <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-20 w-auto object-contain"
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+              )}
+            </div>
+            <div className="flex-1 text-center">
+              <h2 className="text-lg font-bold text-slate-800">{siteSettings.siteName}</h2>
+              <p className="text-sm font-semibold text-slate-700">Move-Out Inspection Report</p>
+            </div>
+            <div className="w-28 text-right text-[10px] text-slate-400">
+              <span className="block font-semibold text-slate-600">Document ID</span>
+              <span className="text-[10px]">{String(viewItem.id).substring(0, 8).toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Meta bar */}
+          <div className="relative z-10 mb-3 flex justify-between border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-500">
+            <div>
+              <span className="text-[9px] font-semibold uppercase">Inspection Date</span>
+              <span className="block font-bold text-slate-800">{fmt(viewItem.inspection_date)}</span>
+            </div>
+            <div>
+              <span className="text-[9px] font-semibold uppercase">Property</span>
+              <span className="block font-bold text-slate-800">{viewItem.property_name || "—"}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] font-semibold uppercase">Status</span>
+              <span className="block">
+                <Badge className={`text-[10px] px-2 ${statusColor(viewItem.status)}`}>{viewItem.status}</Badge>
+              </span>
+            </div>
+          </div>
+
+          {/* Details grid */}
+          <div className="relative z-10 mb-3 grid grid-cols-4 gap-x-4 gap-y-1 text-xs">
+            <div><span className="text-[9px] font-semibold uppercase text-slate-400">Tenant</span><div className="font-medium text-slate-800">{viewItem.tenant_name || "—"}</div></div>
+            <div><span className="text-[9px] font-semibold uppercase text-slate-400">Phone</span><div className="font-medium text-slate-800">{viewItem.tenant_phone || "—"}</div></div>
+            <div><span className="text-[9px] font-semibold uppercase text-slate-400">Room/Bed</span><div className="font-medium text-slate-800">{viewItem.room_number}{viewItem.bed_number ? `/${viewItem.bed_number}` : ""}</div></div>
+            <div><span className="text-[9px] font-semibold uppercase text-slate-400">Inspector</span><div className="font-medium text-slate-800">{viewItem.inspector_name || "—"}</div></div>
+          </div>
+
+          {/* Items table */}
+          {viewItem.inspection_items && viewItem.inspection_items.length > 0 && (
+            <div className="relative z-10 mb-3">
+              <p className="mb-1 text-[10px] font-bold uppercase text-slate-500">Inspection Checklist</p>
+              <table className="w-full border-collapse border border-slate-300 text-xs">
+                <thead>
+                  <tr className="bg-slate-100">
+                    <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">#</th>
+                    <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item</th>
+                    <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
+                    <th className="border border-slate-300 px-2 py-1 text-center font-semibold text-slate-600">Qty</th>
+                    <th className="border border-slate-300 px-2 py-1 text-center font-semibold text-slate-600">Move-in</th>
+                    <th className="border border-slate-300 px-2 py-1 text-center font-semibold text-slate-600">Move-out</th>
+                    <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Penalty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewItem.inspection_items.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 px-2 py-1 text-center text-slate-500">{idx + 1}</td>
+                      <td className="border border-slate-300 px-2 py-1 font-medium text-slate-700">{item.item_name}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-slate-600">{item.category}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-center text-slate-600">{item.quantity}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-center text-slate-600">{item.condition_at_movein}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-center text-slate-600">{item.condition_at_moveout}</td>
+                      <td className="border border-slate-300 px-2 py-1 text-right font-medium text-red-600">{money(item.penalty_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-blue-50 font-bold">
+                    <td colSpan={6} className="border border-slate-300 px-2 py-1 text-right text-blue-700">Total Penalty</td>
+                    <td className="border border-slate-300 px-2 py-1 text-right text-red-600">{money(viewItem.total_penalty)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {viewItem.notes && (
+            <div className="relative z-10 mt-3 rounded-lg bg-yellow-50 p-2">
+              <p className="mb-0.5 text-[10px] font-medium text-yellow-700">Notes</p>
+              <p className="text-sm text-yellow-800">{viewItem.notes}</p>
+            </div>
+          )}
+
+          {/* Signatures */}
+          <div className="relative z-10 mt-8 grid grid-cols-3 gap-6 text-center text-xs">
+            <div><div className="mb-1 border-t border-slate-400 pt-1">{viewItem.tenant_name}</div><p className="text-[9px] text-slate-500">Tenant Signature</p></div>
+            <div><div className="mb-1 border-t border-slate-400 pt-1">{viewItem.inspector_name}</div><p className="text-[9px] text-slate-500">Inspector/Manager</p></div>
+            <div><div className="mb-1 border-t border-slate-400 pt-1">Witness</div><p className="text-[9px] text-slate-500">Witness Signature</p></div>
+          </div>
+
+          <div className="receipt-footer relative z-10 mt-3 border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400">
+            <p>
+              {siteSettings.phone && `Tel: ${siteSettings.phone}`}
+              {siteSettings.phone && siteSettings.email && "  |  "}
+              {siteSettings.email && `Email: ${siteSettings.email}`}
+            </p>
+            <p className="mt-0.5">Powered by {siteSettings.siteName}</p>
+            <p className="mt-0.5">
+              Generated on {new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+      >
+        Close
+      </button>
+      <button
+        onClick={() => {
+          const content = document.getElementById("inspection-receipt-print-area");
+          if (!content) return;
+          const win = window.open("", "_blank", "width=800,height=900");
+          if (!win) return;
+          win.document.write(`
+            <html>
+              <head><title>Move-Out Inspection Report</title>
+                <style>
+                  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #fff; }
+                  #inspection-receipt-print-area { max-width: 760px; margin: 0 auto; }
+                  ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                    try {
+                      const rules = sheet.cssRules || sheet.rules;
+                      if (rules) for (const rule of rules) acc += rule.cssText;
+                    } catch (e) {}
+                    return acc;
+                  }, "")}
+                </style>
+              </head>
+              <body>${content.outerHTML}</body>
+            </html>
+          `);
+          win.document.close();
+          win.focus();
+          win.print();
+        }}
+        className="flex h-8 flex-[2] items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-[11px] font-bold text-white hover:opacity-90"
+      >
+        <Printer className="h-3.5 w-3.5" /> Print Receipt
+      </button>
+    </div>
+  </DialogContent>
+</Dialog>
+
       {/* ══ OTP Modal ════════════════════════════════════════════════════════ */}
       {showOTPModal && viewItem && (
         <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
           <DialogContent className="max-w-md px-0 py-0">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 rounded-t-lg">
               <h2 className="text-base font-semibold">Verify OTP</h2>
               <p className="text-xs text-purple-100">Confirm inspection with tenant</p>
             </div>
@@ -2620,7 +2882,7 @@ const activeCount = [
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleVerifyOTP} disabled={otpCode.length !== 6}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600">
+                  className="flex-1 bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8]">
                   Verify & Approve
                 </Button>
                 <Button variant="outline" onClick={() => {

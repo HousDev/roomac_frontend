@@ -25,7 +25,7 @@ interface TenantOption   { id: string; name: string; phone: string; email?: stri
 interface PropertyOption { id: string; name: string; }
 
 // Compact styles
-const F  = "h-7 text-[10px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
+const F = "h-7 text-[10px] rounded-md border border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
 const L  = "block text-[9px] font-semibold text-gray-500 mb-0.5";
 const SI = "text-[10px] py-0.5";
 
@@ -458,7 +458,7 @@ useEffect(() => {
         <Button
           disabled={loading || isBlocked}
           onClick={handleSubmit}
-          className="flex-1 h-7 text-[9px] font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
+          className="flex-1 h-7 text-[9px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
         >
           {loading ? (
             <><Loader2 className="h-2.5 w-2.5 animate-spin" />Registering…</>

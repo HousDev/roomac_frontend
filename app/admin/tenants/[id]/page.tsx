@@ -93,6 +93,8 @@ import { getSettings, type SettingsData } from "@/lib/settingsApi";
 import * as paymentApi from "@/lib/paymentRecordApi";
 import { Badge } from "@/components/ui/badge";
 import { request } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 // ─── Font style (matching ui-sans-serif, system-ui, -apple-system) ────────────
 const fontStyle = {
@@ -177,7 +179,8 @@ function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string
 
 // ✅ Watermark is always the site NAME as text — never the logo image.
 function buildWatermarkHTML(orgLogo: string, orgName: string) {
-  return `<div class="watermark"><span>${orgName}</span></div>`;
+  const firstWord = orgName?.split(" ")[0] || "ROOMAC";
+  return `<div class="watermark"><span>${firstWord}</span></div>`;
 }
 // ─── Primitives ───────────────────────────────────────────────────────────────
 function BadgePill({ children, variant = "gray" }: { children: React.ReactNode; variant?: string }) {
@@ -235,54 +238,94 @@ function KVRow({ label, value, mono = false, wide = false }: { label: string; va
 }
 
 // ─── Document Card ────────────────────────────────────────────────────────────
-function DocCard({ title, type, number: docNumber, status, url, onView, accent, onUpload }: {
-  title: string; type?: string; number?: string; status: string;
-  url?: string; onView: (url: string) => void; accent: string; onUpload?: () => void;
-}) {
-  const statusVariant: Record<string, string> = {
-    Uploaded: "blue", "Not Uploaded": "gray", Verified: "green", Rejected: "red",
-  };
+const DocCard = ({
+  title,
+  type,
+  number,
+  status,
+  url,
+  onView,
+  onUpload,
+  accent,
+}: {
+  title: string;
+  type?: string;
+  number?: string;
+  status: "Uploaded" | "Not Uploaded";
+  url?: string;
+  onView: (url: string) => void;
+  onUpload: () => void;
+  accent: string;
+}) => {
+  const isUploaded = status === "Uploaded";
+
   return (
-    <div className={`rounded-xl border overflow-hidden ${status === "Not Uploaded" ? "border-dashed border-gray-200 bg-gray-50/60" : "border-gray-100 bg-white"}`}>
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-2">
-          <div className={`w-8 h-8 rounded-lg ${accent} flex items-center justify-center text-white`}><FileText size={14} /></div>
-          <BadgePill variant={statusVariant[status] as any}>{status}</BadgePill>
-        </div>
-        <p className="text-xs font-bold text-gray-800" style={fontStyle}>{title}</p>
-        {type && <p className="text-[10px] text-gray-400 mt-0.5" style={fontStyle}>{type}</p>}
-        {docNumber && (
-          <div className="mt-1.5 bg-gray-50 rounded px-2 py-1 flex items-center gap-1">
-            <Fingerprint size={9} className="text-gray-400" />
-            <span className="text-[10px] font-mono text-gray-500">{docNumber}</span>
+    <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow">
+      {/* Top: icon + title/type/number + status badge */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-8 h-8 rounded-lg ${accent} flex items-center justify-center text-white flex-shrink-0`}>
+            <FileText size={14} />
           </div>
-        )}
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-800 truncate">{title}</p>
+            {type && <p className="text-[9px] text-gray-500 truncate">{type}</p>}
+            {number && <p className="text-[9px] text-gray-500 truncate">{number}</p>}
+          </div>
+        </div>
+        <Badge
+          variant="outline"
+          className={`text-[9px] px-2 py-0.5 whitespace-nowrap ${
+            isUploaded
+              ? "bg-green-50 text-green-700 border-green-200"
+              : "bg-gray-50 text-gray-500 border-gray-200"
+          }`}
+        >
+          {status}
+        </Badge>
       </div>
-      <div className="px-3 pb-3">
-        {!url ? (
-          <button onClick={onUpload} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-[#1B3FA0] text-white text-[10px] font-bold hover:bg-[#0D2567] transition-colors">
-            <Upload size={10} /> Upload
-          </button>
-        ) : (
-          <button onClick={() => onView(url)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-[10px] font-bold hover:bg-gray-200 transition-colors">
-            <Eye size={10} /> View
-          </button>
+
+      {/* Bottom: action buttons in a single row */}
+      <div className="flex items-center justify-end gap-2 mt-1">
+        {isUploaded && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] px-3"
+            onClick={() => onView(url!)}
+          >
+            View
+          </Button>
         )}
+        <Button
+          variant={isUploaded ? "outline" : "default"}
+          size="sm"
+          className="h-7 text-[10px] px-3"
+          onClick={onUpload}
+        >
+          {isUploaded ? "Replace" : "Upload"}
+        </Button>
       </div>
     </div>
   );
-}
+};
 
 // ─── Payment Stat Card ────────────────────────────────────────────────────────
-function PaymentCard({ label, value, gradient, icon }: any) {
+function PaymentCard({ title, value, icon: Icon, color, bg }: any) {
   return (
-    <div className={`${gradient} rounded-xl p-3 text-white`}>
-      <div className="flex items-start justify-between mb-1">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-white/70" style={fontStyle}>{label}</p>
-        <div className="opacity-50">{icon}</div>
-      </div>
-      <p className="text-base font-black" style={fontStyle}>{value}</p>
-    </div>
+    <Card className={`${bg} border-0 shadow-sm`}>
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+          </div>
+          <div className={`p-1.5 rounded-lg ${color}`}>
+            <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -644,13 +687,13 @@ const handlePDFProfile = () => {
         </button>
         <button
           onClick={handlePrintProfile}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] border border-gray-200 rounded-lg text-[10px] font-bold text-white hover:bg-gray-50 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] border border-gray-200 rounded-lg text-[10px] font-bold text-white hover:bg-blue-800 hover:text-white transition-colors shadow-sm"
         >
           <Printer size={12} /> Print
         </button>
         <button
           onClick={handlePDFProfile}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] rounded-lg text-[10px] font-bold text-white hover:bg-[#1B3FA0] transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B3FA0] rounded-lg text-[10px] font-bold text-white hover:bg-[#0D2567] transition-colors shadow-sm"
         >
           <Download size={12} /> Download PDF
         </button>
@@ -1006,47 +1049,109 @@ const handlePDFProfile = () => {
 }
 
 // ─── Documents Tab ────────────────────────────────────────────────────────────
-function DocumentsTab({ tenant, onView,onUpload, }: { tenant: any; onView: (url: string) => void;onUpload: (docType: string) => void; }) {
+function DocumentsTab({ tenant, onView, onUpload }: { tenant: any; onView: (url: string) => void; onUpload: (docType: string) => void; }) {
   const docs = [
-    { title: "ID Proof", type: tenant.id_proof_type, number: tenant.id_proof_number, url: tenant.id_proof_url, accent: "bg-[#1B3FA0]" },
-    { title: "Address Proof", type: tenant.address_proof_type, number: tenant.address_proof_number, url: tenant.address_proof_url, accent: "bg-amber-500" },
-    { title: "Photograph", type: undefined, number: undefined, url: tenant.photo_url, accent: "bg-rose-500" },
+    {
+      title: "ID Proof",
+      type: tenant.id_proof_type,
+      number: tenant.id_proof_number,
+      url: tenant.id_proof_url,
+      accent: "bg-[#1B3FA0]",
+    },
+    {
+      title: "Address Proof",
+      type: tenant.address_proof_type,
+      number: tenant.address_proof_number,
+      url: tenant.address_proof_url,
+      accent: "bg-amber-500",
+    },
+    {
+      title: "Photograph",
+      type: undefined,
+      number: undefined,
+      url: tenant.photo_url,
+      accent: "bg-rose-500",
+    },
   ];
-  const uploaded = docs.filter(d => d.url).length + (tenant.additional_documents?.length ?? 0);
+
+  const uploaded = docs.filter((d) => d.url).length + (tenant.additional_documents?.length ?? 0);
   const total = docs.length + (tenant.additional_documents?.length ?? 0);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "linear-gradient(135deg, #0D2567, #1B3FA0)" }}>
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest" style={fontStyle}>Document Completion</span>
-            <span className="text-xs font-black text-white" style={fontStyle}>{uploaded}/{total} uploaded</span>
-          </div>
-          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-[#d5c7b0] rounded-full transition-all" style={{ width: `${total > 0 ? (uploaded / total) * 100 : 0}%` }} />
-          </div>
-        </div>
-        <div className="ml-4 text-lg font-black text-white" style={fontStyle}>{total > 0 ? Math.round((uploaded / total) * 100) : 0}%</div>
-      </div>
+      {/* ── Document Completion Card (distinct gradient) ── */}
+    <div
+  className="flex items-center justify-between rounded-xl px-4 py-3 border"
+  style={{
+    background: "linear-gradient(135deg, #FFFCF5 0%, #FFF7E6 100%)",
+  }}
+>
+  <div className="flex-1">
+    <div className="flex items-center justify-between mb-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-[#C28A00]">
+        Document Completion
+      </span>
 
+      <span className="text-xs font-black text-[#0F4BAF]">
+        {uploaded}/{total} uploaded
+      </span>
+    </div>
+
+    <div className="h-2 bg-[#F3E6BF] rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all"
+        style={{
+          width: `${total > 0 ? (uploaded / total) * 100 : 0}%`,
+          background: "linear-gradient(90deg, #F4B400, #FFC83D)",
+        }}
+      />
+    </div>
+  </div>
+
+  <div className="ml-4 text-xl font-black text-[#0F4BAF]">
+    {total > 0 ? Math.round((uploaded / total) * 100) : 0}%
+  </div>
+</div>
+
+      {/* ── Primary Documents Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {docs.map(doc => (
-          <DocCard key={doc.title} title={doc.title} type={doc.type} number={doc.number}
-            status={doc.url ? "Uploaded" : "Not Uploaded"} url={doc.url} onView={onView} onUpload={() => onUpload(doc.title)} accent={doc.accent} />
+        {docs.map((doc) => (
+          <DocCard
+            key={doc.title}
+            title={doc.title}
+            type={doc.type}
+            number={doc.number}
+            status={doc.url ? "Uploaded" : "Not Uploaded"}
+            url={doc.url}
+            onView={onView}
+            onUpload={() => onUpload(doc.title)}
+            accent={doc.accent}
+          />
         ))}
       </div>
 
+      {/* ── Additional Documents ── */}
       {tenant.additional_documents && tenant.additional_documents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
-            <div className="w-5 h-5 rounded-md bg-orange-500 flex items-center justify-center text-white flex-shrink-0"><FileText size={11} /></div>
-            <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider" style={fontStyle}>Additional Documents ({tenant.additional_documents.length})</span>
+            <div className="w-5 h-5 rounded-md bg-orange-500 flex items-center justify-center text-white flex-shrink-0">
+              <FileText size={11} />
+            </div>
+            <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+              Additional Documents ({tenant.additional_documents.length})
+            </span>
           </div>
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {tenant.additional_documents.map((doc: any, i: number) => (
-              <DocCard key={i} title={doc.filename || `Document ${i + 1}`} status={doc.url ? "Uploaded" : "Not Uploaded"}
-                url={doc.url} onView={onView}  onUpload={() => onUpload(doc.filename || `Document ${i + 1}`)} accent="bg-gray-400" />
+              <DocCard
+                key={i}
+                title={doc.filename || `Document ${i + 1}`}
+                status={doc.url ? "Uploaded" : "Not Uploaded"}
+                url={doc.url}
+                onView={onView}
+                onUpload={() => onUpload(doc.filename || `Document ${i + 1}`)}
+                accent="bg-gray-400"
+              />
             ))}
           </div>
         </div>
@@ -1225,23 +1330,72 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
       )}
 
       {/* Summary Cards - already 2 cols on mobile, fine */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {!isVacated ? (
-          <>
-            <PaymentCard label="Total Paid" value={formatINR(paymentSummary?.total_paid || 0)} gradient="bg-emerald-600" icon={<IndianRupee size={13} />} />
-            <PaymentCard label="Total Pending" value={formatINR(paymentSummary?.total_pending || 0)} gradient="bg-amber-500" icon={<IndianRupee size={13} />} />
-            <PaymentCard label="Monthly Rent" value={formatINR(paymentSummary?.monthly_rent || 0)} gradient="bg-[#1B3FA0]" icon={<IndianRupee size={13} />} />
-            <PaymentCard label="Months Joined" value={String(paymentSummary?.total_months_since_joining || 0)} gradient="bg-violet-600" icon={<Calendar size={13} />} />
-          </>
-        ) : (
-          <>
-            <PaymentCard label="Total Rent Paid" value={formatINR(paymentSummary?.total_rent_paid || 0)} gradient="bg-emerald-600" icon={<IndianRupee size={13} />} />
-            <PaymentCard label="Rent Payments" value={String(paymentSummary?.rent_payment_count || 0)} gradient="bg-[#1B3FA0]" icon={<CreditCard size={13} />} />
-            <PaymentCard label="Security Deposit" value={formatINR(paymentSummary?.vacate_info?.security_deposit || 0)} gradient="bg-amber-500" icon={<Shield size={13} />} />
-            <PaymentCard label="Deposit Paid" value={formatINR(paymentSummary?.security_deposit_info?.paid || 0)} gradient="bg-teal-600" icon={<IndianRupee size={13} />} />
-          </>
-        )}
-      </div>
+    {/* Summary Cards */}
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+  {!isVacated ? (
+    <>
+      <PaymentCard
+        title="Total Paid"
+        value={formatINR(paymentSummary?.total_paid || 0)}
+        icon={IndianRupee}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
+      <PaymentCard
+        title="Total Pending"
+        value={formatINR(paymentSummary?.total_pending || 0)}
+        icon={IndianRupee}
+        color="bg-orange-600"
+        bg="bg-gradient-to-br from-orange-50 to-orange-100"
+      />
+      <PaymentCard
+        title="Monthly Rent"
+        value={formatINR(paymentSummary?.monthly_rent || 0)}
+        icon={IndianRupee}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
+      <PaymentCard
+        title="Months Joined"
+        value={String(paymentSummary?.total_months_since_joining || 0)}
+        icon={Calendar}
+        color="bg-purple-600"
+        bg="bg-gradient-to-br from-purple-50 to-purple-100"
+      />
+    </>
+  ) : (
+    <>
+      <PaymentCard
+        title="Total Rent Paid"
+        value={formatINR(paymentSummary?.total_rent_paid || 0)}
+        icon={IndianRupee}
+        color="bg-emerald-600"
+        bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+      />
+      <PaymentCard
+        title="Rent Payments"
+        value={String(paymentSummary?.rent_payment_count || 0)}
+        icon={CreditCard}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
+      <PaymentCard
+        title="Security Deposit"
+        value={formatINR(paymentSummary?.vacate_info?.security_deposit || 0)}
+        icon={Shield}
+        color="bg-amber-600"
+        bg="bg-gradient-to-br from-amber-50 to-amber-100"
+      />
+      <PaymentCard
+        title="Deposit Paid"
+        value={formatINR(paymentSummary?.security_deposit_info?.paid || 0)}
+        icon={IndianRupee}
+        color="bg-teal-600"
+        bg="bg-gradient-to-br from-teal-50 to-teal-100"
+      />
+    </>
+  )}
+</div>
 
       {/* Transactions Table - responsive padding/font on mobile */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -1335,7 +1489,6 @@ function PaymentsTab({ payments, paymentSummary, loadingPayments, onPreviewRecei
 }
 
 // ─── Partner Tab ──────────────────────────────────────────────────────────────
-// ─── Partner Tab ──────────────────────────────────────────────────────────────
 function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails | null; onView: (url: string) => void }) {
   if (!partnerDetails || !partnerDetails.full_name) {
     return (
@@ -1417,7 +1570,6 @@ function PartnerTab({ partnerDetails, onView }: { partnerDetails: PartnerDetails
   );
 }
 
-// ─── History Tab ──────────────────────────────────────────────────────────────
 // ─── History Tab ──────────────────────────────────────────────────────────────
 function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string; orgName: string }) {
   const [expandedStay, setExpandedStay] = useState<string | null>(null);
@@ -1809,21 +1961,35 @@ const doPrintAll = () => {
     <div className="space-y-3">
       {/* Top stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Total Stays", value: totalStays, bg: "bg-[#1B3FA0]", icon: <Layers size={13} /> },
-          { label: "Lifetime Rent", value: formatINR(lifetimeRent), bg: "bg-emerald-600", icon: <IndianRupee size={13} /> },
-          { label: "Months Stayed", value: monthsStayed, bg: "bg-violet-600", icon: <Calendar size={13} /> },
-          { label: "Refund Received", value: formatINR(refundReceived), bg: "bg-teal-600", icon: <Banknote size={13} /> },
-        ].map(({ label, value, bg, icon }) => (
-          <div key={label} className={`${bg} rounded-xl p-2.5 sm:p-3 text-white`}>
-            <div className="flex items-start justify-between mb-0.5 sm:mb-1">
-              <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-white/70" style={fontStyle}>{label}</p>
-              <div className="opacity-50">{icon}</div>
-            </div>
-            <p className="text-sm sm:text-base font-black" style={fontStyle}>{value}</p>
-          </div>
-        ))}
-      </div>
+  <PaymentCard
+    title="Total Stays"
+    value={totalStays}
+    icon={Layers}
+    color="bg-blue-600"
+    bg="bg-gradient-to-br from-blue-50 to-blue-100"
+  />
+  <PaymentCard
+    title="Lifetime Rent"
+    value={formatINR(lifetimeRent)}
+    icon={IndianRupee}
+    color="bg-emerald-600"
+    bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+  />
+  <PaymentCard
+    title="Months Stayed"
+    value={monthsStayed}
+    icon={Calendar}
+    color="bg-violet-600"
+    bg="bg-gradient-to-br from-violet-50 to-violet-100"
+  />
+  <PaymentCard
+    title="Refund Received"
+    value={formatINR(refundReceived)}
+    icon={Banknote}
+    color="bg-teal-600"
+    bg="bg-gradient-to-br from-teal-50 to-teal-100"
+  />
+</div>
 
       <div className="flex justify-end">
         <button

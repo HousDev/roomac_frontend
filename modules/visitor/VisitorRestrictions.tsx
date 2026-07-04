@@ -7,6 +7,9 @@ import {
   Building, Clock, AlertTriangle, CheckCircle, XCircle,
   Check, Search, StickyNote, Square, CheckSquare,
   Edit,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -26,10 +29,11 @@ import {
 } from "@/lib/restrictionApi";
 import { listProperties } from "@/lib/propertyApi";
 import { useAuth } from '@/context/authContext';
-
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 // ─── Style tokens ───────────────────────────────────────────────────────────
-const F = "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
-const L = "block text-[11px] font-semibold text-gray-500 mb-0.5";
+const F =
+  "w-full h-8 border border-gray-200 rounded-md bg-gray-50 px-3 text-[11px] transition-colors focus:border-blue-400 focus:bg-white focus:ring-0";
+  const L = "block text-[11px] font-semibold text-gray-500 mb-0.5";
 
 const SH = ({ icon, title, color = "text-blue-600" }: { icon: React.ReactNode; title: string; color?: string }) => (
   <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest pb-1 mb-2 border-b border-gray-100 ${color}`}>
@@ -100,8 +104,9 @@ function PropertySearchDropdown({ value, onChange, properties }: {
   const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState('');
   const ref               = useRef<HTMLDivElement>(null);
-  const selected          = properties.find(p => p.id === value);
-
+const selected = properties.find(
+  p => String(p.id) === String(value)
+);
   const filtered = useMemo(() =>
     properties.filter(p => p.name.toLowerCase().includes(query.toLowerCase())),
     [properties, query]
@@ -116,16 +121,14 @@ function PropertySearchDropdown({ value, onChange, properties }: {
   }, []);
 
   return (
-    <div ref={ref} className="relative">
-      <button
+<div ref={ref} className="relative w-full">      <button
         type="button"
         onClick={() => { setOpen(o => !o); setQuery(''); }}
-        className={`${F} w-full flex items-center justify-between px-3 text-left`}
-      >
+className={`${F} flex items-center justify-between text-left`}      >
         <span className={selected ? 'text-gray-800' : 'text-gray-400'}>
           {selected ? selected.name : 'Search & select property…'}
         </span>
-        <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+        <ChevronDown className="h-3 w-3 text-black flex-shrink-0" />
       </button>
 
       {open && (
@@ -189,6 +192,19 @@ export function VisitorRestrictions() {
   const [statusFilter, setStatusFilter]     = useState('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
 
+  // Pagination
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 'All'] as const;
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | 'All'>(25);
+const [totalItems, setTotalItems] = useState(0);
+const [totalPages, setTotalPages] = useState(1);
+
+// Date filters for start/end
+const [startDateFrom, setStartDateFrom] = useState('');
+const [startDateTo, setStartDateTo] = useState('');
+const [endDateFrom, setEndDateFrom] = useState('');
+const [endDateTo, setEndDateTo] = useState('');
+
   // Column search
   const [colSearch, setColSearch] = useState({
     property_name: '', restriction_type: '', description: '', start_time: '', status: '',
@@ -210,26 +226,34 @@ export function VisitorRestrictions() {
   const set = (k: string, v: any) => setFormData(p => ({ ...p, [k]: v }));
 
   // ── Load ──────────────────────────────────────────────────────────────
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const filters: any = {};
-      if (typeFilter     !== 'all') filters.restriction_type = typeFilter;
-      if (statusFilter   !== 'all') filters.is_active        = statusFilter;
-      if (propertyFilter !== 'all') filters.property_id      = propertyFilter;
+ const loadAll = useCallback(async (page = currentPage) => {
+  setLoading(true);
+  try {
+    const limit = pageSize === 'All' ? 999999 : pageSize;
+    const filters: any = { page, limit };
 
-      const [rRes, sRes] = await Promise.all([
-        getRestrictions(filters),
-        getRestrictionStats(),
-      ]);
-      setRestrictions(rRes.data || []);
-      setStats(sRes.data || { total: 0, active: 0, inactive: 0, time_based: 0, full_restriction: 0, conditional: 0 });
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to load restrictions');
-    } finally {
-      setLoading(false);
-    }
-  }, [typeFilter, statusFilter, propertyFilter]);
+    if (statusFilter !== 'all') filters.is_active = statusFilter === 'true';
+    if (typeFilter !== 'all')   filters.restriction_type = typeFilter;
+    if (propertyFilter !== 'all') filters.property_id = propertyFilter;
+
+    // Date filters (adjust parameter names to match your API)
+    if (startDateFrom) filters.start_from = startDateFrom;
+    if (startDateTo)   filters.start_to   = startDateTo;
+    if (endDateFrom)   filters.end_from   = endDateFrom;
+    if (endDateTo)     filters.end_to     = endDateTo;
+
+    const res = await getRestrictions(filters); // your API call
+    const data = res.data || [];
+    setRestrictions(data);
+    setTotalItems(res.pagination?.totalItems ?? data.length);
+    setTotalPages(res.pagination?.totalPages ?? Math.ceil(data.length / (pageSize === 'All' ? data.length : pageSize)));
+    setCurrentPage(page);
+  } catch (err: any) {
+    toast.error(err?.message || 'Failed to load restrictions');
+  } finally {
+    setLoading(false);
+  }
+}, [statusFilter, typeFilter, propertyFilter, pageSize, currentPage, startDateFrom, startDateTo, endDateFrom, endDateTo]);
 
   useEffect(() => {
     (async () => {
@@ -660,71 +684,130 @@ const handleExport = () => {
   }
 };
 
-  const hasFilters   = typeFilter !== 'all' || statusFilter !== 'all' || propertyFilter !== 'all';
-  const hasColSearch = Object.values(colSearch).some(v => v !== '');
-  const activeCount  = [typeFilter !== 'all', statusFilter !== 'all', propertyFilter !== 'all'].filter(Boolean).length;
-  const clearFilters   = () => { setTypeFilter('all'); setStatusFilter('all'); setPropertyFilter('all'); };
-  const clearColSearch = () => setColSearch({ property_name: '', restriction_type: '', description: '', start_time: '', status: '' });
+const hasFilters =
+  statusFilter !== 'all' ||
+  typeFilter !== 'all' ||
+  propertyFilter !== 'all' ||
+  !!startDateFrom ||
+  !!startDateTo ||
+  !!endDateFrom ||
+  !!endDateTo;
+    const hasColSearch = Object.values(colSearch).some(v => v !== '');
+const activeCount = [
+  statusFilter !== 'all',
+  typeFilter !== 'all',
+  propertyFilter !== 'all',
+  !!startDateFrom,
+  !!startDateTo,
+  !!endDateFrom,
+  !!endDateTo,
+].filter(Boolean).length;
+const clearFilters = () => {
+  setStatusFilter('all');
+  setTypeFilter('all');
+  setPropertyFilter('all');
+  setStartDateFrom('');
+  setStartDateTo('');
+  setEndDateFrom('');
+  setEndDateTo('');
+};
+
+const clearColSearch = () => setColSearch({ property_name: '', restriction_type: '', description: '', start_time: '', status: '' });
 
   // ═══════════════════════════════════════════════════════════════════════
   return (
     <div className="bg-gray-50 ">
 
       {/* ── HEADER ───────────────────────────────────────────────────── */}
-      <div className="sticky top-20 z-10">
+    <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-         {/* Stats */}
-        <div className="px-0 sm:px-0 pb-3 pt-2">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total"            value={stats.total}            icon={ShieldAlert}   color="bg-blue-600"  bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Active"           value={stats.active}           icon={CheckCircle}   color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Inactive"         value={stats.inactive}         icon={XCircle}       color="bg-gray-500"  bg="bg-gradient-to-br from-gray-50 to-gray-100" />
-            <StatCard title="Full Restriction" value={stats.full_restriction} icon={AlertTriangle} color="bg-red-600"   bg="bg-gradient-to-br from-red-50 to-red-100" />
-          </div>
-        </div>
-<div className="px-0 sm:px-0 mt-0 md:-mt-3 pb-2 flex items-end justify-end gap-2">          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
-            
-              <button onClick={loadAll} disabled={loading}
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button onClick={() => setSidebarOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-                ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200 hover:bg-gray-50'}`}>
-              <Filter className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeCount > 0 && (
-                <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                  ${sidebarOpen || hasFilters ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}>
-                  {activeCount}
-                </span>
-              )}
-            </button>
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total"
+        value={stats.total}
+        icon={ShieldAlert}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
-            {can('export_restrictions') && (
+      <StatCard
+        title="Active"
+        value={stats.active}
+        icon={CheckCircle}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
 
-            <button onClick={handleExport}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-            )}
+      <StatCard
+        title="Inactive"
+        value={stats.inactive}
+        icon={XCircle}
+        color="bg-gray-500"
+        bg="bg-gradient-to-br from-gray-50 to-gray-100"
+      />
 
-          
+      <StatCard
+        title="Full Restriction"
+        value={stats.full_restriction}
+        icon={AlertTriangle}
+        color="bg-red-600"
+        bg="bg-gradient-to-br from-red-50 to-red-100"
+      />
+    </div>
 
-            {can('create_restrictions') && (
+    {/* RIGHT - Action Buttons */}
+    <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Filters</span>
 
-            <button onClick={openAdd}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
-              <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>Add Restriction</span>
-            </button>
-            )}
-          </div>
-        </div>
+        {activeCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+              ${
+                sidebarOpen || hasFilters
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-600 text-white"
+              }`}
+          >
+            {activeCount}
+          </span>
+        )}
+      </button>
 
-       
-      </div>
+      {can("export_restrictions") && (
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+
+      {can("create_restrictions") && (
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Add Restriction</span>
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* ── BODY ─────────────────────────────────────────────────────── */}
       <div className="relative">
@@ -742,311 +825,407 @@ const handleExport = () => {
             </div>
           )}
 
-          <Card className="border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
-              <span className="text-sm font-semibold text-gray-700">
-                All Restrictions ({filteredItems.length})
-                {selectedItems.size > 0 && (
-                  <span className="ml-2 text-blue-600 text-xs">({selectedItems.size} selected)</span>
-                )}
-              </span>
-              {hasColSearch && (
-                <button onClick={clearColSearch} className="text-[10px] text-blue-600 font-semibold hover:underline">
-                  Clear Search
-                </button>
+       <Card className="border rounded-lg shadow-sm overflow-hidden">
+  <div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>
+    <div className="overflow-auto flex-1 min-h-0">
+      <table
+        className="border-collapse text-[11px] font-sans"
+        style={{ tableLayout: 'fixed', minWidth: '900px', width: '100%' }}
+      >
+        <colgroup>
+          <col style={{ width: '34px' }} />   {/* checkbox */}
+          <col style={{ width: '170px' }} />  {/* Property */}
+          <col style={{ width: '100px' }} />  {/* Type */}
+          <col style={{ width: '130px' }} />  {/* Start Time */}
+          <col style={{ width: '130px' }} />  {/* End Time */}
+          <col style={{ width: '180px' }} />  {/* Description */}
+          <col style={{ width: '80px' }} />   {/* Status */}
+          <col style={{ width: '160px' }} />  {/* Actions */}
+        </colgroup>
+
+        <thead className="sticky top-0 z-10">
+          {/* Header row */}
+          <tr className="bg-gray-200 border-b border-gray-300">
+            <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+              {can('delete_restrictions') && (
+                <input
+                  type="checkbox"
+                  checked={selectAll && filteredItems.length > 0}
+                  onChange={toggleSelectAll}
+                  className="w-3.5 h-3.5 cursor-pointer"
+                />
               )}
-            </div>
-<div
-  className="overflow-auto rounded-b-lg transition-all duration-300"
-  style={{
-    maxHeight: selectedItems.size > 0
-      ? (window.innerWidth >= 768 ? '410px' : '320px')
-      : (window.innerWidth >= 768 ? '460px' : '370px')
-  }}
->            <div className="min-w-[900px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-2 px-3 text-xs w-8">
-                          {can('delete_restrictions') && (
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Type</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Start Time</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">End Time</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Description</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+            </th>
+            <th className="px-1.5 py-1.5 text-right bg-gray-200">
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+            </th>
+          </tr>
 
-                        <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
-                          {selectAll
-                            ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-                            : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                        </button>
-                          )}
-                      </TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Property</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Type</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Start Time</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">End Time</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Description</TableHead>
-                      <TableHead className="py-2 px-3 text-xs">Status</TableHead>
-                      <TableHead className="py-2 px-3 text-xs text-right">Actions</TableHead>
-                    </TableRow>
+          {/* Search row */}
+          <tr className="bg-white border-b border-gray-300">
+            <td className="p-1 border-r border-gray-200" />
+            <td className="p-1 border-r border-gray-200">
+              <input
+                placeholder="Search…"
+                value={colSearch.property_name}
+                onChange={(e) => setColSearch(prev => ({ ...prev, property_name: e.target.value }))}
+                className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+              />
+            </td>
+            <td className="p-1 border-r border-gray-200">
+              <input
+                placeholder="Search…"
+                value={colSearch.restriction_type}
+                onChange={(e) => setColSearch(prev => ({ ...prev, restriction_type: e.target.value }))}
+                className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+              />
+            </td>
+            <td className="p-1 border-r border-gray-200">
+              <input
+                placeholder="Search…"
+                value={colSearch.start_time}
+                onChange={(e) => setColSearch(prev => ({ ...prev, start_time: e.target.value }))}
+                className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+              />
+            </td>
+            <td className="p-1 border-r border-gray-200" />
+            <td className="p-1 border-r border-gray-200">
+              <input
+                placeholder="Search…"
+                value={colSearch.description}
+                onChange={(e) => setColSearch(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+              />
+            </td>
+            <td className="p-1 border-r border-gray-200">
+              <input
+                placeholder="Status…"
+                value={colSearch.status}
+                onChange={(e) => setColSearch(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+              />
+            </td>
+            <td className="p-1" />
+          </tr>
+        </thead>
 
-                    {/* Column search row */}
-                    <TableRow className="bg-gray-50/80">
-                      <TableCell className="py-1 px-2" />
-                      {[
-                        { key: 'property_name',    ph: 'Property…' },
-                        { key: 'restriction_type', ph: 'Type…' },
-                        { key: 'start_time',       ph: 'Start…' },
-                        { key: null,               ph: '' },
-                        { key: 'description',      ph: 'Description…' },
-                        { key: 'status',           ph: 'Status…' },
-                      ].map((col, idx) => (
-                        <TableCell key={idx} className="py-1 px-2">
-                          {col.key ? (
-                            <Input
-                              placeholder={col.ph}
-                              value={colSearch[col.key as keyof typeof colSearch]}
-                              onChange={e => setColSearch(p => ({ ...p, [col.key!]: e.target.value }))}
-                              className="h-6 text-[10px]"
-                            />
-                          ) : <div />}
-                        </TableCell>
-                      ))}
-                      <TableCell className="py-1 px-2" />
-                    </TableRow>
-                  </TableHeader>
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan={8} className="text-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-xs text-gray-500">Loading restrictions…</p>
+              </td>
+            </tr>
+          ) : filteredItems.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="text-center py-12">
+                <ShieldAlert className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-500">No restrictions found</p>
+                <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+              </td>
+            </tr>
+          ) : (
+            filteredItems.map(r => (
+              <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50">
+                <td className="px-1.5 py-1.5 text-center border-r border-slate-200">
+                  {can('delete_restrictions') && (
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(r.id)}
+                      onChange={() => toggleSelectItem(r.id)}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
+                  )}
+                </td>
+                <td className="px-1.5 py-1.5 border-r border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-gray-800">{r.property_name}</span>
+                  </div>
+                </td>
+                <td className="px-1.5 py-1.5 border-r border-slate-200">
+                  <Badge className={`text-[9px] px-1.5 font-semibold ${typeColor(r.restriction_type)}`}>
+                    {r.restriction_type}
+                  </Badge>
+                </td>
+                <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    {fmt(r.start_time)}
+                  </div>
+                </td>
+                <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    {fmt(r.end_time)}
+                  </div>
+                </td>
+                <td className="px-1.5 py-1.5 text-xs text-gray-600 border-r border-slate-200 max-w-[200px]">
+                  <p className="truncate" title={r.description}>{r.description || '—'}</p>
+                </td>
+                <td className="px-1.5 py-1.5 border-r border-slate-200">
+                  <Badge className={`text-[9px] px-1.5 font-bold ${r.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {r.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </td>
+                <td className="px-1.5 py-1.5 text-right">
+                  <div className="flex justify-end gap-0.5">
+                    {can('view_restrictions') && (
+                      <button
+                        title="View"
+                        className="w-6 h-6 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                        onClick={() => setViewItem(r)}
+                      >
+                        <Eye size={12} />
+                      </button>
+                    )}
+                    {can('edit_restrictions') && (
+                      <button
+                        title="Edit"
+                        className="w-6 h-6 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                        onClick={() => openEdit(r)}
+                      >
+                        <Edit size={12} />
+                      </button>
+                    )}
+                    <button
+                      title={r.is_active ? 'Deactivate' : 'Activate'}
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+                        r.is_active
+                          ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handleToggle(r.id, r.property_name, r.is_active)}
+                    >
+                      {r.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                    </button>
+                    {can('delete_restrictions') && (
+                      <button
+                        title="Delete"
+                        className="w-6 h-6 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                        onClick={() => handleDelete(r.id, r.property_name)}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
 
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">Loading restrictions…</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
-                          <ShieldAlert className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-500">No restrictions found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredItems.map(r => (
-                      <TableRow key={r.id} className="hover:bg-gray-50">
-                        <TableCell className="py-2 px-3">
-                            {can('delete_restrictions') && (
+    {/* ── Pagination Footer ── */}
+    {!loading && totalItems > 0 && (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span>Show</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(val) => {
+              const newSize = val === 'All' ? 'All' : Number(val);
+              setPageSize(newSize as any);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+              <SelectValue>{pageSize}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={String(size)} value={String(size)} className="text-xs">
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span>entries</span>
+          <span className="ml-2">
+            Showing {(currentPage - 1) * (pageSize === 'All' ? totalItems : pageSize) + 1}–
+            {Math.min(currentPage * (pageSize === 'All' ? totalItems : pageSize), totalItems)} of {totalItems}
+          </span>
+        </div>
 
-                          <button onClick={() => toggleSelectItem(r.id)} className="p-1 hover:bg-gray-200 rounded">
-                            {selectedItems.has(r.id)
-                              ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-                              : <Square className="h-3.5 w-3.5 text-gray-400" />}
-                          </button>
-                            )}
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-medium text-gray-800">{r.property_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <Badge className={`text-[9px] px-1.5 font-semibold ${typeColor(r.restriction_type)}`}>
-                            {r.restriction_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            {fmt(r.start_time)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            {fmt(r.end_time)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-xs text-gray-600 max-w-[200px]">
-                          <p className="truncate" title={r.description}>{r.description || '—'}</p>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <Badge className={`text-[9px] px-1.5 font-bold ${r.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {r.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3">
-                          <div className="flex justify-end gap-1">
-                                {can('view_restrictions') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => setViewItem(r)} title="View">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                                )}
-                                    {can('edit_restrictions') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
-                              onClick={() => openEdit(r)} title="Edit">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                                    )}
-                            <Button size="sm" variant="ghost"
-                              className={`h-6 w-6 p-0 ${r.is_active ? 'hover:bg-orange-50 hover:text-orange-600' : 'hover:bg-green-50 hover:text-green-600'}`}
-                              onClick={() => handleToggle(r.id, r.property_name, r.is_active)}
-                              title={r.is_active ? 'Deactivate' : 'Activate'}>
-                              {r.is_active
-                                ? <ToggleRight className="h-3.5 w-3.5 text-green-500" />
-                                : <ToggleLeft  className="h-3.5 w-3.5 text-gray-400" />}
-                            </Button>
-                              {can('delete_restrictions') && (
-
-                            <Button size="sm" variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                              onClick={() => handleDelete(r.id, r.property_name)} title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                              )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </Card>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => loadAll(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </Button>
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNum = i + 1;
+            if (totalPages > 5) {
+              if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
+            }
+            return (
+              <Button
+                key={pageNum}
+                size="sm"
+                variant={currentPage === pageNum ? 'default' : 'outline'}
+                onClick={() => loadAll(pageNum)}
+                className={`h-6 w-6 p-0 text-[10px] ${
+                  currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : ''
+                }`}
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => loadAll(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )}
+  </div>
+</Card>
         </main>
 
         {/* ── FILTER DRAWER ──────────────────────────────────────────── */}
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/30 z-30 backdrop-blur-[1px]" onClick={() => setSidebarOpen(false)} />
         )}
-        <aside className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
-          transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
-              <span className="text-sm font-semibold text-white">Filters</span>
-              {hasFilters && (
-                <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
-                  {activeCount} active
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {hasFilters && (
-                <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
-                  Clear all
-                </button>
-              )}
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+     <aside
+  className={`fixed top-0 right-0 h-full z-40 w-72 sm:w-80 bg-white shadow-2xl flex flex-col
+    transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}
+>
+  {/* Header */}
+  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-white" />
+      <span className="text-sm font-semibold text-white">Filters</span>
+      {hasFilters && (
+        <span className="h-5 px-1.5 rounded-full bg-white text-blue-700 text-[9px] font-bold flex items-center">
+          {activeCount} active
+        </span>
+      )}
+    </div>
+    <div className="flex items-center gap-2">
+      {hasFilters && (
+        <button onClick={clearFilters} className="text-[10px] text-blue-200 hover:text-white font-semibold">
+          Clear all
+        </button>
+      )}
+      <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-white/20 text-white">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
-            {/* Status filter */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <CheckCircle className="h-3 w-3 text-green-500" /> Status
-              </p>
-              <div className="space-y-1">
-                {[
-                  { value: 'all',   label: 'All Statuses' },
-                  { value: 'true',  label: 'Active' },
-                  { value: 'false', label: 'Inactive' },
-                ].map(s => (
-                  <label key={s.value} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${statusFilter === s.value ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="status" value={s.value} checked={statusFilter === s.value}
-                      onChange={() => setStatusFilter(s.value)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusFilter === s.value ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium">{s.label}</span>
-                    {statusFilter === s.value && (
-                      <span className="ml-auto">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
+  {/* Filter content */}
+  <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
-            <div className="border-t border-gray-100" />
+    {/* Status Dropdown */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <CheckCircle className="h-3 w-3 text-green-500" /> Status
+      </p>
+      <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+          <SelectValue placeholder="Select status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="true">Active</SelectItem>
+          <SelectItem value="false">Inactive</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
 
-            {/* Type filter */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <ShieldAlert className="h-3 w-3 text-blue-500" /> Restriction Type
-              </p>
-              <div className="space-y-1">
-                {['all', ...RESTRICTION_TYPES].map(t => (
-                  <label key={t} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${typeFilter === t ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="type" value={t} checked={typeFilter === t}
-                      onChange={() => setTypeFilter(t)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${typeFilter === t ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium">{t === 'all' ? 'All Types' : t}</span>
-                    {typeFilter === t && (
-                      <span className="ml-auto">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
+    <div className="border-t border-gray-100" />
 
-            <div className="border-t border-gray-100" />
+    {/* Restriction Type Dropdown */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <ShieldAlert className="h-3 w-3 text-blue-500" /> Restriction Type
+      </p>
+      <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val)}>
+        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+          <SelectValue placeholder="Select type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Types</SelectItem>
+          {RESTRICTION_TYPES.map((type) => (
+            <SelectItem key={type} value={type}>{type}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
-            {/* Property filter */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <Building className="h-3 w-3 text-indigo-500" /> Property
-              </p>
-              <div className="space-y-1">
-                {[{ id: 'all', name: 'All Properties' }, ...properties].map(p => (
-                  <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
-                    ${propertyFilter === p.id ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'hover:bg-gray-50 border border-transparent text-gray-700'}`}>
-                    <input type="radio" name="prop" value={p.id} checked={propertyFilter === p.id}
-                      onChange={() => setPropertyFilter(p.id)} className="sr-only" />
-                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${propertyFilter === p.id ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                    <span className="text-[12px] font-medium truncate">{p.name}</span>
-                    {propertyFilter === p.id && (
-                      <span className="ml-auto flex-shrink-0">
-                        <svg className="h-3.5 w-3.5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+    <div className="border-t border-gray-100" />
 
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button onClick={clearFilters} disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-              Clear All
-            </button>
-            <button onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">
-              Apply & Close
-            </button>
-          </div>
-        </aside>
+    {/* Property Dropdown */}
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+        <Building className="h-3 w-3 text-indigo-500" /> Property
+      </p>
+      <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+        <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+          <SelectValue placeholder="Select property" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Properties</SelectItem>
+          {properties.map((p) => (
+            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+  </div>
+
+  {/* Footer */}
+  <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+    <button onClick={clearFilters} disabled={!hasFilters}
+      className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+      Clear All
+    </button>
+    <button onClick={() => setSidebarOpen(false)}
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">
+      Apply & Close
+    </button>
+  </div>
+</aside>
       </div>
 
       {/* ══ ADD / EDIT DIALOG — SINGLE STEP ════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
-        <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Restriction' : 'New Visitor Restriction'}</h2>
               <p className="text-xs text-blue-100">Fill in all the details below</p>
@@ -1058,50 +1237,55 @@ const handleExport = () => {
 
           {/* Form body */}
           <div className="p-4 overflow-y-auto max-h-[75vh] space-y-4">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Property */}
+  <div className="w-full">
+    <SH icon={<Building className="h-3 w-3" />} title="Property" />
 
-            {/* Property */}
-            <div>
-              <SH icon={<Building className="h-3 w-3" />} title="Property" />
-              <div className="space-y-2">
-                <div>
-                  <label className={L}>Select Property <span className="text-red-400">*</span></label>
-                  <PropertySearchDropdown
-                    value={formData.property_id || ''}
-                    onChange={(id, name) => setFormData(p => ({ ...p, property_id: id, property_name: name }))}
-                    properties={properties}
-                  />
-                </div>
-                <div>
-                  <label className={L}>Property Name <span className="text-red-400">*</span></label>
-                  <Input
-                    className={F}
-                    placeholder="Auto-filled or enter manually"
-                    value={formData.property_name}
-                    onChange={e => set('property_name', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+    <label className={L}>
+      Select Property <span className="text-red-400">*</span>
+    </label>
 
-            {/* Restriction Type */}
-            <div>
-              <SH icon={<ShieldAlert className="h-3 w-3" />} title="Restriction Type" color="text-red-600" />
-              <div className="grid grid-cols-3 gap-2">
-                {RESTRICTION_TYPES.map(t => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => set('restriction_type', t)}
-                    className={`py-2.5 px-3 rounded-lg border-2 text-[11px] font-semibold transition-all text-center
-                      ${formData.restriction_type === t
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
+    <div className="w-full">
+      <PropertySearchDropdown
+        value={formData.property_id || ""}
+        onChange={(id, name) =>
+          setFormData((p) => ({
+            ...p,
+            property_id: id,
+            property_name: name,
+          }))
+        }
+        properties={properties}
+      />
+    </div>
+  </div>
+
+  {/* Restriction Type */}
+  <div className="w-full">
+    <SH
+      icon={<ShieldAlert className="h-3 w-3" />}
+      title="Restriction Type"
+      color="text-red-600"
+    />
+
+    <label className={L}>
+      Select Restriction Type <span className="text-red-400">*</span>
+    </label>
+
+    <select
+  className={F}      value={formData.restriction_type}
+      onChange={(e) => set("restriction_type", e.target.value)}
+    >
+      <option value="">Select Restriction Type</option>
+      {RESTRICTION_TYPES.map((type) => (
+        <option key={type} value={type}>
+          {type}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
 
             {/* Time Window */}
             <div>
@@ -1158,7 +1342,7 @@ const handleExport = () => {
             <Button
               disabled={submitting}
               onClick={handleSubmit}
-              className="w-full h-9 text-[12px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5"
+              className="w-full h-9 text-[12px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5"
             >
               {submitting ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>

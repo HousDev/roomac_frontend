@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Package,
   Plus,
@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Phone,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,6 +141,14 @@ export function MaterialPurchase() {
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [propertySearchTerm, setPropertySearchTerm] = useState("");
+const [vendorSearchTerm, setVendorSearchTerm] = useState("");
+const [categorySearchTerm, setCategorySearchTerm] = useState("");
+const [itemNameSearchTerm, setItemNameSearchTerm] = useState("");
+
+const propertySearchRef = useRef<HTMLInputElement>(null);
+const vendorSearchRef = useRef<HTMLInputElement>(null);
+const categorySearchRef = useRef<HTMLInputElement>(null);
+const itemNameSearchRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState({
     total_purchases: 0,
     total_amount: 0,
@@ -159,7 +168,13 @@ const { can, user } = useAuth();
   const [vendorFilter, setVendorFilter] = useState("all");
 const [amountFilter, setAmountFilter] = useState({ min: "", max: "" });
 const [vendors, setVendors] = useState<{ id: string; name: string; phone?: string }[]>([]);
+const [propertySelectOpen, setPropertySelectOpen] = useState(false);
 
+useEffect(() => {
+  if (propertySelectOpen) {
+    requestAnimationFrame(() => propertySearchRef.current?.focus());
+  }
+}, [propertySelectOpen]);
   // Filters
   const [propertyFilter, setPropertyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<PaymentStatus>("all");
@@ -643,7 +658,11 @@ const filteredPurchases = useMemo(() => {
       toast.error("Vendor name, invoice number, and property are required");
       return;
     }
-
+// Validate phone number if provided
+if (formData.vendor_phone && !/^\d{10}$/.test(formData.vendor_phone)) {
+  toast.error('Vendor phone must be exactly 10 digits');
+  return;
+}
     if (
       lineItems.length === 0 ||
       lineItems.some((item) => !item.item_name || item.quantity <= 0)
@@ -700,7 +719,11 @@ const filteredPurchases = useMemo(() => {
       toast.error("Vendor name, invoice number, and property are required");
       return;
     }
-
+// Validate phone number if provided
+if (formData.vendor_phone && !/^\d{10}$/.test(formData.vendor_phone)) {
+  toast.error('Vendor phone must be exactly 10 digits');
+  return;
+}
     if (
       lineItems.length === 0 ||
       lineItems.some((item) => !item.item_name || item.quantity <= 0)
@@ -1355,20 +1378,25 @@ doc.text(purchase.invoice_number || "—", pageWidth - margin, yBase + 2, {
   // ── Start content with minimal gap ──
   let yPos = headerHeight + 4; // was 40, now ~34
 
-// Diagonal watermark (matched with print preview: same angle, color, opacity)
-  // const pageHeight = doc.internal.pageSize.getHeight();
-  // doc.saveGraphicsState();
-  // doc.setGState(new doc.GState({ opacity: 0.09 }));
-  // doc.setFont("helvetica", "bold");
-  // doc.setFontSize(56);
-  // doc.setTextColor(100, 116, 139);
-  // doc.text(
-  //   (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
-  //   pageWidth / 2,
-  //   pageHeight / 2,
-  //   { align: "center", angle: -30 }
-  // );
-  // doc.restoreGraphicsState();
+const pageHeight = doc.internal.pageSize.getHeight();
+
+doc.saveGraphicsState();
+doc.setGState(new doc.GState({ opacity: 0.09 }));
+doc.setFont("helvetica", "bold");
+doc.setFontSize(56);
+doc.setTextColor(100, 116, 139);
+
+doc.text(
+  (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
+  pageWidth / 2,
+  pageHeight / 2,
+  {
+    align: "center",
+    angle: 30,
+  }
+);
+
+doc.restoreGraphicsState();
 
   // ── Meta bar (slightly shorter) ──
   const metaHeight = 11;
@@ -1518,24 +1546,8 @@ doc.text(purchase.invoice_number || "—", pageWidth - margin, yBase + 2, {
   yPos += 10;
 
 
- // Diagonal watermark spanning the entire page (bottom-left to top-right)
-const pageHeight = doc.internal.pageSize.getHeight(); // ← ADD THIS LINE
 
-doc.saveGraphicsState();
-doc.setGState(new doc.GState({ opacity: 0.07 }));    // 0.09 → 0.07
-doc.setFont("helvetica", "bold");
-doc.setFontSize(120);                                // 50 → 120
-doc.setTextColor(100, 116, 139);
-const watermarkCenterY = pageHeight / 2;             // Center of the page
-doc.text(
-  (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
-  pageWidth / 2,
-  watermarkCenterY,
-  { align: "center", angle: -30 }
-);
-doc.restoreGraphicsState();
 
-  // ── Notes ──
 
   // ── Notes ──
   if (purchase.notes) {
@@ -2390,7 +2402,7 @@ const clearFilters = () => {
         }}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">New Material Purchase</h2>
               <p className="text-xs text-blue-100">
@@ -2416,7 +2428,7 @@ const clearFilters = () => {
   <label className={L}>
     Vendor Name <span className="text-red-400">*</span>
   </label>
-  <Select
+<Select
     value={formData.vendor_name}
     onValueChange={(v) => {
       const selected = vendors.find((vendor) => vendor.name === v);
@@ -2425,17 +2437,39 @@ const clearFilters = () => {
         vendor_name: v,
         vendor_phone: selected?.phone || "",
       });
+      setVendorSearchTerm("");
+    }}
+    onOpenChange={(open) => {
+      if (open) requestAnimationFrame(() => vendorSearchRef.current?.focus());
     }}
   >
     <SelectTrigger className={F}>
       <SelectValue placeholder="Select vendor" />
     </SelectTrigger>
-    <SelectContent>
-      {vendors.map((vendor) => (
-        <SelectItem key={vendor.id} value={vendor.name}>
-          {vendor.name}
-        </SelectItem>
-      ))}
+    <SelectContent position="popper" sideOffset={4} className="max-h-[300px] w-[var(--radix-select-trigger-width)]">
+      <div className="sticky top-0 bg-white p-2 border-b z-10">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Input
+            ref={vendorSearchRef}
+            placeholder="Search vendor..."
+            className="pl-7 h-7 text-xs"
+            value={vendorSearchTerm}
+            onChange={(e) => setVendorSearchTerm(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
+      </div>
+      <div className="py-1">
+        {vendors
+          .filter((vendor) => vendor.name.toLowerCase().includes(vendorSearchTerm.toLowerCase()))
+          .map((vendor) => (
+            <SelectItem key={vendor.id} value={vendor.name}>
+              {vendor.name}
+            </SelectItem>
+          ))}
+      </div>
     </SelectContent>
   </Select>
 </div>
@@ -2446,9 +2480,11 @@ const clearFilters = () => {
                     placeholder="Phone number"
                     value={formData.vendor_phone}
                     maxLength={10}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vendor_phone: e.target.value })
-                    }
+                    minLength={10}
+                   onChange={(e) => {
+    const val = e.target.value.replace(/\D/g, ''); // Only digits
+    setFormData({ ...formData, vendor_phone: val });
+  }}
                   />
                 </div>
 
@@ -2490,23 +2526,29 @@ const clearFilters = () => {
                     <label className={L}>
                       Property <span className="text-red-400">*</span>
                     </label>
-                    <Select
-                      value={formData.property_id}
-                      onValueChange={(v) => {
-                        const selected = properties.find((p) => p.id === v);
-                        setFormData((p) => ({
-                          ...p,
-                          property_id: v,
-                          property_name: selected?.name || "",
-                        }));
-                        setPropertySearchTerm(""); // Clear search after selection
-                      }}
-                    >
-                      <SelectTrigger className={F}>
+                   <Select
+  open={propertySelectOpen}
+  onOpenChange={setPropertySelectOpen}
+  value={formData.property_id}
+  onValueChange={(v) => {
+    const selected = properties.find((p) => p.id === v);
+    setFormData((p) => ({
+      ...p,
+      property_id: v,
+      property_name: selected?.name || "",
+    }));
+    setPropertySearchTerm("");
+  }}
+><SelectTrigger className={F}>
                         <Building className="h-3 w-3 text-gray-400 mr-1.5" />
                         <SelectValue placeholder="Select property" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
+                      <SelectContent
+                        position="popper"
+                        sideOffset={4}
+                        align="end"
+                        className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+                      >
                         {/* Search input */}
                         <div className="sticky top-0 bg-white p-2 border-b z-10">
                           <div className="relative">
@@ -2524,6 +2566,7 @@ const clearFilters = () => {
                               />
                             </svg>
                             <Input
+                              ref={propertySearchRef}
                               placeholder="Search properties..."
                               className="pl-7 h-7 text-xs"
                               value={propertySearchTerm}
@@ -2531,6 +2574,7 @@ const clearFilters = () => {
                                 setPropertySearchTerm(e.target.value)
                               }
                               onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
                             />
                           </div>
                         </div>
@@ -2598,22 +2642,44 @@ const clearFilters = () => {
 <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
   {/* Category Select */}
   <div className="col-span-3">
-    <Select
+  <Select
       value={item.category || ''}
       onValueChange={v => {
         updateLineItem(index, 'category', v);
         updateLineItem(index, 'item_name', '');
+        setCategorySearchTerm('');
+      }}
+      onOpenChange={(open) => {
+        if (open) requestAnimationFrame(() => categorySearchRef.current?.focus());
       }}
     >
       <SelectTrigger className="h-7 text-[10px]">
         <SelectValue placeholder="Select category" />
       </SelectTrigger>
-      <SelectContent>
-        {inventoryMappings.map(c => (
-          <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
-            {c.category_name}
-          </SelectItem>
-        ))}
+      <SelectContent position="popper" sideOffset={4} className="max-h-[250px] w-[var(--radix-select-trigger-width)]">
+        <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+            <Input
+              ref={categorySearchRef}
+              placeholder="Search category..."
+              className="pl-6 h-6 text-[10px]"
+              value={categorySearchTerm}
+              onChange={(e) => setCategorySearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <div className="py-1">
+          {inventoryMappings
+            .filter(c => c.category_name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+            .map(c => (
+              <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
+                {c.category_name}
+              </SelectItem>
+            ))}
+        </div>
       </SelectContent>
     </Select>
   </div>
@@ -2624,19 +2690,43 @@ const clearFilters = () => {
       const subcats = getSubcategoriesForCategory(item.category);
       if (subcats.length > 0) {
         return (
-          <Select
+        <Select
             value={item.item_name || ''}
-            onValueChange={v => updateLineItem(index, 'item_name', v)}
+            onValueChange={v => {
+              updateLineItem(index, 'item_name', v);
+              setItemNameSearchTerm('');
+            }}
+            onOpenChange={(open) => {
+              if (open) requestAnimationFrame(() => itemNameSearchRef.current?.focus());
+            }}
           >
             <SelectTrigger className="h-7 text-[10px]">
               <SelectValue placeholder="Select item *" />
             </SelectTrigger>
-            <SelectContent>
-              {subcats.map(s => (
-                <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
-                  {s.subcategory_name}
-                </SelectItem>
-              ))}
+            <SelectContent position="popper" sideOffset={4} className="max-h-[250px] w-[var(--radix-select-trigger-width)]">
+              <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                  <Input
+                    ref={itemNameSearchRef}
+                    placeholder="Search item..."
+                    className="pl-6 h-6 text-[10px]"
+                    value={itemNameSearchTerm}
+                    onChange={(e) => setItemNameSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+              <div className="py-1">
+                {subcats
+                  .filter(s => s.subcategory_name.toLowerCase().includes(itemNameSearchTerm.toLowerCase()))
+                  .map(s => (
+                    <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
+                      {s.subcategory_name}
+                    </SelectItem>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
         );
@@ -2884,11 +2974,19 @@ const clearFilters = () => {
                 }
               />
             </div>
-
+ <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowForm(false)}
+                className="flex-1 h-8 text-[11px] font-semibold border-gray-200 text-gray-600 hover:bg-gray-500  hover:text-gray-600 rounded-lg"
+              >
+                Close
+              </Button>
             <Button
               disabled={submitting}
               onClick={handleSubmitPurchase}
-              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              className="flex-[2] h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white"
             >
               {submitting ? (
                 <>
@@ -2899,9 +2997,13 @@ const clearFilters = () => {
                 "Create Purchase"
               )}
             </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+
+
       {/* Edit Purchase Dialog */}
       <Dialog
         open={showEditForm}
@@ -2913,7 +3015,7 @@ const clearFilters = () => {
         }}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">
                 Edit Material Purchase
@@ -2927,7 +3029,7 @@ const clearFilters = () => {
             </DialogClose>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+          <div className="p-2 overflow-y-auto max-h-[75vh] space-y-5">
             {/* Basic Info */}
             <div>
               <SH
@@ -2939,7 +3041,7 @@ const clearFilters = () => {
   <label className={L}>
     Vendor Name <span className="text-red-400">*</span>
   </label>
-  <Select
+<Select
     value={formData.vendor_name}
     onValueChange={(v) => {
       const selected = vendors.find((vendor) => vendor.name === v);
@@ -2948,17 +3050,39 @@ const clearFilters = () => {
         vendor_name: v,
         vendor_phone: selected?.phone || "",
       });
+      setVendorSearchTerm("");
+    }}
+    onOpenChange={(open) => {
+      if (open) requestAnimationFrame(() => vendorSearchRef.current?.focus());
     }}
   >
     <SelectTrigger className={F}>
       <SelectValue placeholder="Select vendor" />
     </SelectTrigger>
-    <SelectContent>
-      {vendors.map((vendor) => (
-        <SelectItem key={vendor.id} value={vendor.name}>
-          {vendor.name}
-        </SelectItem>
-      ))}
+    <SelectContent position="popper" sideOffset={4} className="max-h-[300px] w-[var(--radix-select-trigger-width)]">
+      <div className="sticky top-0 bg-white p-2 border-b z-10">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Input
+            ref={vendorSearchRef}
+            placeholder="Search vendor..."
+            className="pl-7 h-7 text-xs"
+            value={vendorSearchTerm}
+            onChange={(e) => setVendorSearchTerm(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
+      </div>
+      <div className="py-1">
+        {vendors
+          .filter((vendor) => vendor.name.toLowerCase().includes(vendorSearchTerm.toLowerCase()))
+          .map((vendor) => (
+            <SelectItem key={vendor.id} value={vendor.name}>
+              {vendor.name}
+            </SelectItem>
+          ))}
+      </div>
     </SelectContent>
   </Select>
 </div>
@@ -2969,9 +3093,11 @@ const clearFilters = () => {
                     placeholder="Phone number"
                     value={formData.vendor_phone}
                     maxLength={10}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vendor_phone: e.target.value })
-                    }
+                    minLength={10}
+                    onChange={(e) => {
+    const val = e.target.value.replace(/\D/g, ''); // Only digits
+    setFormData({ ...formData, vendor_phone: val });
+  }}
                   />
                 </div>
 
@@ -3013,23 +3139,29 @@ const clearFilters = () => {
                     <label className={L}>
                       Property <span className="text-red-400">*</span>
                     </label>
-                    <Select
-                      value={formData.property_id}
-                      onValueChange={(v) => {
-                        const selected = properties.find((p) => p.id === v);
-                        setFormData((p) => ({
-                          ...p,
-                          property_id: v,
-                          property_name: selected?.name || "",
-                        }));
-                        setPropertySearchTerm(""); // Clear search after selection
-                      }}
-                    >
-                      <SelectTrigger className={F}>
+                   <Select
+  open={propertySelectOpen}
+  onOpenChange={setPropertySelectOpen}
+  value={formData.property_id}
+  onValueChange={(v) => {
+    const selected = properties.find((p) => p.id === v);
+    setFormData((p) => ({
+      ...p,
+      property_id: v,
+      property_name: selected?.name || "",
+    }));
+    setPropertySearchTerm("");
+  }}
+><SelectTrigger className={F}>
                         <Building className="h-3 w-3 text-gray-400 mr-1.5" />
                         <SelectValue placeholder="Select property" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
+                      <SelectContent
+                        position="popper"
+                        sideOffset={4}
+                        align="end"
+                        className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+                      >
                         {/* Search input */}
                         <div className="sticky top-0 bg-white p-2 border-b z-10">
                           <div className="relative">
@@ -3047,6 +3179,7 @@ const clearFilters = () => {
                               />
                             </svg>
                             <Input
+                              ref={propertySearchRef}
                               placeholder="Search properties..."
                               className="pl-7 h-7 text-xs"
                               value={propertySearchTerm}
@@ -3054,6 +3187,7 @@ const clearFilters = () => {
                                 setPropertySearchTerm(e.target.value)
                               }
                               onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
                             />
                           </div>
                         </div>
@@ -3121,22 +3255,44 @@ const clearFilters = () => {
 <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
   {/* Category Select */}
   <div className="col-span-3">
-    <Select
+  <Select
       value={item.category || ''}
       onValueChange={v => {
         updateLineItem(index, 'category', v);
         updateLineItem(index, 'item_name', '');
+        setCategorySearchTerm('');
+      }}
+      onOpenChange={(open) => {
+        if (open) requestAnimationFrame(() => categorySearchRef.current?.focus());
       }}
     >
       <SelectTrigger className="h-7 text-[10px]">
         <SelectValue placeholder="Select category" />
       </SelectTrigger>
-      <SelectContent>
-        {inventoryMappings.map(c => (
-          <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
-            {c.category_name}
-          </SelectItem>
-        ))}
+      <SelectContent position="popper" sideOffset={4} className="max-h-[250px] w-[var(--radix-select-trigger-width)]">
+        <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+            <Input
+              ref={categorySearchRef}
+              placeholder="Search category..."
+              className="pl-6 h-6 text-[10px]"
+              value={categorySearchTerm}
+              onChange={(e) => setCategorySearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <div className="py-1">
+          {inventoryMappings
+            .filter(c => c.category_name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+            .map(c => (
+              <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
+                {c.category_name}
+              </SelectItem>
+            ))}
+        </div>
       </SelectContent>
     </Select>
   </div>
@@ -3147,19 +3303,43 @@ const clearFilters = () => {
       const subcats = getSubcategoriesForCategory(item.category);
       if (subcats.length > 0) {
         return (
-          <Select
+        <Select
             value={item.item_name || ''}
-            onValueChange={v => updateLineItem(index, 'item_name', v)}
+            onValueChange={v => {
+              updateLineItem(index, 'item_name', v);
+              setItemNameSearchTerm('');
+            }}
+            onOpenChange={(open) => {
+              if (open) requestAnimationFrame(() => itemNameSearchRef.current?.focus());
+            }}
           >
             <SelectTrigger className="h-7 text-[10px]">
               <SelectValue placeholder="Select item *" />
             </SelectTrigger>
-            <SelectContent>
-              {subcats.map(s => (
-                <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
-                  {s.subcategory_name}
-                </SelectItem>
-              ))}
+            <SelectContent position="popper" sideOffset={4} className="max-h-[250px] w-[var(--radix-select-trigger-width)]">
+              <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                  <Input
+                    ref={itemNameSearchRef}
+                    placeholder="Search item..."
+                    className="pl-6 h-6 text-[10px]"
+                    value={itemNameSearchTerm}
+                    onChange={(e) => setItemNameSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+              <div className="py-1">
+                {subcats
+                  .filter(s => s.subcategory_name.toLowerCase().includes(itemNameSearchTerm.toLowerCase()))
+                  .map(s => (
+                    <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
+                      {s.subcategory_name}
+                    </SelectItem>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
         );
@@ -3407,11 +3587,19 @@ const clearFilters = () => {
                 }
               />
             </div>
-
+ <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+onClick={() => setShowEditForm(false)}
+                className="flex-1 h-8 text-[11px] font-semibold border-gray-200 text-gray-600 hover:bg-gray-500  hover:text-gray-600 rounded-lg"
+              >
+                Close
+              </Button>
             <Button
               disabled={editSubmitting}
               onClick={handleUpdatePurchase}
-              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-700 to-blue-600 hover:to-blue-600 hover:to-blue-700 text-white"
+              className="flex-[2] h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white"
             >
               {editSubmitting ? (
                 <>
@@ -3422,11 +3610,11 @@ const clearFilters = () => {
                 "Update Purchase"
               )}
             </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Payment Dialog */}
       {/* Payment Dialog */}
       <Dialog
         open={showPaymentModal}
@@ -3434,8 +3622,8 @@ const clearFilters = () => {
           if (!v) setShowPaymentModal(false);
         }}
       >
-        <DialogContent className="max-w-2xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
+        <DialogContent className="max-w-xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-2 py-2 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
             <div>
               <h2 className="text-base font-semibold">Add Payment</h2>
               <p className="text-xs text-green-100">
@@ -3622,7 +3810,7 @@ const clearFilters = () => {
         }}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">Purchase Details</h2>
               <p className="text-xs text-emerald-100">
@@ -3644,7 +3832,7 @@ const clearFilters = () => {
               {/* Print — Blue */}
             <button
   onClick={() => setShowPrintPreview(true)}
-  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-400 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
 >
   <Printer className="h-3.5 w-3.5" />
   <span className="hidden sm:inline">Print</span>
@@ -3862,7 +4050,7 @@ const clearFilters = () => {
       {/* Print Preview Dialog */}
 <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
   <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
-    <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+    <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2.5 py-2">
       <div>
         <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
           <Printer className="h-3.5 w-3.5" />
@@ -3885,19 +4073,19 @@ const clearFilters = () => {
         <div id="purchase-receipt-print-area" className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 
           {/* Watermark */}
-          <div className="pointer-events-none absolute inset-0 z-0 flex select-none items-center justify-center overflow-hidden">
-            <span
-              className="whitespace-nowrap font-black leading-none"
-              style={{
-                fontSize: "min(10vw, 56px)",
-                letterSpacing: "0.02em",
-                color: "rgba(100, 116, 139, 0.09)",
-                transform: "rotate(-30deg)",
-              }}
-            >
-              {siteSettings.siteName?.split(" ")[0]}
-            </span>
-          </div>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
+  <span
+    className="font-black leading-none whitespace-nowrap"
+    style={{
+      fontSize: "min(10vw, 56px)",
+      letterSpacing: "0.02em",
+      color: "rgba(100, 116, 139, 0.09)",
+      transform: "rotate(-30deg)",
+    }}
+  >
+    {siteSettings.siteName?.split(" ")[0]}
+  </span>
+</div>
 
           {/* Header: logo left, name center, invoice right */}
           <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
