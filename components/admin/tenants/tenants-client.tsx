@@ -3498,34 +3498,19 @@ const checkInDate = (() => {
               (tenant.is_primary_tenant as any) === 0
             );
             const payments = tenant.payments || [];
-const cycleVacateDate = vacateRecord?.requested_vacate_date
-  ? new Date(vacateRecord.requested_vacate_date)
-  : null;
-const cycleCheckInDate = vacateRecord?.stay_check_in_date
-  ? new Date(vacateRecord.stay_check_in_date)
-  : null;
-
 const totalRefunded = payments
   .filter((p) => {
     const type = ((p as any).payment_type || '').toLowerCase();
     const isRefundType = (type === 'deposit_refund' || type === 'refund') &&
       (p.status === 'approved' || p.status === 'paid' || p.status === 'refund' || p.status === 'completed');
     if (!isRefundType) return false;
-    if (!p.payment_date) return true; // fallback: can't scope, include it (old behavior)
 
-    const pDate = new Date(p.payment_date);
-    // Must be on/after this cycle's check-in AND on/around this cycle's vacate date
-    if (cycleCheckInDate && pDate < cycleCheckInDate) return false;
-    if (cycleVacateDate) {
-      // allow a little buffer after vacate date for late refund processing
-      const cutoff = new Date(cycleVacateDate);
-      cutoff.setDate(cutoff.getDate() + 60); // 60-day grace window, adjust as needed
-      if (pDate > cutoff && payments.some(other => {
-        // if a LATER cycle exists whose window better matches this payment, exclude it
-        return false; // simplified — see note below
-      })) return false;
-    }
-    return true;
+    // Scope strictly to THIS row's vacate cycle. Every refund payment is
+    // created against a specific vacate_record_id (see
+    // VacatedTenantPaymentModal / vacateRecordId), so match on that
+    // directly instead of guessing from date windows.
+    if (!vacateRecord?.id) return false;
+    return (p as any).vacate_record_id === vacateRecord.id;
   })
   .reduce((sum, p) => sum + (p.amount || 0), 0);
             const totalDepositPaid = payments

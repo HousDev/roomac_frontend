@@ -189,6 +189,18 @@ const isSingleFromCouple = (tenant: Tenant | undefined, allTenants?: Tenant[]): 
   return false;
 };
 
+const toInputDate = (d: string | undefined | null): string => {
+  if (!d) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
 
  
 export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }: TenantFormProps) {
@@ -317,7 +329,7 @@ const [partnerAdditionalFiles, setPartnerAdditionalFiles] = useState<File[]>([])
     preferred_sharing: tenant?.preferred_sharing || "",
     preferred_room_type: tenant?.preferred_room_type || "",
     preferred_property_id: tenant?.preferred_property_id || "",
-    check_in_date: tenant?.check_in_date || "",
+   check_in_date: toInputDate(tenant?.check_in_date),
     portal_access_enabled: tenant?.portal_access_enabled || false,
     is_active: tenant?.is_active ?? true,
     emergency_contact_name: tenant?.emergency_contact_name || "",
@@ -478,6 +490,16 @@ useEffect(() => {
     const hasVacateHistory = tenant.vacate_records && tenant.vacate_records.length > 0;
     const hasActiveAssignment = !!tenant.current_assignment;
     const hasVacated = hasVacateHistory && !hasActiveAssignment;
+
+     // ✅ Sync check-in date and property whenever a (possibly merged)
+    // tenant object is supplied — e.g. from ReassignTenantModal's
+    // "Add Partner Details" flow, which pre-fills these before opening.
+    if (tenant.check_in_date) {
+      handleInputChange("check_in_date", toInputDate(tenant.check_in_date));
+    }
+    if (tenant.property_id) {
+      handleInputChange("property_id", tenant.property_id);
+    }
     
     // ✅ LOG THE DETECTION
     console.log('🔍 Reassignment detection in form:', {
@@ -3053,15 +3075,13 @@ if (tenant?.id) {
   <div className="relative">
     <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
     <Input
-      type="date"
-      value={formData.check_in_date}
-      onChange={(e) => {
-        const newDate = e.target.value;
-        console.log('📅 Check-in date changed to:', newDate);
-        handleInputChange("check_in_date", newDate);
-      }}
-      className={`pl-8 ${F}`}
-    />
+  type="date"
+  value={formData.check_in_date}
+  onChange={(e) => {
+    handleCheckInDateChange(e.target.value);
+  }}
+  className={`pl-8 ${F}`}
+/>
   </div>
   {formData.check_in_date && (
     <p className="text-[10px] text-gray-400 mt-0.5">

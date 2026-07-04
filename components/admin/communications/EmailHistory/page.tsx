@@ -1,6 +1,6 @@
 
 
-
+// components/admin/communications/EmailHistory/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";

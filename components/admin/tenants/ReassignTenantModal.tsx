@@ -350,12 +350,16 @@ export function ReassignTenantModal({
             </button>
 
             {/* Option 2: Open this tenant's own form to add partner section */}
-            <button type="button"
-              onClick={() => {
-                onOpenChange(false);      // close reassign modal first
-                onEditTenant(tenant);     // open tenant edit form pre-filled
-              }}
-              className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-rose-400 hover:bg-rose-50 transition-colors text-left">
+           <button type="button"
+  onClick={() => {
+    onOpenChange(false);      // close reassign modal first
+    onEditTenant({
+      ...tenant,
+      check_in_date: checkInDate,
+      property_id: propertyId ? Number(propertyId) : tenant?.property_id,
+    });
+  }}
+  className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-rose-400 hover:bg-rose-50 transition-colors text-left">
               <UserPlus className="h-4 w-4 text-rose-600 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-gray-800">
