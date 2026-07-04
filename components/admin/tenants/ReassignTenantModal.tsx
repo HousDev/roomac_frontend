@@ -26,6 +26,19 @@ interface PartnerEdit {
   salutation: string; country_code: string;
 }
 
+// add near the top of the file, alongside the other imports
+const toInputDate = (d: string | undefined | null): string => {
+  if (!d) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
 export function ReassignTenantModal({
   open, onOpenChange, tenant, onSuccess, onEditTenant,
 }: {
@@ -56,19 +69,37 @@ export function ReassignTenantModal({
   const [searchLoading, setSearchLoading] = useState(false);
 
   // ── Reset on open ──
-  useEffect(() => {
-    if (!open) return;
-    getAllProperties().then((res) => { if (res.success) setProperties(res.data || []); });
-    setCheckInDate(new Date().toISOString().split("T")[0]);
-    setPropertyId(tenant?.property_id ? String(tenant.property_id) : "");
-    setStep("main");
-    setAddPartner(false);
-    setSelectedPartner(null);
-    setPartnerEdit({ full_name: "", phone: "", email: "", gender: "", relationship: "Spouse", salutation: "Mr.", country_code: "+91" });
-    setSearchQuery("");
-    setAllTenants([]);
-    setFilteredTenants([]);
-  }, [open, tenant]);
+useEffect(() => {
+  if (!open) return;
+  getAllProperties().then((res) => { if (res.success) setProperties(res.data || []); });
+
+  // ✅ Prefer the tenant's own existing check-in date / property. Fall back
+  // through current_assignment and the latest vacate_records snapshot,
+  // since a vacated tenant's top-level property_id/check_in_date is often
+  // null — the real values live on the last assignment or vacate record.
+  const vr0 = tenant?.vacate_records?.[0];
+  const existingCheckIn =
+    tenant?.check_in_date ||
+    tenant?.current_assignment?.check_in_date ||
+    vr0?.stay_check_in_date ||
+    "";
+  const existingPropertyId =
+    tenant?.property_id ||
+    tenant?.current_assignment?.property_id ||
+    vr0?.property_id ||
+    "";
+
+  setCheckInDate(toInputDate(existingCheckIn) || new Date().toISOString().split("T")[0]);
+  setPropertyId(existingPropertyId ? String(existingPropertyId) : "");
+
+  setStep("main");
+  setAddPartner(false);
+  setSelectedPartner(null);
+  setPartnerEdit({ full_name: "", phone: "", email: "", gender: "", relationship: "Spouse", salutation: "Mr.", country_code: "+91" });
+  setSearchQuery("");
+  setAllTenants([]);
+  setFilteredTenants([]);
+}, [open, tenant]);
 
   // ── Load tenants when entering partner-select step ──
   const loadAllTenants = useCallback(async () => {
@@ -80,7 +111,9 @@ export function ReassignTenantModal({
       });
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
-        const eligible = result.data.filter((t: any) => t.id !== tenant?.id);
+       const eligible = result.data.filter(
+  (t: any) => t.id !== tenant?.id && !t.current_assignment
+);
         setAllTenants(eligible);
         setFilteredTenants(eligible);
       }
@@ -110,7 +143,7 @@ export function ReassignTenantModal({
 
   // ── Select partner handler ──
   const handleSelectPartner = (t: any) => {
-    if (t.bed_assignment_id) {
+    if (t.current_assignment) { 
       toast.warning(
         `"${t.full_name}" has an active bed assignment. Vacate their current bed first, then add as partner.`,
         { duration: 6000 }
