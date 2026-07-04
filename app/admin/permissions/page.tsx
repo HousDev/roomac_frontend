@@ -140,6 +140,15 @@ const PERMISSIONS_LIST = [
   { action: "view_notifications", label: "View Notifications", module: "Notifications" },
   { action: "send_notifications", label: "Send Notifications", module: "Notifications" },
 
+
+
+
+  { action: "view_communications", label: "View Communications", module: "Communication" },
+{ action: "view_email_history", label: "View Email History", module: "Communication" },
+{ action: "view_whatsapp_history", label: "View WhatsApp History", module: "Communication" },
+{ action: "view_sms_history", label: "View SMS History", module: "Communication" },
+
+
   { action: "view_requests", label: "View Requests", module: "Requests" },
   { action: "update_request_status", label: "Update Request Status", module: "Requests" },
   { action: "manage_complaints", label: "Manage Complaints", module: "Requests" },

@@ -63,6 +63,7 @@ import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import Swal from "sweetalert2";
 import { useAuth } from "@/context/authContext";
 import { getInventoryMappingsGrouped } from "@/lib/categorySubcategoryMapApi";
+import { getSettings, getSettingValue } from "@/lib/settingsApi";
 
 interface Property {
   id: string;
@@ -148,7 +149,7 @@ export function MaterialPurchase() {
     partial_count: 0,
     paid_count: 0,
   });
-  const { can } = useAuth();
+const { can, user } = useAuth();
   // ── Pagination state ──
   const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
   const [currentPage, setCurrentPage] = useState(1);
@@ -169,7 +170,32 @@ const [vendors, setVendors] = useState<{ id: string; name: string; phone?: strin
   );
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [mappingsLoading, setMappingsLoading] = useState(true);
-  // Column search
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+
+const [siteSettings, setSiteSettings] = useState({
+  siteName: "ROOMAC", logo: "", phone: "", email: "", address: "",
+});
+
+useEffect(() => {
+  const fetchSiteSettings = async () => {
+    try {
+      const settings = await getSettings();
+      setSiteSettings({
+        siteName: getSettingValue(settings, "site_name", "ROOMAC"),
+        logo: getSettingValue(settings, "logo_header", ""),
+        phone: getSettingValue(settings, "contact_phone", ""),
+        email: getSettingValue(settings, "contact_email", ""),
+        address: getSettingValue(settings, "contact_address", ""),
+      });
+    } catch (err) {
+      console.error("Failed to load site settings:", err);
+    }
+  };
+  fetchSiteSettings();
+}, []);
+
+
+// Column search
   const [colSearch, setColSearch] = useState({
     invoice: "",
     vendor: "",
@@ -187,6 +213,7 @@ const [vendors, setVendors] = useState<{ id: string; name: string; phone?: strin
     property_id: "",
     property_name: "",
     notes: "",
+    added_by: "",
   });
 
   const [lineItems, setLineItems] = useState<PurchaseItem[]>([
@@ -482,6 +509,7 @@ const filteredPurchases = useMemo(() => {
       property_id: String(purchase.property_id),
       property_name: purchase.property_name || "",
       notes: purchase.notes || "",
+      added_by: purchase.added_by || user?.name || "",
     });
 
     setLineItems(
@@ -553,6 +581,7 @@ const filteredPurchases = useMemo(() => {
       property_id: "",
       property_name: "",
       notes: "",
+      added_by: user?.name || "",
     });
     setLineItems([
       {
@@ -646,6 +675,7 @@ const filteredPurchases = useMemo(() => {
         items_summary: itemsSummary,
         total_amount: totalAmount,
         paid_amount: 0,
+        added_by: formData.added_by || user?.name || "",
       };
 
       const response = await createPurchase(payload);
@@ -701,7 +731,8 @@ const filteredPurchases = useMemo(() => {
         items: lineItems,
         items_summary: itemsSummary,
         total_amount: totalAmount,
-        paid_amount: 0, // Keep existing paid amount? You might want to preserve it
+        paid_amount: 0,
+        added_by: formData.added_by || user?.name || "", 
       };
 
       // If you want to preserve the paid amount, you'd need to get it from the original purchase
@@ -1253,188 +1284,294 @@ const filteredPurchases = useMemo(() => {
     }
   };
 
-  // PDF Download - FIXED FORMATTING
-  // PDF Download - FIXED FORMATTING
-  const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
+ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 14;
 
-    // Header with green background
-    doc.setFillColor(16, 185, 129);
-    doc.rect(0, 0, pageWidth, 35, "F");
+  // ── White header (reduced height) ──
+  const headerHeight = 30;
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, headerHeight, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.line(0, headerHeight, pageWidth, headerHeight);
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text("MATERIAL PURCHASE", pageWidth / 2, 15, { align: "center" });
+  // Baseline for the main header elements (logo, site name, invoice)
+  const yBase = headerHeight / 2 + 2; // ~17
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.text("Purchase Order Details", pageWidth / 2, 25, { align: "center" });
+  // 1. Logo — left
+  if (siteSettings?.logo) {
+    try {
+      const imgProps = doc.getImageProperties(siteSettings.logo);
+      const maxW = 30;
+      const maxH = 30;
+      const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+      const imgW = imgProps.width * ratio;
+      const imgH = imgProps.height * ratio;
+      const xLogo = margin + (maxW - imgW) / 2;
+      const yLogo = yBase - imgH / 2;
+      doc.addImage(
+        siteSettings.logo,
+        imgProps.fileType || "PNG",
+        xLogo,
+        yLogo,
+        imgW,
+        imgH
+      );
+    } catch (e) {}
+  }
 
-    let yPos = 45;
+  // 2. Site name — center (bold, large)
+  const siteName = siteSettings?.siteName || "MATERIAL PURCHASE";
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(siteName, pageWidth / 2, yBase, { align: "center" });
 
-    // Purchase Info Box
-    doc.setFillColor(243, 244, 246);
-    doc.roundedRect(14, yPos, pageWidth - 28, 40, 2, 2, "F");
+// 3. Invoice number — right (combined label + value, one line)
+// Invoice Label
+doc.setFontSize(8);
+doc.setFont("helvetica", "normal");
+doc.setTextColor(148, 163, 184);
+doc.text("Invoice No.", pageWidth - margin, yBase - 3, {
+  align: "right",
+});
 
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
+// Invoice Number (next line)
+doc.setFontSize(10);
+doc.setFont("helvetica", "bold");
+doc.setTextColor(30, 41, 59);
+doc.text(purchase.invoice_number || "—", pageWidth - margin, yBase + 2, {
+  align: "right",
+});
 
-    doc.text("Invoice:", 18, yPos + 8);
-    doc.setFont("helvetica", "normal");
-    doc.text(purchase.invoice_number, 45, yPos + 8);
+  // 4. Subtitle — "Material Purchase Receipt" below the main line
+  const subtitleY = yBase + 6;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(71, 85, 105);
+  doc.text("Material Purchase Receipt", pageWidth / 2, subtitleY, { align: "center" });
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Date:", 120, yPos + 8);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      new Date(purchase.purchase_date).toLocaleDateString("en-IN"),
-      140,
-      yPos + 8,
-    );
+  // ── Start content with minimal gap ──
+  let yPos = headerHeight + 4; // was 40, now ~34
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Vendor:", 18, yPos + 18);
-    doc.setFont("helvetica", "normal");
-    doc.text(purchase.vendor_name, 45, yPos + 18);
-    if (purchase.vendor_phone) {
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(purchase.vendor_phone, 45, yPos + 26);
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
+// Diagonal watermark (matched with print preview: same angle, color, opacity)
+  // const pageHeight = doc.internal.pageSize.getHeight();
+  // doc.saveGraphicsState();
+  // doc.setGState(new doc.GState({ opacity: 0.09 }));
+  // doc.setFont("helvetica", "bold");
+  // doc.setFontSize(56);
+  // doc.setTextColor(100, 116, 139);
+  // doc.text(
+  //   (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
+  //   pageWidth / 2,
+  //   pageHeight / 2,
+  //   { align: "center", angle: -30 }
+  // );
+  // doc.restoreGraphicsState();
+
+  // ── Meta bar (slightly shorter) ──
+  const metaHeight = 11;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "S");
+
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.setFont("helvetica", "bold");
+  doc.text("PURCHASE DATE", margin + 3, yPos + 4);
+  doc.text("PROPERTY", pageWidth / 2 - 20, yPos + 4);
+  doc.text("STATUS", pageWidth - margin - 30, yPos + 4);
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(new Date(purchase.purchase_date).toLocaleDateString("en-IN"), margin + 3, yPos + 8.5);
+  doc.text(purchase.property_name || "—", pageWidth / 2 - 20, yPos + 8.5);
+
+  const statusColor: [number, number, number] =
+    purchase.payment_status === "Paid" ? [22, 101, 52] :
+    purchase.payment_status === "Partial" ? [146, 64, 14] : [153, 27, 27];
+  doc.setTextColor(...statusColor);
+  doc.setFont("helvetica", "bold");
+  doc.text(purchase.payment_status?.toUpperCase() || "—", pageWidth - margin - 30, yPos + 8.5);
+
+  yPos += metaHeight + 4; // ~ +15
+
+  // ── Vendor / Added By (compact) ──
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.setFont("helvetica", "bold");
+  doc.text("VENDOR", margin, yPos);
+  doc.text("VENDOR PHONE", margin + 65, yPos);
+  doc.text("ADDED BY", margin + 130, yPos);
+
+  doc.setFontSize(9);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont("helvetica", "normal");
+  doc.text(purchase.vendor_name || "—", margin, yPos + 5);
+  doc.text(purchase.vendor_phone || "—", margin + 65, yPos + 5);
+  doc.text(purchase.added_by || "—", margin + 130, yPos + 5);
+
+  yPos += 12; // reduced from 14
+
+  // ── Items Table ──
+  let itemsToShow = purchase.purchase_items;
+  if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
+    if (typeof purchase.items === "string") {
+      try { itemsToShow = JSON.parse(purchase.items); } catch (e) { itemsToShow = []; }
+    } else if (Array.isArray(purchase.items)) {
+      itemsToShow = purchase.items;
     }
+  }
 
+  const itemsData = (itemsToShow || []).map((item: any, idx: number) => {
+    const qty = Number(item.quantity) || 0;
+    const unitPrice = Number(item.unit_price) || 0;
+    const totalPrice = Number(item.total_price) || 0;
+    return [
+      String(idx + 1),
+      item.item_name || "-",
+      item.category || "-",
+      qty.toString(),
+      unitPrice.toLocaleString("en-IN"),
+      totalPrice.toLocaleString("en-IN"),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["#", "Item Name", "Category", "Qty", "Price", "Amount"]],
+    body: itemsData,
+    theme: "grid",
+    styles: { fontSize: 8, cellPadding: 2, textColor: [51, 65, 85] },
+    headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 7.5 },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 58 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 18, halign: "right" },
+      4: { cellWidth: 30, halign: "right" },
+      5: { cellWidth: 30, halign: "right" },
+    },
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── Payment info (only if paid amount exists) ──
+  if (purchase.paid_amount && Number(purchase.paid_amount) > 0) {
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("Property:", 120, yPos + 18);
-    doc.setFont("helvetica", "normal");
-    doc.text(purchase.property_name, 160, yPos + 18);
-
-    yPos += 50;
-
-    // Items Table
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(31, 41, 55);
-    doc.text("Purchase Items", 14, yPos);
-    yPos += 5;
-
-    // Get items data - FIXED: Properly parse numbers
-    let itemsToShow = purchase.purchase_items;
-    if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
-      if (typeof purchase.items === "string") {
-        try {
-          itemsToShow = JSON.parse(purchase.items);
-        } catch (e) {
-          itemsToShow = [];
-        }
-      } else if (Array.isArray(purchase.items)) {
-        itemsToShow = purchase.items;
-      }
-    }
-
-    // Format numbers properly - ensure they are numbers not strings
-    const itemsData = (itemsToShow || []).map((item: any) => {
-      // Parse to number first to ensure proper formatting
-      const qty = Number(item.quantity) || 0;
-      const unitPrice = Number(item.unit_price) || 0;
-      const totalPrice = Number(item.total_price) || 0;
-
-      return [
-        item.item_name || "-",
-        item.category || "-",
-        qty.toString(),
-        `Rs. ${unitPrice.toLocaleString("en-IN")}`,
-        `Rs. ${totalPrice.toLocaleString("en-IN")}`,
-      ];
-    });
+    doc.setTextColor(59, 91, 219);
+    doc.text("Payment Information", margin, yPos);
+    yPos += 4;
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Item Name", "Category", "Qty", "Unit Price", "Total"]],
-      body: itemsData,
-      foot: [
-        [
-          "",
-          "",
-          "",
-          "Total Amount:",
-          `Rs. ${(Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
-        ],
-      ],
+      head: [["Payment Date", "Mode", "Reference", "Paid By", "Amount"]],
+      body: [[
+        purchase.payment_date ? new Date(purchase.payment_date).toLocaleDateString("en-IN") : "—",
+        purchase.payment_method || "—",
+        purchase.payment_reference || "—",
+        purchase.paid_by || "—",
+        `Rs. ${Number(purchase.paid_amount || 0).toLocaleString("en-IN")}`,
+      ]],
       theme: "grid",
-      headStyles: {
-        fillColor: [59, 130, 246],
-        fontSize: 10,
-        textColor: [255, 255, 255],
-      },
-      footStyles: {
-        fillColor: [243, 244, 246],
-        textColor: [0, 0, 0],
-        fontSize: 11,
-        fontStyle: "bold",
-      },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 20, halign: "center" },
-        3: { cellWidth: 35, halign: "right" },
-        4: { cellWidth: 35, halign: "right" },
-      },
-      // Add this to ensure numbers are treated as numbers
-      didParseCell: function (data) {
-        if (data.column.index === 3 || data.column.index === 4) {
-          if (data.cell.raw && typeof data.cell.raw === "string") {
-            // Already formatted, keep as is
-          }
-        }
-      },
+      styles: { fontSize: 8, cellPadding: 2, textColor: [51, 65, 85] },
+      headStyles: { fillColor: [236, 253, 245], textColor: [22, 101, 52], fontStyle: "bold", fontSize: 7.5 },
+      columnStyles: { 4: { halign: "right", fontStyle: "bold", textColor: [22, 101, 52] } },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as any).lastAutoTable.finalY + 6;
+  }
 
-    // Payment Summary Box
-    doc.setFillColor(239, 246, 255);
-    doc.roundedRect(14, yPos, pageWidth - 28, 30, 2, 2, "F");
+  // ── Totals block ──
+  const totalsX = pageWidth - margin - 62;
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.setFont("helvetica", "normal");
+  doc.text("Total Amount", totalsX, yPos);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Rs. ${(Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`, pageWidth - margin, yPos, { align: "right" });
+  yPos += 5;
 
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(71, 85, 105);
+  doc.text("Paid", totalsX, yPos);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text(`Rs. ${(Number(purchase.paid_amount) || 0).toLocaleString("en-IN")}`, pageWidth - margin, yPos, { align: "right" });
+  yPos += 5;
+
+  doc.setDrawColor(203, 213, 225);
+  doc.line(totalsX, yPos - 2, pageWidth - margin, yPos - 2);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(71, 85, 105);
+  doc.setFontSize(9);
+  doc.text("Balance Due", totalsX, yPos + 3);
+  doc.setTextColor(217, 119, 6);
+  doc.text(
+    `Rs. ${(Number(purchase.balance_amount) || Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
+    pageWidth - margin, yPos + 3, { align: "right" },
+  );
+  yPos += 10;
+
+
+ // Diagonal watermark spanning the entire page (bottom-left to top-right)
+const pageHeight = doc.internal.pageSize.getHeight(); // ← ADD THIS LINE
+
+doc.saveGraphicsState();
+doc.setGState(new doc.GState({ opacity: 0.07 }));    // 0.09 → 0.07
+doc.setFont("helvetica", "bold");
+doc.setFontSize(120);                                // 50 → 120
+doc.setTextColor(100, 116, 139);
+const watermarkCenterY = pageHeight / 2;             // Center of the page
+doc.text(
+  (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
+  pageWidth / 2,
+  watermarkCenterY,
+  { align: "center", angle: -30 }
+);
+doc.restoreGraphicsState();
+
+  // ── Notes ──
+
+  // ── Notes ──
+  if (purchase.notes) {
+    doc.setFillColor(254, 252, 232);
+    doc.roundedRect(margin, yPos, pageWidth - margin * 2, 14, 2, 2, "F");
+    doc.setFontSize(7);
+    doc.setTextColor(161, 98, 7);
     doc.setFont("helvetica", "bold");
-    doc.text("Total:", 20, yPos + 8);
+    doc.text("NOTES", margin + 3, yPos + 4);
+    doc.setFontSize(8);
+    doc.setTextColor(113, 63, 18);
     doc.setFont("helvetica", "normal");
-    doc.text(
-      `Rs. ${(Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
-      60,
-      yPos + 8,
-    );
+    const notesLines = doc.splitTextToSize(purchase.notes, pageWidth - margin * 2 - 6);
+    doc.text(notesLines.slice(0, 2), margin + 3, yPos + 9);
+    yPos += 16;
+  }
 
-    doc.setTextColor(16, 185, 129);
-    doc.setFont("helvetica", "bold");
-    doc.text("Paid:", 20, yPos + 18);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      `Rs. ${(Number(purchase.paid_amount) || 0).toLocaleString("en-IN")}`,
-      60,
-      yPos + 18,
-    );
+  
+  // ── Footer ──
+  doc.setDrawColor(226, 232, 240);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 4;
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.setFont("helvetica", "normal");
+  const footerParts = [siteSettings.phone && `Tel: ${siteSettings.phone}`, siteSettings.email && `Email: ${siteSettings.email}`].filter(Boolean).join("  |  ");
+  if (footerParts) doc.text(footerParts, pageWidth / 2, yPos, { align: "center" });
+  doc.text(`Powered by ${siteSettings.siteName}`, pageWidth / 2, yPos + 4, { align: "center" });
+  doc.text(
+    `Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+    pageWidth / 2, yPos + 8, { align: "center" },
+  );
 
-    doc.setTextColor(239, 68, 68);
-    doc.setFont("helvetica", "bold");
-    doc.text("Balance:", 120, yPos + 13);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(
-      `Rs.${(Number(purchase.balance_amount) || Number(purchase.total_amount) || 0).toLocaleString("en-IN")}`,
-      160,
-      yPos + 13,
-    );
-
-    // Save PDF
-    const fileName = `Purchase_${purchase.invoice_number.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    doc.save(fileName);
-  };
+  const fileName = `Purchase_${purchase.invoice_number.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+  doc.save(fileName);
+};
 
   // Print function
   const handlePrint = (purchase: MaterialPurchaseType) => {
@@ -1767,18 +1904,20 @@ const clearFilters = () => {
                   className="border-collapse text-[11px] font-sans"
                   style={{ tableLayout: "fixed", minWidth: "1100px", width: "100%" }}
                 >
-                  <colgroup>
-                    <col style={{ width: "34px" }} />   {/* checkbox */}
-                    <col style={{ width: "90px" }} />   {/* Date */}
-                    <col style={{ width: "110px" }} />  {/* Invoice # */}
-                    <col style={{ width: "140px" }} />  {/* Vendor */}
-                    <col style={{ width: "140px" }} />  {/* Property */}
-                    <col style={{ width: "100px" }} />  {/* Total */}
-                    <col style={{ width: "100px" }} />  {/* Paid */}
-                    <col style={{ width: "100px" }} />  {/* Balance */}
-                    <col style={{ width: "80px" }} />   {/* Status */}
-                    <col style={{ width: "140px" }} />  {/* Actions */}
-                  </colgroup>
+                 <colgroup>
+  <col style={{ width: "34px" }} />   {/* checkbox */}
+  <col style={{ width: "90px" }} />   {/* Date */}
+  <col style={{ width: "110px" }} />  {/* Invoice # */}
+  <col style={{ width: "120px" }} />  {/* Vendor Name */}
+  <col style={{ width: "100px" }} />  {/* Vendor Phone */}
+  <col style={{ width: "130px" }} />  {/* Property */}
+  <col style={{ width: "90px" }} />   {/* Total */}
+  <col style={{ width: "90px" }} />   {/* Paid */}
+  <col style={{ width: "90px" }} />   {/* Balance */}
+  <col style={{ width: "70px" }} />   {/* Status */}
+  <col style={{ width: "100px" }} />  {/* Added By */}   ← NEW
+  <col style={{ width: "140px" }} />  {/* Actions */}
+</colgroup>
 
                   {/* ── STICKY THEAD ── */}
                   <thead className="sticky top-0 z-10">
@@ -1800,9 +1939,12 @@ const clearFilters = () => {
                       <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Invoice #</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vendor</span>
-                      </th>
+                     <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vendor Name</span>
+</th>
+<th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Vendor Phone</span>
+</th>
                       <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property</span>
                       </th>
@@ -1818,6 +1960,9 @@ const clearFilters = () => {
                       <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
                       </th>
+                      <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Added By</span>
+</th>
                       <th className="px-1.5 py-1.5 text-right bg-gray-200">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
                       </th>
@@ -1842,6 +1987,8 @@ const clearFilters = () => {
                           className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
                         />
                       </td>
+                      <td className="p-1 border-r border-gray-200" />
+
                       <td className="p-1 border-r border-gray-200">
                         <input
                           placeholder="Search…"
@@ -1868,6 +2015,8 @@ const clearFilters = () => {
                           className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
                         />
                       </td>
+                      <td className="p-1 border-r border-gray-200" />
+
                       <td className="p-1" />
                     </tr>
                   </thead>
@@ -1875,7 +2024,7 @@ const clearFilters = () => {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={10} className="text-center py-12">
+                        <td colSpan={12} className="text-center py-12">
                           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
                           <p className="text-xs text-gray-500">Loading purchases…</p>
                         </td>
@@ -1905,17 +2054,11 @@ const clearFilters = () => {
                           <td className="px-1.5 py-1.5 text-[11px] font-semibold text-slate-800 border-r border-slate-200">
                             {purchase.invoice_number}
                           </td>
-                         <td className="px-1.5 py-1.5 text-[11px] text-slate-700 border-r border-slate-200">
-  <div className="flex items-center gap-2 flex-wrap">
-    <span className="font-medium">{purchase.vendor_name}</span>
-
-    {purchase.vendor_phone && (
-      <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
-        <Phone className="h-2 w-2" />
-        {purchase.vendor_phone}
-      </span>
-    )}
-  </div>
+<td className="px-1.5 py-1.5 text-[11px] font-medium text-slate-700 border-r border-slate-200 truncate">
+  {purchase.vendor_name}
+</td>
+<td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200">
+  {purchase.vendor_phone || "—"}
 </td>
                           <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200 truncate max-w-[140px]">
                             {purchase.property_name}
@@ -1932,6 +2075,9 @@ const clearFilters = () => {
                           <td className="px-1.5 py-1.5 border-r border-slate-200">
                             {getStatusBadge(purchase.payment_status)}
                           </td>
+                          <td className="px-1.5 py-1.5 text-[11px] text-slate-600 border-r border-slate-200 truncate">
+  {purchase.added_by || "—"}
+</td>
                           <td className="px-1.5 py-1.5 text-right">
                             <div className="flex justify-end gap-0.5">
                               {can("view_material_purchase") && (
@@ -2789,19 +2935,33 @@ const clearFilters = () => {
                 title="Purchase Info"
               />
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                <div>
-                  <label className={L}>
-                    Vendor Name <span className="text-red-400">*</span>
-                  </label>
-                  <Input
-                    className={F}
-                    placeholder="Vendor name"
-                    value={formData.vendor_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vendor_name: e.target.value })
-                    }
-                  />
-                </div>
+               <div>
+  <label className={L}>
+    Vendor Name <span className="text-red-400">*</span>
+  </label>
+  <Select
+    value={formData.vendor_name}
+    onValueChange={(v) => {
+      const selected = vendors.find((vendor) => vendor.name === v);
+      setFormData({
+        ...formData,
+        vendor_name: v,
+        vendor_phone: selected?.phone || "",
+      });
+    }}
+  >
+    <SelectTrigger className={F}>
+      <SelectValue placeholder="Select vendor" />
+    </SelectTrigger>
+    <SelectContent>
+      {vendors.map((vendor) => (
+        <SelectItem key={vendor.id} value={vendor.name}>
+          {vendor.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
                 <div>
                   <label className={L}>Vendor Phone</label>
                   <Input
@@ -2815,7 +2975,7 @@ const clearFilters = () => {
                   />
                 </div>
 
-                {/* Three columns in one row - Purchase Date, Invoice Number, Property */}
+                {/* Teen columns ek row mein - Purchase Date, Invoice Number, Property */}
                 <div className="col-span-2 grid grid-cols-3 gap-3">
                   <div>
                     <label className={L}>
@@ -2862,6 +3022,7 @@ const clearFilters = () => {
                           property_id: v,
                           property_name: selected?.name || "",
                         }));
+                        setPropertySearchTerm(""); // Clear search after selection
                       }}
                     >
                       <SelectTrigger className={F}>
@@ -2869,11 +3030,65 @@ const clearFilters = () => {
                         <SelectValue placeholder="Select property" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
-                        {properties.map((p) => (
-                          <SelectItem key={p.id} value={p.id} className={SI}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
+                        {/* Search input */}
+                        <div className="sticky top-0 bg-white p-2 border-b z-10">
+                          <div className="relative">
+                            <svg
+                              className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                              />
+                            </svg>
+                            <Input
+                              placeholder="Search properties..."
+                              className="pl-7 h-7 text-xs"
+                              value={propertySearchTerm}
+                              onChange={(e) =>
+                                setPropertySearchTerm(e.target.value)
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Properties list */}
+                        <div className="py-1">
+                          {properties
+                            .filter((p) =>
+                              p.name
+                                .toLowerCase()
+                                .includes(propertySearchTerm.toLowerCase()),
+                            )
+                            .map((p) => (
+                              <SelectItem
+                                key={p.id}
+                                value={p.id}
+                                className={SI}
+                              >
+                                {p.name}
+                              </SelectItem>
+                            ))}
+
+                          {/* Show message if no results */}
+                          {properties.filter((p) =>
+                            p.name
+                              .toLowerCase()
+                              .includes(propertySearchTerm.toLowerCase()),
+                          ).length === 0 && (
+                            <div className="px-2 py-3 text-center">
+                              <p className="text-xs text-gray-400">
+                                No properties found
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2893,7 +3108,7 @@ const clearFilters = () => {
                   size="sm"
                   variant="outline"
                   onClick={addLineItem}
-                  className="h-7 text-[10px] border-amber-200 text-amber-600 hover:bg-amber-50"
+                  className="h-7 text-[10px] border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-400"
                 >
                   <Plus className="h-3 w-3 mr-1" /> Add Item
                 </Button>
@@ -2902,136 +3117,274 @@ const clearFilters = () => {
               <div className="space-y-2">
                 {lineItems.map((item, index) => (
                   <div key={index}>
-                    {/* Desktop View - same as your existing line item display */}
-                    <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
-                      <div className="col-span-3">
-                        {item.category &&
-                        inventoryMappings.find(
-                          (m) => m.category_name === item.category,
-                        )?.subcategories?.length ? (
+                    {/* Desktop View */}
+<div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-gray-50 rounded-lg">
+  {/* Category Select */}
+  <div className="col-span-3">
+    <Select
+      value={item.category || ''}
+      onValueChange={v => {
+        updateLineItem(index, 'category', v);
+        updateLineItem(index, 'item_name', '');
+      }}
+    >
+      <SelectTrigger className="h-7 text-[10px]">
+        <SelectValue placeholder="Select category" />
+      </SelectTrigger>
+      <SelectContent>
+        {inventoryMappings.map(c => (
+          <SelectItem key={c.category_id} value={c.category_name} className="text-[10px]">
+            {c.category_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Item Select / Input */}
+  <div className="col-span-3">
+    {(() => {
+      const subcats = getSubcategoriesForCategory(item.category);
+      if (subcats.length > 0) {
+        return (
+          <Select
+            value={item.item_name || ''}
+            onValueChange={v => updateLineItem(index, 'item_name', v)}
+          >
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Select item *" />
+            </SelectTrigger>
+            <SelectContent>
+              {subcats.map(s => (
+                <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-[10px]">
+                  {s.subcategory_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      } else {
+        return (
+          <Input
+            placeholder="Item name *"
+            value={item.item_name}
+            onChange={e => updateLineItem(index, 'item_name', e.target.value)}
+            className="h-7 text-[10px]"
+          />
+        );
+      }
+    })()}
+  </div>
+
+  {/* Qty */}
+  <div className="col-span-1">
+    <Input
+      type="number"
+      min="1"
+      placeholder="Qty"
+      value={item.quantity || ''}
+      onChange={e => updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)}
+      onWheel={(e) => (e.target as HTMLInputElement).blur()}
+      className="h-7 text-[10px]"
+    />
+  </div>
+
+  {/* Price */}
+  <div className="col-span-2">
+    <Input
+      type="number"
+      min="0"
+      step="0.01"
+      placeholder="Price"
+      value={item.unit_price || ''}
+      onChange={e => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+      className="h-7 text-[10px]"
+    />
+  </div>
+
+  {/* Total */}
+  <div className="col-span-2">
+    <div className="h-7 px-2 bg-amber-100 rounded-md flex items-center text-[10px] font-semibold text-amber-700">
+      ₹{(item.total_price || 0).toLocaleString('en-IN')}
+    </div>
+  </div>
+
+  {/* Delete */}
+  <div className="col-span-1">
+    <button
+      onClick={() => removeLineItem(index)}
+      disabled={lineItems.length === 1}
+      className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30"
+    >
+      <Trash2 className="h-3 w-3 text-red-600" />
+    </button>
+  </div>
+</div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Category
+                          </label>
                           <Select
-                            value={item.item_name}
-                            onValueChange={(v) =>
-                              updateLineItem(index, "item_name", v)
-                            }
+                            value={item.category || ""}
+                            onValueChange={(v) => {
+                              updateLineItem(index, "category", v);
+                              updateLineItem(index, "item_name", "");
+                            }}
                           >
                             <SelectTrigger className="h-9 text-[12px] bg-white">
-                              <SelectValue placeholder="Select item" />
+                              <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent>
-                              {(
-                                inventoryMappings.find(
-                                  (m) => m.category_name === item.category,
-                                )?.subcategories || []
-                              ).map((s) => (
+                              {inventoryMappings.map((c) => (
                                 <SelectItem
-                                  key={s.subcategory_id}
-                                  value={s.subcategory_name}
+                                  key={c.category_id}
+                                  value={c.category_name}
                                   className="text-[11px]"
                                 >
-                                  {s.subcategory_name}
+                                  {c.category_name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        ) : (
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Item Name <span className="text-red-400">*</span>
+                          </label>
+                          {(() => {
+                            const subcats = getSubcategoriesForCategory(
+                              item.category,
+                            );
+                            if (subcats.length > 0) {
+                              return (
+                                <Select
+                                  value={item.item_name || ""}
+                                  onValueChange={(v) =>
+                                    updateLineItem(index, "item_name", v)
+                                  }
+                                >
+                                  <SelectTrigger className="h-9 text-[12px] bg-white">
+                                    <SelectValue placeholder="Select item" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {subcats.map((s) => (
+                                      <SelectItem
+                                        key={s.subcategory_id}
+                                        value={s.subcategory_name}
+                                        className="text-[11px]"
+                                      >
+                                        {s.subcategory_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            } else {
+                              return (
+                                <Input
+                                  placeholder="Item name"
+                                  value={item.item_name}
+                                  onChange={(e) =>
+                                    updateLineItem(
+                                      index,
+                                      "item_name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="h-9 text-[12px] bg-white"
+                                />
+                              );
+                            }
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Qty
+                          </label>
                           <Input
-                            placeholder="Item name"
-                            value={item.item_name}
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={item.quantity || ""}
                             onChange={(e) =>
-                              updateLineItem(index, "item_name", e.target.value)
+                              updateLineItem(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 0,
+                              )
                             }
                             className="h-9 text-[12px] bg-white"
                           />
-                        )}
-                      </div>
-                      <div className="col-span-2">
-                        <Select
-                          value={item.category}
-                          onValueChange={(v) => {
-                            updateLineItem(index, "category", v);
-                            updateLineItem(index, "item_name", "");
-                          }}
-                        >
-                          <SelectTrigger className="h-9 text-[12px] bg-white">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {inventoryMappings.map((c) => (
-                              <SelectItem
-                                key={c.category_id}
-                                value={c.category_name}
-                                className="text-[11px]"
-                              >
-                                {c.category_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="col-span-1">
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="Qty"
-                          value={item.quantity || ""}
-                          onChange={(e) =>
-                            updateLineItem(
-                              index,
-                              "quantity",
-                              parseInt(e.target.value) || 0,
-                            )
-                          }
-                          onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                          className="h-7 text-[10px]"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Price"
-                          value={item.unit_price || ""}
-                          onChange={(e) =>
-                            updateLineItem(
-                              index,
-                              "unit_price",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          className="h-7 text-[10px]"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <div className="h-7 px-2 bg-amber-100 rounded-md flex items-center text-[10px] font-semibold text-amber-700">
-                          ₹{(item.total_price || 0).toLocaleString("en-IN")}
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Price (₹)
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Price"
+                            value={item.unit_price || ""}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                "unit_price",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-9 text-[12px] bg-white"
+                          />
                         </div>
                       </div>
-                      <div className="col-span-1">
-                        <button
-                          onClick={() => removeLineItem(index)}
-                          disabled={lineItems.length === 1}
-                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-red-100 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-3 w-3 text-red-600" />
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Mobile View - same as your existing mobile view */}
-                    <div className="md:hidden bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      {/* Copy your existing mobile view code here */}
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-600 mb-1">
+                            Total
+                          </label>
+                          <div className="h-9 px-3 bg-blue-100 rounded-md flex items-center text-[13px] font-bold text-blue-700">
+                            ₹{(item.total_price || 0).toLocaleString("en-IN")}
+                          </div>
+                        </div>
+                        <div className="flex justify-end items-end">
+                          <button
+                            onClick={() => removeLineItem(index)}
+                            disabled={lineItems.length === 1}
+                            className="h-9 w-9 flex items-center justify-center rounded-md bg-red-50 hover:bg-red-100 disabled:opacity-30"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {item.item_name && (
+                        <div className="mt-3 pt-2 text-[11px] text-gray-600 border-t border-gray-200">
+                          <span className="font-medium">{item.item_name}</span>
+                          {item.category && <span> • {item.category}</span>}
+                          <br />
+                          <span className="text-[10px] text-gray-500">
+                            {item.quantity || 0} × ₹{item.unit_price || 0}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-3 p-3 bg-amber-50 rounded-lg flex justify-between items-center">
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg flex justify-between items-center">
                 <span className="text-xs font-semibold text-gray-700">
                   Total Amount:
                 </span>
-                <span className="text-lg font-bold text-amber-600">
+                <span className="text-lg font-bold text-blue-600">
                   ₹{getTotalAmount().toLocaleString("en-IN")}
                 </span>
               </div>
@@ -3289,15 +3642,13 @@ const clearFilters = () => {
               </button>
 
               {/* Print — Blue */}
-              <button
-                onClick={() =>
-                  selectedPurchase && handlePrint(selectedPurchase)
-                }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Print Page</span>
-              </button>
+            <button
+  onClick={() => setShowPrintPreview(true)}
+  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+>
+  <Printer className="h-3.5 w-3.5" />
+  <span className="hidden sm:inline">Print</span>
+</button>
 
               {/* Close */}
               <DialogClose asChild>
@@ -3506,6 +3857,261 @@ const clearFilters = () => {
           )}
         </DialogContent>
       </Dialog>
+
+
+      {/* Print Preview Dialog */}
+<Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
+    <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div>
+        <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+          <Printer className="h-3.5 w-3.5" />
+          Purchase Receipt
+        </h2>
+        <p className="text-[10px] leading-tight text-blue-100">
+          {selectedPurchase?.invoice_number} • {selectedPurchase?.vendor_name}
+        </p>
+      </div>
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 hover:bg-white/30"
+      >
+        <X className="h-3.5 w-3.5 text-white" />
+      </button>
+    </div>
+
+    <div className="flex-1 overflow-y-auto px-3 py-2">
+      {selectedPurchase && (
+        <div id="purchase-receipt-print-area" className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+
+          {/* Watermark */}
+          <div className="pointer-events-none absolute inset-0 z-0 flex select-none items-center justify-center overflow-hidden">
+            <span
+              className="whitespace-nowrap font-black leading-none"
+              style={{
+                fontSize: "min(10vw, 56px)",
+                letterSpacing: "0.02em",
+                color: "rgba(100, 116, 139, 0.09)",
+                transform: "rotate(-30deg)",
+              }}
+            >
+              {siteSettings.siteName?.split(" ")[0]}
+            </span>
+          </div>
+
+          {/* Header: logo left, name center, invoice right */}
+          <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
+            <div className="w-28 flex-shrink-0">
+              {siteSettings.logo && (
+                <img
+                  src={siteSettings.logo}
+                  alt={siteSettings.siteName}
+                  className="h-20 w-auto object-contain"
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+                />
+              )}
+            </div>
+            <div className="flex-1 text-center">
+              <h2 className="text-lg font-bold text-slate-800">{siteSettings.siteName}</h2>
+              <p className="text-sm font-semibold text-slate-700">Material Purchase Receipt</p>
+            </div>
+            <div className="w-28 text-right text-[10px] text-slate-400">
+              <span className="block font-semibold text-slate-600">Invoice No.</span>
+              <span className="text-[10px]">{selectedPurchase.invoice_number}</span>
+            </div>
+          </div>
+
+          {/* Meta bar */}
+          <div className="relative z-10 mb-3 flex justify-between border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-500">
+            <div>
+              <span className="text-[9px] font-semibold uppercase">Purchase Date</span>
+              <span className="block font-bold text-slate-800">
+                {new Date(selectedPurchase.purchase_date).toLocaleDateString("en-IN")}
+              </span>
+            </div>
+            <div>
+              <span className="text-[9px] font-semibold uppercase">Property</span>
+              <span className="block font-bold text-slate-800">{selectedPurchase.property_name || "—"}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] font-semibold uppercase">Status</span>
+              <span className="block">
+                <span
+                  className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  style={{
+                    background:
+                      selectedPurchase.payment_status === "Paid" ? "#DCFCE7" :
+                      selectedPurchase.payment_status === "Partial" ? "#FEF3C7" : "#FEF2F2",
+                    color:
+                      selectedPurchase.payment_status === "Paid" ? "#166534" :
+                      selectedPurchase.payment_status === "Partial" ? "#92400E" : "#991B1B",
+                  }}
+                >
+                  {selectedPurchase.payment_status?.toUpperCase()}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {/* Details grid */}
+          <div className="relative z-10 mb-3 grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
+            <div>
+              <span className="text-[9px] font-semibold uppercase text-slate-400">Vendor</span>
+              <div className="font-medium text-slate-800">{selectedPurchase.vendor_name || "—"}</div>
+            </div>
+            <div>
+              <span className="text-[9px] font-semibold uppercase text-slate-400">Vendor Phone</span>
+              <div className="font-medium text-slate-800">{selectedPurchase.vendor_phone || "—"}</div>
+            </div>
+            <div>
+              <span className="text-[9px] font-semibold uppercase text-slate-400">Added By</span>
+              <div className="font-medium text-slate-800">{selectedPurchase.added_by || "—"}</div>
+            </div>
+          </div>
+
+          {/* Items table */}
+          {(() => {
+            let itemsToShow = selectedPurchase.purchase_items;
+            if ((!itemsToShow || itemsToShow.length === 0) && selectedPurchase.items) {
+              if (typeof selectedPurchase.items === "string") {
+                try { itemsToShow = JSON.parse(selectedPurchase.items); } catch { itemsToShow = []; }
+              } else if (Array.isArray(selectedPurchase.items)) {
+                itemsToShow = selectedPurchase.items;
+              }
+            }
+            return itemsToShow && itemsToShow.length > 0 ? (
+              <div className="relative z-10 mb-3">
+                <p className="mb-1 text-[10px] font-bold uppercase text-slate-500">Purchase Items</p>
+                <table className="w-full border-collapse border border-slate-300 text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">#</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item Name</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
+                      <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Qty</th>
+                      <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Price</th>
+                      <th className="border border-slate-300 px-2 py-1 text-right font-semibold text-slate-600">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itemsToShow.map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="border border-slate-300 px-2 py-1 text-center text-slate-500">{idx + 1}</td>
+                        <td className="border border-slate-300 px-2 py-1 font-medium text-slate-700">{item.item_name || "—"}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-slate-600">{item.category || "—"}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-right text-slate-600">{item.quantity || 0}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-right text-slate-600">₹{Number(item.unit_price || 0).toLocaleString("en-IN")}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-right font-medium text-slate-700">₹{Number(item.total_price || 0).toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-blue-50 font-bold">
+                      <td colSpan={5} className="border border-slate-300 px-2 py-1 text-right text-blue-700">Total</td>
+                      <td className="border border-slate-300 px-2 py-1 text-right text-blue-700">
+                        ₹{Number(selectedPurchase.total_amount || 0).toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : null;
+          })()}
+
+          {/* Totals */}
+          <div className="relative z-10 mt-3 flex justify-end">
+            <div className="w-64">
+              <div className="flex justify-between py-1 text-sm">
+                <span className="text-slate-600">Total Amount</span>
+                <span className="font-bold text-slate-800">₹{Number(selectedPurchase.total_amount || 0).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between py-1 text-sm">
+                <span className="text-slate-600">Paid</span>
+                <span className="font-bold text-emerald-700">₹{Number(selectedPurchase.paid_amount || 0).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="mt-1 flex justify-between border-t-2 border-slate-300 py-1 pt-1 text-sm">
+                <span className="font-bold text-slate-700">Balance Due</span>
+                <span className="font-bold text-amber-700">
+                  ₹{Number(selectedPurchase.balance_amount || selectedPurchase.total_amount || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {selectedPurchase.notes && (
+            <div className="relative z-10 mt-3 rounded-lg bg-yellow-50 p-2">
+              <p className="mb-0.5 text-[10px] font-medium text-yellow-700">Notes</p>
+              <p className="text-sm text-yellow-800">{selectedPurchase.notes}</p>
+            </div>
+          )}
+
+          {/* Signature block — same as handover, keep as-is style */}
+          <div className="relative z-10 mt-8 grid grid-cols-2 gap-6 text-center text-xs">
+            <div>
+              <div className="mb-1 border-t border-slate-400 pt-1">Received By</div>
+            </div>
+            <div>
+              <div className="mb-1 border-t border-slate-400 pt-1">Authorized Signature</div>
+            </div>
+          </div>
+
+          <div className="receipt-footer relative z-10 mt-3 border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400">
+            <p>
+              {siteSettings.phone && `Tel: ${siteSettings.phone}`}
+              {siteSettings.phone && siteSettings.email && "  |  "}
+              {siteSettings.email && `Email: ${siteSettings.email}`}
+            </p>
+            <p className="mt-0.5">Powered by {siteSettings.siteName}</p>
+            <p className="mt-0.5">
+              Generated on {new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+      >
+        Close
+      </button>
+      <button
+        onClick={() => {
+          const content = document.getElementById("purchase-receipt-print-area");
+          if (!content) return;
+          const win = window.open("", "_blank", "width=800,height=900");
+          if (!win) return;
+          win.document.write(`
+            <html>
+              <head><title>Purchase Receipt</title>
+                <style>
+                  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #fff; }
+                  #purchase-receipt-print-area { max-width: 720px; margin: 0 auto; }
+                  ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                    try {
+                      const rules = sheet.cssRules || sheet.rules;
+                      if (rules) for (const rule of rules) acc += rule.cssText;
+                    } catch (e) {}
+                    return acc;
+                  }, "")}
+                </style>
+              </head>
+              <body>${content.outerHTML}</body>
+            </html>
+          `);
+          win.document.close();
+          win.focus();
+          win.print();
+        }}
+        className="flex h-8 flex-[2] items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+      >
+        <Printer className="h-3.5 w-3.5" /> Print Receipt
+      </button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
