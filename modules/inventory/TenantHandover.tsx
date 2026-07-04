@@ -817,37 +817,82 @@ for (const item of handoverItems) {
 if (stockWarnings.length > 0) {
   stockWarnings.forEach(w => toast.warning(w));
 }
-
-  const payload = {
+const payload = {
     ...formData,
     security_deposit: safeNum(formData.security_deposit),
     rent_amount: safeNum(formData.rent_amount),
     handover_items: itemsWithAssets,
   };
 
+  // Old vs new asset IDs — needed only when editing, so removed items
+  // release their asset back to "available" and newly added items get
+  // freshly assigned.
+  const oldAssetIds = new Set(
+    (editingItem?.handover_items || [])
+      .map((i: any) => i.asset_id)
+      .filter((a: any) => a && String(a).trim() !== '')
+  );
+  const newAssetIds = new Set(
+    itemsWithAssets
+      .map((i) => i.asset_id)
+      .filter((a) => a && String(a).trim() !== '')
+  );
+
   if (editingItem) {
     await updateHandover(editingItem.id, payload);
+
+    // Release assets that were removed from the handover during edit
+    for (const assetId of oldAssetIds) {
+      if (!newAssetIds.has(assetId)) {
+        try {
+          await request('/api/inventory/assign-asset', {
+            method: 'POST',
+            body: JSON.stringify({ asset_id: assetId, status: 'available', tenant_id: null })
+          });
+        } catch (e) {
+          console.error('Asset release error:', e);
+        }
+      }
+    }
+
+    // Assign any newly added items (skip ones that were already assigned before)
+    for (const item of itemsWithAssets) {
+      if (item.asset_id && item.asset_id.trim() !== '' && !oldAssetIds.has(item.asset_id)) {
+        try {
+          await request('/api/inventory/assign-asset', {
+            method: 'POST',
+            body: JSON.stringify({
+              asset_id: item.asset_id,
+              status: 'assigned',
+              tenant_id: formData.tenant_id || null
+            })
+          });
+        } catch (e) {
+          console.error('Asset assign error:', e);
+        }
+      }
+    }
+
     toast.success('Handover updated successfully');
   } else {
     await createHandover(payload);
     // Mark assigned asset IDs as 'assigned' in inventory
-    // Mark assigned asset IDs as 'assigned' in inventory
-for (const item of itemsWithAssets) {
-  if (item.asset_id && item.asset_id.trim() !== '') {
-    try {
-      await request('/api/inventory/assign-asset', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          asset_id: item.asset_id, 
-          status: 'assigned',
-          tenant_id: formData.tenant_id || null
-        })
-      });
-    } catch (e) {
-      console.error('Asset assign error:', e);
+    for (const item of itemsWithAssets) {
+      if (item.asset_id && item.asset_id.trim() !== '') {
+        try {
+          await request('/api/inventory/assign-asset', {
+            method: 'POST',
+            body: JSON.stringify({ 
+              asset_id: item.asset_id, 
+              status: 'assigned',
+              tenant_id: formData.tenant_id || null
+            })
+          });
+        } catch (e) {
+          console.error('Asset assign error:', e);
+        }
+      }
     }
-  }
-}
     toast.success('Handover created successfully');
   }
   setShowForm(false);
@@ -884,8 +929,28 @@ for (const item of itemsWithAssets) {
     buttonsStyling: false,
   });
   if (!result.isConfirmed) return;
+
   try {
+    // ✅ Delete se PEHLE, us handover ke saare assigned assets nikaal lo
+    const handoverToDelete = handovers.find(h => h.id === id);
+    const assetIds = (handoverToDelete?.handover_items || [])
+      .map(i => i.asset_id)
+      .filter(a => a && String(a).trim() !== '');
+
     await deleteHandover(id);
+
+    // ✅ Har asset ko wapas 'available' kar do
+    for (const assetId of assetIds) {
+      try {
+        await request('/api/inventory/assign-asset', {
+          method: 'POST',
+          body: JSON.stringify({ asset_id: assetId, status: 'available', tenant_id: null })
+        });
+      } catch (e) {
+        console.error('Asset release error:', e);
+      }
+    }
+
     await loadAll();
     Swal.fire({
       title: 'Deleted!',
@@ -964,8 +1029,33 @@ for (const item of itemsWithAssets) {
     buttonsStyling: false,
   });
   if (!result.isConfirmed) return;
+
   try {
+    // ✅ Delete se pehle sab selected handovers ke asset_ids collect karo
+    const allAssetIds: string[] = [];
+    for (const id of selectedItems) {
+      const h = handovers.find(x => x.id === id);
+      (h?.handover_items || []).forEach(item => {
+        if (item.asset_id && String(item.asset_id).trim() !== '') {
+          allAssetIds.push(item.asset_id);
+        }
+      });
+    }
+
     for (const id of selectedItems) await deleteHandover(id);
+
+    // ✅ Sab assets wapas available
+    for (const assetId of allAssetIds) {
+      try {
+        await request('/api/inventory/assign-asset', {
+          method: 'POST',
+          body: JSON.stringify({ asset_id: assetId, status: 'available', tenant_id: null })
+        });
+      } catch (e) {
+        console.error('Asset release error:', e);
+      }
+    }
+
     await loadAll();
     setSelectedItems(new Set());
     setSelectAll(false);
@@ -1252,166 +1342,342 @@ const handleExport = () => {
 };
 
   // ── PDF — FIX: convert id to string safely ────────────────────────────────
-  const handleDownloadPDF = () => {
-    if (!viewItem) return;
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      let yPos = margin;
+ const handleDownloadPDF = async () => {
+  if (!viewItem) return;
 
-      // FIX: Convert id to string safely before substring
-      const docId = String(viewItem.id).substring(0, 8).toUpperCase();
+  try {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let yPos = margin;
 
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TENANT HANDOVER DOCUMENT', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
+    const secDep = safeNum(viewItem.security_deposit);
+    const rentAmt = safeNum(viewItem.rent_amount);
+    const totalAmt = secDep + rentAmt;
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Document ID: ${docId}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 10;
+    // ─── Document number ──────────────────────────────────────────────
+    const receiptNo = `HO-${String(viewItem.id).padStart(4, '0')}-${(() => {
+      const d = viewItem.handover_date ? new Date(viewItem.handover_date) : new Date();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `${mm}${d.getFullYear()}`;
+    })()}`;
 
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 8;
+    // ─── Date formatter (dd/mm/yyyy) ──────────────────────────────────
+    const fmtDate = (d?: string) => {
+      if (!d) return '—';
+      try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return '—';
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = date.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      } catch {
+        return '—';
+      }
+    };
 
-      // Tenant Info
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Tenant Information', margin, yPos);
-      yPos += 6;
+    // ─── Helper: load logo as base64 (if URL) ──────────────────────────
+    const getLogoBase64 = async (url: string): Promise<string | null> => {
+      if (!url) return null;
+      if (url.startsWith('data:image')) return url;
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return null;
+      }
+    };
 
-      const tenantInfo = [
-        ['Tenant Name:', viewItem.tenant_name],
-        ['Phone:', viewItem.tenant_phone],
-        ['Email:', viewItem.tenant_email || 'N/A'],
-        ['Property:', viewItem.property_name],
-        ['Room:', `${viewItem.room_number}${viewItem.bed_number ? ` / ${viewItem.bed_number}` : ''}`],
-      ];
+    // ─── 1. HEADER ──────────────────────────────────────────────────────
+    let logoBase64 = null;
+    if (siteSettings.logo) {
+      logoBase64 = await getLogoBase64(siteSettings.logo);
+    }
 
-      doc.setFontSize(10);
-      tenantInfo.forEach(([label, value]) => {
+    if (logoBase64) {
+      try {
+        doc.addImage(logoBase64, 'JPEG', margin, yPos - 6, 30, 12);
+      } catch {
+        doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text(label, margin, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(value), margin + 40, yPos);
-        yPos += 6;
-      });
+        doc.setTextColor(26, 43, 109);
+        doc.text('🏢', margin, yPos + 4);
+      }
+    } else {
+      const shortName = siteSettings.siteName?.split(' ')[0] || 'ROOMAC';
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(26, 43, 109);
+      doc.text(shortName, margin, yPos + 4);
+    }
+
+    // Center: site name
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(26, 43, 109);
+    doc.text(siteSettings.siteName || 'ROOMAC', pageWidth / 2, yPos + 4, { align: 'center' });
+
+    // Right: Document No.
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('Document No.', pageWidth - margin - 10, yPos - 2, { align: 'right' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(26, 43, 109);
+    doc.text(receiptNo, pageWidth - margin - 10, yPos + 4, { align: 'right' });
+
+    yPos += 12;
+
+    // ─── 2. META BAR (with status chip – enlarged) ──────────────────────
+    doc.setFillColor(248, 250, 255);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 10, 'F');
+    doc.setDrawColor(226, 232, 244);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 10, 'D');
+
+    // Left: HANDOVER DATE
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(148, 163, 184);
+    doc.text('HANDOVER DATE', margin + 4, yPos + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(26, 43, 109);
+    doc.text(fmtDate(viewItem.handover_date), margin + 4, yPos + 8);
+
+    // Center: PROPERTY
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(148, 163, 184);
+    doc.text('PROPERTY', pageWidth / 2 - 20, yPos + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(26, 43, 109);
+    doc.text(viewItem.property_name || '—', pageWidth / 2 - 20, yPos + 8);
+
+    // Right: STATUS chip – enlarged for visibility
+    const status = viewItem.status || 'Active';
+    let bgColor: [number, number, number];
+    let textColor: [number, number, number];
+    switch (status) {
+      case 'Completed':
+      case 'Confirmed':
+        bgColor = [220, 252, 231];
+        textColor = [22, 101, 52];
+        break;
+      case 'Pending':
+        bgColor = [254, 243, 199];
+        textColor = [146, 64, 14];
+        break;
+      case 'Cancelled':
+        bgColor = [254, 242, 242];
+        textColor = [153, 27, 27];
+        break;
+      default:
+        bgColor = [219, 234, 254];
+        textColor = [30, 58, 138];
+        break;
+    }
+    const chipWidth = 42;  // wider to fit longer status
+    const chipHeight = 9;
+    const chipX = pageWidth - margin - chipWidth - 4;
+    doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+    doc.roundedRect(chipX, yPos + 0.5, chipWidth, chipHeight, 4, 4, 'F');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);  // bigger text
+    doc.text(status.toUpperCase(), chipX + chipWidth / 2, yPos + 7, { align: 'center' });
+
+    yPos += 14;
+
+    // ─── 3. DETAILS GRID (6 fields in 3 columns) ──────────────────────
+    const details = [
+      ['Tenant', viewItem.tenant_name],
+      ['Phone', viewItem.tenant_phone],
+      ['Email', viewItem.tenant_email || '—'],
+      ['Room/Bed', `${viewItem.room_number}${viewItem.bed_number ? ' / ' + viewItem.bed_number : ''}`],
+      ['Move-In Date', fmtDate(viewItem.move_in_date)],
+      ['Inspector', viewItem.inspector_name || '—'],
+    ];
+
+    const colWidth = (pageWidth - 2 * margin) / 3;
+    details.forEach(([label, value], idx) => {
+      const x = margin + (idx % 3) * colWidth;
+      const row = Math.floor(idx / 3);
+      const y = yPos + row * 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(7);
+      doc.text(label.toUpperCase(), x, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(26, 43, 109);
+      doc.setFontSize(9);
+      doc.text(String(value), x, y + 5);
+    });
+    yPos += details.length > 3 ? 24 : 14;
+
+    // ─── 4. ITEMS TABLE ──────────────────────────────────────────────
+    if (viewItem.handover_items && viewItem.handover_items.length > 0) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(59, 91, 219);
+      doc.text('Item Checklist', margin, yPos);
       yPos += 4;
 
-      // Handover Details
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Handover Details', margin, yPos);
-      yPos += 6;
+      const tableData = viewItem.handover_items.map((item, idx) => [
+        (idx + 1).toString(),
+        item.item_name,
+        item.category,
+        item.quantity.toString(),
+        item.condition_at_movein,
+        item.notes || '—',
+      ]);
 
-      // FIX: Use safeNum for money values in PDF
-      const secDep = safeNum(viewItem.security_deposit);
-      const rentAmt = safeNum(viewItem.rent_amount);
-
-      const handoverInfo = [
-        ['Move-in Date:', fmt(viewItem.move_in_date)],
-        ['Handover Date:', fmt(viewItem.handover_date)],
-        ['Inspector:', viewItem.inspector_name],
-      ['Security Deposit:', pdfMoney(secDep)],
-['Rent Amount:', pdfMoney(rentAmt)],
-['Total Amount:', pdfMoney(secDep + rentAmt)],
-        ['Status:', viewItem.status],
-      ];
-
-      doc.setFontSize(10);
-      handoverInfo.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(label, margin, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(value), margin + 40, yPos);
-        yPos += 6;
+      autoTable(doc, {
+        startY: yPos,
+        head: [['#', 'Item Name', 'Category', 'Qty', 'Condition', 'Notes']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 91, 219], textColor: 255, fontSize: 8, halign: 'left' },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 12, halign: 'center' },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 'auto' },
+        },
+        margin: { left: margin, right: margin },
+        tableWidth: pageWidth - 2 * margin,
       });
 
-      // Items Table
-      if (viewItem.handover_items && viewItem.handover_items.length > 0) {
-        yPos += 4;
-        if (yPos > 250) { doc.addPage(); yPos = margin; }
-
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Item Checklist (${viewItem.handover_items.length} Items)`, margin, yPos);
-        yPos += 8;
-
-        const tableData = viewItem.handover_items.map((item, idx) => [
-          (idx + 1).toString(),
-          item.item_name,
-          item.category,
-          item.quantity.toString(),
-          item.condition_at_movein,
-          item.notes || '-',
-        ]);
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [['#', 'Item Name', 'Category', 'Qty', 'Condition', 'Notes']],
-          body: tableData,
-          theme: 'grid',
-          headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-          margin: { left: margin, right: margin },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // Notes
-      if (viewItem.notes) {
-        if (yPos > 250) { doc.addPage(); yPos = margin; }
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Additional Notes:', margin, yPos);
-        yPos += 6;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        const notesLines = doc.splitTextToSize(viewItem.notes, pageWidth - 2 * margin);
-        doc.text(notesLines, margin, yPos);
-        yPos += notesLines.length * 5 + 10;
-      }
-
-      // Signatures
-      if (yPos > 250) { doc.addPage(); yPos = margin; }
-      yPos += 10;
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 10;
-
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Signatures', margin, yPos);
-      yPos += 10;
-
-      const signatureWidth = (pageWidth - 2 * margin - 20) / 3;
-      const signatures = [
-        { name: viewItem.tenant_name, label: 'Tenant Signature', date: fmt(viewItem.handover_date) },
-        { name: viewItem.inspector_name, label: 'Inspector/Manager', date: fmt(viewItem.handover_date) },
-        { name: 'Witness', label: 'Witness Signature', date: '__________' },
-      ];
-
-      signatures.forEach((sig, idx) => {
-        const xPos = margin + idx * (signatureWidth + 10);
-        doc.line(xPos, yPos + 15, xPos + signatureWidth, yPos + 15);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(sig.name, xPos + signatureWidth / 2, yPos + 20, { align: 'center' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(sig.label, xPos + signatureWidth / 2, yPos + 25, { align: 'center' });
-        doc.text(`Date: ${sig.date}`, xPos + signatureWidth / 2, yPos + 30, { align: 'center' });
-      });
-
-      const fileName = `Handover_${viewItem.tenant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      toast.success('PDF downloaded successfully');
-    } catch (err: any) {
-      console.error('PDF generation error:', err);
-      toast.error('Failed to generate PDF: ' + err.message);
+      yPos = (doc as any).lastAutoTable.finalY + 6;
     }
-  };
+
+    // ─── 5. TOTALS BLOCK (fixed alignment) ──────────────────────────────
+    // We'll use a table-like layout: labels left, amounts right
+    // Define the right edge for amounts
+    const amountX = pageWidth - margin;
+    const labelX = pageWidth - margin - 60; // enough space for long labels
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(26, 43, 109);
+
+    // Security Deposit
+    doc.text('Security Deposit', labelX, yPos);
+    doc.text(pdfMoney(secDep), amountX, yPos, { align: 'right' });
+    yPos += 5;
+
+    // Rent Amount
+    doc.text('Rent Amount', labelX, yPos);
+    doc.text(pdfMoney(rentAmt), amountX, yPos, { align: 'right' });
+    yPos += 5;
+
+    // Line above Total Value
+    doc.setDrawColor(26, 43, 109);
+    doc.line(labelX, yPos, amountX, yPos);
+    yPos += 2;
+
+    // Total Value (bold, larger)
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total Value', labelX, yPos);
+    doc.text(pdfMoney(totalAmt), amountX, yPos, { align: 'right' });
+    yPos += 10;
+
+    // ─── 6. NOTES ──────────────────────────────────────────────────────
+    if (viewItem.notes) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(148, 163, 184);
+      doc.text('Notes', margin, yPos);
+      yPos += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(92, 64, 14);
+      doc.setFontSize(8);
+      const splitNotes = doc.splitTextToSize(viewItem.notes, pageWidth - 2 * margin);
+      doc.text(splitNotes, margin, yPos);
+      yPos += splitNotes.length * 4 + 6;
+    }
+
+    // ─── 7. SIGNATURES ────────────────────────────────────────────────
+    if (yPos > 250) { doc.addPage(); yPos = margin; }
+    yPos += 6;
+    doc.setDrawColor(148, 163, 184);
+    const sigWidth = (pageWidth - 2 * margin - 20) / 3;
+    const signatures = [
+      { name: viewItem.tenant_name, label: 'Tenant Signature', date: fmtDate(viewItem.handover_date) },
+      { name: viewItem.inspector_name || '—', label: 'Inspector/Manager', date: fmtDate(viewItem.handover_date) },
+      { name: 'Witness', label: 'Witness Signature', date: '__________' },
+    ];
+
+    signatures.forEach((sig, idx) => {
+      const x = margin + idx * (sigWidth + 10);
+      doc.line(x, yPos, x + sigWidth, yPos);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(26, 43, 109);
+      doc.text(sig.name, x + sigWidth / 2, yPos + 5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(7);
+      doc.text(sig.label, x + sigWidth / 2, yPos + 9, { align: 'center' });
+      doc.text(`Date: ${sig.date}`, x + sigWidth / 2, yPos + 13, { align: 'center' });
+    });
+
+    yPos += 22;
+
+    // ─── 8. FOOTER ──────────────────────────────────────────────────────
+    if (yPos > 270) { doc.addPage(); yPos = margin; }
+    doc.setDrawColor(226, 232, 244);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    const footerText = [
+      siteSettings.phone ? `Tel: ${siteSettings.phone}` : '',
+      siteSettings.email ? `Email: ${siteSettings.email}` : '',
+    ].filter(Boolean).join('  |  ');
+    if (footerText) {
+      doc.text(footerText, pageWidth / 2, yPos + 2, { align: 'center' });
+      yPos += 5;
+    }
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 91, 219);
+    doc.text(`Powered by ${siteSettings.siteName || 'ROOMAC'}`, pageWidth / 2, yPos + 2, { align: 'center' });
+    yPos += 5;
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    const generated = `Generated on ${new Date().toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+    doc.text(generated, pageWidth / 2, yPos + 2, { align: 'center' });
+
+    // ─── 9. SAVE ──────────────────────────────────────────────────────
+    const fileName = `Handover_${viewItem.tenant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    toast.success('PDF downloaded successfully');
+  } catch (err: any) {
+    console.error('PDF generation error:', err);
+    toast.error('Failed to generate PDF: ' + err.message);
+  }
+};
 
   // ── Share WhatsApp ────────────────────────────────────────────────────────
   const handleShareWhatsApp = () => {

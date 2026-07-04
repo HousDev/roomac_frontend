@@ -33,6 +33,8 @@ export interface MaterialPurchase {
   payment_notes?: string;
   created_at?: string;
   updated_at?: string;
+  added_by?: string;
+
 }
 
 export interface CreatePurchasePayload {
@@ -52,6 +54,8 @@ export interface CreatePurchasePayload {
   paid_by?: string;
   payment_reference?: string;
   payment_notes?: string;
+  added_by?: string;
+
 }
 
 export interface AddPaymentPayload {

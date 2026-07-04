@@ -49,6 +49,8 @@ import { useAuth } from '@/context/authContext';
 import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
 import { request } from '@/lib/api';
 import { FaWhatsapp } from 'react-icons/fa';
+import { getSettings, getSettingValue } from "@/lib/settingsApi";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -221,6 +223,18 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
     total_penalties: 0, avg_penalty: 0, max_penalty: 0, total_properties: 0
   });
 
+  // ── Site settings (for logo, name, footer) ──
+const [siteSettings, setSiteSettings] = useState({
+  siteName: "ROOMAC",
+  logo: "",
+  phone: "",
+  email: "",
+  address: "",
+});
+
+// ── Print preview dialog state ──
+const [showPrintPreview, setShowPrintPreview] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<StatusType>('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
   const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
@@ -338,7 +352,25 @@ const [totalPages, setTotalPages] = useState(1);
     loadAll();
     loadHandovers();
     loadPenaltyRules();
-  }, []);
+
+     const fetchSiteSettings = async () => {
+    try {
+      const settings = await getSettings();
+      setSiteSettings({
+        siteName: getSettingValue(settings, "site_name", "ROOMAC"),
+        logo: getSettingValue(settings, "logo_header", ""),
+        phone: getSettingValue(settings, "contact_phone", ""),
+        email: getSettingValue(settings, "contact_email", ""),
+        address: getSettingValue(settings, "contact_address", ""),
+      });
+    } catch (err) {
+      console.error("Failed to load site settings:", err);
+    }
+  };
+  fetchSiteSettings();
+}, []);
+
+  
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -654,7 +686,6 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
   toast.success('Inspection created successfully');
 }
 
-// Update asset status in inventory based on move-out condition
 // Update asset status in inventory based on move-out condition
 console.log('Updating asset statuses for items:', inspectionItems.map(i => ({ 
   name: i.item_name, 
