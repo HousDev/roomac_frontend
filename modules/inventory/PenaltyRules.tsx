@@ -1,6 +1,6 @@
 
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   Plus, Trash2, Search, Loader2, X, Download,
   Filter, ChevronDown, ChevronUp, AlertTriangle,
@@ -39,6 +39,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
+import { getInventoryMappingsGrouped } from "@/lib/categorySubcategoryMapApi";
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
@@ -142,7 +143,7 @@ const [maxPenaltyFilter,    setMaxPenaltyFilter]    = useState('');
     categories_count: 0,
   });
 
-  const emptyForm = {
+ const emptyForm = {
     item_category: '',
     from_condition: 'Good',
     to_condition: 'Damaged',
@@ -150,6 +151,18 @@ const [maxPenaltyFilter,    setMaxPenaltyFilter]    = useState('');
     description: '',
   };
   const [formData, setFormData] = useState(emptyForm);
+
+  const [categorySelectOpen, setCategorySelectOpen] = useState(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const categorySearchRef = useRef<HTMLInputElement>(null);
+
+  const closeModal = useCallback(() => setShowModal(false), []);
+
+  useEffect(() => {
+    if (categorySelectOpen) {
+      requestAnimationFrame(() => categorySearchRef.current?.focus());
+    }
+  }, [categorySelectOpen]);
 // ── Pagination state (client‑side) ──
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 const [currentPage, setCurrentPage] = useState(1);
@@ -157,24 +170,17 @@ const [pageSize, setPageSize] = useState<number | "All">(25);
 const [totalItems, setTotalItems] = useState(0);
 const [totalPages, setTotalPages] = useState(1);
   // ── Load Categories from Master ───────────────────────────────────────────
+ // ── Load Categories from Inventory Mapping (same source as Assets) ────────
   const loadCategories = useCallback(async () => {
     try {
-      const res = await getMasterItemsByTab('Properties');
-      const list = Array.isArray(res.data) ? res.data : [];
-      const catItem = list.find((i: any) => i.name?.toLowerCase() === 'category');
-      if (!catItem) return;
-      
-      const vRes = await getMasterValues(catItem.id);
-      const values = Array.isArray(vRes.data) ? vRes.data : Array.isArray(vRes) ? vRes : [];
-      
+      const res = await getInventoryMappingsGrouped();
+      const mappings = res?.data || [];
       setCategories(
-        values
-          .filter((v: any) => v.isactive === 1 || v.is_active === 1)
-          .map((v: any) => ({ 
-            id: String(v.id), 
-            name: v.value || v.name || '',
-            value: v.value || v.name || ''
-          }))
+        mappings.map((m: any) => ({
+          id: String(m.category_id),
+          name: m.category_name,
+          value: m.category_name,
+        }))
       );
     } catch (err) {
       console.error('Could not load categories:', err);
@@ -195,14 +201,27 @@ const [totalPages, setTotalPages] = useState(1);
       
       // Calculate stats
       if (rulesArray.length > 0) {
-        const amounts = rulesArray.map(r => r.penalty_amount);
-        setStats({
-          total_rules: rulesArray.length,
-          max_penalty: Math.max(...amounts),
-          min_penalty: Math.min(...amounts),
-          avg_penalty: Math.round(amounts.reduce((a, b) => a + b, 0) / amounts.length),
-          categories_count: new Set(rulesArray.map(r => r.item_category)).size,
-        });
+       const amounts = rulesArray
+  .map(r => Number(r.penalty_amount))
+  .filter(v => !isNaN(v) && v >= 0);
+
+if (amounts.length > 0) {
+  setStats({
+    total_rules: rulesArray.length,
+    max_penalty: Math.max(...amounts),
+    min_penalty: Math.min(...amounts),
+    avg_penalty: Math.round(amounts.reduce((a, b) => a + b, 0) / amounts.length),
+    categories_count: new Set(rulesArray.map(r => r.item_category)).size,
+  });
+} else {
+  setStats({
+    total_rules: rulesArray.length,
+    max_penalty: 0,
+    min_penalty: 0,
+    avg_penalty: 0,
+    categories_count: new Set(rulesArray.map(r => r.item_category)).size,
+  });
+}
       } else {
         setStats({
           total_rules: 0,
@@ -1176,7 +1195,7 @@ const clearFilters = () => {
       <Dialog open={showModal} onOpenChange={v => { if (!v) setShowModal(false); }}>
         <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
 
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingRule ? 'Edit Penalty Rule' : 'Create Penalty Rule'}</h2>
               <p className="text-xs text-blue-100">Define penalty for condition changes</p>
@@ -1188,31 +1207,63 @@ const clearFilters = () => {
             </DialogClose>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+          <div className="p-2 overflow-y-auto max-h-[75vh] space-y-5">
             <form onSubmit={handleSubmit}>
               <div>
                 <SH icon={<Scale className="h-3 w-3" />} title="Rule Configuration" />
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
 
-                  <div className="col-span-2">
+             <div className="col-span-2">
                     <label className={L}>Item Category <span className="text-red-400">*</span></label>
                     <Select 
                       value={formData.item_category}
-                      onValueChange={v => setFormData(p => ({ ...p, item_category: v }))}
+                      open={categorySelectOpen}
+                      onOpenChange={setCategorySelectOpen}
+                      onValueChange={v => {
+                        setFormData(p => ({ ...p, item_category: v }));
+                        setCategorySearchTerm('');
+                      }}
                     >
                       <SelectTrigger className={F}>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {categories.length > 0 ? categories.map(c => (
-                          <SelectItem key={c.id} value={c.name} className={SI}>
-                            {c.name}
-                          </SelectItem>
-                        )) : (
-                          <SelectItem value="__none__" disabled className={SI}>
-                            No categories — add values to "Category" in Masters
-                          </SelectItem>
-                        )}
+                      <SelectContent
+                        position="popper"
+                        sideOffset={4}
+                        className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+                      >
+                        <div className="sticky top-0 bg-white p-2 border-b z-10">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                            <Input
+                              ref={categorySearchRef}
+                              placeholder="Search category..."
+                              className="pl-7 h-7 text-xs"
+                              value={categorySearchTerm}
+                              onChange={(e) => setCategorySearchTerm(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        <div className="py-1">
+                          {categories.length > 0 ? categories
+                            .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+                            .map(c => (
+                              <SelectItem key={c.id} value={c.name} className={SI}>
+                                {c.name}
+                              </SelectItem>
+                            )) : (
+                            <SelectItem value="__none__" disabled className={SI}>
+                              No categories — add values to "Category" in Masters
+                            </SelectItem>
+                          )}
+                          {categories.length > 0 && categories.filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())).length === 0 && (
+                            <div className="px-2 py-3 text-center">
+                              <p className="text-xs text-gray-400">No categories found</p>
+                            </div>
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1295,16 +1346,25 @@ const clearFilters = () => {
                   , penalty = <span className="font-bold text-red-600">{currencyFormatter.format(formData.penalty_amount)}</span>
                 </p>
               </div>
-
+ <div className="flex gap-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowModal(false)}
+                className="flex-1 h-8 text-[11px] font-semibold border-gray-200 text-gray-600 hover:bg-gray-500  hover:text-gray-600 rounded-lg"
+              >
+                Close
+              </Button>
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full mt-5 h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm"
+                className="flex-[2]  h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white rounded-lg shadow-sm"
               >
                 {submitting ? (
                   <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</>
                 ) : editingRule ? 'Update Rule' : 'Create Rule'}
               </Button>
+              </div>
             </form>
           </div>
         </DialogContent>

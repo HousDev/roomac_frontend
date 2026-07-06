@@ -124,6 +124,36 @@ export function Assets() {
 
   const [purchasedItems, setPurchasedItems] = useState<{ label: string; value: string }[]>([]);
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');   // NEW
+const [itemSearchTerm, setItemSearchTerm] = useState('');
+
+const categorySearchRef = React.useRef<HTMLInputElement>(null);
+const itemSearchRef = React.useRef<HTMLInputElement>(null);
+const propertySearchRef = React.useRef<HTMLInputElement>(null);
+
+
+const [categorySelectOpen, setCategorySelectOpen] = useState(false);
+const [itemSelectOpen, setItemSelectOpen] = useState(false);
+const [propertySelectOpen, setPropertySelectOpen] = useState(false);
+
+// NEW — auto-focus effects
+useEffect(() => {
+  if (categorySelectOpen) {
+    requestAnimationFrame(() => categorySearchRef.current?.focus());
+  }
+}, [categorySelectOpen]);
+
+useEffect(() => {
+  if (itemSelectOpen) {
+    requestAnimationFrame(() => itemSearchRef.current?.focus());
+  }
+}, [itemSelectOpen]);
+
+useEffect(() => {
+  if (propertySelectOpen) {
+    requestAnimationFrame(() => propertySearchRef.current?.focus());
+  }
+}, [propertySelectOpen]);
   const [stats, setStats] = useState({
     total_items: 0, total_quantity: 0, total_value: 0,
     low_stock_count: 0, out_of_stock_count: 0,
@@ -1635,7 +1665,7 @@ const handleCopyLink = () => {
       {viewItem && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm">
           <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
-            <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+            <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
               <div>
                 <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
                   <Eye className="h-3.5 w-3.5" /> Asset Details
@@ -1752,7 +1782,7 @@ const handleCopyLink = () => {
               )}
               <button
                 onClick={() => setViewItem(null)}
-                className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+                className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] text-[11px] font-bold text-white hover:opacity-90"
               >
                 Close
               </button>
@@ -1768,7 +1798,7 @@ const handleCopyLink = () => {
     <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
 
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
             <Package className="h-3.5 w-3.5" />
@@ -2011,7 +2041,7 @@ const handleCopyLink = () => {
         </button>
         <button
           onClick={() => printGroupSummary(viewGroup)}
-          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90 flex items-center justify-center gap-1"
+          className="h-8 flex-[2] rounded-lg bg-blue-800 text-[11px] font-bold text-white hover:opacity-90 flex items-center justify-center gap-1"
         >
           <Printer className="h-3.5 w-3.5" /> Print 
         </button>
@@ -2022,8 +2052,8 @@ const handleCopyLink = () => {
 
       {/* ══ Add / Edit Dialog (unchanged) ══ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
-        <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0 rounded-2xl">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Item' : 'Add Inventory Item'}</h2>
               <p className="text-xs text-blue-100">Fill in the details below</p>
@@ -2035,38 +2065,65 @@ const handleCopyLink = () => {
             </DialogClose>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+          <div className="p-2 -mt-2 overflow-y-auto max-h-[75vh] space-y-5">
             <div>
               <SH icon={<Package className="h-3 w-3" />} title="Item Info" />
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+              <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
                 <div>
                   <label className={L}>Category <span className="text-red-400">*</span></label>
-                  <Select
-                    value={formData.category_id}
-                    onValueChange={(v) => {
-                      const selected = inventoryMappings.find((m) => m.category_id === v);
-                      setFormData((prev) => ({
-                        ...prev,
-                        category_id: v,
-                        category_name: selected?.category_name || '',
-                        item_name: '',
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className={F}>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {inventoryMappings.map((m) => (
-                        <SelectItem key={m.category_id} value={m.category_id} className={SI}>
-                          {m.category_name}
-                        </SelectItem>
-                      ))}
-                      {inventoryMappings.length === 0 && (
-                        <SelectItem value="none" disabled>No categories found</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+             <Select
+  value={formData.category_id}
+  open={categorySelectOpen}
+  onOpenChange={setCategorySelectOpen}
+  onValueChange={(v) => {
+    const selected = inventoryMappings.find((m) => m.category_id === v);
+    setFormData((prev) => ({
+      ...prev,
+      category_id: v,
+      category_name: selected?.category_name || '',
+      item_name: '',
+    }));
+    setItemSearchTerm('');
+  }}
+>
+  <SelectTrigger className={F}>
+    <SelectValue placeholder="Select category" />
+  </SelectTrigger>
+ <SelectContent
+  position="popper"
+  sideOffset={4}
+  className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+>
+    <div className="sticky top-0 bg-white p-2 border-b z-10">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+        <Input
+          ref={categorySearchRef}
+          placeholder="Search category..."
+          className="pl-7 h-7 text-xs"
+          value={categorySearchTerm}
+          onChange={(e) => setCategorySearchTerm(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+      </div>
+    </div>
+    <div className="py-1">
+      {inventoryMappings
+        .filter((m) => m.category_name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+        .map((m) => (
+          <SelectItem key={m.category_id} value={m.category_id} className={SI}>
+            {m.category_name}
+          </SelectItem>
+        ))}
+      {inventoryMappings.filter((m) => m.category_name.toLowerCase().includes(categorySearchTerm.toLowerCase())).length === 0 && (
+        <div className="px-2 py-3 text-center">
+          <p className="text-xs text-gray-400">No categories found</p>
+        </div>
+      )}
+    </div>
+  </SelectContent>
+</Select>
                 </div>
 
                 <div>
@@ -2075,23 +2132,55 @@ const handleCopyLink = () => {
                     const selectedCategory = inventoryMappings.find((m) => m.category_id === formData.category_id);
                     const subcategories = selectedCategory?.subcategories || [];
                     if (subcategories.length > 0) {
-                      return (
-                        <Select
-                          value={formData.item_name}
-                          onValueChange={(v) => setFormData((prev) => ({ ...prev, item_name: v }))}
-                        >
-                          <SelectTrigger className={F}>
-                            <SelectValue placeholder="Select item" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {subcategories.map((s) => (
-                              <SelectItem key={s.subcategory_id} value={s.subcategory_name} className={SI}>
-                                {s.subcategory_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      );
+                     return (
+ <Select
+  value={formData.item_name}
+  open={itemSelectOpen}
+  onOpenChange={setItemSelectOpen}
+  onValueChange={(v) => {
+    setFormData((prev) => ({ ...prev, item_name: v }));
+    setItemSearchTerm('');
+  }}
+>
+    <SelectTrigger className={F}>
+      <SelectValue placeholder="Select item" />
+    </SelectTrigger>
+ <SelectContent
+  position="popper"
+  sideOffset={4}
+  className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+>
+      <div className="sticky top-0 bg-white p-2 border-b z-10">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Input
+            ref={itemSearchRef}
+            placeholder="Search item..."
+            className="pl-7 h-7 text-xs"
+            value={itemSearchTerm}
+            onChange={(e) => setItemSearchTerm(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
+      </div>
+      <div className="py-1">
+        {subcategories
+          .filter((s) => s.subcategory_name.toLowerCase().includes(itemSearchTerm.toLowerCase()))
+          .map((s) => (
+            <SelectItem key={s.subcategory_id} value={s.subcategory_name} className={SI}>
+              {s.subcategory_name}
+            </SelectItem>
+          ))}
+        {subcategories.filter((s) => s.subcategory_name.toLowerCase().includes(itemSearchTerm.toLowerCase())).length === 0 && (
+          <div className="px-2 py-3 text-center">
+            <p className="text-xs text-gray-400">No items found</p>
+          </div>
+        )}
+      </div>
+    </SelectContent>
+  </Select>
+);
                     }
                     return (
                       <Input
@@ -2104,30 +2193,39 @@ const handleCopyLink = () => {
                   })()}
                 </div>
 
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <label className={L}>Property <span className="text-red-400">*</span></label>
-                  <Select
-                    value={formData.property_id}
-                    onValueChange={(v) => {
-                      const selected = properties.find((p) => String(p.id) === v);
-                      setFormData((prev) => ({ ...prev, property_id: v, property_name: selected?.name || '' }));
-                      setPropertySearchTerm('');
-                    }}
-                  >
+                 <Select
+  value={formData.property_id}
+  open={propertySelectOpen}
+  onOpenChange={setPropertySelectOpen}
+  onValueChange={(v) => {
+    const selected = properties.find((p) => String(p.id) === v);
+    setFormData((prev) => ({ ...prev, property_id: v, property_name: selected?.name || '' }));
+    setPropertySearchTerm('');
+  }}
+>
                     <SelectTrigger className={F}>
                       <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
                       <SelectValue placeholder="Select property" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
+<SelectContent
+  position="popper"
+  sideOffset={4}
+  align="end"
+  className="max-h-[300px] w-[var(--radix-select-trigger-width)]"
+>
                       <div className="sticky top-0 bg-white p-2 border-b z-10">
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                           <Input
+                            ref={propertySearchRef}
                             placeholder="Search properties..."
                             className="pl-7 h-7 text-xs"
                             value={propertySearchTerm}
                             onChange={(e) => setPropertySearchTerm(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                           />
                         </div>
                       </div>
@@ -2192,15 +2290,25 @@ const handleCopyLink = () => {
               />
             </div>
 
-            <Button
-              disabled={submitting}
-              onClick={handleSubmit}
-              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm"
-            >
-              {submitting ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</>
-              ) : editingItem ? 'Update Item' : 'Add Item'}
-            </Button>
+           <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowForm(false)}
+                className="flex-1 h-8 text-[11px] font-semibold border-gray-200 text-gray-600 hover:bg-gray-500  hover:text-gray-600 rounded-lg"
+              >
+                Close
+              </Button>
+              <Button
+                disabled={submitting}
+                onClick={handleSubmit}
+                className="flex-[2] h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm"
+              >
+                {submitting ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</>
+                ) : editingItem ? 'Update Item' : 'Add Item'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

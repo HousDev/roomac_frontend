@@ -1,5 +1,5 @@
 // TenantHandover.tsx - COMPLETE FIXED VERSION
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   FileText, Plus, Trash2, Loader2, X, Download,
   Building, IndianRupee, StickyNote, RefreshCw, Filter,
@@ -200,12 +200,20 @@ export function TenantHandover() {
 // PDF-safe money formatter (jsPDF doesn't support ₹ symbol)
 const pdfMoney = (n: any) => `Rs. ${safeNum(n).toLocaleString('en-IN')}`;
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 const [showOTPModal, setShowOTPModal] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [generatedOTP, setGeneratedOTP] = useState('');
 const [tenantSearchTerm, setTenantSearchTerm] = useState('');
 const [propertySearchTerm, setPropertySearchTerm] = useState('');
 const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
+const [itemCategorySearchTerm, setItemCategorySearchTerm] = useState('');
+const [itemNameSearchTerm, setItemNameSearchTerm] = useState('');
+
+const tenantSearchRef = useRef<HTMLInputElement>(null);
+const propertySearchRef = useRef<HTMLInputElement>(null);
+const itemCategorySearchRef = useRef<HTMLInputElement>(null);
+const itemNameSearchRef = useRef<HTMLInputElement>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const { can } = useAuth(); // ← ADD THIS
@@ -1342,27 +1350,25 @@ const handleExport = () => {
 };
 
   // ── PDF — FIX: convert id to string safely ────────────────────────────────
- const handleDownloadPDF = async () => {
+const handleDownloadPDF = async () => {
   if (!viewItem) return;
 
   try {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    let yPos = margin;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
 
     const secDep = safeNum(viewItem.security_deposit);
     const rentAmt = safeNum(viewItem.rent_amount);
     const totalAmt = secDep + rentAmt;
 
-    // ─── Document number ──────────────────────────────────────────────
     const receiptNo = `HO-${String(viewItem.id).padStart(4, '0')}-${(() => {
       const d = viewItem.handover_date ? new Date(viewItem.handover_date) : new Date();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       return `${mm}${d.getFullYear()}`;
     })()}`;
 
-    // ─── Date formatter (dd/mm/yyyy) ──────────────────────────────────
     const fmtDate = (d?: string) => {
       if (!d) return '—';
       try {
@@ -1370,312 +1376,252 @@ const handleExport = () => {
         if (isNaN(date.getTime())) return '—';
         const dd = String(date.getDate()).padStart(2, '0');
         const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const yyyy = date.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-      } catch {
-        return '—';
-      }
+        return `${dd}/${mm}/${date.getFullYear()}`;
+      } catch { return '—'; }
     };
 
-    // ─── Helper: load logo as base64 (if URL) ──────────────────────────
-    const getLogoBase64 = async (url: string): Promise<string | null> => {
-      if (!url) return null;
-      if (url.startsWith('data:image')) return url;
-      try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        return null;
-      }
-    };
+    // ── White header ──
+    const headerHeight = 30;
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
 
-    // ─── 1. HEADER ──────────────────────────────────────────────────────
-    let logoBase64 = null;
-    if (siteSettings.logo) {
-      logoBase64 = await getLogoBase64(siteSettings.logo);
+    const yBase = headerHeight / 2 + 2;
+
+    // Logo — left
+    if (siteSettings?.logo) {
+      try {
+        const imgProps = doc.getImageProperties(siteSettings.logo);
+        const maxW = 30, maxH = 30;
+        const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
+        const imgW = imgProps.width * ratio;
+        const imgH = imgProps.height * ratio;
+        doc.addImage(siteSettings.logo, imgProps.fileType || "PNG", margin + (maxW - imgW) / 2, yBase - imgH / 2, imgW, imgH);
+      } catch (e) {}
     }
 
-    if (logoBase64) {
-      try {
-        doc.addImage(logoBase64, 'JPEG', margin, yPos - 6, 30, 12);
-      } catch {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(26, 43, 109);
-        doc.text('🏢', margin, yPos + 4);
-      }
-    } else {
-      const shortName = siteSettings.siteName?.split(' ')[0] || 'ROOMAC';
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(26, 43, 109);
-      doc.text(shortName, margin, yPos + 4);
-    }
+    // Site name — center
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(siteSettings?.siteName || "ROOMAC", pageWidth / 2, yBase, { align: "center" });
 
-    // Center: site name
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(26, 43, 109);
-    doc.text(siteSettings.siteName || 'ROOMAC', pageWidth / 2, yPos + 4, { align: 'center' });
-
-    // Right: Document No.
+    // Document No. — right
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
-    doc.text('Document No.', pageWidth - margin - 10, yPos - 2, { align: 'right' });
+    doc.text("Document No.", pageWidth - margin, yBase - 3, { align: "right" });
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(26, 43, 109);
-    doc.text(receiptNo, pageWidth - margin - 10, yPos + 4, { align: 'right' });
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text(receiptNo, pageWidth - margin, yBase + 2, { align: "right" });
 
-    yPos += 12;
+    // Subtitle
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Handover Document", pageWidth / 2, yBase + 6, { align: "center" });
 
-    // ─── 2. META BAR (with status chip – enlarged) ──────────────────────
-    doc.setFillColor(248, 250, 255);
-    doc.rect(margin, yPos, pageWidth - 2 * margin, 10, 'F');
-    doc.setDrawColor(226, 232, 244);
-    doc.rect(margin, yPos, pageWidth - 2 * margin, 10, 'D');
+    let yPos = headerHeight + 4;
 
-    // Left: HANDOVER DATE
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    // ── Meta bar ──
+    const metaHeight = 11;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, yPos, pageWidth - margin * 2, metaHeight, "S");
+
+    doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.text('HANDOVER DATE', margin + 4, yPos + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(26, 43, 109);
-    doc.text(fmtDate(viewItem.handover_date), margin + 4, yPos + 8);
+    doc.setFont("helvetica", "bold");
+    doc.text("HANDOVER DATE", margin + 3, yPos + 4);
+    doc.text("PROPERTY", pageWidth / 2 - 20, yPos + 4);
+    doc.text("STATUS", pageWidth - margin - 30, yPos + 4);
 
-    // Center: PROPERTY
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(148, 163, 184);
-    doc.text('PROPERTY', pageWidth / 2 - 20, yPos + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(26, 43, 109);
-    doc.text(viewItem.property_name || '—', pageWidth / 2 - 20, yPos + 8);
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.setFont("helvetica", "normal");
+    doc.text(fmtDate(viewItem.handover_date), margin + 3, yPos + 8.5);
+    doc.text(viewItem.property_name || "—", pageWidth / 2 - 20, yPos + 8.5);
 
-    // Right: STATUS chip – enlarged for visibility
-    const status = viewItem.status || 'Active';
-    let bgColor: [number, number, number];
-    let textColor: [number, number, number];
-    switch (status) {
-      case 'Completed':
-      case 'Confirmed':
-        bgColor = [220, 252, 231];
-        textColor = [22, 101, 52];
-        break;
-      case 'Pending':
-        bgColor = [254, 243, 199];
-        textColor = [146, 64, 14];
-        break;
-      case 'Cancelled':
-        bgColor = [254, 242, 242];
-        textColor = [153, 27, 27];
-        break;
-      default:
-        bgColor = [219, 234, 254];
-        textColor = [30, 58, 138];
-        break;
-    }
-    const chipWidth = 42;  // wider to fit longer status
-    const chipHeight = 9;
-    const chipX = pageWidth - margin - chipWidth - 4;
-    doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
-    doc.roundedRect(chipX, yPos + 0.5, chipWidth, chipHeight, 4, 4, 'F');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);  // bigger text
-    doc.text(status.toUpperCase(), chipX + chipWidth / 2, yPos + 7, { align: 'center' });
+    const status = viewItem.status || "Active";
+    const statusCol: [number, number, number] =
+      status === "Completed" || status === "Confirmed" ? [22, 101, 52] :
+      status === "Pending" ? [146, 64, 14] :
+      status === "Cancelled" ? [153, 27, 27] : [30, 58, 138];
+    doc.setTextColor(...statusCol);
+    doc.setFont("helvetica", "bold");
+    doc.text(status.toUpperCase(), pageWidth - margin - 30, yPos + 8.5);
 
-    yPos += 14;
+    yPos += metaHeight + 4;
 
-    // ─── 3. DETAILS GRID (6 fields in 3 columns) ──────────────────────
+    // ── Details grid (6 fields, 3 cols) ──
     const details = [
-      ['Tenant', viewItem.tenant_name],
-      ['Phone', viewItem.tenant_phone],
-      ['Email', viewItem.tenant_email || '—'],
-      ['Room/Bed', `${viewItem.room_number}${viewItem.bed_number ? ' / ' + viewItem.bed_number : ''}`],
-      ['Move-In Date', fmtDate(viewItem.move_in_date)],
-      ['Inspector', viewItem.inspector_name || '—'],
+      ["Tenant", viewItem.tenant_name],
+      ["Phone", viewItem.tenant_phone],
+      ["Email", viewItem.tenant_email || "—"],
+      ["Room/Bed", `${viewItem.room_number}${viewItem.bed_number ? " / " + viewItem.bed_number : ""}`],
+      ["Move-In Date", fmtDate(viewItem.move_in_date)],
+      ["Inspector", viewItem.inspector_name || "—"],
     ];
-
-    const colWidth = (pageWidth - 2 * margin) / 3;
+    const colWidth = (pageWidth - margin * 2) / 3;
     details.forEach(([label, value], idx) => {
       const x = margin + (idx % 3) * colWidth;
       const row = Math.floor(idx / 3);
       const y = yPos + row * 10;
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(148, 163, 184);
       doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.setFont("helvetica", "bold");
       doc.text(label.toUpperCase(), x, y);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(26, 43, 109);
       doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.setFont("helvetica", "normal");
       doc.text(String(value), x, y + 5);
     });
     yPos += details.length > 3 ? 24 : 14;
 
-    // ─── 4. ITEMS TABLE ──────────────────────────────────────────────
+    // ── Items Table ──
     if (viewItem.handover_items && viewItem.handover_items.length > 0) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(59, 91, 219);
-      doc.text('Item Checklist', margin, yPos);
-      yPos += 4;
-
       const tableData = viewItem.handover_items.map((item, idx) => [
-        (idx + 1).toString(),
+        String(idx + 1),
         item.item_name,
         item.category,
-        item.quantity.toString(),
+        String(item.quantity),
         item.condition_at_movein,
-        item.notes || '—',
+        item.notes || "—",
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [['#', 'Item Name', 'Category', 'Qty', 'Condition', 'Notes']],
+        head: [["#", "Item Name", "Category", "Qty", "Condition", "Notes"]],
         body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 91, 219], textColor: 255, fontSize: 8, halign: 'left' },
-        bodyStyles: { fontSize: 8 },
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2, textColor: [51, 65, 85] },
+        headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 7.5 },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 12, halign: 'center' },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 'auto' },
+          0: { cellWidth: 8, halign: "center" },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 14, halign: "center" },
+          4: { cellWidth: 24 },
+          5: { cellWidth: "auto" },
         },
         margin: { left: margin, right: margin },
-        tableWidth: pageWidth - 2 * margin,
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 6;
     }
 
-    // ─── 5. TOTALS BLOCK (fixed alignment) ──────────────────────────────
-    // We'll use a table-like layout: labels left, amounts right
-    // Define the right edge for amounts
-    const amountX = pageWidth - margin;
-    const labelX = pageWidth - margin - 60; // enough space for long labels
+    // ── Totals ──
+    // const totalsX = pageWidth - margin - 62;
+    // doc.setFontSize(8.5);
+    // doc.setTextColor(71, 85, 105);
+    // doc.setFont("helvetica", "normal");
+    // doc.text("Security Deposit", totalsX, yPos);
+    // doc.setFont("helvetica", "bold");
+    // doc.setTextColor(30, 41, 59);
+    // doc.text(pdfMoney(secDep), pageWidth - margin, yPos, { align: "right" });
+    // yPos += 5;
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(26, 43, 109);
+    // doc.setFont("helvetica", "normal");
+    // doc.setTextColor(71, 85, 105);
+    // doc.text("Rent Amount", totalsX, yPos);
+    // doc.setFont("helvetica", "bold");
+    // doc.setTextColor(30, 41, 59);
+    // doc.text(pdfMoney(rentAmt), pageWidth - margin, yPos, { align: "right" });
+    // yPos += 5;
 
-    // Security Deposit
-    doc.text('Security Deposit', labelX, yPos);
-    doc.text(pdfMoney(secDep), amountX, yPos, { align: 'right' });
-    yPos += 5;
+    // doc.setDrawColor(203, 213, 225);
+    // doc.line(totalsX, yPos - 2, pageWidth - margin, yPos - 2);
+    // doc.setFont("helvetica", "bold");
+    // doc.setTextColor(59, 91, 219);
+    // doc.setFontSize(9.5);
+    // doc.text("Total Value", totalsX, yPos + 3);
+    // doc.text(pdfMoney(totalAmt), pageWidth - margin, yPos + 3, { align: "right" });
+    // yPos += 12;
 
-    // Rent Amount
-    doc.text('Rent Amount', labelX, yPos);
-    doc.text(pdfMoney(rentAmt), amountX, yPos, { align: 'right' });
-    yPos += 5;
+    // ── Watermark (light, bottom-left → top-right) ──
 
-    // Line above Total Value
-    doc.setDrawColor(26, 43, 109);
-    doc.line(labelX, yPos, amountX, yPos);
-    yPos += 2;
+doc.saveGraphicsState();
+doc.setGState(new doc.GState({ opacity: 0.09 }));
+doc.setFont("helvetica", "bold");
+doc.setFontSize(56);
+doc.setTextColor(100, 116, 139);
 
-    // Total Value (bold, larger)
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total Value', labelX, yPos);
-    doc.text(pdfMoney(totalAmt), amountX, yPos, { align: 'right' });
-    yPos += 10;
+doc.text(
+  (siteSettings.siteName?.split(" ")[0] || "ROOMAC").toUpperCase(),
+  pageWidth / 2,
+  pageHeight / 2,
+  {
+    align: "center",
+    angle: 30,
+  }
+);
 
-    // ─── 6. NOTES ──────────────────────────────────────────────────────
+doc.restoreGraphicsState();
+
+    // ── Notes ──
     if (viewItem.notes) {
+      doc.setFillColor(254, 252, 232);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 14, 2, 2, "F");
+      doc.setFontSize(7);
+      doc.setTextColor(161, 98, 7);
+      doc.setFont("helvetica", "bold");
+      doc.text("NOTES", margin + 3, yPos + 4);
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(148, 163, 184);
-      doc.text('Notes', margin, yPos);
-      yPos += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(92, 64, 14);
-      doc.setFontSize(8);
-      const splitNotes = doc.splitTextToSize(viewItem.notes, pageWidth - 2 * margin);
-      doc.text(splitNotes, margin, yPos);
-      yPos += splitNotes.length * 4 + 6;
+      doc.setTextColor(113, 63, 18);
+      doc.setFont("helvetica", "normal");
+      const notesLines = doc.splitTextToSize(viewItem.notes, pageWidth - margin * 2 - 6);
+      doc.text(notesLines.slice(0, 2), margin + 3, yPos + 9);
+      yPos += 18;
     }
 
-    // ─── 7. SIGNATURES ────────────────────────────────────────────────
+    // ── Signatures ──
     if (yPos > 250) { doc.addPage(); yPos = margin; }
-    yPos += 6;
-    doc.setDrawColor(148, 163, 184);
-    const sigWidth = (pageWidth - 2 * margin - 20) / 3;
+    yPos += 4;
+    const sigWidth = (pageWidth - margin * 2 - 20) / 3;
     const signatures = [
-      { name: viewItem.tenant_name, label: 'Tenant Signature', date: fmtDate(viewItem.handover_date) },
-      { name: viewItem.inspector_name || '—', label: 'Inspector/Manager', date: fmtDate(viewItem.handover_date) },
-      { name: 'Witness', label: 'Witness Signature', date: '__________' },
+      { name: viewItem.tenant_name, label: "Tenant Signature" },
+      { name: viewItem.inspector_name || "—", label: "Inspector/Manager" },
+      { name: "Witness", label: "Witness Signature" },
     ];
-
     signatures.forEach((sig, idx) => {
       const x = margin + idx * (sigWidth + 10);
-      doc.line(x, yPos, x + sigWidth, yPos);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(26, 43, 109);
-      doc.text(sig.name, x + sigWidth / 2, yPos + 5, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(148, 163, 184);
-      doc.setFontSize(7);
-      doc.text(sig.label, x + sigWidth / 2, yPos + 9, { align: 'center' });
-      doc.text(`Date: ${sig.date}`, x + sigWidth / 2, yPos + 13, { align: 'center' });
+      doc.setDrawColor(148, 163, 184);
+      doc.line(x, yPos + 12, x + sigWidth, yPos + 12);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 41, 59);
+      doc.text(sig.name, x + sigWidth / 2, yPos + 17, { align: "center" });
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text(sig.label, x + sigWidth / 2, yPos + 22, { align: "center" });
     });
+    yPos += 30;
 
-    yPos += 22;
-
-    // ─── 8. FOOTER ──────────────────────────────────────────────────────
-    if (yPos > 270) { doc.addPage(); yPos = margin; }
-    doc.setDrawColor(226, 232, 244);
+    // ── Footer ──
+    doc.setDrawColor(226, 232, 240);
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 4;
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    const footerText = [
-      siteSettings.phone ? `Tel: ${siteSettings.phone}` : '',
-      siteSettings.email ? `Email: ${siteSettings.email}` : '',
-    ].filter(Boolean).join('  |  ');
-    if (footerText) {
-      doc.text(footerText, pageWidth / 2, yPos + 2, { align: 'center' });
-      yPos += 5;
-    }
+    doc.setFont("helvetica", "normal");
+    const footerParts = [siteSettings.phone && `Tel: ${siteSettings.phone}`, siteSettings.email && `Email: ${siteSettings.email}`].filter(Boolean).join("  |  ");
+    if (footerParts) doc.text(footerParts, pageWidth / 2, yPos, { align: "center" });
+    doc.text(`Powered by ${siteSettings.siteName}`, pageWidth / 2, yPos + 4, { align: "center" });
+    doc.text(
+      `Generated on ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+      pageWidth / 2, yPos + 8, { align: "center" }
+    );
 
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(59, 91, 219);
-    doc.text(`Powered by ${siteSettings.siteName || 'ROOMAC'}`, pageWidth / 2, yPos + 2, { align: 'center' });
-    yPos += 5;
-
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(148, 163, 184);
-    const generated = `Generated on ${new Date().toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`;
-    doc.text(generated, pageWidth / 2, yPos + 2, { align: 'center' });
-
-    // ─── 9. SAVE ──────────────────────────────────────────────────────
-    const fileName = `Handover_${viewItem.tenant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Handover_${viewItem.tenant_name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
     doc.save(fileName);
-    toast.success('PDF downloaded successfully');
+    toast.success("PDF downloaded successfully");
   } catch (err: any) {
-    console.error('PDF generation error:', err);
-    toast.error('Failed to generate PDF: ' + err.message);
+    console.error("PDF generation error:", err);
+    toast.error("Failed to generate PDF: " + err.message);
   }
 };
 
@@ -2677,7 +2623,7 @@ const clearFilters = () => {
       {/* ══ ADD / EDIT DIALOG ════════════════════════════════════════════════ */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">{editingItem ? 'Edit Handover' : 'New Tenant Handover'}</h2>
               <p className="text-xs text-blue-100">
@@ -2718,12 +2664,15 @@ const clearFilters = () => {
       handleTenantSelect(v);
       setTenantSearchTerm('');
     }}
+    onOpenChange={(open) => {
+      if (open) requestAnimationFrame(() => tenantSearchRef.current?.focus());
+    }}
   >
     <SelectTrigger className={F}>
       <User className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
       <SelectValue placeholder="Select tenant (auto-fills details)" />
     </SelectTrigger>
-    <SelectContent className="max-h-[300px]">
+    <SelectContent position="popper" sideOffset={4} className="max-h-[300px] w-[var(--radix-select-trigger-width)]">
       {/* Search input */}
       <div className="sticky top-0 bg-white p-2 border-b z-10">
         <div className="relative">
@@ -2731,11 +2680,13 @@ const clearFilters = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <Input
-            placeholder="Search tena..."
+            ref={tenantSearchRef}
+            placeholder="Search tenant..."
             className="pl-7 h-7 text-xs"
             value={tenantSearchTerm}
             onChange={(e) => setTenantSearchTerm(e.target.value)}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           />
         </div>
       </div>
@@ -2817,6 +2768,9 @@ const clearFilters = () => {
       handlePropertySelect(v);
       setPropertySearchTerm('');
     }}
+    onOpenChange={(open) => {
+      if (open) requestAnimationFrame(() => propertySearchRef.current?.focus());
+    }}
   >
     <SelectTrigger className={F}>
       <Building className="h-3 w-3 text-gray-400 mr-1.5" />
@@ -2824,7 +2778,7 @@ const clearFilters = () => {
         {formData.property_name || "Select property"}
       </SelectValue>
     </SelectTrigger>
-    <SelectContent className="max-h-[300px]">
+    <SelectContent position="popper" sideOffset={4} className="max-h-[300px] w-[var(--radix-select-trigger-width)]">
       {/* Search input */}
       <div className="sticky top-0 bg-white p-2 border-b z-10">
         <div className="relative">
@@ -2832,11 +2786,13 @@ const clearFilters = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <Input
+            ref={propertySearchRef}
             placeholder="Search properties..."
             className="pl-7 h-7 text-xs"
             value={propertySearchTerm}
             onChange={(e) => setPropertySearchTerm(e.target.value)}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           />
         </div>
       </div>
@@ -3004,28 +2960,46 @@ const clearFilters = () => {
 
               {/* Category */}
               <div className="col-span-2">
-                <Select
+            <Select
                   value={item.category}
                   onValueChange={v => {
                     updateHandoverItemField(idx, 'category', v);
                     updateHandoverItemField(idx, 'item_name', '');
+                    setItemCategorySearchTerm('');
+                  }}
+                  onOpenChange={(open) => {
+                    if (open) requestAnimationFrame(() => itemCategorySearchRef.current?.focus());
                   }}
                 >
                   <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {inventoryMappings.length > 0 ? (
-                      inventoryMappings.map(c => (
-                        <SelectItem key={c.category_id} value={c.category_name} className="text-xs">
-                          {c.category_name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      categories.map(c => (
-                        <SelectItem key={c.id} value={c.name} className="text-xs">{c.name}</SelectItem>
-                      ))
-                    )}
+                  <SelectContent position="popper" sideOffset={4} avoidCollisions className="max-h-[220px] w-[var(--radix-select-trigger-width)]">
+                    <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+                      <div className="relative">
+                        <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <Input
+                          ref={itemCategorySearchRef}
+                          placeholder="Search category..."
+                          className="pl-6 h-6 text-[10px]"
+                          value={itemCategorySearchTerm}
+                          onChange={(e) => setItemCategorySearchTerm(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
+                    <div className="py-1">
+                      {(inventoryMappings.length > 0 ? inventoryMappings : categories.map(c => ({ category_id: c.id, category_name: c.name })))
+                        .filter(c => c.category_name.toLowerCase().includes(itemCategorySearchTerm.toLowerCase()))
+                        .map(c => (
+                          <SelectItem key={c.category_id} value={c.category_name} className="text-xs">
+                            {c.category_name}
+                          </SelectItem>
+                        ))}
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
@@ -3035,30 +3009,54 @@ const clearFilters = () => {
                 {(() => {
                   const subcats = getSubcategoriesForCategory(item.category);
                   if (subcats.length > 0) {
-                    return (
-                      <Select
-                        value={item.item_name}
-                        onValueChange={async (v) => {
-                          updateHandoverItemField(idx, 'item_name', v);
-                          const stock = await fetchItemStock(v);
-                          if (item.quantity > stock) {
-                            toast.error(`Only ${stock} "${v}" available in this property.`);
-                            updateHandoverItemField(idx, 'quantity', stock > 0 ? stock : 1);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-                          <SelectValue placeholder="Item name" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {subcats.map(s => (
-                            <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-xs">
-                              {s.subcategory_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
+                  return (
+                        <Select
+                          value={item.item_name}
+                          onValueChange={async (v) => {
+                            updateHandoverItemField(idx, 'item_name', v);
+                            setItemNameSearchTerm('');
+                            const stock = await fetchItemStock(v);
+                            if (item.quantity > stock) {
+                              toast.error(`Only ${stock} "${v}" available in this property.`);
+                              updateHandoverItemField(idx, 'quantity', stock > 0 ? stock : 1);
+                            }
+                          }}
+                          onOpenChange={(open) => {
+                            if (open) requestAnimationFrame(() => itemNameSearchRef.current?.focus());
+                          }}
+                        >
+                          <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+                            <SelectValue placeholder="Item name" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" sideOffset={4} avoidCollisions className="max-h-[220px] w-[var(--radix-select-trigger-width)]">
+                            <div className="sticky top-0 bg-white p-1.5 border-b z-10">
+                              <div className="relative">
+                                <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <Input
+                                  ref={itemNameSearchRef}
+                                  placeholder="Search item..."
+                                  className="pl-6 h-6 text-[10px]"
+                                  value={itemNameSearchTerm}
+                                  onChange={(e) => setItemNameSearchTerm(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <div className="py-1">
+                              {subcats
+                                .filter(s => s.subcategory_name.toLowerCase().includes(itemNameSearchTerm.toLowerCase()))
+                                .map(s => (
+                                  <SelectItem key={s.subcategory_id} value={s.subcategory_name} className="text-xs">
+                                    {s.subcategory_name}
+                                  </SelectItem>
+                                ))}
+                            </div>
+                          </SelectContent>
+                        </Select>
+                      );
                   }
                   return (
                     <Input
@@ -3164,7 +3162,7 @@ const clearFilters = () => {
                 </Button>
               )}
               <Button disabled={submitting} onClick={handleSubmit}
-                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5">
+                className="flex-1 h-8 text-[11px] font-semibold bg-gradient-to-r from-[#0A1F5C] hover:from-[#0A1F5C] hover:to-[#1E4ED8] text-white rounded-lg shadow-sm flex items-center justify-center gap-1.5">
                 {submitting ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</>
                 ) : currentStep === 1 ? (
@@ -3184,7 +3182,7 @@ const clearFilters = () => {
       {viewItem && (
         <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
     <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold">Handover Document</h2>
                 <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
@@ -3256,13 +3254,13 @@ const clearFilters = () => {
   </div>
 
   {/* Print — Blue */}
-  <button
-    onClick={handlePrint}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
-  >
-    <Printer className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline">Print Page</span>
-  </button>
+ <button
+  onClick={() => setShowPrintPreview(true)}
+  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
+>
+  <Printer className="h-3.5 w-3.5" />
+  <span className="hidden sm:inline">Print</span>
+</button>
 
   {/* Verify — Purple */}
   {viewItem.status !== 'Confirmed' && (
@@ -3391,11 +3389,224 @@ const clearFilters = () => {
         </Dialog>
       )}
 
+      {/* Print Preview Dialog */}
+<Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+  <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
+    <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
+      <div>
+        <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
+          <Printer className="h-3.5 w-3.5" />
+          Handover Document
+        </h2>
+        <p className="text-[10px] leading-tight text-blue-100">
+          {viewItem?.tenant_name} • {viewItem?.property_name}
+        </p>
+      </div>
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 hover:bg-white/30"
+      >
+        <X className="h-3.5 w-3.5 text-white" />
+      </button>
+    </div>
+
+    <div className="flex-1 overflow-y-auto px-3 py-2">
+      {viewItem && (() => {
+        const secDep = safeNum(viewItem.security_deposit);
+        const rentAmt = safeNum(viewItem.rent_amount);
+        const totalAmt = secDep + rentAmt;
+        const receiptNo = `HO-${String(viewItem.id).padStart(4, '0')}-${(() => {
+          const d = viewItem.handover_date ? new Date(viewItem.handover_date) : new Date();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          return `${mm}${d.getFullYear()}`;
+        })()}`;
+
+        return (
+          <div id="handover-receipt-print-area" className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+
+            {/* Watermark */}
+            <div className="pointer-events-none absolute inset-0 z-0 flex select-none items-center justify-center overflow-hidden">
+              <span
+                className="whitespace-nowrap font-black leading-none"
+                style={{ fontSize: "min(10vw, 56px)", letterSpacing: "0.02em", color: "rgba(100, 116, 139, 0.09)", transform: "rotate(-30deg)" }}
+              >
+                {siteSettings.siteName?.split(" ")[0]}
+              </span>
+            </div>
+
+            {/* Header: logo left, name center, doc no right */}
+            <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
+              <div className="w-28 flex-shrink-0">
+                {siteSettings.logo && (
+                  <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-20 w-auto object-contain"
+                    onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                )}
+              </div>
+              <div className="flex-1 text-center">
+                <h2 className="text-lg font-bold text-slate-800">{siteSettings.siteName}</h2>
+                <p className="text-sm font-semibold text-slate-700">Handover Document</p>
+              </div>
+              <div className="w-28 text-right text-[10px] text-slate-400">
+                <span className="block font-semibold text-slate-600">Document No.</span>
+                <span className="text-[10px]">{receiptNo}</span>
+              </div>
+            </div>
+
+            {/* Meta bar */}
+            <div className="relative z-10 mb-3 flex justify-between border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-500">
+              <div>
+                <span className="text-[9px] font-semibold uppercase">Handover Date</span>
+                <span className="block font-bold text-slate-800">{fmt(viewItem.handover_date)}</span>
+              </div>
+              <div>
+                <span className="text-[9px] font-semibold uppercase">Property</span>
+                <span className="block font-bold text-slate-800">{viewItem.property_name || "—"}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-semibold uppercase">Status</span>
+                <span className="block">
+                  <Badge className={`text-[10px] px-2 ${statusColor(viewItem.status)}`}>{viewItem.status}</Badge>
+                </span>
+              </div>
+            </div>
+
+            {/* Details grid */}
+            <div className="relative z-10 mb-3 grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Tenant</span><div className="font-medium text-slate-800">{viewItem.tenant_name || "—"}</div></div>
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Phone</span><div className="font-medium text-slate-800">{viewItem.tenant_phone || "—"}</div></div>
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Email</span><div className="font-medium text-slate-800">{viewItem.tenant_email || "—"}</div></div>
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Room/Bed</span><div className="font-medium text-slate-800">{viewItem.room_number}{viewItem.bed_number ? ` / ${viewItem.bed_number}` : ""}</div></div>
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Move-In Date</span><div className="font-medium text-slate-800">{fmt(viewItem.move_in_date)}</div></div>
+              <div><span className="text-[9px] font-semibold uppercase text-slate-400">Inspector</span><div className="font-medium text-slate-800">{viewItem.inspector_name || "—"}</div></div>
+            </div>
+
+            {/* Items table */}
+            {viewItem.handover_items && viewItem.handover_items.length > 0 && (
+              <div className="relative z-10 mb-3">
+                <p className="mb-1 text-[10px] font-bold uppercase text-slate-500">Item Checklist</p>
+                <table className="w-full border-collapse border border-slate-300 text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">#</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Item</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Category</th>
+                      <th className="border border-slate-300 px-2 py-1 text-center font-semibold text-slate-600">Qty</th>
+                      <th className="border border-slate-300 px-2 py-1 text-center font-semibold text-slate-600">Condition</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left font-semibold text-slate-600">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewItem.handover_items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="border border-slate-300 px-2 py-1 text-center text-slate-500">{idx + 1}</td>
+                        <td className="border border-slate-300 px-2 py-1 font-medium text-slate-700">{item.item_name}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-slate-600">{item.category}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-center text-slate-600">{item.quantity}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-center text-slate-600">{item.condition_at_movein}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-slate-500">{item.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Totals */}
+            {/* <div className="relative z-10 mt-3 flex justify-end">
+              <div className="w-64">
+                <div className="flex justify-between py-1 text-sm">
+                  <span className="text-slate-600">Security Deposit</span>
+                  <span className="font-bold text-slate-800">{money(secDep)}</span>
+                </div>
+                <div className="flex justify-between py-1 text-sm">
+                  <span className="text-slate-600">Rent Amount</span>
+                  <span className="font-bold text-slate-800">{money(rentAmt)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t-2 border-slate-300 py-1 pt-1 text-sm">
+                  <span className="font-bold text-slate-700">Total Value</span>
+                  <span className="font-bold text-blue-700">{money(totalAmt)}</span>
+                </div>
+              </div>
+            </div> */}
+
+            {viewItem.notes && (
+              <div className="relative z-10 mt-3 rounded-lg bg-yellow-50 p-2">
+                <p className="mb-0.5 text-[10px] font-medium text-yellow-700">Notes</p>
+                <p className="text-sm text-yellow-800">{viewItem.notes}</p>
+              </div>
+            )}
+
+            {/* Signatures */}
+            <div className="relative z-10 mt-8 grid grid-cols-3 gap-6 text-center text-xs">
+              <div><div className="mb-1 border-t border-slate-400 pt-1">{viewItem.tenant_name}</div><p className="text-[9px] text-slate-500">Tenant Signature</p></div>
+              <div><div className="mb-1 border-t border-slate-400 pt-1">{viewItem.inspector_name || "—"}</div><p className="text-[9px] text-slate-500">Inspector/Manager</p></div>
+              <div><div className="mb-1 border-t border-slate-400 pt-1">Witness</div><p className="text-[9px] text-slate-500">Witness Signature</p></div>
+            </div>
+
+            <div className="receipt-footer relative z-10 mt-3 border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400">
+              <p>
+                {siteSettings.phone && `Tel: ${siteSettings.phone}`}
+                {siteSettings.phone && siteSettings.email && "  |  "}
+                {siteSettings.email && `Email: ${siteSettings.email}`}
+              </p>
+              <p className="mt-0.5">Powered by {siteSettings.siteName}</p>
+              <p className="mt-0.5">
+                Generated on {new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+
+    <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
+      <button
+        onClick={() => setShowPrintPreview(false)}
+        className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+      >
+        Close
+      </button>
+      <button
+        onClick={() => {
+          const content = document.getElementById("handover-receipt-print-area");
+          if (!content) return;
+          const win = window.open("", "_blank", "width=800,height=900");
+          if (!win) return;
+          win.document.write(`
+            <html>
+              <head><title>Handover Document</title>
+                <style>
+                  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #fff; }
+                  #handover-receipt-print-area { max-width: 760px; margin: 0 auto; }
+                  ${Array.from(document.styleSheets).reduce((acc, sheet) => {
+                    try {
+                      const rules = sheet.cssRules || sheet.rules;
+                      if (rules) for (const rule of rules) acc += rule.cssText;
+                    } catch (e) {}
+                    return acc;
+                  }, "")}
+                </style>
+              </head>
+              <body>${content.outerHTML}</body>
+            </html>
+          `);
+          win.document.close();
+          win.focus();
+          win.print();
+        }}
+        className="flex h-8 flex-[2] items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-[11px] font-bold text-white hover:opacity-90"
+      >
+        <Printer className="h-3.5 w-3.5" /> Print Receipt
+      </button>
+    </div>
+  </DialogContent>
+</Dialog>
+
       {/* ══ OTP Modal ════════════════════════════════════════════════════════ */}
       {showOTPModal && viewItem && (
         <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
           <DialogContent className="max-w-md px-0 py-0">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg ">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-2 rounded-t-lg ">
               <h2 className="text-base font-semibold">Verify OTP</h2>
               <p className="text-xs text-purple-100">Confirm handover with tenant</p>
             </div>
@@ -3413,7 +3624,7 @@ const clearFilters = () => {
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleVerifyOTP} disabled={otpCode.length !== 6}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600">
+                  className="flex-1 bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8]">
                   Verify & Confirm
                 </Button>
                 <Button variant="outline" onClick={() => setShowOTPModal(false)}>Cancel</Button>
