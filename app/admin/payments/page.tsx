@@ -3874,7 +3874,7 @@ onViewReceipt={handleViewReceipt}
             )}
 
             {/* ── Main Card ── */}
-            <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+            <Card className="border-0 overflow-hidden flex flex-col h-[320px] sm:h-[490px]">
               <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="overflow-auto flex-1 min-h-0 flex flex-col">
                   <div className="min-w-[1000px] flex flex-col flex-1 min-h-0">
@@ -4921,7 +4921,7 @@ onPreviewReceipt={handleViewReceipt}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
           {/* Header - Fixed */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 rounded-t-lg flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
@@ -5628,7 +5628,7 @@ onPreviewReceipt={handleViewReceipt}
               <Button
                 size="sm"
                 onClick={handleAddPayment}
-                className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                className="text-xs h-8 px-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-blue-800 text-white"
               >
                 <Plus className="h-3 w-3 mr-1.5" />
                 Add Payment
@@ -5656,7 +5656,7 @@ onPreviewReceipt={handleViewReceipt}
   <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
 
     {/* ── HEADER — same style as Add Payment ── */}
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
         <div>
           <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
@@ -6322,7 +6322,7 @@ onPreviewReceipt={handleViewReceipt}
               : !demandPayment.tenant_id || !demandPayment.amount || !demandPayment.due_date)
           }
           onClick={bulkMode ? handleBulkSend : handleDemandPayment}
-          className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+          className="text-xs h-8 px-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-blue-800 text-white"
         >
           {bookingLoading ? (
             <>
@@ -6581,7 +6581,7 @@ onPreviewReceipt={handleViewReceipt}
       >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
           {/* Header - Fixed */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 rounded-t-lg flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
@@ -7113,7 +7113,7 @@ onPreviewReceipt={handleViewReceipt}
               <Button
                 size="sm"
                 onClick={() => handleUpdatePayment(newPayment)}
-                className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                className="text-xs h-8 px-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-blue-800 text-white"
               >
                 <Pencil className="h-3 w-3 mr-1.5" />
                 Update Payment
@@ -7131,7 +7131,7 @@ onPreviewReceipt={handleViewReceipt}
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
 
           {/* Header — same style as Expense Receipt modal */}
-          <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+          <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-3.5 py-2">
             <div>
               <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
                 <FileText className="h-3.5 w-3.5" />
@@ -7431,7 +7431,7 @@ onPreviewReceipt={handleViewReceipt}
                   win.print();
                 }, 300);
               }}
-              className="flex h-8 flex-[2] items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+              className="flex h-8 flex-[2] items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-[11px] font-bold text-white hover:opacity-90"
             >
               <Download className="h-3.5 w-3.5" /> Download PDF
             </button>
@@ -7971,7 +7971,7 @@ const filteredGroups = pagination.items.map((group: any) => ({
   }));
 
   return (
-    <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+    <Card className="border-0 overflow-hidden flex flex-col h-[320px] sm:h-[490px]">
   <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
     <div className="overflow-auto flex-1 min-h-0 flex flex-col">
 <div className="min-w-[1300px] flex flex-col flex-1 min-h-0">
@@ -8911,8 +8911,8 @@ const endIndex = isAll ? filteredReceipts.length : startIndex + (itemsPerPage as
 const paginatedReceiptsList = filteredReceipts.slice(startIndex, endIndex);
 const totalPages = isAll ? 1 : Math.ceil(filteredReceipts.length / (itemsPerPage as number));
 
- return (
-  <Card className="border-0 overflow-hidden flex flex-col max-h-[320px] sm:max-h-[490px]">
+return (
+  <Card className="border-0 overflow-hidden flex flex-col h-[320px] sm:h-[490px]">
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="overflow-auto flex-1 min-h-0 flex flex-col">
         <div className="min-w-[900px] flex flex-col flex-1 min-h-0">

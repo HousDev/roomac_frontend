@@ -1468,87 +1468,135 @@ const handleExport = () => {
     <div className="bg-gray-50">
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-16 z-10">
+   <div className="mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
-         {/* Stat cards */}
-        <div className="pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <StatCard title="Total"      value={stats.total}    icon={LayoutTemplate} color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
-            <StatCard title="Active"     value={stats.active}   icon={CheckCircle}    color="bg-green-600"  bg="bg-gradient-to-br from-green-50 to-green-100" />
-            <StatCard title="Inactive"   value={stats.inactive} icon={XCircle}        color="bg-gray-500"   bg="bg-gradient-to-br from-gray-50 to-gray-100" />
-            <StatCard title="Categories" value={stats.cats}     icon={Layers}         color="bg-indigo-600" bg="bg-gradient-to-br from-indigo-50 to-indigo-100" />
-          </div>
+    {/* LEFT - Stats */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1">
+      <StatCard
+        title="Total"
+        value={stats.total}
+        icon={LayoutTemplate}
+        color="bg-blue-600"
+        bg="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
+
+      <StatCard
+        title="Active"
+        value={stats.active}
+        icon={CheckCircle}
+        color="bg-green-600"
+        bg="bg-gradient-to-br from-green-50 to-green-100"
+      />
+
+      <StatCard
+        title="Inactive"
+        value={stats.inactive}
+        icon={XCircle}
+        color="bg-gray-500"
+        bg="bg-gradient-to-br from-gray-50 to-gray-100"
+      />
+
+      <StatCard
+        title="Categories"
+        value={stats.cats}
+        icon={Layers}
+        color="bg-indigo-600"
+        bg="bg-gradient-to-br from-indigo-50 to-indigo-100"
+      />
+    </div>
+
+    {/* RIGHT - Actions */}
+    <div className="flex items-center justify-end gap-2 flex-wrap shrink-0 lg:mt-8">
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+            {selectedItems.length} selected
+          </span>
+
+          <button
+            onClick={() => handleBulkStatus(true)}
+            className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-[11px] font-medium hover:bg-green-100 transition-colors"
+          >
+            <CheckCircle className="h-3 w-3" />
+            Activate
+          </button>
+
+          <button
+            onClick={() => handleBulkStatus(false)}
+            className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-medium hover:bg-gray-100 transition-colors"
+          >
+            <XCircle className="h-3 w-3" />
+            Deactivate
+          </button>
+
+          <button
+            onClick={handleBulkDelete}
+            className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+          >
+            <Trash2 className="h-3 w-3" />
+            Delete
+          </button>
         </div>
-        <div className="pb-2 flex items-end justify-end gap-2 flex-wrap">
+      )}
 
+      {/* Filter */}
+      <button
+        onClick={() => setSidebarOpen((o) => !o)}
+        className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
+          ${
+            sidebarOpen || hasFilters
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white border-gray-200"
+          }`}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Filters</span>
 
+        {filterCount > 0 && (
+          <span
+            className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
+              ${
+                sidebarOpen || hasFilters
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-600 text-white"
+              }`}
+          >
+            {filterCount}
+          </span>
+        )}
+      </button>
 
-          {/* Bulk action bar */}
-          {someSelected && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
-                {selectedItems.length} selected
-              </span>
-              <button onClick={() => handleBulkStatus(true)}
-                className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-[11px] font-medium hover:bg-green-100 transition-colors">
-                <CheckCircle className="h-3 w-3" /> Activate
-              </button>
-              <button onClick={() => handleBulkStatus(false)}
-                className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-medium hover:bg-gray-100 transition-colors">
-                <XCircle className="h-3 w-3" /> Deactivate
-              </button>
-              <button onClick={handleBulkDelete}
-                className="inline-flex items-center gap-1 h-8 px-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors">
-                <Trash2 className="h-3 w-3" /> Delete
-              </button>
-            </div>
-          )}
+      {/* Export */}
+      <button
+        onClick={handleExport}
+        className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium"
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Export</span>
+      </button>
 
-          {/* Filter toggle */}
-          <button onClick={() => setSidebarOpen(o => !o)}
-            className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
-              ${sidebarOpen || hasFilters ? "bg-blue-600 text-white border-blue-600" : " bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white border-gray-200 hover:bg-gray-50"}`}>
-            <Filter className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Filters</span>
-            {filterCount > 0 && (
-              <span className={`h-4 w-4 rounded-full text-[9px] font-bold flex items-center justify-center
-                ${sidebarOpen || hasFilters ? "bg-white text-blue-600" : "bg-blue-600 text-white"}`}>
-                {filterCount}
-              </span>
-            )}
-          </button>
+      {/* Create */}
+      <button
+        onClick={openAdd}
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Create Template</span>
+      </button>
 
-          {/* Export */}
-          <button onClick={handleExport}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:bg-gray-50 text-[11px] font-medium transition-colors">
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
-
-          {/* Refresh */}
-          {/* <button onClick={loadTemplates} disabled={loading}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button> */}
-
-          {/* Create */}
-          <button onClick={openAdd}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white hover:from-blue-700 hover:to-indigo-700  text-[11px] font-semibold shadow-sm transition-colors">
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Create Template</span>
-          </button>
-        </div>
-
-       
-      </div>
+    </div>
+  </div>
+</div>
 
      {/* ── TABLE ──────────────────────────────────────────────────────── */}<div className="relative">
   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
     
 
-    <div className="flex flex-col h-[310px] sm:h-[450px]">
-      <div className="overflow-auto flex-1 min-h-0">
-        <table
+<div className="flex flex-col h-[310px] sm:h-[430px] lg:h-[500px]">
+  <div className="overflow-auto flex-1 min-h-0">        <table
           className="border-collapse text-[11px] font-sans"
           style={{ tableLayout: "fixed", minWidth: "900px", width: "100%" }}
         >
@@ -1984,7 +2032,7 @@ const handleExport = () => {
     >
 
       {/* Header */}
-     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 sm:px-5 py-2 flex items-center justify-between gap-2 flex-shrink-0">
+     <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3 sm:px-5 py-2 flex items-center justify-between gap-2 flex-shrink-0">
 
   {/* Left */}
   <div className="min-w-0 flex-1">
@@ -2940,7 +2988,7 @@ ref={visualEditorRef}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="h-8 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-50"
+            className="h-8 px-4 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-50"
           >
             {saving ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
@@ -2972,7 +3020,7 @@ ref={visualEditorRef}
           }}>
             {/* Header */}
           <div
-  className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 flex items-center justify-between flex-wrap gap-2"
+  className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3 py-2 flex items-center justify-between flex-wrap gap-2"
   style={{ color: "#fff", flexShrink: 0 }}
 >
   {/* Left */}
@@ -3124,7 +3172,7 @@ ref={visualEditorRef}
           onMouseDown={e => { if (e.target === e.currentTarget) setShowHistory(false); }}
         >
           <div style={{ width: "min(800px,95vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", backgroundColor: "#fff", borderRadius: "12px", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
-            <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between flex-shrink-0">
               <div>
                 <h2 className="text-base font-semibold flex items-center gap-2">
                   <History className="h-4 w-4" /> Version History

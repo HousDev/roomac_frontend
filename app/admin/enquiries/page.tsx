@@ -295,9 +295,9 @@ const [enquiriesOpenBulkAssign, setEnquiriesOpenBulkAssign] = useState<(() => vo
         </DialogTrigger>
             
             <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0 rounded-2xl">
-              <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white px-4 py-3 md:px-6 md:py-4 flex items-center justify-between rounded-t-lg">
+              <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1 md:px-2 md:py-1 flex items-center justify-between rounded-t-lg">
                 <div>
-                  <h2 className="text-base md:text-lg font-semibold">Add New Partnership Enquiry</h2>
+                  <h2 className="text-base md:text-md font-semibold">Add New Partnership Enquiry</h2>
                   <p className="text-xs md:text-sm text-violet-100">Fill in the details below to add a new partnership enquiry</p>
                 </div>
                 <DialogClose asChild>
@@ -307,7 +307,7 @@ const [enquiriesOpenBulkAssign, setEnquiriesOpenBulkAssign] = useState<(() => vo
                 </DialogClose>
               </div>
               
-              <div className="p-4 md:p-6 overflow-y-auto max-h-[75vh]">
+              <div className="p-2 md:p-2 overflow-y-auto max-h-[75vh]">
                 <PartnershipForm
                   formData={newPartnershipData}
                   setFormData={setNewPartnershipData}

@@ -584,156 +584,257 @@ const ViewPlanDialogContent = selectedPlan && (
     <div className="bg-slate-50 -mt-3 px-0 md:px-0">
       <div className="p-0">
         <Card className="border-0 shadow-sm bg-white">
-          <CardHeader className={`${headerGradient} text-white rounded-t-lg p-3 sm:p-4`}>
+         <CardHeader className="rounded-xl border border-[#E2E8F4] bg-gray-200 shadow-sm py-2 px-2">
 
-            {/* MOBILE LAYOUT */}
-            <div className="flex flex-col gap-2 sm:hidden">
-              <div className="flex items-center gap-2">
-                <div className="bg-white/20 p-1.5 rounded-lg flex-shrink-0">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-                  <Input
-                    placeholder="Search plans..."
-                    value={planSearch}
-                    onChange={(e) => setPlanSearch(e.target.value)}
-                    className="w-full pl-7 h-8 text-xs bg-white/20 text-white placeholder:text-blue-200 border-white/30 focus:border-white/50"
-                  />
-                </div>
+  {/* ================= MOBILE ================= */}
+  <div className="flex flex-col gap-2 sm:hidden">
 
-                <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
-                  <DialogTrigger asChild>
-                    {can('create_pricing_plans') && (
+    {/* Top Row */}
+    <div className="flex items-center gap-2">
 
-                    <Button
-                      size="sm"
-                      className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 text-xs whitespace-nowrap flex-shrink-0"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add
-                    </Button>
-                    )}
-                  </DialogTrigger>
-                  {AddPlanDialogContent}
-                </Dialog>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-                  <Select value={planFilterProp} onValueChange={setPlanFilterProp}>
-                    <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
-                      <SelectValue placeholder="All Properties" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Properties</SelectItem>
-                      <SelectItem value="general">General Plans</SelectItem>
-                      {properties.map((p) => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="relative flex-1">
-                  <Gift className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-                  <Select value={planTypeFilter} onValueChange={(v) => setPlanTypeFilter(v as any)}>
-                    <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
-                      <SelectValue placeholder="All Plans" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Plans</SelectItem>
-                      <SelectItem value="regular">Regular Plans</SelectItem>
-                      <SelectItem value="short_stay">Short Stay</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {(planSearch || planFilterProp !== "all" || planTypeFilter !== "all") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setPlanSearch(""); setPlanFilterProp("all"); setPlanTypeFilter("all"); }}
-                    className="h-8 text-xs text-white hover:bg-white/20 flex-shrink-0"
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
+      {/* Icon */}
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-200 shadow-sm">
+        <Sparkles className="h-4 w-4 text-gray-500" />
+      </div>
 
-            {/* DESKTOP LAYOUT */}
-            <div className="hidden sm:flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="relative max-w-xs">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-                    <Input
-                      placeholder="Search plans..."
-                      value={planSearch}
-                      onChange={(e) => setPlanSearch(e.target.value)}
-                      className="w-full pl-7 h-8 text-xs bg-white/20 text-white placeholder:text-blue-200 border-white/30 focus:border-white/50"
-                    />
-                  </div>
-                  <div className="relative min-w-[140px]">
-                    <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-                    <Select value={planFilterProp} onValueChange={setPlanFilterProp}>
-                      <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50">
-                        <SelectValue placeholder="All Properties" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Properties</SelectItem>
-                        <SelectItem value="general">General Plans</SelectItem>
-                        {properties.map((p) => (
-                          <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="relative min-w-[120px]">
-                    <Gift className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-                    <Select value={planTypeFilter} onValueChange={(v) => setPlanTypeFilter(v as any)}>
-                      <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50">
-                        <SelectValue placeholder="All Plans" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Plans</SelectItem>
-                        <SelectItem value="regular">Regular Plans</SelectItem>
-                        <SelectItem value="short_stay">Short Stay</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {(planSearch || planFilterProp !== "all" || planTypeFilter !== "all") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { setPlanSearch(""); setPlanFilterProp("all"); setPlanTypeFilter("all"); }}
-                      className="h-8 text-xs text-white hover:bg-white/20"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </div>
+      {/* Search */}
+      <div className="relative flex-1">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+        <Input
+          placeholder="Search plans..."
+          value={planSearch}
+          onChange={(e) => setPlanSearch(e.target.value)}
+          className="h-8 pl-7 pr-2 text-xs
+          bg-white text-gray-700 placeholder:text-gray-400
+          border border-[#D7DFEA]
+          focus:border-[#2563EB] focus:ring-1 focus:ring-blue-200"
+        />
+      </div>
 
-              <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-9 text-sm whitespace-nowrap"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Pricing Plan
-                  </Button>
-                </DialogTrigger>
-                {AddPlanDialogContent}
-              </Dialog>
-            </div>
+      {/* Add Button */}
+      <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
+        <DialogTrigger asChild>
+          {can("create_pricing_plans") && (
+            <Button
+              size="sm"
+              className="h-8 px-3 bg-white text-blue-700
+              hover:bg-[#1D4ED8]
+              font-semibold text-xs shadow-sm"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add
+            </Button>
+          )}
+        </DialogTrigger>
 
-          </CardHeader>
+        {AddPlanDialogContent}
+      </Dialog>
+    </div>
 
-          <CardContent className="p-4 sm:p-6">
+    {/* Bottom Row */}
+    <div className="flex items-center gap-2">
+
+      {/* Property */}
+      <div className="relative flex-1">
+        <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
+
+        <Select
+          value={planFilterProp}
+          onValueChange={setPlanFilterProp}
+        >
+          <SelectTrigger
+            className="h-8 pl-7 text-xs
+            bg-white text-gray-700
+            border border-[#D7DFEA]"
+          >
+            <SelectValue placeholder="All Properties" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">All Properties</SelectItem>
+            <SelectItem value="general">General Plans</SelectItem>
+
+            {properties.map((p) => (
+              <SelectItem key={p.id} value={p.id.toString()}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Plan Type */}
+      <div className="relative flex-1">
+        <Gift className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
+
+        <Select
+          value={planTypeFilter}
+          onValueChange={(v) => setPlanTypeFilter(v as any)}
+        >
+          <SelectTrigger
+            className="h-8 pl-7 text-xs
+            bg-white text-gray-700
+            border border-[#D7DFEA]"
+          >
+            <SelectValue placeholder="All Plans" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">All Plans</SelectItem>
+            <SelectItem value="regular">Regular Plans</SelectItem>
+            <SelectItem value="short_stay">Short Stay</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {(planSearch ||
+        planFilterProp !== "all" ||
+        planTypeFilter !== "all") && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setPlanSearch("");
+            setPlanFilterProp("all");
+            setPlanTypeFilter("all");
+          }}
+          className="h-8 px-2 text-xs
+          text-[#1A2B6D]
+          hover:bg-blue-50"
+        >
+          Clear
+        </Button>
+      )}
+    </div>
+  </div>
+
+  {/* ================= DESKTOP ================= */}
+  <div className="hidden sm:flex items-center justify-between gap-3">
+
+    {/* Left */}
+    <div className="flex items-center gap-2">
+
+      {/* Icon */}
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 border border-blue-200 shadow-sm">
+        <Sparkles className="h-4 w-4 text-gray-500" />
+      </div>
+
+      {/* Search */}
+      <div className="relative w-72">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+
+        <Input
+          placeholder="Search plans..."
+          value={planSearch}
+          onChange={(e) => setPlanSearch(e.target.value)}
+          className="h-8 pl-7 pr-2 text-xs
+          bg-white text-gray-700
+          placeholder:text-gray-400
+          border border-[#D7DFEA]
+          focus:border-[#2563EB]
+          focus:ring-1 focus:ring-blue-200"
+        />
+      </div>
+
+      {/* Property */}
+      <div className="relative w-44">
+        <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
+
+        <Select
+          value={planFilterProp}
+          onValueChange={setPlanFilterProp}
+        >
+          <SelectTrigger
+            className="h-8 pl-7 text-xs
+            bg-white text-gray-700
+            border border-[#D7DFEA]"
+          >
+            <SelectValue placeholder="All Properties" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">All Properties</SelectItem>
+            <SelectItem value="general">General Plans</SelectItem>
+
+            {properties.map((p) => (
+              <SelectItem key={p.id} value={p.id.toString()}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Plan Type */}
+      <div className="relative w-36">
+        <Gift className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
+
+        <Select
+          value={planTypeFilter}
+          onValueChange={(v) => setPlanTypeFilter(v as any)}
+        >
+          <SelectTrigger
+            className="h-8 pl-7 text-xs
+            bg-white text-gray-700
+            border border-[#D7DFEA]"
+          >
+            <SelectValue placeholder="All Plans" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">All Plans</SelectItem>
+            <SelectItem value="regular">Regular Plans</SelectItem>
+            <SelectItem value="short_stay">Short Stay</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {(planSearch ||
+        planFilterProp !== "all" ||
+        planTypeFilter !== "all") && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setPlanSearch("");
+            setPlanFilterProp("all");
+            setPlanTypeFilter("all");
+          }}
+          className="h-8 px-3 text-xs
+          text-[#1A2B6D]
+          hover:bg-blue-50"
+        >
+          Clear
+        </Button>
+      )}
+    </div>
+
+    {/* Right */}
+    <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
+      <DialogTrigger asChild>
+        {can("create_pricing_plans") && (
+          <Button
+            size="sm"
+            className="h-8 px-4
+            bg-white
+            text-blue-700
+            hover:bg-[#1D4ED8]
+            font-semibold text-xs
+            shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add Pricing Plan
+          </Button>
+        )}
+      </DialogTrigger>
+
+      {AddPlanDialogContent}
+    </Dialog>
+  </div>
+
+</CardHeader>
+
+          <CardContent className="p-2 sm:p-2">
             <PricingPlansTable
               plans={plans}
               loading={loading}

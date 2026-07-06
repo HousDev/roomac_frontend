@@ -738,8 +738,8 @@ export default function NewsletterSubscribersClientPage({
    <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
   <DialogContent className="max-w-md p-0 overflow-hidden rounded-xl shadow-2xl">
     {/* Header with gradient and close icon */}
-    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
-      <DialogTitle className="text-white flex items-center gap-2 text-lg font-semibold">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2 flex items-center justify-between">
+      <DialogTitle className="text-white flex items-center gap-2 text-md font-semibold">
         <Mail className="h-5 w-5" />
         Subscriber Details
       </DialogTitle>
@@ -779,9 +779,9 @@ export default function NewsletterSubscribersClientPage({
    <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
   <DialogContent className="max-w-md p-0 rounded-xl overflow-hidden shadow-2xl">
     {/* Header with gradient and close icon */}
-    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 flex items-center justify-between">
-      <DialogHeader className="p-0">
-        <DialogTitle className="text-white flex items-center gap-2">
+    <div className="bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] px-2 py-2 flex items-center justify-between">
+      <DialogHeader className="p-0 text-md">
+        <DialogTitle className="text-white flex items-center gap-2 text-base">
           <Share2 className="h-5 w-5" />
           Share Subscriber
         </DialogTitle>

@@ -188,7 +188,7 @@ function EmailCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisib
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-3">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3.5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5"><div className="p-1.5 bg-white/20 rounded-lg"><Mail className="h-4 w-4 text-white" /></div><div><p className="font-bold text-white text-sm">SMTP Configuration</p><p className="text-blue-100 text-[11px]">Configure email integration settings</p></div></div>
               <button onClick={closeModal} className="text-white/70 hover:text-white"><X className="h-4 w-4" /></button>
             </div>
@@ -210,7 +210,7 @@ function EmailCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisib
             </div>
             <div className="px-4 pb-4 flex gap-2 justify-end border-t border-slate-100 pt-3">
               <Button variant="outline" onClick={closeModal} disabled={saving} className="h-9 text-xs px-4 border-slate-300">Cancel</Button>
-              <Button onClick={handleModalSave} disabled={saving} className="h-9 text-xs px-5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white">{saving ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving...</> : 'Save Configuration'}</Button>
+              <Button onClick={handleModalSave} disabled={saving} className="h-9 text-xs px-5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-800">{saving ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving...</> : 'Save Configuration'}</Button>
             </div>
           </div>
         </div>

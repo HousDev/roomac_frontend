@@ -130,7 +130,7 @@ const StaffDetailsPopup = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl w-[92vw] max-h-[85vh] overflow-hidden p-0 rounded-xl shadow-xl">
         {/* Compact Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-2.5">
+        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Small Avatar */}

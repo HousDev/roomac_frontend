@@ -135,7 +135,7 @@ export default function EmailSettings({
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
 
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3.5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 bg-white/20 rounded-lg">
                   <Mail className="h-4 w-4 text-white" />
@@ -256,7 +256,7 @@ export default function EmailSettings({
               <Button variant="outline" onClick={closeModal} disabled={saving} className="h-9 text-xs px-4 border-slate-300">
                 Cancel
               </Button>
-              <Button onClick={handleModalSave} disabled={saving} className="h-9 text-xs px-5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white">
+              <Button onClick={handleModalSave} disabled={saving} className="h-9 text-xs px-5 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-800">
                 {saving ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving...</> : 'Save Configuration'}
               </Button>
             </div>

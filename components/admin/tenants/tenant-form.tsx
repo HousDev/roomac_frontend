@@ -4625,7 +4625,7 @@ className="h-6 md:h-7 px-2 md:px-4 text-[10px] md:text-[11px] text-gray-500 hove
             type="submit"
             disabled={loading}
             className="h-6 md:h-7 px-3 md:px-5 text-[10px] md:text-[11px] font-semibold rounded-lg shadow-sm
-              bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white"
           >
             {loading ? (
               <>

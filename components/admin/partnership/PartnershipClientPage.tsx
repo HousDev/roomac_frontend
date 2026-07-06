@@ -1930,7 +1930,7 @@ const confirmDeleteEnquiry = async () => {
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] overflow-hidden p-0 rounded-xl border-0 shadow-2xl">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 text-white px-5 py-4 flex items-start justify-between">
+          <div className="bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] text-white px-2 py-1 flex items-start justify-between">
             <div>
               <h2 className="text-base font-semibold flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
@@ -2149,7 +2149,7 @@ const confirmDeleteEnquiry = async () => {
             </DialogClose>
           </div>
           
-          <div className="p-4 md:p-6 overflow-y-auto max-h-[75vh]">
+          <div className="p-2 md:p-2 overflow-y-auto max-h-[75vh]">
             <PartnershipForm
               formData={addFormData}
               setFormData={setAddFormData}
@@ -2217,7 +2217,7 @@ const confirmDeleteEnquiry = async () => {
       {/* Edit Partnership Enquiry Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0 rounded-2xl">
-          <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white px-4 py-3 md:px-6 md:py-4 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1 md:px-2 md:py-1 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base md:text-lg font-semibold">Edit Partnership Enquiry</h2>
               <p className="text-xs md:text-sm text-violet-100">Update the details below</p>
@@ -2229,7 +2229,7 @@ const confirmDeleteEnquiry = async () => {
             </DialogClose>
           </div>
           
-          <div className="p-4 md:p-6 overflow-y-auto max-h-[75vh]">
+          <div className="p-2 md:p-2 overflow-y-auto max-h-[75vh]">
             <PartnershipForm
               formData={editFormData}
               setFormData={setEditFormData}

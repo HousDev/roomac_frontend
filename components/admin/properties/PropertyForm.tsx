@@ -1115,7 +1115,7 @@ area: areaValue,
       <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-5xl overflow-hidden p-0 border-0 flex flex-col rounded-2xl shadow-2xl">
 
         {/* ── Header ── */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 flex-shrink-0">
+        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-2.5 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-white leading-tight">
@@ -2005,7 +2005,7 @@ area: areaValue,
                 </Button>
                 {activeTab === tabs[tabs.length - 1] && (
                   <Button onClick={handleSubmit} disabled={loading} size="sm"
-                    className="h-7 text-[11px] px-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90">
+                    className="h-7 text-[11px] px-3 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:opacity-90">
                     {loading ? (
                       <span className="flex items-center gap-1">
                         <div className="h-2.5 w-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

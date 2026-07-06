@@ -52,7 +52,7 @@ const ConvertToTenantDialog = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-2 py-2 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-2 py-1 flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
@@ -115,7 +115,7 @@ const ConvertToTenantDialog = ({
             <Button
               onClick={handleConvert}
               disabled={isConverting}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-sm"
+              className="flex-1 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-sm"
             >
               {isConverting ? (
                 <>Converting...</>
