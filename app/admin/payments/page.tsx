@@ -2698,6 +2698,8 @@ return {
   // In RentSummaryTable component
 const RentSummaryTable = ({ formData }: { formData: any }) => {
   if (!formData) return null;
+  const [expandedPreviousStays, setExpandedPreviousStays] = useState<number[]>([]);
+  const [singlePrevExpanded, setSinglePrevExpanded] = useState(false);
 
   const months = formData.month_wise_history || [];
   const previousStay = formData.previous_stay || null;
@@ -2715,126 +2717,148 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           PREVIOUS STAY SECTIONS — One per vacate cycle
           ──────────────────────────────────────────────────────────────── */}
       {Array.isArray(previousStay) && previousStay.length > 0 && previousStay.map((stay: any, stayIdx: number) => {
-        const stayTotalRent = stay.month_wise_history?.reduce((s: number, m: any) => s + m.rent, 0) || 0;
-        const stayTotalPaid = stay.month_wise_history?.reduce((s: number, m: any) => s + m.paid, 0) || 0;
-        const stayTotalPending = stay.month_wise_history?.reduce((s: number, m: any) => s + m.pending, 0) || 0;
-        const stayTotalDiscount = stay.month_wise_history?.reduce((s: number, m: any) => s + (m.discount_applied || 0), 0) || 0;
+  const stayTotalRent = stay.month_wise_history?.reduce((s: number, m: any) => s + m.rent, 0) || 0;
+  const stayTotalPaid = stay.month_wise_history?.reduce((s: number, m: any) => s + m.paid, 0) || 0;
+  const stayTotalPending = stay.month_wise_history?.reduce((s: number, m: any) => s + m.pending, 0) || 0;
+  const stayTotalDiscount = stay.month_wise_history?.reduce((s: number, m: any) => s + (m.discount_applied || 0), 0) || 0;
+  const isExpanded = expandedPreviousStays.includes(stayIdx);
 
-        return (
-          <div key={stayIdx} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            {/* Header */}
-            <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-amber-700 flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5" />
-                  Previous Stay {stay.stay_number} — Reference Only
-                  <span className="text-[10px] font-normal text-amber-600 ml-1">
-                    (Vacated: {stay.vacate_date ? format(new Date(stay.vacate_date), 'dd MMM yyyy') : 'N/A'})
-                  </span>
-                </h4>
-                <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">
-                  Historical
-                </Badge>
-              </div>
-              <p className="text-[10px] text-amber-600 mt-0.5">
-                {stay.month_wise_history?.[0]?.month} {stay.month_wise_history?.[0]?.year} — {stay.month_wise_history?.[stay.month_wise_history?.length - 1]?.month} {stay.month_wise_history?.[stay.month_wise_history?.length - 1]?.year}
-                {stay.deposit && (
-                  <span className="ml-2">
-                    • Deposit: ₹{stay.deposit.paid?.toLocaleString()} / ₹{stay.deposit.required?.toLocaleString()} paid
-                  </span>
-                )}
-                <span className="ml-2 text-amber-500">(For reference only)</span>
-              </p>
-            </div>
-
-            {/* Table */}
-            <div className="p-4 max-h-[200px] overflow-y-auto bg-amber-50/30">
-              <table className="w-full text-sm">
-                <thead className="bg-amber-100/50 sticky top-0">
-                  <tr>
-                    <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
-                    <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
-                    <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
-                    <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
-                    <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
-                    <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stay.month_wise_history?.map((month: any, index: number) => {
-                    const isProrated = month.is_prorated || false;
-                    const proratedDays = month.prorated_days || 0;
-                    const discountAmount = month.discount_applied || 0;
-
-                    return (
-                      <tr
-                        key={`prev-${stayIdx}-${index}`}
-                        className={`border-t border-amber-100 ${
-                          month.status === 'paid' ? 'bg-green-50/30' : 
-                          month.pending > 0 ? 'bg-red-50/30' : ''
-                        }`}
-                      >
-                        <td className="p-2 text-sm font-medium">
-                          {month.month} {month.year}
-                          {isProrated && (
-                            <span className="ml-1 text-[10px] text-amber-600">
-                              (Prorated - {proratedDays} days)
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right">
-                          ₹{month.rent?.toLocaleString()}
-                          {month.original_rent && month.original_rent > month.rent && (
-                            <span className="text-[10px] text-slate-400 line-through ml-1">
-                              ₹{month.original_rent?.toLocaleString()}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right">
-                          {discountAmount > 0 ? (
-                            <span className="text-green-600 font-medium">
-                              -₹{discountAmount.toLocaleString()}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right text-green-600">
-                          ₹{month.paid?.toLocaleString()}
-                        </td>
-                        <td className="p-2 text-right">
-                          <span className={month.pending > 0 ? "text-amber-600 font-medium" : "text-green-600"}>
-                            ₹{month.pending?.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="p-2 text-center">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            month.status === 'paid' ? 'bg-green-100 text-green-800' :
-                            month.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {month.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-amber-100/50">
-                  <tr className="border-t border-amber-200 font-medium">
-                    <td className="p-2 text-sm">Total</td>
-                    <td className="p-2 text-right">₹{stayTotalRent.toLocaleString()}</td>
-                    <td className="p-2 text-right text-green-600">₹{stayTotalDiscount.toLocaleString()}</td>
-                    <td className="p-2 text-right text-green-600">₹{stayTotalPaid.toLocaleString()}</td>
-                    <td className="p-2 text-right text-amber-600">₹{stayTotalPending.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+  return (
+    <div key={stayIdx} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {/* Collapsed / clickable header */}
+      <button
+        type="button"
+        onClick={() =>
+          setExpandedPreviousStays((prev) =>
+            prev.includes(stayIdx) ? prev.filter((i) => i !== stayIdx) : [...prev, stayIdx]
+          )
+        }
+        className="w-full bg-amber-50 px-4 py-2 hover:bg-amber-100 transition-colors text-left flex items-center justify-between gap-2"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Clock className="h-3.5 w-3.5 text-amber-700 flex-shrink-0" />
+            <h4 className="text-xs font-semibold text-amber-700">
+              Previous Stay {stay.stay_number}
+            </h4>
+            <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">
+              Historical
+            </Badge>
+            <span className="text-[10px] text-amber-600">
+              Vacated: {stay.vacate_date ? format(new Date(stay.vacate_date), 'dd MMM yyyy') : 'N/A'}
+            </span>
           </div>
-        );
-      })}
+          {/* Minimal always-visible summary */}
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-amber-700">
+            <span>{stay.month_wise_history?.length || 0} month(s)</span>
+            <span className="text-green-700">Paid: ₹{stayTotalPaid.toLocaleString()}</span>
+            {stayTotalPending > 0 && (
+              <span className="text-amber-700 font-medium">Pending: ₹{stayTotalPending.toLocaleString()}</span>
+            )}
+            {stay.deposit && (
+              <span>Deposit: ₹{stay.deposit.paid?.toLocaleString()}/₹{stay.deposit.required?.toLocaleString()}</span>
+            )}
+          </div>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-amber-600 flex-shrink-0 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {/* Expanded detail table */}
+      {isExpanded && (
+        <div className="border-t border-amber-200 animate-in slide-in-from-top-1 duration-150">
+          <div className="p-4 max-h-[200px] overflow-y-auto bg-amber-50/30">
+            <table className="w-full text-sm">
+              <thead className="bg-amber-100/50 sticky top-0">
+                <tr>
+                  <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                  <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stay.month_wise_history?.map((month: any, index: number) => {
+                  const isProrated = month.is_prorated || false;
+                  const proratedDays = month.prorated_days || 0;
+                  const discountAmount = month.discount_applied || 0;
+
+                  return (
+                    <tr
+                      key={`prev-${stayIdx}-${index}`}
+                      className={`border-t border-amber-100 ${
+                        month.status === 'paid' ? 'bg-green-50/30' :
+                        month.pending > 0 ? 'bg-red-50/30' : ''
+                      }`}
+                    >
+                      <td className="p-2 text-sm font-medium">
+                        {month.month} {month.year}
+                        {isProrated && (
+                          <span className="ml-1 text-[10px] text-amber-600">
+                            (Prorated - {proratedDays} days)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right">
+                        ₹{month.rent?.toLocaleString()}
+                        {month.original_rent && month.original_rent > month.rent && (
+                          <span className="text-[10px] text-slate-400 line-through ml-1">
+                            ₹{month.original_rent?.toLocaleString()}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right">
+                        {discountAmount > 0 ? (
+                          <span className="text-green-600 font-medium">
+                            -₹{discountAmount.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right text-green-600">
+                        ₹{month.paid?.toLocaleString()}
+                      </td>
+                      <td className="p-2 text-right">
+                        <span className={month.pending > 0 ? "text-amber-600 font-medium" : "text-green-600"}>
+                          ₹{month.pending?.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          month.status === 'paid' ? 'bg-green-100 text-green-800' :
+                          month.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {month.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-amber-100/50">
+                <tr className="border-t border-amber-200 font-medium">
+                  <td className="p-2 text-sm">Total</td>
+                  <td className="p-2 text-right">₹{stayTotalRent.toLocaleString()}</td>
+                  <td className="p-2 text-right text-green-600">₹{stayTotalDiscount.toLocaleString()}</td>
+                  <td className="p-2 text-right text-green-600">₹{stayTotalPaid.toLocaleString()}</td>
+                  <td className="p-2 text-right text-amber-600">₹{stayTotalPending.toLocaleString()}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+})}
 
       {/* ────────────────────────────────────────────────────────────────
           BACKWARD COMPAT: Single Previous Stay (non-array)

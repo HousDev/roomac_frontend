@@ -384,14 +384,25 @@ useEffect(() => {
 
             {/* Option 2: Open this tenant's own form to add partner section */}
            <button type="button"
-  onClick={() => {
-    onOpenChange(false);      // close reassign modal first
-    onEditTenant({
-      ...tenant,
-      check_in_date: checkInDate,
-      property_id: propertyId ? Number(propertyId) : tenant?.property_id,
-    });
-  }}
+ onClick={() => {
+  onOpenChange(false);
+  onEditTenant({
+    ...tenant,
+    partner_full_name: null,
+    partner_phone: null,
+    partner_email: null,
+    partner_gender: null,
+    partner_salutation: null,
+    partner_country_code: null,
+    partner_date_of_birth: null,
+    partner_tenant_id: null,
+    partner_additional_documents: [],
+    couple_id: null,
+    is_couple_booking: false,
+    check_in_date: checkInDate,
+    property_id: propertyId ? Number(propertyId) : tenant?.property_id,
+  });
+}}
   className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-rose-400 hover:bg-rose-50 transition-colors text-left">
               <UserPlus className="h-4 w-4 text-rose-600 shrink-0" />
               <div>
