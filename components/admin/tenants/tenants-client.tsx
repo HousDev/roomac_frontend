@@ -2588,9 +2588,9 @@ const totals = useMemo(() => {
 </Button>
   </SheetTrigger>
 
-  <SheetContent side="right" className="w-[85vw] sm:w-96 p-0 bg-white flex flex-col gap-0">
+  <SheetContent side="right" className="w-[75%] sm:w-[340px] p-0 bg-white flex flex-col gap-0">
     {/* HEADER */}
-    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-2 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <Filter className="w-4 h-4 text-white" />
         <span className="text-sm font-semibold text-white">Advanced Filters</span>
@@ -2801,7 +2801,7 @@ const totals = useMemo(() => {
       <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={clearSidebarFilters}>
         Reset
       </Button>
-      <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={applyFilters}>
+      <Button size="sm" className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700" onClick={applyFilters}>
         Apply Filters
       </Button>
     </div>

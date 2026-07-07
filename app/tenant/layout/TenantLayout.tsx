@@ -925,11 +925,17 @@ function TenantHeader({
               onClick={() => setProfileOpen(!profileOpen)}
             >
               <Avatar className="h-7 w-7 lg:h-9 lg:w-9">
-                <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
-                <AvatarFallback className="bg-[#fec40a] text-black text-xs font-semibold">
-                  {tenant?.full_name?.charAt(0) || "T"}
-                </AvatarFallback>
-              </Avatar>
+  <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
+  <AvatarFallback className="bg-[#fec40a] text-black text-xs font-semibold">
+    {tenant?.full_name
+      ?.trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((name) => name.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join("") || "T"}
+  </AvatarFallback>
+</Avatar>
             </Button>
 
             {profileOpen && (

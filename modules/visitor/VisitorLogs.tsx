@@ -928,7 +928,7 @@ const clearFilters = () => {
 
   {/* ── CARD with compact table ── */}
   <Card className="border rounded-lg shadow-sm overflow-hidden">
-    <div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>
+    <div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '340px' : '520px' }}>
       <div className="overflow-auto flex-1 min-h-0">
         <table
           className="border-collapse text-[11px] font-sans"

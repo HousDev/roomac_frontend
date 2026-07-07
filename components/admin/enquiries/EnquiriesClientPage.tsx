@@ -1634,7 +1634,7 @@ useEffect(() => {
 <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
   <SheetContent
     side="right"
-    className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
+    className="p-0 w-[75%] sm:w-[340px]"
   >
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -1805,7 +1805,7 @@ useEffect(() => {
         </Button>
         <Button
           size="sm"
-          className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:via-[#123A9A] hover:to-[#1E4ED8]"
           onClick={() => setShowFilterSidebar(false)}
         >
           Apply Filters

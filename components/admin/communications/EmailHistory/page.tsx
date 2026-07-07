@@ -391,7 +391,7 @@ const set = (k: keyof FilterState, v: any) => {
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-2 py-2 border-b border-[#E4E8F0] bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white">
+        <div className="flex items-center justify-between px-2 py-1 border-b border-[#E4E8F0] bg-gradient-to-r from-[#1A2B6D] to-[#3B5BDB] text-white">
           <div >
             <div className="text-sm font-bold text-white">Filter Logs</div>
             <div className="text-[10px] text-white mt-0.5">Narrow down results</div>
@@ -1039,7 +1039,7 @@ const [pageSize, setPageSize] = useState(10);
   ];
 
   // Reduce table height when bulk action bar is visible
-const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-[380px] sm:max-h-[420px]";
+const tableMaxHeight = someSelected ? "max-h-[250px] sm:max-h-[420px]" : "max-h-[300px] sm:max-h-[420px]";
   return (
     <>
       <style>{`
@@ -1066,94 +1066,132 @@ const tableMaxHeight = someSelected ? "max-h-[330px] sm:max-h-[420px]" : "max-h-
 
       <div className="font-['DM Sans','Segoe UI',sans-serif] p-0 md:p-0">
         {/* Header Buttons */}
-      <div className="flex flex-wrap items-center  gap-2 mb-4 -mt-4 justify-end">
-    {/* <CommunicationTabs /> */}
-    <div className="flex gap-2 justify-end">
-       <button
-    onClick={() => setSidebarOpen(true)}
-    className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold border flex items-center gap-1 ${
-        hasActiveSidebarFilters
-            ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
-            : "text-white border-transparent"
-    }`}
-    style={
-        !hasActiveSidebarFilters
-            ? {
-                  background:
-                      "linear-gradient(to right, #0A1F5C, #123A9A, #1E4ED8)",
-                  boxShadow: "0 3px 10px rgba(30,78,216,0.3)",
-              }
-            : {}
-    }
->
-    <Filter size={14} />
-    Filters {hasActiveSidebarFilters && "●"}
-</button>
-        <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold text-white"
-            style={{ background: `linear-gradient(135deg, ${colors.primary.from}, ${colors.primary.to})` }}
-        >
-            {exporting ? "Exporting..." : "Export Excel"}
-        </button>
-    </div>
-</div>
+     {/* Top Section */}
+<div className="flex flex-col-reverse lg:flex-row lg:items-start lg:justify-between gap-3 mb-4">
 
-        {/* Stat Cards – Gradient UI */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4  md:-mt-2 sticky top-0 z-10">
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">Total Communications</p>
-                <p className="text-sm sm:text-base font-bold text-slate-800">{stats.total}</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-slate-600">
-                <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-            </div>
+  {/* LEFT SIDE - Stat Cards */}
+  <div className="flex-1">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+
+      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+              Total Communications
+            </p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">
+              {stats.total}
+            </p>
           </div>
-
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">Sent / Delivered</p>
-                <p className="text-sm sm:text-base font-bold text-slate-800">{stats.sent}</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-green-600">
-                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-            </div>
-              <MiniBar pct={stats.total ? Math.round(stats.sent / stats.total * 100) : 0} color={colors.greenLine} />
-
-          </div>
-
-          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">Failed</p>
-                <p className="text-sm sm:text-base font-bold text-slate-800">{stats.failed}</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-red-600">
-                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-            </div>
-            <MiniBar pct={stats.total ? Math.round(stats.failed / stats.total * 100) : 0} color={colors.redLine} />
-
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">Pending</p>
-                <p className="text-sm sm:text-base font-bold text-slate-800">{stats.pending}</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-yellow-600">
-                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-            </div>
+          <div className="p-1.5 rounded-lg bg-slate-600">
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
           </div>
         </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+              Sent / Delivered
+            </p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">
+              {stats.sent}
+            </p>
+          </div>
+          <div className="p-1.5 rounded-lg bg-green-600">
+            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+          </div>
+        </div>
+
+        <MiniBar
+          pct={stats.total ? Math.round((stats.sent / stats.total) * 100) : 0}
+          color={colors.greenLine}
+        />
+      </div>
+
+      <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+              Failed
+            </p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">
+              {stats.failed}
+            </p>
+          </div>
+          <div className="p-1.5 rounded-lg bg-red-600">
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+          </div>
+        </div>
+
+        <MiniBar
+          pct={stats.total ? Math.round((stats.failed / stats.total) * 100) : 0}
+          color={colors.redLine}
+        />
+      </div>
+
+      <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border-0 shadow-sm p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+              Pending
+            </p>
+            <p className="text-sm sm:text-base font-bold text-slate-800">
+              {stats.pending}
+            </p>
+          </div>
+          <div className="p-1.5 rounded-lg bg-yellow-600">
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {/* RIGHT SIDE - Action Buttons */}
+  <div className="flex justify-end lg:justify-end ">
+    <div className="flex gap-2">
+
+      {/* <CommunicationTabs /> */}
+
+      <button
+        onClick={() => setSidebarOpen(true)}
+        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold border flex items-center gap-1 ${
+          hasActiveSidebarFilters
+            ? "bg-[#E6F1FB] text-[#185FA5] border-[#185FA5]"
+            : "text-white border-transparent"
+        }`}
+        style={
+          !hasActiveSidebarFilters
+            ? {
+                background:
+                  "linear-gradient(to right, #0A1F5C, #123A9A, #1E4ED8)",
+                boxShadow: "0 3px 10px rgba(30,78,216,0.3)",
+              }
+            : {}
+        }
+      >
+        <Filter size={14} />
+        Filters {hasActiveSidebarFilters && "●"}
+      </button>
+
+      <button
+        onClick={handleExport}
+        disabled={exporting}
+        className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-semibold text-white"
+        style={{
+          background: `linear-gradient(135deg, ${colors.primary.from}, ${colors.primary.to})`,
+        }}
+      >
+        {exporting ? "Exporting..." : "Export Excel"}
+      </button>
+
+    </div>
+  </div>
+
+</div>
 
         {/* Search + Pills */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">

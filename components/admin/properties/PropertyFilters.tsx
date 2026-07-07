@@ -205,12 +205,12 @@ const availCounts = useMemo(() => {
 >
         {/* Header */}
         <div
-          className="flex-shrink-0 px-5 py-4 flex items-center justify-between"
+          className="flex-shrink-0 px-2 py-2 flex items-center justify-between"
           style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #002f7a 100%)` }}
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
-              <SlidersHorizontal className="h-4 w-4 text-white" />
+              <Filter className="h-4 w-4 text-white" />
             </div>
             <div>
               <h2 className="font-bold text-white text-[13px] leading-tight">Filter Properties</h2>

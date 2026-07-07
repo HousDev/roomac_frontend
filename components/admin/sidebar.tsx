@@ -23,7 +23,9 @@ import {
   ReceiptIndianRupee,
   Clock,
   ShieldCheck,
-  FileCode
+  FileCode,
+  MessageCircle,
+  MessageSquareText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSettings, SettingsData } from '@/lib/settingsApi';
 import React from 'react';
 import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface AdminSidebarProps {
   sidebarOpen: boolean;
@@ -67,19 +70,19 @@ const communicationItems = [
     href: "/admin/communications/email-history",
     label: "Email History",
     icon: Mail,
-    comingSoon: false
+    comingSoon: false,
   },
   {
     href: "/admin/communications/whatsapp-history",
     label: "WhatsApp History",
-    icon: Mail,
-    comingSoon: true
+    icon: FaWhatsapp,
+    comingSoon: true,
   },
   {
     href: "/admin/communications/sms-history",
     label: "SMS History",
-    icon: Mail,
-    comingSoon: true
+    icon: MessageSquareText,
+    comingSoon: true,
   },
 ];
 // Separate component for submenu items with tooltip
@@ -408,7 +411,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     {
       href: "#",  // Change this to "#" so it's not clickable
       label: "Communication",
-      icon: Mail,
+      icon: MessageSquareText,
       permission: "view_communications",
     },
     { href: '/admin/notifications',label: 'Notifications',icon: Bell,          permission: 'view_notifications' },
@@ -1253,7 +1256,7 @@ const isVisitorsItem      = item.href === '/admin/visitors';
             </div>
 
             {/* Search Results */}
-            {searchQuery && filteredItems.length > 0 && (
+          {searchQuery && filteredItems.length > 0 && (
               <div
                 className="mt-1.5 rounded-xl overflow-hidden"
                 style={{
@@ -1264,7 +1267,38 @@ const isVisitorsItem      = item.href === '/admin/visitors';
               >
                 {filteredItems.map((item) => {
                   const Icon = item.icon;
+                  const isGroupItem =
+                    item.label === 'Communication' ||
+                    item.label === 'Inventory' ||
+                    item.label === 'Visitors';
                   const active = isActive(item.href);
+
+               if (isGroupItem) {
+                    const groupDefaultRoute =
+                      item.label === 'Communication' ? '/admin/communications/email-history' :
+                      item.label === 'Inventory' ? '/admin/inventory-dashboard' :
+                      '/admin/visitors/dashboard';
+
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => {
+                          setSearchQuery('');
+                          if (item.label === 'Communication') setCommunicationOpen(true);
+                          if (item.label === 'Inventory') setInventoryOpen(true);
+                          if (item.label === 'Visitors') setVisitorsOpen(true);
+                          router.push(groupDefaultRoute);
+                        }}
+                        className="flex items-center gap-2.5 px-2.5 py-2 w-full text-left transition-all duration-150 text-blue-100 hover:bg-white/10 hover:text-white"
+                      >
+                        <div className="h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/10 text-blue-300">
+                          <Icon className="h-3 w-3" />
+                        </div>
+                        <span className="text-xs font-normal">{item.label}</span>
+                      </button>
+                    );
+                  }
+
                   return (
                     <Link
                       key={item.href}

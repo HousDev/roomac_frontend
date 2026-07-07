@@ -393,7 +393,7 @@ export default function NewsletterSubscribersClientPage({
       </div>
 
       {/* Bulk Actions Bar – only visible on mobile, placed below stats */}
-      {selectedSubscribers.size > 0 && can('bulk_delete_newsletter') && (
+      {/* {selectedSubscribers.size > 0 && can('bulk_delete_newsletter') && (
         <div className="block md:hidden bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -419,7 +419,7 @@ export default function NewsletterSubscribersClientPage({
             Delete Selected
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* Search & Filter Bar (global) */}
       {/* <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

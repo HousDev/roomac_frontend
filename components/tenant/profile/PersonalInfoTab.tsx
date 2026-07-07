@@ -482,7 +482,7 @@ useEffect(() => {
       <div className="space-y-3 pb-4">
 
         {/* Profile banner */}
-        <div className="bg-gradient-to-br from-[#004aad] via-[#004aad] to-[#002a7a] rounded-xl p-4 border border-[#004aad]/20 shadow-lg">
+        <div className="bg-gradient-to-br from-[#004aad] via-[#004aad] to-[#002a7a] rounded-xl p-2 border border-[#004aad]/20 shadow-lg">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-12 w-12 rounded-xl bg-[#ffc107] flex items-center justify-center shadow-lg">
               <User className="h-6 w-6 text-[#004aad]" />
@@ -795,13 +795,13 @@ useEffect(() => {
 
       {/* Profile header */}
       <Card className="border-none shadow-lg bg-gradient-to-r from-[#004aad] to-[#002a7a] overflow-hidden">
-        <CardContent className="p-6">
+        <CardContent className="p-2">
           <div className="flex items-center gap-5">
-            <div className="h-16 w-16 rounded-xl bg-[#ffc107] flex items-center justify-center shadow-lg border border-white/30">
-              <User className="h-8 w-8 text-[#004aad]" />
+            <div className="h-10 w-10 rounded-xl bg-[#ffc107] flex items-center justify-center shadow-lg border border-white/30">
+              <User className="h-5 w-5 text-[#004aad]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-white mb-1">{displayName}</h3>
+              <h3 className="text-md font-bold text-white mb-1">{displayName}</h3>
               <div className="flex items-center gap-3 text-sm text-white/80">
                 <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{displayEmail}</span>
                 <span className="w-1 h-1 rounded-full bg-white/40" />
@@ -821,10 +821,10 @@ useEffect(() => {
 
           {/* Basic Info */}
           <Card className="border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-            <CardHeader className="pb-2 px-6 pt-5 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
+            <CardHeader className="pb-2 px-2 pt-2 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
               <SectionHeader icon={User} title="Basic Information" color="blue" />
             </CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardContent className="px-3 py-3">
               <div className="space-y-1">
                 <InfoRow label="Gender" value={displayGender} icon={Heart} required />
                 {editing ? (
@@ -858,10 +858,10 @@ useEffect(() => {
 
           {/* Emergency Contact */}
           <Card className="border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-            <CardHeader className="pb-2 px-6 pt-5 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-200">
+            <CardHeader className="pb-2 px-2 pt-2 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-200">
               <SectionHeader icon={AlertCircle} title="Emergency Contact" color="rose" />
             </CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardContent className="px-3 py-3">
               {editing ? (
                 <div className="space-y-3">
                   <div>
@@ -894,7 +894,7 @@ useEffect(() => {
 
           {/* Partner Details */}
           <Card className="border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-            <CardContent className="px-6 py-4">
+            <CardContent className="px-3 py-3">
               <PartnerSection
                 editing={editing}
                 loading={loading}
@@ -912,10 +912,10 @@ useEffect(() => {
 
           {/* Occupation */}
           <Card className="border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-            <CardHeader className="pb-2 px-6 pt-5 bg-gradient-to-r from-[#fff9e6] to-[#fff2cc] border-b border-[#ffc107]/30">
+            <CardHeader className="pb-2 px-3 pt-3 bg-gradient-to-r from-[#fff9e6] to-[#fff2cc] border-b border-[#ffc107]/30">
               <SectionHeader icon={Briefcase} title="Occupation" color="gold" />
             </CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardContent className="px-3 py-3">
               {editing ? (
                 <div className="space-y-3">
                   <div>
@@ -1017,10 +1017,10 @@ useEffect(() => {
 
           {/* Permanent Address */}
           <Card className="border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-            <CardHeader className="pb-2 px-6 pt-5 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200">
+            <CardHeader className="pb-2 px-3 pt-3 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200">
               <SectionHeader icon={MapPin} title="Permanent Address" color="emerald" />
             </CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardContent className="px-3 py-3">
               {editing ? (
                 <div className="space-y-3">
                   <div>

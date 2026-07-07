@@ -278,7 +278,7 @@ export default function SecuritySection({
       {/* Left Column - Change Password (2 columns wide) */}
       <div className="lg:col-span-2">
         <Card className="border border-slate-200 shadow-sm overflow-hidden h-full">
-          <CardHeader className="pb-4 px-6 pt-5 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
+          <CardHeader className="pb-3 px-3 pt-3 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-[#004aad] rounded-lg">
                 <IconKey className="h-4 w-4 text-white" />
@@ -441,7 +441,7 @@ export default function SecuritySection({
         
         {/* Two-Factor Authentication Card */}
         <Card className="border border-slate-200 shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 px-5 pt-4 bg-gradient-to-r from-[#fff9e6] to-[#fff2cc] border-b border-[#ffc107]/30">
+          <CardHeader className="pb-3 px-2 pt-2 bg-gradient-to-r from-[#fff9e6] to-[#fff2cc] border-b border-[#ffc107]/30">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-[#ffc107] rounded-lg">
                 <Smartphone className="h-4 w-4 text-[#004aad]" />
@@ -452,7 +452,7 @@ export default function SecuritySection({
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-5">
+          <CardContent className="p-3">
             <Alert className="bg-amber-50 border-amber-200 p-3">
               <div className="flex items-start gap-2">
                 <IconInfo className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -473,7 +473,7 @@ export default function SecuritySection({
 
         {/* Active Sessions Card */}
         <Card className="border border-slate-200 shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 px-5 pt-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200">
+          <CardHeader className="pb-3 px-2 pt-2 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-emerald-500 rounded-lg">
                 <Monitor className="h-4 w-4 text-white" />
@@ -484,7 +484,7 @@ export default function SecuritySection({
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-5">
+          <CardContent className="p-3">
             <div className="space-y-3">
               <SessionCard
                 device="Chrome on Windows"
@@ -518,7 +518,7 @@ export default function SecuritySection({
 
         {/* Security Tips Card */}
         <Card className="bg-gradient-to-br from-[#004aad]/5 to-[#ffc107]/5 border border-slate-200">
-          <CardContent className="p-4">
+          <CardContent className="p-2">
             <div className="flex items-center gap-2 mb-2">
               <Shield className="h-4 w-4 text-[#004aad]" />
               <h4 className="text-xs font-semibold text-slate-700">Security Recommendations</h4>

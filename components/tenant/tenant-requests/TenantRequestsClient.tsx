@@ -989,9 +989,9 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
   return (
     <div>
       <div className="bg-gray-50">
-        <div className="max-w-7xl mx-auto p-3">
+        <div className="max-w-7xl mx-auto p-2">
           {/* Header */}
-          <div className="mb-4 sm:mb-6">
+          <div className="mb-2 sm:mb-2">
             <div className="flex items-center justify-between">
               <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
                 My Requests
@@ -999,7 +999,7 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
 
               <Button
                 onClick={() => setIsDialogOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+                className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 New Request
@@ -1031,9 +1031,9 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
                   counts={requestCounts}
                 />
 
-                <TabsContent value={activeFilter} className="mt-3">
+                <TabsContent value={activeFilter} className="mt-2">
                   {filteredRequests.length === 0 ? (
-                    <div className="text-center py-12">
+                    <div className="text-center py-10">
                       <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
                         No requests found
@@ -1045,7 +1045,7 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
                       </p>
                       <Button
                         onClick={() => setIsDialogOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Create New Request
@@ -1098,8 +1098,8 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
           }
         }}
       >
-        <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
-          <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10">
+        <DialogContent className="max-w-2xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1 sticky top-0 z-10">
             <DialogTitle className="text-white text-lg">
               Create New Request
             </DialogTitle>
@@ -2344,7 +2344,7 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
               <Button
                 onClick={handleSubmitRequest}
                 disabled={submitting}
-                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-700 hover:to-cyan-700"
               >
                 {submitting ? (
                   <>

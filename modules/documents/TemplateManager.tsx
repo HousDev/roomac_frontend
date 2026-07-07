@@ -1929,7 +1929,7 @@ const handleExport = () => {
   transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
 
   {/* Header */}
-  <div className="bg-gradient-to-r from-blue-700 to-indigo-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+  <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
     <div className="flex items-center gap-2">
       <Filter className="h-4 w-4 text-white" />
       <span className="text-sm font-semibold text-white">Filters</span>
@@ -2003,7 +2003,7 @@ const handleExport = () => {
     </button>
     <button
       onClick={() => setSidebarOpen(false)}
-      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold"
+      className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-semibold"
     >
       Apply & Close
     </button>

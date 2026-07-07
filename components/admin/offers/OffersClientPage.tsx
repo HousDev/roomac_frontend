@@ -890,61 +890,86 @@ const { can } = useAuth();
     </div>
 
     {/* Mobile: Filters Row (visible below md) */}
-    <div className="flex md:hidden items-center gap-2">
-      {/* Type Filter */}
-      <div className="relative flex-1">
-        <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="general">General</SelectItem>
-            <SelectItem value="seasonal">Seasonal</SelectItem>
-            <SelectItem value="student">Student</SelectItem>
-            <SelectItem value="corporate">Corporate</SelectItem>
-            <SelectItem value="referral">Referral</SelectItem>
-            <SelectItem value="early_booking">Early Booking</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+   <div className="flex md:hidden items-center gap-1.5">
 
-      {/* Property Filter */}
-      <div className="relative flex-1">
-        <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-        <Select value={filterProperty} onValueChange={setFilterProperty}>
-          <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
-            <SelectValue placeholder="All Properties" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Properties</SelectItem>
-            <SelectItem value="general">General Offers</SelectItem>
-            {properties.map((property) => (
-              <SelectItem key={property.id} value={property.id.toString()}>
-                {property.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+  {/* Type Filter */}
+  <div className="relative flex-1">
+    <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
 
-      {/* Clear button on mobile - only show when filters active */}
-      {(filterType !== 'all' || filterProperty !== 'all' || searchQuery) && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setFilterType('all');
-            setFilterProperty('all');
-            setSearchQuery('');
-          }}
-          className="h-8 text-xs text-white hover:bg-white/20 shrink-0"
-        >
-          Clear
-        </Button>
-      )}
-    </div>
+    <Select value={filterType} onValueChange={setFilterType}>
+      <SelectTrigger
+        className="h-7 pl-6 pr-2 text-[11px]
+        bg-white text-gray-700
+        border border-[#D7DFEA]
+        focus:border-[#2563EB]
+        focus:ring-1 focus:ring-blue-200
+        w-full"
+      >
+        <SelectValue placeholder="All Types" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="all">All Types</SelectItem>
+        <SelectItem value="general">General</SelectItem>
+        <SelectItem value="seasonal">Seasonal</SelectItem>
+        <SelectItem value="student">Student</SelectItem>
+        <SelectItem value="corporate">Corporate</SelectItem>
+        <SelectItem value="referral">Referral</SelectItem>
+        <SelectItem value="early_booking">Early Booking</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Property Filter */}
+  <div className="relative flex-1">
+    <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10" />
+
+    <Select value={filterProperty} onValueChange={setFilterProperty}>
+      <SelectTrigger
+        className="h-7 pl-6 pr-2 text-[11px]
+        bg-white text-gray-700
+        border border-[#D7DFEA]
+        focus:border-[#2563EB]
+        focus:ring-1 focus:ring-blue-200
+        w-full"
+      >
+        <SelectValue placeholder="All Properties" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="all">All Properties</SelectItem>
+        <SelectItem value="general">General Offers</SelectItem>
+        {properties.map((property) => (
+          <SelectItem key={property.id} value={property.id.toString()}>
+            {property.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Clear button */}
+  {(filterType !== "all" ||
+    filterProperty !== "all" ||
+    searchQuery) && (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => {
+        setFilterType("all");
+        setFilterProperty("all");
+        setSearchQuery("");
+      }}
+      className="h-7 px-2 text-[11px]
+      text-[#1A2B6D]
+      hover:bg-blue-50
+      hover:text-[#2563EB]
+      shrink-0"
+    >
+      Clear
+    </Button>
+  )}
+</div>
   </div>
 </CardHeader>
 

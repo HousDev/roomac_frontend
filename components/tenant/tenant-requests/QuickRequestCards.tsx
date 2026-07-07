@@ -11,26 +11,30 @@ interface QuickRequestCardsProps {
 
 export function QuickRequestCards({ onQuickRequest }: QuickRequestCardsProps) {
   return (
-<div className="grid grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-4 mb-3 sm:mb-8">      {QUICK_REQUESTS.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Card
-            key={item.type}
-            className={`cursor-pointer transition-all hover:shadow-md sm:hover:shadow-lg ${item.color} rounded-lg`}
-            onClick={() => onQuickRequest(item.type)}
-          >
-<CardContent className="p-1.5 sm:p-4">       
-         <Icon className="h-3.5 w-3.5 sm:h-6 sm:w-6 mb-0.5 sm:mb-2" />
-              <h3 className="font-semibold text-[9px] sm:text-sm mb-0 sm:mb-1 leading-tight">
-                {item.title}
-              </h3>
-              <p className="text-[8px] sm:text-xs text-gray-600 leading-tight line-clamp-2 hidden sm:block">
-                {item.description}
-              </p>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+<div className="grid grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-1 mb-2 sm:mb-6">
+  {QUICK_REQUESTS.map((item) => {
+    const Icon = item.icon;
+
+    return (
+      <Card
+        key={item.type}
+        className={`cursor-pointer transition-all hover:shadow-md ${item.color} rounded-md`}
+        onClick={() => onQuickRequest(item.type)}
+      >
+        <CardContent className="flex flex-col items-center justify-center p-1 sm:p-3">
+          <Icon className="h-3 w-3 sm:h-5 sm:w-5 mb-0.5 sm:mb-1.5" />
+
+          <h3 className="font-semibold text-[8px] sm:text-xs leading-tight text-center">
+            {item.title}
+          </h3>
+
+          <p className="hidden sm:block mt-0.5 text-[10px] text-gray-600 leading-tight line-clamp-2 text-center">
+            {item.description}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  })}
+</div>
   );
 }

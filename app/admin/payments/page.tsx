@@ -4293,11 +4293,11 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
 
             {/* ── Filter Sidebar ── */}
             <Sheet open={showDemandFilterSidebar} onOpenChange={setShowDemandFilterSidebar}>
-              <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[420px]">
+              <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
                 <div className="h-full flex flex-col">
 
                   {/* Header — blue like receipts */}
-                  <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                  <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-2">
                       <Filter className="w-4 h-4 text-white" />
                       <span className="text-sm font-semibold text-white">Filter Demands</span>
@@ -4470,7 +4470,7 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
                     </Button>
                     <Button
                       size="sm"
-                      className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+                      className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
                       onClick={() => setShowDemandFilterSidebar(false)}
                     >
                       Apply
@@ -8701,9 +8701,9 @@ const filteredGroups = pagination.items.map((group: any) => ({
 
   {/* Filter Sidebar + Pagination — UNCHANGED */}
   <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-    <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
+    <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
       <div className="h-full flex flex-col">
-        <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-white" />
             <span className="text-sm font-semibold text-white">Filter Payments</span>
@@ -8787,7 +8787,7 @@ const filteredGroups = pagination.items.map((group: any) => ({
           }}>
             <RefreshCw className="w-3 h-3 mr-1" /> Reset
           </Button>
-          <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={() => setShowFilterSidebar?.(false)}>Apply</Button>
+          <Button size="sm" className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700" onClick={() => setShowFilterSidebar?.(false)}>Apply</Button>
         </div>
       </div>
     </SheetContent>
@@ -9282,7 +9282,7 @@ return (
   <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[420px]">
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-white" />
           <span className="text-sm font-semibold text-white">Advanced Filters</span>
@@ -9426,7 +9426,7 @@ return (
         </Button>
         <Button
           size="sm"
-          className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
           onClick={() => setShowFilterSidebar?.(false)}
         >
           Apply
