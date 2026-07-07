@@ -3875,13 +3875,13 @@ onClick={() => openReceiptPreview(viewItem)}
   <>
     <div onClick={() => setFilterPanelOpen(false)}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 998 }} />
-    <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 320, background: "#fff", zIndex: 999, boxShadow: "-4px 0 20px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 340, background: "#fff", zIndex: 999, boxShadow: "-4px 0 20px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
       
       {/* Header */}
-      <div style={{ padding: "18px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)" }}>
+      <div style={{ padding: "15px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)" }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}> Advanced Filters</span>
         <button onClick={() => setFilterPanelOpen(false)}
-          style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 16, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          style={{ width: 25, height: 25, borderRadius: 7, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 16, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
       </div>
 
       {/* Scrollable filters */}

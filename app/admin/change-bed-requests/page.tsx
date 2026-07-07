@@ -44,7 +44,8 @@ import {
   Building2,
   Calendar,
   DollarSign,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -537,549 +538,578 @@ const handleBulkDelete = async () => {
           </Card>
         </div>
       )}
-
-{/* Combined Actions Bar */}
-<div className="sticky top-40 z-10 mb-2">
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-
-    {/* LEFT SIDE – Filters */}
-    <div className="flex flex-col gap-2 w-full lg:flex-row lg:flex-wrap lg:items-center lg:w-auto">
-
-      {/* ✅ MOBILE: Status + Sort in ONE ROW */}
-      <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
-
-        {/* Status */}
-        <Select
-          value={filters.status}
-          onValueChange={(value) => handleFilterChange('status', value)}
-        >
-          <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="processed">Processed</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Created Date (Sort By) */}
-        <Select
-          value={filters.sort_by}
-          onValueChange={(value) => handleFilterChange('sort_by', value)}
-        >
-          <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Created Date" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="created_at">Created Date</SelectItem>
-            <SelectItem value="shifting_date">Shifting Date</SelectItem>
-            <SelectItem value="priority">Priority</SelectItem>
-          </SelectContent>
-        </Select>
-
-      </div>
-
-    </div>
-
-    {/* RIGHT SIDE – Actions */}
-    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-
 {can('delete_requests') && selectedRequests.size > 0 && (
-        <>
-          <Badge className="bg-blue-100 text-blue-700 text-xs h-9 px-3 flex items-center">
-            {selectedRequests.size} selected
-          </Badge>
+  <div className="flex items-center justify-between gap-2 sm:gap-3 border border-[#E2E8F4] rounded-xl px-2 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] bg-white shadow-sm flex-1">
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedRequests(new Set())}
-            className="h-9"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
+    {/* Selected Count */}
+    <span className="font-bold text-[#1A2B6D] text-[11px] sm:text-sm whitespace-nowrap">
+      {selectedRequests.size}{" "}
+      {selectedRequests.size === 1 ? "request" : "requests"} selected
+    </span>
 
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowBulkDeleteDialog(true)}
-            className="h-9"
-          >
-            <XCircle className="h-4 w-4 mr-2" />
-            Delete Selected
-          </Button>
-        </>
-      )}
+    {/* Actions */}
+    <div className="flex items-center gap-1 sm:gap-2">
 
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
-        onClick={refreshData}
-        disabled={refreshing}
-        className="h-9"
+        onClick={() => setSelectedRequests(new Set())}
+        className="h-7 px-2 text-[10px] sm:text-xs text-[#8892A4] hover:text-gray-600 hover:bg-transparent"
       >
-        <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-        Refresh
+        <X className="h-3 w-3 mr-1" />
+        Clear
       </Button>
 
       <Button
-        variant="outline"
+        variant="destructive"
         size="sm"
-        className="h-9"
+        onClick={() => setShowBulkDeleteDialog(true)}
+        className="h-7 sm:h-8 px-2 sm:px-3 bg-[#FEF2F2] border border-[#FEE2E2] text-[#DC2626] hover:bg-red-100 text-[10px] sm:text-xs font-bold shadow-none"
       >
-        <Download className="h-4 w-4 mr-2" />
-        Export
+        <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
+        Delete {selectedRequests.size}
       </Button>
 
     </div>
 
   </div>
-</div>
+)}
       {/* Main Table Card */}
-      <Card className="shadow-sm border-0 overflow-hidden mb-0">
-       
-        <CardContent className="p-0">
-        
-         <div className="relative">
-  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-    selectedRequests.size > 0
-      ? 'max-h-[200px] md:max-h-[400px]'
-      : 'max-h-[260px] md:max-h-[400px]'
-  }`}>
-    <table className="w-full min-w-[1300px] table-fixed border-collapse">
-
-      <thead className="sticky top-0 z-[25]">
-        <tr className="bg-white border-b-2 border-blue-200">
-
-          {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[30] w-[40px] bg-white border-r border-gray-200 text-left">
-            {can('delete_requests') && (
-              <div className="py-2 flex justify-center">
-                <Checkbox 
-                  checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                />
-              </div>
-            )}
-          </th>
-
-          {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_request_id')}>
-                <span className="font-semibold text-gray-700 text-xs">ID</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                placeholder="Search ID..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.id}
-                onChange={(e) => handleSearchChange('id', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Actions - 80px sticky */}
-          <th className="md:sticky md:left-[120px] z-[30] w-[80px] bg-white border-r border-gray-200 text-left">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Actions</span>
-            </div>
-          </th>
-
-          {/* Tenant Name - 130px sticky */}
-          <th className="md:sticky md:left-[200px] z-[30] w-[130px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('tenant_name')}>
-                <span className="font-semibold text-gray-700 text-xs">Name</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                placeholder="Search name..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.tenant}
-                onChange={(e) => handleSearchChange('tenant', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Phone - 120px sticky */}
-          <th className="md:sticky md:left-[330px] z-[30] w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Phone</span>
-              <div className="h-6 mt-1.5" />
-            </div>
-          </th>
-
-          {/* Email - 170px */}
-          <th className="w-[170px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Email</span>
-              <Input 
-                placeholder="Search email..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.email || ''}
-                onChange={(e) => handleSearchChange('email', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Current Room - 190px */}
-          <th className="w-[190px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Current Room</span>
-              <Input 
-                placeholder="Search..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.current_room}
-                onChange={(e) => handleSearchChange('current_room', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Requested Room - 190px */}
-          <th className="w-[190px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Requested Room</span>
-              <Input 
-                placeholder="Search..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.requested_room}
-                onChange={(e) => handleSearchChange('requested_room', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Shifting - 120px */}
-         <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-  <div className="space-y-1.5 py-2 px-2">
-    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('shifting_date')}>
-      <span className="font-semibold text-gray-700 text-xs">Shifting</span>
-      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-    </div>
-    <input 
-      type="date"
-      style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
-      value={searchFilters.shifting_date}
-      onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
-    />
-  </div>
-</th>
-
-          {/* Status - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('request_status')}>
-                <span className="font-semibold text-gray-700 text-xs">Status</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.status} 
-                onValueChange={(value) => handleSearchChange('status', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="processed">Processed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Priority - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.priority} 
-                onValueChange={(value) => handleSearchChange('priority', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Created - 120px */}
-         <th className="w-[120px] bg-white text-left">
-  <div className="space-y-1.5 py-2 px-2">
-    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-      <span className="font-semibold text-gray-700 text-xs">Created</span>
-      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-    </div>
-    <input 
-      type="date"
-      style={{ fontSize: '10px', height: '24px', width: '100%', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', colorScheme: 'light', cursor: 'pointer' }}
-      value={searchFilters.created}
-      onChange={(e) => handleSearchChange('created', e.target.value)}
-    />
-  </div>
-</th>
-
-        </tr>
-      </thead>
-
-      <tbody>
-        {filteredRequests.length === 0 ? (
-          <tr>
-            <td colSpan={12} className="text-center py-8 text-gray-400 text-xs">
-              No results match your filters.
-            </td>
-          </tr>
-        ) : (
-          currentItems.map((request, index) => (
-          <tr
-            key={request.id}
-            className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${
-              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
-            }`}
+    <Card className="border rounded-lg shadow-sm overflow-hidden mt-2">
+  <CardContent className="p-0">
+    <div className="relative">
+      <div
+        className={`flex flex-col rounded-md border border-gray-200 transition-all duration-300 ${
+          selectedRequests.size > 0
+            ? "h-[360px] md:h-[420px]"
+            : "h-[420px] md:h-[470px]"
+        }`}
+      >
+        <div className="overflow-auto flex-1 min-h-0">
+          <table
+            className="border-collapse text-[11px] font-sans"
+            style={{ tableLayout: 'fixed', minWidth: '1000px', width: '100%' }}
           >
-            {/* Checkbox - sticky white */}
-            <td className="md:sticky md:left-0 z-[20] w-[40px] bg-white border-r border-gray-100 py-2 px-2">
-              {can('delete_requests') && (
-                <div className="flex justify-center">
-                  <Checkbox 
-                    checked={selectedRequests.has(request.id)}
-                    onCheckedChange={() => handleSelectRequest(request.id)}
-                    aria-label={`Select request ${request.id}`}
-                  />
-                </div>
-              )}
-            </td>
+            <colgroup>
+              <col style={{ width: '34px' }} />   {/* checkbox – sticky left:0 */}
+              <col style={{ width: '70px' }} />    {/* ID – sticky left:34px */}
+              <col style={{ width: '80px' }} />    {/* Actions – sticky left:104px */}
+              <col style={{ width: '130px' }} />   {/* Name – sticky left:184px */}
+              <col style={{ width: '110px' }} />   {/* Phone – sticky left:314px */}
+              <col style={{ width: '160px' }} />   {/* Email */}
+              <col style={{ width: '180px' }} />   {/* Current Room */}
+              <col style={{ width: '180px' }} />   {/* Requested Room */}
+              <col style={{ width: '110px' }} />   {/* Shifting Date */}
+              <col style={{ width: '110px' }} />   {/* Status */}
+              <col style={{ width: '100px' }} />   {/* Priority */}
+              <col style={{ width: '110px' }} />   {/* Created */}
+            </colgroup>
 
-            {/* ID - sticky white */}
-            <td className="md:sticky md:left-[40px] z-[20] w-[80px] bg-white font-mono text-xs font-medium text-blue-600 border-r border-gray-100 py-2 px-2">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
-                <span className="truncate">#{request.tenant_request_id}</span>
-              </div>
-            </td>
+            <thead className="sticky top-0 z-30">
+              {/* ── Header labels row ── */}
+              <tr className="bg-gray-200 border-b border-gray-300">
+                {/* Checkbox */}
+                <th className="md:sticky md:left-0 z-[20] px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
+                  {can('delete_requests') && (
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedRequests.size === currentItems.length &&
+                        currentItems.length > 0
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
+                  )}
+                </th>
 
-            {/* Actions - sticky white */}
-            <td className="md:sticky md:left-[120px] z-[20] w-[80px] bg-white border-r border-gray-100 py-2 px-1">
-              <div className="flex items-center gap-0.5 flex-nowrap">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => viewRequestDetails(request.id)}
-                  className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
-                  title="View Details"
+                {/* ID */}
+                <th
+                  className="md:sticky md:left-[34px] z-[20] px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('tenant_request_id')}
                 >
-                  <Eye className="h-3 w-3 text-blue-500" />
-                </Button>
-                {can('manage_change_bed') && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => openStatusUpdateDialog(request)}
-                    className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
-                    title="Update Status"
-                  >
-                    <Settings className="h-3 w-3 text-purple-500" />
-                  </Button>
-                )}
-              </div>
-            </td>
-
-            {/* Name - sticky white */}
-            <td className="md:sticky md:left-[200px] z-[20] w-[130px] bg-white border-r border-gray-100 py-2 px-2">
-              <div className="flex items-center gap-1">
-                <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
-                  <User className="h-3 w-3 text-blue-600" />
-                </div>
-                <span className="text-xs font-medium truncate">{request.tenant_name}</span>
-              </div>
-            </td>
-
-            {/* Phone - sticky white */}
-            <td className="md:sticky md:left-[330px] z-[20] w-[120px] bg-white border-r border-gray-100 py-2 px-2">
-              <div className="text-[11px] text-gray-600 flex items-center gap-0.5 truncate">
-                <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
-                {request.tenant_phone || '—'}
-              </div>
-            </td>
-
-            {/* Email */}
-            <td className={`w-[170px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              <div className="text-[11px] text-gray-600 flex items-center gap-0.5 truncate">
-                <Mail className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
-                {request.tenant_email || '—'}
-              </div>
-            </td>
-
-            {/* Current Room */}
-            <td className={`w-[190px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              {/* Line 1: property name */}
-              <div className="flex items-center gap-1">
-                <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                <span className="text-xs font-medium truncate">{request.current_property_name}</span>
-              </div>
-              {/* Line 2: room • bed • rent */}
-              <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
-                <span>R{request.current_room_number}</span>
-                <span>•</span>
-                <span>B{request.current_bed_number}</span>
-                <span>•</span>
-                <span className="text-green-600">₹{request.current_rent}</span>
-              </div>
-            </td>
-
-            {/* Requested Room */}
-            <td className={`w-[190px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              {/* Line 1: property name */}
-              <div className="flex items-center gap-1">
-                <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                <span className="text-xs font-medium truncate">{request.requested_property_name}</span>
-              </div>
-              {/* Line 2: room • bed • rent • occupancy */}
-              <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
-                <span>R{request.requested_room_number}</span>
-                {request.assigned_bed_number && (
-                  <>
-                    <span>•</span>
-                    <span>B{request.assigned_bed_number}</span>
-                  </>
-                )}
-                <span>•</span>
-                <span className="text-green-600">₹{request.requested_rent}</span>
-                <span>•</span>
-                <span>{request.requested_occupied_beds}/{request.requested_total_beds} occ</span>
-              </div>
-            </td>
-
-            {/* Shifting Date */}
-            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              {request.shifting_date ? (
-                <div className="space-y-0.5">
                   <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                    <span className="text-xs whitespace-nowrap">
-                      {format(new Date(request.shifting_date), 'dd MMM yyyy')}
-                    </span>
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">ID</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
                   </div>
-                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-0 shadow-sm">
-                    {new Date(request.shifting_date) > new Date() ? 'Upcoming' : 'Past'}
-                  </Badge>
-                </div>
+                </th>
+
+                {/* Actions */}
+                <th className="md:sticky md:left-[104px] z-[20] px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </th>
+
+                {/* Name */}
+                <th
+                  className="md:sticky md:left-[184px] z-[20] px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('tenant_name')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Name</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
+
+                {/* Phone */}
+                <th className="md:sticky md:left-[314px] z-[20] px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Phone</span>
+                </th>
+
+                {/* Email */}
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Email</span>
+                </th>
+
+                {/* Current Room */}
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Current Room</span>
+                </th>
+
+                {/* Requested Room */}
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Requested Room</span>
+                </th>
+
+                {/* Shifting Date */}
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('shifting_date')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Shifting</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
+
+                {/* Status */}
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('request_status')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
+
+                {/* Priority */}
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('priority')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Priority</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
+
+                {/* Created */}
+                <th
+                  className="px-1.5 py-1.5 text-left bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Created</span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
+              </tr>
+
+              {/* ── Search / filter row ── */}
+              <tr className="bg-white border-b border-gray-300">
+                <td className="md:sticky md:left-0 z-[30] p-1 border-r border-gray-200 bg-white" />
+                <td className="md:sticky md:left-[34px] z-[30] p-1 border-r border-gray-200 bg-white">
+                  <Input
+                    placeholder="Search ID…"
+                    value={searchFilters.id}
+                    onChange={(e) => handleSearchChange('id', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="md:sticky md:left-[104px] z-[30] p-1 border-r border-gray-200 bg-white" />
+                <td className="md:sticky md:left-[184px] z-[30] p-1 border-r border-gray-200 bg-white">
+                  <Input
+                    placeholder="Search name…"
+                    value={searchFilters.tenant}
+                    onChange={(e) => handleSearchChange('tenant', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="md:sticky md:left-[314px] z-[30] p-1 border-r border-gray-200 bg-white">
+                  <div className="h-5" /> {/* no search for phone */}
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search email…"
+                    value={searchFilters.email || ''}
+                    onChange={(e) => handleSearchChange('email', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search current room…"
+                    value={searchFilters.current_room}
+                    onChange={(e) => handleSearchChange('current_room', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search requested room…"
+                    value={searchFilters.requested_room}
+                    onChange={(e) => handleSearchChange('requested_room', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <input
+                    type="date"
+                    value={searchFilters.shifting_date}
+                    onChange={(e) => handleSearchChange('shifting_date', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <Select
+                    value={searchFilters.status}
+                    onValueChange={(value) => handleSearchChange('status', value)}
+                  >
+                    <SelectTrigger className="w-full h-5 text-[10px] border-gray-300 px-1.5 py-0 bg-white rounded-md">
+                      <SelectValue placeholder="All…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="processed">Processed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="p-1 border-r border-gray-200">
+                  <Select
+                    value={searchFilters.priority}
+                    onValueChange={(value) => handleSearchChange('priority', value)}
+                  >
+                    <SelectTrigger className="w-full h-5 text-[10px] border-gray-300 px-1.5 py-0 bg-white rounded-md">
+                      <SelectValue placeholder="All…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="p-1">
+                  <input
+                    type="date"
+                    value={searchFilters.created}
+                    onChange={(e) => handleSearchChange('created', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="text-center py-8 text-gray-400 text-xs">
+                    No results match your filters.
+                  </td>
+                </tr>
               ) : (
-                <span className="text-xs text-gray-400">Not specified</span>
+                currentItems.map((request, index) => {
+                  const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                  return (
+                    <tr
+                      key={request.id}
+                      className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
+                    >
+                      {/* Checkbox – sticky */}
+                      <td
+                        className={`md:sticky md:left-0 z-[20] w-[34px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {can('delete_requests') && (
+                          <div className="flex justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedRequests.has(request.id)}
+                              onChange={() => handleSelectRequest(request.id)}
+                              aria-label={`Select request ${request.id}`}
+                              className="w-3.5 h-3.5 cursor-pointer"
+                            />
+                          </div>
+                        )}
+                      </td>
+
+                      {/* ID – sticky */}
+                      <td
+                        className={`md:sticky md:left-[34px] z-[20] w-[70px] font-mono text-[10px] font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                          <span className="truncate">#{request.tenant_request_id}</span>
+                        </div>
+                      </td>
+
+                      {/* Actions – sticky */}
+                      <td
+                        className={`md:sticky md:left-[104px] z-[20] w-[80px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => viewRequestDetails(request.id)}
+                            className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                            title="View Details"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-blue-500" />
+                          </Button>
+                          {can('manage_change_bed') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openStatusUpdateDialog(request)}
+                              className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                              title="Update Status"
+                            >
+                              <Settings className="h-3.5 w-3.5 text-purple-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Name – sticky */}
+                      <td
+                        className={`md:sticky md:left-[184px] z-[20] w-[130px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                            <User className="h-3 w-3 text-blue-600" />
+                          </div>
+                          <span className="text-[10px] font-medium truncate">{request.tenant_name}</span>
+                        </div>
+                      </td>
+
+                      {/* Phone – sticky */}
+                      <td
+                        className={`md:sticky md:left-[314px] z-[20] w-[110px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="text-[10px] text-gray-600 flex items-center gap-0.5 truncate">
+                          <Phone className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                          {request.tenant_phone || '—'}
+                        </div>
+                      </td>
+
+                      {/* Email */}
+                      <td
+                        className={`w-[160px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="text-[10px] text-gray-600 flex items-center gap-0.5 truncate">
+                          <Mail className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+                          {request.tenant_email || '—'}
+                        </div>
+                      </td>
+
+                      {/* Current Room */}
+                      <td
+                        className={`w-[180px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-[10px] font-medium truncate">{request.current_property_name}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                          <span>R{request.current_room_number}</span>
+                          <span>•</span>
+                          <span>B{request.current_bed_number}</span>
+                          <span>•</span>
+                          <span className="text-green-600">₹{request.current_rent}</span>
+                        </div>
+                      </td>
+
+                      {/* Requested Room */}
+                      <td
+                        className={`w-[180px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-[10px] font-medium truncate">{request.requested_property_name}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                          <span>R{request.requested_room_number}</span>
+                          {request.assigned_bed_number && (
+                            <>
+                              <span>•</span>
+                              <span>B{request.assigned_bed_number}</span>
+                            </>
+                          )}
+                          <span>•</span>
+                          <span className="text-green-600">₹{request.requested_rent}</span>
+                          <span>•</span>
+                          <span>{request.requested_occupied_beds}/{request.requested_total_beds} occ</span>
+                        </div>
+                      </td>
+
+                      {/* Shifting Date */}
+                      <td
+                        className={`w-[110px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {request.shifting_date ? (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="text-[10px] whitespace-nowrap">
+                                {format(new Date(request.shifting_date), 'dd MMM yyyy')}
+                              </span>
+                            </div>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 border-0 shadow-sm">
+                              {new Date(request.shifting_date) > new Date() ? 'Upcoming' : 'Past'}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">Not specified</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td
+                        className={`w-[110px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {getStatusBadge(request.request_status)}
+                      </td>
+
+                      {/* Priority */}
+                      <td
+                        className={`w-[100px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {getPriorityBadge(request.priority)}
+                      </td>
+
+                      {/* Created */}
+                      <td
+                        className={`w-[110px] ${rowBgClass} py-1.5 px-1`}
+                      >
+                        <div className="text-[10px] font-medium whitespace-nowrap">
+                          {format(new Date(request.created_at), 'dd MMM yyyy')}
+                        </div>
+                        <div className="text-[9px] text-gray-500 whitespace-nowrap">
+                          {format(new Date(request.created_at), 'hh:mm a')}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
-            </td>
-
-            {/* Status */}
-            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              {getStatusBadge(request.request_status)}
-            </td>
-
-            {/* Priority */}
-            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} border-r border-gray-100 py-2 px-2`}>
-              {getPriorityBadge(request.priority)}
-            </td>
-
-            {/* Created */}
-            <td className={`w-[120px] ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} py-2 px-2`}>
-              <div className="text-xs font-medium whitespace-nowrap">
-                {format(new Date(request.created_at), 'dd MMM yyyy')}
-              </div>
-              <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                {format(new Date(request.created_at), 'hh:mm a')}
-              </div>
-            </td>
-
-          </tr>
-        ))
-      )}
-      </tbody>
-    </table>
-  </div>
-
-  {/* Pagination */}
-  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
-        <span className="text-gray-500 whitespace-nowrap">
-          Showing {startIndex + 1}–{Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length}
-        </span>
-        <div className="flex items-center gap-1">
-          <span className="hidden sm:inline text-gray-600">Rows:</span>
-          <Select
-            value={String(pagination.pageSize)}
-onValueChange={(val) => {
-  setPagination(prev => ({ 
-    ...prev, 
-    limit: val === 'all' ? sortedRequests.length : parseInt(val),
-    page: 1 
-  }));
-}}
-          >
-            <SelectTrigger className="h-7 w-[58px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-           <SelectContent>
-  <SelectItem value="10">10</SelectItem>
-  <SelectItem value="25">25</SelectItem>
-  <SelectItem value="50">50</SelectItem>
-  <SelectItem value="100">100</SelectItem>
-  <SelectItem value="all">All</SelectItem>
-</SelectContent>
-          </Select>
+            </tbody>
+          </table>
         </div>
-      </div>
-      <div className="flex items-center justify-between sm:justify-end gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(pagination.page - 1)}
-          disabled={pagination.page <= 1}
-          className="h-7 px-2 text-[11px]"
-        >
-          Prev
-        </Button>
-        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
-          {pagination.page}/{totalPages || 1}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(pagination.page + 1)}
-          disabled={pagination.page >= totalPages}
-          className="h-7 px-2 text-[11px]"
-        >
-          Next
-        </Button>
+
+        {/* ── Pagination Footer ── */}
+        {filteredRequests.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>Show</span>
+              <Select
+                value={String(pagination.limit)}
+                onValueChange={(val) => {
+                  setPagination((prev) => ({
+                    ...prev,
+                    limit: val === 'all' ? sortedRequests.length : parseInt(val),
+                    page: 1,
+                  }));
+                }}
+              >
+                <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                  <SelectValue>{pagination.limit}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>entries</span>
+              <span className="ml-2">
+                Showing {startIndex + 1}–{Math.min(endIndex, filteredRequests.length)} of {filteredRequests.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="h-6 w-6 p-0"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+
+              {Array.from(
+                {
+                  length: Math.min(
+                    Math.ceil(filteredRequests.length / pagination.limit),
+                    5
+                  ),
+                },
+                (_, i) => {
+                  const totalPages = Math.ceil(filteredRequests.length / pagination.limit);
+                  let pageNum = i + 1;
+                  if (totalPages > 5) {
+                    if (pagination.page <= 3) pageNum = i + 1;
+                    else if (pagination.page >= totalPages - 2)
+                      pageNum = totalPages - 4 + i;
+                    else pageNum = pagination.page - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      size="sm"
+                      variant={pagination.page === pageNum ? 'default' : 'outline'}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`h-6 w-6 p-0 text-[10px] ${
+                        pagination.page === pageNum
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : ''
+                      }`}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                }
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page >= totalPages}
+                className="h-6 w-6 p-0"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  </div>
-</div>
-          
-        </CardContent>
-      </Card>
+  </CardContent>
+</Card>
 
       {/* Request Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3 sticky top-0 z-10">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1 sticky top-0 z-10">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
                 <Move className="h-4 w-4" />
@@ -1089,7 +1119,7 @@ onValueChange={(val) => {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setDetailsDialogOpen(false)}
-                className="h-7 w-7 text-white hover:bg-white/20"
+                className="h-5 w-5 text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1283,7 +1313,7 @@ onValueChange={(val) => {
                   openStatusUpdateDialog(selectedRequest);
                 }}
                 size="sm"
-                className="h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
+                className="h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
               >
                 <Settings className="h-3 w-3 mr-1" />
                 Update Status
@@ -1293,11 +1323,10 @@ onValueChange={(val) => {
         </DialogContent>
       </Dialog>
 
-      {/* Status Update Dialog */}
       {/* Status Update Dialog - Add Admin Notes section */}
 <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
   <DialogContent className="max-w-md w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+    <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1">
       <div className="flex items-center justify-between">
         <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
           <Settings className="h-4 w-4" />
@@ -1307,7 +1336,7 @@ onValueChange={(val) => {
           variant="ghost" 
           size="icon" 
           onClick={() => setStatusDialogOpen(false)}
-          className="h-7 w-7 text-white hover:bg-white/20"
+          className="h-5 w-5 text-white hover:bg-white/20"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -1457,7 +1486,7 @@ onValueChange={(val) => {
         onClick={handleStatusUpdate}
         disabled={updating !== null}
         size="sm"
-        className="h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
+        className="h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
       >
         {updating ? (
           <>

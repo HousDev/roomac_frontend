@@ -34,7 +34,11 @@ import {
   FileText,
   X,
   ArrowRight,
-  Settings
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Delete,
+  Trash2
 } from "lucide-react";
 import {
   getAdminComplaints,
@@ -255,8 +259,9 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
     }
   };
 
-  const handleSearchChange = (field: string, value: string) => {
+ const handleSearchChange = (field: string, value: string) => {
     setSearchFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
   };
 
   const handleSelectAll = () => {
@@ -371,8 +376,9 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                             (complaint.complaint_reason || '').toLowerCase().includes(searchFilters.complaint.toLowerCase());
     const matchesPriority = searchFilters.priority === 'all' || complaint.priority === searchFilters.priority;
     const matchesStatus = searchFilters.status === 'all' || complaint.status === searchFilters.status;
-    const matchesDate = !searchFilters.date || 
-                        new Date(complaint.created_at).toISOString().split('T')[0] === searchFilters.date;
+    const matchesDate =
+  !searchFilters.date ||
+  new Date(complaint.created_at).toLocaleDateString("en-CA") === searchFilters.date;
     
     return matchesId && matchesTenant && matchesComplaint && matchesPriority && matchesStatus && matchesDate;
   });
@@ -469,44 +475,46 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
       {/* Bulk Actions Bar */}
 {can('delete_requests') && selectedComplaints.size > 0 && (
-  <div className="sticky top-36 z-10 mb-3 bg-white rounded-lg border border-blue-200 shadow-sm px-2 py-2">
-    <div className="flex items-center justify-between gap-2 overflow-x-auto">
-      
-      <div className="flex items-center gap-2 shrink-0">
-        <Badge
-          variant="secondary"
-          className="bg-blue-100 text-blue-700 text-[10px] sm:text-xs px-2 py-0.5 h-6 whitespace-nowrap"
-        >
-          {selectedComplaints.size}{" "}
-          {selectedComplaints.size === 1 ? "complaint" : "complaints"} selected
-        </Badge>
+  <div className="px-1 pb-2">
+    <div className="flex items-center justify-between gap-2 sm:gap-3 border border-[#E2E8F4] rounded-xl px-2 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] bg-white shadow-sm">
 
-        <Button
-          variant="ghost"
-          size="sm"
+      {/* Selected Count */}
+      <span className="font-bold text-[#1A2B6D] text-[11px] sm:text-sm whitespace-nowrap shrink-0">
+        {selectedComplaints.size}{" "}
+        {selectedComplaints.size === 1 ? "complaint" : "complaints"} selected
+      </span>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 sm:gap-2 ml-auto shrink-0">
+
+        <button
           onClick={() => setSelectedComplaints(new Set())}
-          className="h-6 px-1.5 text-[11px] text-gray-500 hover:text-gray-700 whitespace-nowrap"
+          className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-[#8892A4] hover:text-gray-600 px-1.5 sm:px-2 py-1 transition-colors whitespace-nowrap"
         >
-          <X className="h-3 w-3 mr-1" />
-          Clear
-        </Button>
+          <X className="h-3 w-3" />
+          <span className="hidden sm:inline">Clear</span>
+        </button>
 
-        <Button
-          variant="destructive"
-          size="sm"
+        <button
           onClick={() => setShowBulkDeleteDialog(true)}
-          className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700 whitespace-nowrap"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-[10px] sm:text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors whitespace-nowrap"
         >
-          <XCircle className="h-3 w-3 mr-1" />
-          Delete Selected
-        </Button>
+          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <span className="sm:hidden">
+            {selectedComplaints.size}
+          </span>
+          <span className="hidden sm:inline">
+            Delete {selectedComplaints.size}
+          </span>
+        </button>
+
       </div>
 
     </div>
   </div>
 )}
 
-      <Card className="shadow-sm border-0 sticky top-44 z-10">
+      <Card className="shadow-sm ">
         <CardContent className="p-0">
           {complaints.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
@@ -517,260 +525,237 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
               <p className="text-gray-500 mb-4">No tenant complaints have been submitted yet.</p>
             </div>
           ) : (
-       <div className="relative">
-  <div className={`overflow-auto rounded-lg border border-gray-200 transition-all duration-300 ${
-    selectedComplaints.size > 0 
-      ? 'max-h-[350px] md:max-h-[380px]'
-      : 'max-h-[400px] md:max-h-[430px]'
-  }`}>
-    
-    {/* ✅ Native table - not shadcn Table component */}
+      <div className="relative">
+  <div
+    className={`overflow-auto rounded-md border border-gray-200 transition-all duration-300 ${
+      selectedComplaints.size > 0
+        ? "h-[350px] md:h-[410px]"
+        : "h-[400px] md:h-[450px]"
+    }`}
+  >
     <table className="w-full min-w-[1100px] table-fixed border-collapse">
+      <colgroup>
+        <col style={{ width: "34px" }} />   {/* checkbox */}
+        <col style={{ width: "70px" }} />   {/* ID */}
+        <col style={{ width: "90px" }} />   {/* Actions */}
+        <col style={{ width: "130px" }} />  {/* Tenant */}
+        <col style={{ width: "150px" }} />  {/* Property / Room */}
+        <col style={{ width: "auto" }} />   {/* Complaint Details */}
+        <col style={{ width: "100px" }} />  {/* Priority */}
+        <col style={{ width: "100px" }} />  {/* Status */}
+        <col style={{ width: "130px" }} />  {/* Date & Time */}
+      </colgroup>
 
-      {/* ✅ Native thead with sticky */}
-      <thead className="sticky top-0 z-50">
-        <tr className="bg-white border-b border-gray-200">
-          
-          {/* Checkbox - 40px */}
-          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
+      <thead className="sticky top-0 z-10">
+        {/* Row 1: Column Titles */}
+        <tr className="bg-gray-200 border-b border-gray-300">
+          <th className="py-0.5 px-1 text-center border-r border-gray-300 bg-gray-200">
             {can('delete_requests') && (
-              <div className="py-2 flex justify-center">
-                <Checkbox 
-                  checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                />
-              </div>
+              <input
+                type="checkbox"
+                checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
+                onChange={handleSelectAll}
+                className="w-3.5 h-3.5 cursor-pointer"
+              />
             )}
           </th>
-
-          {/* ID - 90px */}
-          <th className="md:sticky md:left-[40px] z-[60] w-[90px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                <span className="font-semibold text-gray-700 text-xs">ID</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                placeholder="Search ID..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.id}
-                onChange={(e) => handleSearchChange('id', e.target.value)}
-              />
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => handleSort('id')}>
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">ID</span>
+              <ArrowUpDown className="h-2.5 w-2.5 text-gray-400" />
             </div>
           </th>
-           {/* Actions - 90px */}
-          <th className="w-[90px] bg-white border-r border-gray-200 text-left">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Actions</span>
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+          </th>
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+          </th>
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Property / Room</span>
+          </th>
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Complaint Details</span>
+          </th>
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => handleSort('priority')}>
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Priority</span>
+              <ArrowUpDown className="h-2.5 w-2.5 text-gray-400" />
             </div>
           </th>
-
-          {/* Tenant - 130px */}
-          <th className="md:sticky md:left-[130px] z-[60] w-[130px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-              <Input 
-                placeholder="Search tenant..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.tenant}
-                onChange={(e) => handleSearchChange('tenant', e.target.value)}
-              />
+          <th className="py-0.5 px-1 text-left border-r border-gray-300 bg-gray-200">
+            <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => handleSort('status')}>
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+              <ArrowUpDown className="h-2.5 w-2.5 text-gray-400" />
             </div>
           </th>
-
-         
-
-          {/* Property / Room - 150px */}
-          <th className="w-[150px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Property / Room</span>
-              <div className="h-6" />
+          <th className="py-0.5 px-1 text-left bg-gray-200">
+            <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => handleSort('created_at')}>
+              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date & Time</span>
+              <ArrowUpDown className="h-2.5 w-2.5 text-gray-400" />
             </div>
           </th>
+        </tr>
 
-          {/* Complaint Details */}
-          <th className="bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Complaint Details</span>
-              <Input 
-                placeholder="Search complaints..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.complaint}
-                onChange={(e) => handleSearchChange('complaint', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Priority - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.priority} 
-                onValueChange={(value) => handleSearchChange('priority', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Status - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
-                <span className="font-semibold text-gray-700 text-xs">Status</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.status} 
-                onValueChange={(value) => handleSearchChange('status', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Date & Time - 130px */}
-          <th className="w-[130px] bg-white text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                <span className="font-semibold text-gray-700 text-xs">Date & Time</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                type="date"
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.date}
-                onChange={(e) => handleSearchChange('date', e.target.value)}
-              />
-            </div>
-          </th>
-
+        {/* Row 2: Search Inputs - with visible borders */}
+        <tr className="bg-white border-b border-gray-300">
+          <td className="p-0.5 border-r border-gray-200 text-center" />
+          <td className="p-0.5 border-r border-gray-200">
+            <input
+              type="text"
+              placeholder="Search ID…"
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+              value={searchFilters.id}
+              onChange={(e) => handleSearchChange('id', e.target.value)}
+            />
+          </td>
+          <td className="p-0.5 border-r border-gray-200" />
+          <td className="p-0.5 border-r border-gray-200">
+            <input
+              type="text"
+              placeholder="Search tenant…"
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+              value={searchFilters.tenant}
+              onChange={(e) => handleSearchChange('tenant', e.target.value)}
+            />
+          </td>
+          <td className="p-0.5 border-r border-gray-200" />
+          <td className="p-0.5 border-r border-gray-200">
+            <input
+              type="text"
+              placeholder="Search complaints…"
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+              value={searchFilters.complaint}
+              onChange={(e) => handleSearchChange('complaint', e.target.value)}
+            />
+          </td>
+          <td className="p-0.5 border-r border-gray-200">
+            <select
+              value={searchFilters.priority || 'all'}
+              onChange={(e) => handleSearchChange('priority', e.target.value)}
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+            >
+              <option value="all">All</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </td>
+          <td className="p-0.5 border-r border-gray-200">
+            <select
+              value={searchFilters.status || 'all'}
+              onChange={(e) => handleSearchChange('status', e.target.value)}
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+            >
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </td>
+          <td className="p-0.5">
+            <input
+              type="date"
+              className="h-5 w-full text-[10px] border border-gray-300 rounded bg-white px-1 focus:border-blue-400 focus:ring-0 outline-none"
+              value={searchFilters.date}
+              onChange={(e) => handleSearchChange('date', e.target.value)}
+            />
+          </td>
         </tr>
       </thead>
 
-      {/* ✅ Native tbody - shadcn TableBody/TableRow/TableCell still work fine here */}
       <tbody>
         {filteredComplaints
           .slice(
-            (currentPage - 1) * (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage)),
-            currentPage * (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage))
+            (currentPage - 1) *
+              (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage)),
+            currentPage *
+              (itemsPerPage === 'all' ? filteredComplaints.length : Number(itemsPerPage))
           )
           .map((complaint, index) => {
             const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
             return (
               <tr
                 key={complaint.id}
-                className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
+                className={`hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
               >
                 {/* Checkbox */}
-                <td className={`md:sticky md:left-0 z-[30] w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                <td className={`py-0.5 px-1 text-center border-r border-gray-100 ${rowBgClass}`}>
                   {can('delete_requests') && (
-                    <div className="flex justify-center">
-                      <Checkbox 
-                        checked={selectedComplaints.has(complaint.id)}
-                        onCheckedChange={() => handleSelectComplaint(complaint.id)}
-                        aria-label={`Select complaint ${complaint.id}`}
-                      />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedComplaints.has(complaint.id)}
+                      onChange={() => handleSelectComplaint(complaint.id)}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
                   )}
                 </td>
 
                 {/* ID */}
-                <td className={`md:sticky md:left-[40px] z-[30] w-[90px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
-                    <span className="truncate">#{complaint.id}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    <span className="text-[10px] font-mono font-medium text-blue-600 truncate">#{complaint.id}</span>
                   </div>
                 </td>
 
-                  {/* Actions */}
-                <td className={`w-[90px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* Actions */}
+                <td className={`py-0.5 px-0.5 border-r border-gray-100 ${rowBgClass}`}>
                   <div className="flex items-center gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
-                      title="View Details"
+                    <button
                       onClick={() => handleViewComplaint(complaint.id)}
+                      className="h-5 w-5 rounded hover:bg-blue-100 flex items-center justify-center"
+                      title="View"
                     >
-                      <Eye className="h-3.5 w-3.5 text-blue-500" />
-                    </Button>
-                    
+                      <Eye className="h-2.5 w-2.5 text-blue-500" />
+                    </button>
                     {can('manage_complaints') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
-                        title="Assign Staff"
+                      <button
                         onClick={() => {
                           setSelectedComplaint(complaint);
                           setShowAssignDialog(true);
                         }}
+                        className="h-5 w-5 rounded hover:bg-green-100 flex items-center justify-center"
+                        title="Assign Staff"
                       >
-                        <UserPlus className="h-3.5 w-3.5 text-green-600" />
-                      </Button>
+                        <UserPlus className="h-2.5 w-2.5 text-green-600" />
+                      </button>
                     )}
-                    
                     {can('manage_complaints') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
-                        title="Update Status"
+                      <button
                         onClick={() => handleOpenStatusDialog(complaint)}
+                        className="h-5 w-5 rounded hover:bg-purple-100 flex items-center justify-center"
+                        title="Update Status"
                       >
-                        <Settings className="h-3.5 w-3.5 text-purple-500" />
-                      </Button>
+                        <Settings className="h-2.5 w-2.5 text-purple-500" />
+                      </button>
                     )}
                   </div>
                 </td>
 
                 {/* Tenant */}
-                <td className={`md:sticky md:left-[130px] z-[30] w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
                   <div className="flex items-center gap-1">
                     <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
-                      <User className="h-3 w-3 text-blue-600" />
+                      <User className="h-2.5 w-2.5 text-blue-600" />
                     </div>
-                    <span className="text-xs font-medium truncate">
+                    <span className="text-[10px] font-medium truncate">
                       {complaint.tenant_name || "Unknown"}
                     </span>
                   </div>
                 </td>
 
-              
-
                 {/* Property & Room */}
-                <td className={`w-[150px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1 text-xs text-gray-700">
-                      <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-0.5 text-[10px] text-gray-700">
+                      <Building className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
                       <span className="truncate">{complaint.property_name || "Not specified"}</span>
                     </div>
                     {complaint.room_info && complaint.room_info !== 'Not assigned' && (
-                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                      <div className="text-[9px] text-gray-500 flex items-center gap-0.5">
                         <span>🏠</span>
                         <span className="truncate">{complaint.room_info}</span>
                       </div>
@@ -779,66 +764,67 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 </td>
 
                 {/* Complaint Details */}
-                <td className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-xs font-medium text-gray-800 line-clamp-1">
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-0.5">
+                      <span className="text-[10px] font-medium text-gray-800 line-clamp-1">
                         {complaint.title}
                       </span>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] border-0 shadow-sm px-1.5 py-0 flex-shrink-0 ${getCategoryColor(
+                      <Badge
+                        variant="outline"
+                        className={`text-[8px] border-0 shadow-sm px-1 py-0 h-3 flex-shrink-0 ${getCategoryColor(
                           complaint.complaint_details?.category_name || complaint.complaint_category
                         )}`}
                       >
                         {complaint.complaint_details?.category_name || complaint.complaint_category || 'General'}
                       </Badge>
                     </div>
-                    <div className="text-[11px] text-gray-500 line-clamp-1">
-                      {complaint.complaint_details?.complaint_reason || 
-                       complaint.complaint_reason || 
-                       "No reason specified"}
+                    <div className="text-[9px] text-gray-500 line-clamp-1">
+                      {complaint.complaint_details?.complaint_reason ||
+                        complaint.complaint_reason ||
+                        "No reason specified"}
                     </div>
                   </div>
                 </td>
 
                 {/* Priority */}
-                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
                   {getPriorityBadge(complaint.priority)}
                 </td>
 
                 {/* Status */}
-                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full inline-block whitespace-nowrap
-                    ${complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
-                    ${complaint.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : ''}
-                    ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700' : ''}
-                    ${complaint.status === 'closed' ? 'bg-gray-100 text-gray-700' : ''}
-                  `}>
-                    {complaint.status === 'in_progress' ? 'In Progress' : 
-                     complaint.status?.charAt(0).toUpperCase() + complaint.status?.slice(1) || 'Pending'}
+                <td className={`py-0.5 px-1 border-r border-gray-100 ${rowBgClass}`}>
+                  <span
+                    className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full inline-block whitespace-nowrap
+                      ${complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
+                      ${complaint.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : ''}
+                      ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700' : ''}
+                      ${complaint.status === 'closed' ? 'bg-gray-100 text-gray-700' : ''}
+                    `}
+                  >
+                    {complaint.status === 'in_progress' ? 'In Progress' :
+                      complaint.status?.charAt(0).toUpperCase() + complaint.status?.slice(1) || 'Pending'}
                   </span>
                 </td>
 
                 {/* Date & Time */}
-                <td className={`w-[130px] ${rowBgClass} py-2 px-2`}>
+                <td className={`py-0.5 px-1 ${rowBgClass}`}>
                   <div className="space-y-0.5">
-                    <div className="text-xs font-medium whitespace-nowrap">
+                    <div className="text-[10px] font-medium whitespace-nowrap">
                       {new Date(complaint.created_at).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric'
                       })}
                     </div>
-                    <div className="text-[11px] text-gray-500 whitespace-nowrap">
-                      {new Date(complaint.created_at).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                    <div className="text-[9px] text-gray-500 whitespace-nowrap">
+                      {new Date(complaint.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
                       })}
                     </div>
                   </div>
                 </td>
-
               </tr>
             );
           })}
@@ -847,56 +833,48 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   </div>
 
   {/* Pagination */}
-  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-      
-      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
-        <span className="text-gray-500 whitespace-nowrap">
-          {filteredComplaints.length}/{complaints.length} complaints
+  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-1.5 rounded-b-lg">
+    <div className="flex flex-row items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-gray-500 whitespace-nowrap text-[10px]">
+          {filteredComplaints.length} complaints
         </span>
-        <div className="flex items-center gap-1">
-          <span className="hidden sm:inline text-gray-600">Rows:</span>
-          <Select
-            value={itemsPerPage.toString()}
-            onValueChange={(val) => {
-              setItemsPerPage(val === "all" ? "all" : parseInt(val));
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="h-7 w-[58px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Select
+          value={itemsPerPage.toString()}
+          onValueChange={(val) => {
+            setItemsPerPage(val === "all" ? "all" : parseInt(val));
+            setCurrentPage(1);
+          }}
+        >
+          <SelectTrigger className="h-5 w-14 text-[10px] border border-gray-200 rounded px-1 bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="flex items-center justify-between sm:justify-end gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+      <div className="flex items-center gap-0.5">
+        <button
+          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
           disabled={currentPage === 1}
-          className="h-7 px-2 text-[11px]"
+          className="h-5 w-5 rounded border border-gray-300 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100"
         >
-          Prev
-        </Button>
-        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
+          <ChevronLeft className="h-3 w-3" />
+        </button>
+        <span className="text-[10px] text-gray-600 px-1 whitespace-nowrap">
           {currentPage}/
           {Math.ceil(
             filteredComplaints.length /
               (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
           ) || 1}
         </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => prev + 1)}
+        <button
+          onClick={() => setCurrentPage((p) => p + 1)}
           disabled={
             currentPage >=
             Math.ceil(
@@ -904,10 +882,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 (itemsPerPage === "all" ? filteredComplaints.length : Number(itemsPerPage))
             )
           }
-          className="h-7 px-2 text-[11px]"
+          className="h-5 w-5 rounded border border-gray-300 flex items-center justify-center disabled:opacity-50 hover:bg-gray-100"
         >
-          Next
-        </Button>
+          <ChevronRight className="h-3 w-3" />
+        </button>
       </div>
     </div>
   </div>
@@ -918,8 +896,8 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
 
       {/* View Complaint Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+        <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
                 <MessageSquare className="h-4 w-4" />
@@ -1163,17 +1141,17 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
       {/* Assign Staff Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-2xl w-full p-0 gap-0">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-t-lg">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white p-1 rounded-t-lg">
             <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2 text-white">
-                <UserPlus className="h-5 w-5" />
+              <DialogTitle className="flex items-center gap-2 text-white text-md">
+                <UserPlus className="h-3 w-3" />
                 Assign Staff
               </DialogTitle>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowAssignDialog(false)}
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="h-5 w-5 text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1183,7 +1161,7 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
             </DialogDescription>
           </DialogHeader>
           {selectedComplaint && (
-            <div className="p-6">
+            <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <h4 className="font-medium text-sm text-gray-700">Complaint Information</h4>
@@ -1248,7 +1226,7 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                 <Button
                   onClick={handleAssignStaff}
                   disabled={!selectedStaffId}
-                  className="px-6 bg-gradient-to-r from-blue-500 to-cyan-500"
+                  className="px-6 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
                 >
                   Assign Staff
                 </Button>
@@ -1261,10 +1239,10 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
       {/* Update Status Dialog - Enhanced with existing notes */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent className="max-w-2xl w-full p-0 gap-0">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-t-lg">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white p-2 rounded-t-lg">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white">
-                <FileText className="h-5 w-5" />
+                <FileText className="h-4 w-4" />
                 Update Status
               </DialogTitle>
               <Button 
@@ -1275,7 +1253,7 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                   setAdminNotes("");
                   setNewStatus("");
                 }}
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="h-3 w-3 text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1422,14 +1400,14 @@ const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
                     setAdminNotes("");
                     setNewStatus("");
                   }}
-                  className="px-6"
+                  className="px-4"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={() => handleUpdateStatus(selectedComplaint.id, newStatus)}
                   disabled={!newStatus}
-                  className="px-6 bg-gradient-to-r from-blue-500 to-cyan-500"
+                  className="px-6bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
                 >
                   Update Status
                 </Button>

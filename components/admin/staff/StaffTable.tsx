@@ -831,8 +831,8 @@ const StaffTable = ({
           <div
             className={`overflow-auto rounded-lg transition-all duration-300 ${
               selectedIds.size > 0
-                ? "h-[250px] md:h-[550px]"
-                : "h-[280px] md:h-[550px]"
+                ? "h-[500px] md:h-[550px]"
+                : "h-[540px] md:h-[550px]"
             }`}
           >
             <table className="w-full min-w-[1000px] table-fixed border-collapse">

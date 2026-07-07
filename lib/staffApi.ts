@@ -333,3 +333,21 @@ export const getStaffById = async (id: number): Promise<StaffMember> => {
     throw error;
   }
 };
+
+
+export const getPropertyByStaffId = async (staffId: number): Promise<{ id: string; name: string; area: string } | null> => {
+  try {
+    const response = await request(`/api/properties?staff_id=${staffId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+      const p = response.data[0];
+      return { id: String(p.id), name: p.name, area: p.area };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error in getPropertyByStaffId:", error);
+    return null;
+  }
+};

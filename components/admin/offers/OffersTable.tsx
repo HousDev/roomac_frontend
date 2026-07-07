@@ -812,8 +812,8 @@ const OffersTable = ({
          <div
   className={`overflow-auto rounded-lg transition-all duration-300 ${
     selectedIds.size > 0
-      ? "h-[250px] md:h-[400px]"
-      : "h-[280px] md:h-[450px]"
+      ? "h-[380px] md:h-[400px]"
+      : "h-[420px] md:h-[450px]"
   }`}
 >
             <table className="w-full min-w-[1000px] table-fixed border-collapse">

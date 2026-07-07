@@ -177,7 +177,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
 
       {/* Basic Personal Details - Single Card */}
      <Card className="border border-slate-200 shadow-sm overflow-hidden">
-  <CardHeader className="pb-2 px-5 pt-4 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
+  <CardHeader className="pb-2 px-2 pt-2 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
     <div className="flex items-center gap-2">
       <div className="p-1.5 bg-[#004aad] rounded-lg">
         <User className="h-3.5 w-3.5 text-white" />
@@ -185,7 +185,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
       <CardTitle className="text-sm font-semibold text-slate-800">Basic Details</CardTitle>
     </div>
   </CardHeader>
-  <CardContent className="p-5">
+  <CardContent className="p-3">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {/* Full Name */}
       <InfoCard 
@@ -254,7 +254,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
       {/* Emergency Contact Section - Only if exists */}
       {(tenant.emergency_contact_name || tenant.emergency_contact_phone) && (
         <Card className="border border-slate-200 shadow-sm overflow-hidden">
-          <CardHeader className="pb-2 px-5 pt-4 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-200">
+          <CardHeader className="pb-2 px-2 pt-2 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-200">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-rose-500 rounded-lg">
                 <AlertCircle className="h-3.5 w-3.5 text-white" />
@@ -262,7 +262,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
               <CardTitle className="text-sm font-semibold text-slate-800">Emergency Contact</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-5">
+          <CardContent className="p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {tenant.emergency_contact_name && (
                 <InfoCard 
@@ -294,7 +294,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
 
       {/* Account Created Date */}
       <Card className="bg-gradient-to-br from-slate-50 to-white border border-slate-200">
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-[#004aad]" />

@@ -186,6 +186,12 @@ const uniqueProperties = useMemo(
   () => [...new Set(settlements.map(s => s.property_name).filter(Boolean))],
   [settlements]
 );
+ const numMatch = (formatted: string, query: string) => {
+   const cleanFormatted = formatted.replace(/[₹,]/g, '');
+   const cleanQuery = query.replace(/[₹,]/g, '');
+   return cleanFormatted.includes(cleanQuery) || formatted.includes(query);
+ };
+
  const filteredItems = useMemo(() => settlements.filter(s => {
   const cs = colSearch;
 
@@ -195,12 +201,12 @@ const uniqueProperties = useMemo(
     (!cs.property_name    || s.property_name?.toLowerCase().includes(cs.property_name.toLowerCase())) &&
     (!cs.room_number      || s.room_number?.toLowerCase().includes(cs.room_number.toLowerCase())) &&
     (!cs.settlement_date  || fmt(s.settlement_date).includes(cs.settlement_date)) &&
-    (!cs.security_deposit || money(s.security_deposit).includes(cs.security_deposit)) &&
-    (!cs.penalties        || money(s.penalties).includes(cs.penalties)) &&
-    (!cs.penalty_discount || money(s.penalty_discount).includes(cs.penalty_discount)) &&
-    (!cs.outstanding_rent || money(s.outstanding_rent).includes(cs.outstanding_rent)) &&
-    (!cs.total_deductions || money(s.total_deductions).includes(cs.total_deductions)) &&
-    (!cs.refund_amount    || money(s.refund_amount).includes(cs.refund_amount)) &&
+    (!cs.security_deposit || numMatch(money(s.security_deposit), cs.security_deposit)) &&
+    (!cs.penalties        || numMatch(money(s.penalties), cs.penalties)) &&
+    (!cs.penalty_discount || numMatch(money(s.penalty_discount), cs.penalty_discount)) &&
+    (!cs.outstanding_rent || numMatch(money(s.outstanding_rent), cs.outstanding_rent)) &&
+    (!cs.total_deductions || numMatch(money(s.total_deductions), cs.total_deductions)) &&
+    (!cs.refund_amount    || numMatch(money(s.refund_amount), cs.refund_amount)) &&
     (!cs.payment_method   || s.payment_method?.toLowerCase().includes(cs.payment_method.toLowerCase())) &&
     (!cs.status           || s.status?.toLowerCase().includes(cs.status.toLowerCase()))
   );
@@ -734,7 +740,7 @@ const clearFilters = () => {
 
   <Card className="border rounded-lg shadow-sm">
     {/* ── Table ── */}
-<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '420px' : '520px' }}>      <div className="overflow-auto flex-1 min-h-0">
+<div className="flex flex-col" style={{ height: window.innerWidth < 640 ? '360px' : '520px' }}>      <div className="overflow-auto flex-1 min-h-0">
         <table
           className="border-collapse text-[11px] font-sans"
           style={{ tableLayout: "fixed", minWidth: "1380px", width: "100%" }}

@@ -665,7 +665,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
       {/* Security Deposit Summary - Corrected with actual required amount */}
       {depositStats.requiredAmount > 0 && (
         <Card className="border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 px-3 py-2">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  px-3 py-2">
             <div className="flex items-center justify-between">
               <h3 className="text-white text-xs font-medium flex items-center gap-1">
                 <Shield className="h-3 w-3" />
@@ -789,18 +789,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
         </CardContent>
       </Card>
 
-      {/* Refresh Button */}
-      <div className="flex justify-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchData}
-          className="text-[9px] text-slate-500 hover:text-blue-600"
-        >
-          <Loader2 className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </Button>
-      </div>
+     
     </div>
   );
 }

@@ -30,6 +30,8 @@ import {
   PhoneCall,
   Globe,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getPropertyByStaffId } from "@/lib/staffApi";
 
 interface StaffDetailsPopupProps {
   staff: StaffMember | null;
@@ -57,7 +59,24 @@ const StaffDetailsPopup = ({
   formatSalary,
   formatDate,
 }: StaffDetailsPopupProps) => {
+  const [assignedProperty, setAssignedProperty] = useState<{ id: string; name: string; area: string } | null>(null);
+  const [loadingProperty, setLoadingProperty] = useState(false);
+
+  const isManager = staff?.role === "manager" || staff?.role_name?.toLowerCase() === "manager";
+
+  useEffect(() => {
+    if (open && staff && isManager) {
+      setLoadingProperty(true);
+      getPropertyByStaffId(staff.id)
+        .then(setAssignedProperty)
+        .finally(() => setLoadingProperty(false));
+    } else {
+      setAssignedProperty(null);
+    }
+  }, [open, staff?.id, isManager]);
+
   if (!staff) return null;
+
 
   const formatSalutation = (salutation: string) => {
     if (!salutation) return "";
@@ -233,6 +252,21 @@ const StaffDetailsPopup = ({
                 <InfoRow icon={Briefcase} label="Requests" value={`${staff.assigned_requests}`} />
               )}
             </Section>
+            {/* Assigned Property - Manager only */}
+            {isManager && (
+              <Section title="Assigned Property" icon={Building}>
+                {loadingProperty ? (
+                  <p className="text-xs text-gray-400 py-1.5">Loading...</p>
+                ) : assignedProperty ? (
+                  <>
+                    <InfoRow icon={Building} label="Property" value={assignedProperty.name} />
+                    <InfoRow icon={MapPin} label="Area" value={assignedProperty.area} />
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400 py-1.5">No property assigned</p>
+                )}
+              </Section>
+            )}
 
             {/* Address */}
             {(staff.current_address || staff.permanent_address) && (

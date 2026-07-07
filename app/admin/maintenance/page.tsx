@@ -18,7 +18,10 @@ import {
   Eye, AlertCircle, Loader2, RefreshCw, Building, 
   Wrench, Home, User, Calendar, Clock, CheckCircle, 
   XCircle, AlertTriangle, MessageSquare, MoreVertical,
-  UserPlus, Settings, Check, X, ArrowUpDown, Tag, Phone, Mail
+  UserPlus, Settings, Check, X, ArrowUpDown, Tag, Phone, Mail,
+  ChevronLeft,
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 import {
   getAdminMaintenanceRequests,
@@ -471,477 +474,643 @@ const filteredRequests = sortedRequests.filter(request => {
       </div>
       {/* Bulk Actions Bar */}
 {can('delete_requests') && selectedRequests.size > 0 && (
-  <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-2 sm:p-3 animate-in slide-in-from-top-2">
-    <div className="flex items-center justify-between gap-2">
-      
-      <Badge
-        variant="secondary"
-        className="bg-blue-100 text-blue-700 text-xs sm:text-sm whitespace-nowrap"
-      >
+  <div className="px-1 pb-2">
+    <div className="flex items-center justify-between gap-2 sm:gap-3 border border-[#E2E8F4] rounded-xl px-2 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] bg-white shadow-sm">
+
+      {/* Selected Count */}
+      <span className="font-bold text-[#1A2B6D] text-[11px] sm:text-sm whitespace-nowrap shrink-0">
         {selectedRequests.size}{" "}
         {selectedRequests.size === 1 ? "request" : "requests"} selected
-      </Badge>
+      </span>
 
-      <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-        <Button
-          variant="ghost"
-          size="sm"
+      {/* Actions */}
+      <div className="flex items-center gap-1 sm:gap-2 ml-auto shrink-0">
+
+        <button
           onClick={() => setSelectedRequests(new Set())}
-          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-[#8892A4] hover:text-gray-600 px-1.5 sm:px-2 py-1 transition-colors whitespace-nowrap"
         >
-          <X className="h-4 w-4" />
-        </Button>
+          <X className="h-3 w-3" />
+          <span className="hidden sm:inline">Clear</span>
+        </button>
 
-        <Button
-          variant="destructive"
-          size="sm"
+        <button
           onClick={() => setShowBulkDeleteDialog(true)}
-          className="h-7 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm bg-red-600 hover:bg-red-700"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg text-[10px] sm:text-xs font-bold text-[#DC2626] hover:bg-red-100 transition-colors whitespace-nowrap"
         >
-          <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
-          <span className="hidden sm:inline">Delete Selected</span>
-          <span className="sm:hidden">Delete</span>
-        </Button>
+          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <span className="sm:hidden">
+            {selectedRequests.size}
+          </span>
+          <span className="hidden sm:inline">
+            Delete {selectedRequests.size}
+          </span>
+        </button>
+
       </div>
 
     </div>
   </div>
 )}
       {/* Main Table Card */}
-      <Card className="shadow-sm border-0  sticky top-48 z-10">
-       
-        <CardContent className="p-0">
-          {requests.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
-              <Wrench className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No maintenance requests found</h3>
-              <p className="text-gray-500 mb-4">No maintenance requests have been submitted yet.</p>
-              <Button onClick={refreshData} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          ) : (
-         <div className="relative">
-  <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-    selectedRequests.size > 0 
-      ? 'max-h-[260px] md:max-h-[360px]'
-      : 'max-h-[390px] md:max-h-[440px]'
-  }`}>
-    <table className="w-full min-w-[1200px] table-fixed border-collapse">
+     <Card className="border rounded-lg shadow-sm ">
+  <CardContent className="p-0">
+    {requests.length === 0 ? (
+      <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
+        <Wrench className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No maintenance requests found
+        </h3>
+        <p className="text-gray-500 mb-4">
+          No maintenance requests have been submitted yet.
+        </p>
+        <Button onClick={refreshData} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+    ) : (
+       <div
+    className={`flex flex-col rounded-md border border-gray-200 transition-all duration-300 ${
+     selectedRequests.size > 0
+        ? "h-[360px] md:h-[430px]"
+        : "h-[420px] md:h-[470px]"
+    }`}
+  >
+        <div className="overflow-auto flex-1 min-h-0">
+          <table
+            className="border-collapse text-[11px] font-sans"
+            style={{ tableLayout: 'fixed', minWidth: '1200px', width: '100%' }}
+          >
+            <colgroup>
+              <col style={{ width: '34px' }} />   {/* checkbox */}
+              <col style={{ width: '70px' }} />    {/* ID */}
+              <col style={{ width: '90px' }} />    {/* Actions */}
+              <col style={{ width: '150px' }} />   {/* Tenant */}
+              <col style={{ width: 'auto' }} />    {/* Title (fill remaining) */}
+              <col style={{ width: '130px' }} />   {/* Property */}
+              <col style={{ width: '100px' }} />   {/* Priority */}
+              <col style={{ width: '120px' }} />   {/* Status */}
+              <col style={{ width: '120px' }} />   {/* Assigned To */}
+              <col style={{ width: '120px' }} />   {/* Date */}
+            </colgroup>
 
-      <thead className="sticky top-0 z-50">
-        <tr className="bg-white border-b-2 border-blue-200">
-
-          {/* Checkbox - 40px sticky */}
-          <th className="md:sticky md:left-0 z-[60] w-[40px] bg-white border-r border-gray-200 text-left">
-            {can('delete_requests') && (
-              <div className="py-2 flex justify-center">
-                <Checkbox 
-                  checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                />
-              </div>
-            )}
-          </th>
-
-          {/* ID - 80px sticky */}
-          <th className="md:sticky md:left-[40px] z-[60] w-[80px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                <span className="font-semibold text-gray-700 text-xs">ID</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                placeholder="Search ID..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.id}
-                onChange={(e) => handleSearchChange('id', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Actions - 100px sticky */}
-          <th className="md:sticky md:left-[120px] z-[60] w-[100px] bg-white border-r border-gray-200 text-left">
-            <div className="py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Actions</span>
-            </div>
-          </th>
-
-          {/* Tenant - 160px */}
-          <th className="w-[160px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Tenant</span>
-              <Input 
-                placeholder="Search tenant..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.tenant}
-                onChange={(e) => handleSearchChange('tenant', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Title - remaining */}
-          <th className="bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Title</span>
-              <Input 
-                placeholder="Search title..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.title}
-                onChange={(e) => handleSearchChange('title', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Property - 140px */}
-          <th className="w-[140px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Property</span>
-              <Input 
-                placeholder="Search property..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.property}
-                onChange={(e) => handleSearchChange('property', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Priority - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                <span className="font-semibold text-gray-700 text-xs">Priority</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.priority} 
-                onValueChange={(value) => handleSearchChange('priority', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Status - 120px */}
-          <th className="w-[120px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
-                <span className="font-semibold text-gray-700 text-xs">Status</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Select 
-                value={searchFilters.status} 
-                onValueChange={(value) => handleSearchChange('status', value)}
-              >
-                <SelectTrigger className="h-6 text-[11px] border-gray-200 px-1.5">
-                  <SelectValue placeholder="All..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </th>
-
-          {/* Assigned To - 130px */}
-          <th className="w-[130px] bg-white border-r border-gray-200 text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <span className="font-semibold text-gray-700 text-xs">Assigned To</span>
-              <Input 
-                placeholder="Search assigned..." 
-                className="h-6 text-[11px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.assignedTo}
-                onChange={(e) => handleSearchChange('assignedTo', e.target.value)}
-              />
-            </div>
-          </th>
-
-          {/* Date - 120px */}
-          <th className="w-[120px] bg-white text-left">
-            <div className="space-y-1.5 py-2 px-2">
-              <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                <span className="font-semibold text-gray-700 text-xs">Date</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-500" />
-              </div>
-              <Input 
-                type="date"
-                className="h-6 text-[10px] border-gray-200 focus:border-blue-400 px-1.5"
-                value={searchFilters.date}
-                onChange={(e) => handleSearchChange('date', e.target.value)}
-              />
-            </div>
-          </th>
-
-        </tr>
-      </thead>
-
-      <tbody>
-        {filteredRequests
-          .slice(
-            (currentPage - 1) * (itemsPerPage === 'all' ? filteredRequests.length : Number(itemsPerPage)),
-            currentPage * (itemsPerPage === 'all' ? filteredRequests.length : Number(itemsPerPage))
-          )
-          .map((request, index) => {
-            const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
-            return (
-              <tr
-                key={request.id}
-                className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
-              >
-                {/* Checkbox - sticky */}
-                <td className={`md:sticky md:left-0 z-[10] w-[40px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+            <thead className="sticky top-0 z-10">
+              {/* ── Header labels row ── */}
+              <tr className="bg-gray-200 border-b border-gray-300">
+                {/* Checkbox */}
+                <th className="px-1.5 py-1.5 text-center border-r border-gray-300 bg-gray-200">
                   {can('delete_requests') && (
-                    <div className="flex justify-center">
-                      <Checkbox 
-                        checked={selectedRequests.has(request.id)}
-                        onCheckedChange={() => handleSelectRequest(request.id)}
-                        aria-label={`Select request ${request.id}`}
-                      />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedRequests.size === filteredRequests.length &&
+                        filteredRequests.length > 0
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
                   )}
-                </td>
+                </th>
 
-                {/* ID - sticky */}
-                <td className={`md:sticky md:left-[40px] z-[10] w-[80px] font-mono text-xs font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
+                {/* ID */}
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('id')}
+                >
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
-                    <span className="truncate">#{request.id}</span>
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      ID
+                    </span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
                   </div>
-                </td>
+                </th>
 
-                {/* Actions - sticky - icon buttons with labels */}
-                <td className={`md:sticky md:left-[120px] z-[10] w-[100px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="flex items-center gap-0.5">
-                    {/* View */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
-                      title="View Details"
-                      onClick={() => handleViewDetails(request)}
-                    >
-                      <Eye className="h-3.5 w-3.5 text-blue-500" />
-                    </Button>
-
-                    {/* Assign Staff */}
-                    {can('manage_maintenance') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
-                        title="Assign Staff"
-                        onClick={() => handleOpenAssignStaff(request)}
-                      >
-                        <UserPlus className="h-3.5 w-3.5 text-green-600" />
-                      </Button>
-                    )}
-
-                    {/* Update Status */}
-                    {can('manage_maintenance') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
-                        title="Update Status"
-                        onClick={() => handleOpenUpdateStatus(request)}
-                      >
-                        <Settings className="h-3.5 w-3.5 text-purple-500" />
-                      </Button>
-                    )}
-                  </div>
-                </td>
+                {/* Actions */}
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                    Actions
+                  </span>
+                </th>
 
                 {/* Tenant */}
-                <td className={`w-[160px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="flex items-center gap-1">
-                    <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
-                      <User className="h-3 w-3 text-blue-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium truncate">
-                        {request.tenant_name || "Unknown"}
-                      </div>
-                      <div className="text-[10px] text-gray-500 truncate">
-                        {request.tenant_email || "No email"}
-                      </div>
-                    </div>
-                  </div>
-                </td>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                    Tenant
+                  </span>
+                </th>
 
                 {/* Title */}
-                <td className={`${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-medium text-gray-800 line-clamp-1">
-                      {request.title}
-                    </div>
-                    {request.maintenance_data && (
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 border-0 shadow-sm flex-shrink-0">
-                          {request.maintenance_data.issue_category}
-                        </Badge>
-                        {request.maintenance_data.location && (
-                          <span className="text-[10px] text-gray-500 truncate">
-                            • {request.maintenance_data.location}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </td>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                    Title
+                  </span>
+                </th>
 
                 {/* Property */}
-                <td className={`w-[140px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  <div className="flex items-center gap-1">
-                    <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                    <span className="text-xs truncate">{request.property_name || "N/A"}</span>
-                  </div>
-                  {request.room_number && (
-                    <div className="text-[10px] text-gray-500 mt-0.5 truncate">
-                      Room: {request.room_number}
-                    </div>
-                  )}
-                </td>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                    Property
+                  </span>
+                </th>
 
                 {/* Priority */}
-                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  {getPriorityBadge(request.priority)}
-                </td>
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('priority')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      Priority
+                    </span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
 
                 {/* Status */}
-                <td className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  {getStatusBadge(request.status)}
-                </td>
+                <th
+                  className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      Status
+                    </span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                  </div>
+                </th>
 
                 {/* Assigned To */}
-                <td className={`w-[130px] ${rowBgClass} border-r border-gray-100 py-2 px-2`}>
-                  {request.staff_name ? (
-                    <div>
-                      <div className="text-xs font-medium truncate">{request.staff_name}</div>
-                      {request.staff_role && (
-                        <div className="text-[10px] text-gray-500 truncate">{request.staff_role}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-400">Unassigned</span>
-                  )}
-                </td>
+                <th className="px-1.5 py-1.5 text-left border-r border-gray-300 bg-gray-200">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                    Assigned To
+                  </span>
+                </th>
 
                 {/* Date */}
-                <td className={`w-[120px] ${rowBgClass} py-2 px-2`}>
-                  <div className="text-xs font-medium whitespace-nowrap">
-                    {new Date(request.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                <th
+                  className="px-1.5 py-1.5 text-left bg-gray-200 cursor-pointer"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      Date
+                    </span>
+                    <ArrowUpDown className="h-3 w-3 text-gray-500" />
                   </div>
-                  <div className="text-[10px] text-gray-500 whitespace-nowrap">
-                    {new Date(request.created_at).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </div>
+                </th>
+              </tr>
+
+              {/* ── Search / filter row ── */}
+              <tr className="bg-white border-b border-gray-300">
+                <td className="p-1 border-r border-gray-200" />
+
+                {/* ID search */}
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search ID…"
+                    value={searchFilters.id}
+                    onChange={(e) => handleSearchChange('id', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
                 </td>
 
+                {/* Actions (no search) */}
+                <td className="p-1 border-r border-gray-200" />
+
+                {/* Tenant search */}
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search tenant…"
+                    value={searchFilters.tenant}
+                    onChange={(e) => handleSearchChange('tenant', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+
+                {/* Title search */}
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search title…"
+                    value={searchFilters.title}
+                    onChange={(e) => handleSearchChange('title', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+
+                {/* Property search */}
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search property…"
+                    value={searchFilters.property}
+                    onChange={(e) => handleSearchChange('property', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+
+                {/* Priority filter */}
+                <td className="p-1 border-r border-gray-200">
+                  <Select
+                    value={searchFilters.priority}
+                    onValueChange={(value) => handleSearchChange('priority', value)}
+                  >
+                    <SelectTrigger className="w-full h-5 text-[10px] border-gray-300 px-1.5 py-0 bg-white rounded-md">
+                      <SelectValue placeholder="All…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
+
+                {/* Status filter */}
+                <td className="p-1 border-r border-gray-200">
+                  <Select
+                    value={searchFilters.status}
+                    onValueChange={(value) => handleSearchChange('status', value)}
+                  >
+                    <SelectTrigger className="w-full h-5 text-[10px] border-gray-300 px-1.5 py-0 bg-white rounded-md">
+                      <SelectValue placeholder="All…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
+
+                {/* Assigned To search */}
+                <td className="p-1 border-r border-gray-200">
+                  <Input
+                    placeholder="Search assigned…"
+                    value={searchFilters.assignedTo}
+                    onChange={(e) => handleSearchChange('assignedTo', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
+
+                {/* Date filter */}
+                <td className="p-1">
+                  <Input
+                    type="date"
+                    value={searchFilters.date}
+                    onChange={(e) => handleSearchChange('date', e.target.value)}
+                    className="w-full h-5 px-1.5 py-0.5 border border-gray-300 rounded-md text-[10px] outline-none bg-white focus:border-blue-400 focus:ring-0"
+                  />
+                </td>
               </tr>
-            );
-          })}
-      </tbody>
-    </table>
-  </div>
+            </thead>
 
-  {/* Pagination - complaint table jaisa */}
-  <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-3 py-2 rounded-b-lg">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <tbody>
+              {filteredRequests
+                .slice(
+                  (currentPage - 1) *
+                    (itemsPerPage === 'all'
+                      ? filteredRequests.length
+                      : Number(itemsPerPage)),
+                  currentPage *
+                    (itemsPerPage === 'all'
+                      ? filteredRequests.length
+                      : Number(itemsPerPage))
+                )
+                .map((request, index) => {
+                  const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
+                  return (
+                    <tr
+                      key={request.id}
+                      className={`hover:bg-blue-50/40 transition-colors duration-150 border-b border-gray-100 ${rowBgClass}`}
+                    >
+                      {/* Checkbox */}
+                      <td
+                        className={` w-[34px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {can('delete_requests') && (
+                          <div className="flex justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedRequests.has(request.id)}
+                              onChange={() => handleSelectRequest(request.id)}
+                              aria-label={`Select request ${request.id}`}
+                              className="w-3.5 h-3.5 cursor-pointer"
+                            />
+                          </div>
+                        )}
+                      </td>
 
-      {/* Left */}
-      <div className="flex items-center justify-between sm:justify-start gap-2 text-xs">
-        <span className="text-gray-500 whitespace-nowrap">
-          {filteredRequests.length}/{requests.length} requests
-        </span>
-        <div className="flex items-center gap-1">
-          <span className="hidden sm:inline text-gray-600">Rows:</span>
-          <Select
-            value={itemsPerPage.toString()}
-            onValueChange={(val) => {
-              setItemsPerPage(val === "all" ? "all" : parseInt(val));
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="h-7 w-[58px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+                      {/* ID */}
+                      <td
+                        className={` w-[70px] font-mono text-[10px] font-medium text-blue-600 ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                          <span className="truncate">#{request.id}</span>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td
+                        className={` w-[90px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
+                            title="View Details"
+                            onClick={() => handleViewDetails(request)}
+                          >
+                            <Eye className="h-3.5 w-3.5 text-blue-500" />
+                          </Button>
+
+                          {can('manage_maintenance') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-green-100 flex-shrink-0"
+                              title="Assign Staff"
+                              onClick={() => handleOpenAssignStaff(request)}
+                            >
+                              <UserPlus className="h-3.5 w-3.5 text-green-600" />
+                            </Button>
+                          )}
+
+                          {can('manage_maintenance') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-purple-100 flex-shrink-0"
+                              title="Update Status"
+                              onClick={() => handleOpenUpdateStatus(request)}
+                            >
+                              <Settings className="h-3.5 w-3.5 text-purple-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Tenant */}
+                      <td
+                        className={`w-[150px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div className="bg-blue-100 p-0.5 rounded-full flex-shrink-0">
+                            <User className="h-3 w-3 text-blue-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-medium truncate">
+                              {request.tenant_name || 'Unknown'}
+                            </div>
+                            <div className="text-[9px] text-gray-500 truncate">
+                              {request.tenant_email || 'No email'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Title */}
+                      <td
+                        className={`${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] font-medium text-gray-800 line-clamp-1">
+                            {request.title}
+                          </div>
+                          {request.maintenance_data && (
+                            <div className="flex items-center gap-1">
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 py-0 border-0 shadow-sm flex-shrink-0"
+                              >
+                                {request.maintenance_data.issue_category}
+                              </Badge>
+                              {request.maintenance_data.location && (
+                                <span className="text-[9px] text-gray-500 truncate">
+                                  • {request.maintenance_data.location}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Property */}
+                      <td
+                        className={`w-[130px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Building className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-[10px] truncate">
+                            {request.property_name || 'N/A'}
+                          </span>
+                        </div>
+                        {request.room_number && (
+                          <div className="text-[9px] text-gray-500 mt-0.5 truncate">
+                            Room: {request.room_number}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Priority */}
+                      <td
+                        className={`w-[100px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {getPriorityBadge(request.priority)}
+                      </td>
+
+                      {/* Status */}
+                      <td
+                        className={`w-[80px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {getStatusBadge(request.status)}
+                      </td>
+
+                      {/* Assigned To */}
+                      <td
+                        className={`w-[120px] ${rowBgClass} border-r border-gray-100 py-1.5 px-1`}
+                      >
+                        {request.staff_name ? (
+                          <div>
+                            <div className="text-[10px] font-medium truncate">
+                              {request.staff_name}
+                            </div>
+                            {request.staff_role && (
+                              <div className="text-[9px] text-gray-500 truncate">
+                                {request.staff_role}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">Unassigned</span>
+                        )}
+                      </td>
+
+                      {/* Date */}
+                      <td
+                        className={`w-[120px] ${rowBgClass} py-1.5 px-1`}
+                      >
+                        <div className="text-[10px] font-medium whitespace-nowrap">
+                          {new Date(request.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            }
+                          )}
+                        </div>
+                        <div className="text-[9px] text-gray-500 whitespace-nowrap">
+                          {new Date(request.created_at).toLocaleTimeString(
+                            [],
+                            {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+            </div>
+
+        {/* ── Pagination Footer ── */}
+        {filteredRequests.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-white border-t border-slate-200">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>Show</span>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(val) => {
+                  setItemsPerPage(val === 'all' ? 'all' : parseInt(val));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-6 w-16 text-[10px] border-gray-200 px-1">
+                  <SelectValue>{itemsPerPage}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>entries</span>
+              <span className="ml-2">
+                Showing{' '}
+                {(currentPage - 1) *
+                  (itemsPerPage === 'all'
+                    ? filteredRequests.length
+                    : Number(itemsPerPage)) +
+                  1}
+                –
+                {Math.min(
+                  currentPage *
+                    (itemsPerPage === 'all'
+                      ? filteredRequests.length
+                      : Number(itemsPerPage)),
+                  filteredRequests.length
+                )}{' '}
+                of {filteredRequests.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.max(prev - 1, 1))
+                }
+                disabled={currentPage === 1}
+                className="h-6 w-6 p-0"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+
+              {Array.from(
+                {
+                  length: Math.min(
+                    Math.ceil(
+                      filteredRequests.length /
+                        (itemsPerPage === 'all'
+                          ? filteredRequests.length
+                          : Number(itemsPerPage))
+                    ),
+                    5
+                  ),
+                },
+                (_, i) => {
+                  const totalPages = Math.ceil(
+                    filteredRequests.length /
+                      (itemsPerPage === 'all'
+                        ? filteredRequests.length
+                        : Number(itemsPerPage))
+                  );
+                  let pageNum = i + 1;
+                  if (totalPages > 5) {
+                    if (currentPage <= 3) pageNum = i + 1;
+                    else if (currentPage >= totalPages - 2)
+                      pageNum = totalPages - 4 + i;
+                    else pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      size="sm"
+                      variant={currentPage === pageNum ? 'default' : 'outline'}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`h-6 w-6 p-0 text-[10px] ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : ''
+                      }`}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                }
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage((prev) => prev + 1)}
+                disabled={
+                  currentPage >=
+                  Math.ceil(
+                    filteredRequests.length /
+                      (itemsPerPage === 'all'
+                        ? filteredRequests.length
+                        : Number(itemsPerPage))
+                  )
+                }
+                className="h-6 w-6 p-0"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Right */}
-      <div className="flex items-center justify-between sm:justify-end gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-          className="h-7 px-2 text-[11px]"
-        >
-          Prev
-        </Button>
-        <span className="text-[11px] text-gray-600 whitespace-nowrap px-1">
-          {currentPage}/
-          {Math.ceil(
-            filteredRequests.length /
-              (itemsPerPage === "all" ? filteredRequests.length : Number(itemsPerPage))
-          ) || 1}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((prev) => prev + 1)}
-          disabled={
-            currentPage >=
-            Math.ceil(
-              filteredRequests.length /
-                (itemsPerPage === "all" ? filteredRequests.length : Number(itemsPerPage))
-            )
-          }
-          className="h-7 px-2 text-[11px]"
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  </div>
-</div>
-          )}
-        </CardContent>
-      </Card>
+    )}
+  </CardContent>
+</Card>
 
       {/* View Details Dialog - Compact */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
           {/* Header */}
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
                 <Wrench className="h-4 w-4" />
@@ -951,7 +1120,7 @@ const filteredRequests = sortedRequests.filter(request => {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowDialog(false)}
-                className="h-7 w-7 text-white hover:bg-white/20"
+                className="h-5 w-5 text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1111,7 +1280,7 @@ const filteredRequests = sortedRequests.filter(request => {
                         size="sm"
                         onClick={handleResolve}
                         disabled={updating || !resolutionNotes.trim()}
-                        className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
+                        className="flex-1 h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
                       >
                         {updating ? (
                           <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -1145,7 +1314,7 @@ const filteredRequests = sortedRequests.filter(request => {
       {/* Assign Staff Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+          <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
                 <UserPlus className="h-4 w-4" />
@@ -1155,7 +1324,7 @@ const filteredRequests = sortedRequests.filter(request => {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowAssignDialog(false)}
-                className="h-7 w-7 text-white hover:bg-white/20"
+                className="h-5 w-5 text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1244,7 +1413,7 @@ const filteredRequests = sortedRequests.filter(request => {
                 <Button
                   onClick={() => handleAssignStaff(selectedActionRequest.id, selectedStaffId)}
                   disabled={updating || !selectedStaffId}
-                  className="h-8 text-xs px-4 bg-gradient-to-r from-blue-500 to-cyan-500"
+                  className="h-8 text-xs px-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
                 >
                   {updating ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -1263,7 +1432,7 @@ const filteredRequests = sortedRequests.filter(request => {
       {/* Update Status Dialog with Admin Notes */}
 <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
   <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+    <DialogHeader className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2">
       <div className="flex items-center justify-between">
         <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
           <Settings className="h-4 w-4" />
@@ -1276,7 +1445,7 @@ const filteredRequests = sortedRequests.filter(request => {
             setShowStatusDialog(false);
             setAdminNotes(""); // Reset admin notes
           }}
-          className="h-7 w-7 text-white hover:bg-white/20"
+          className="h-5 w-5 text-white hover:bg-white/20"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -1388,7 +1557,7 @@ const filteredRequests = sortedRequests.filter(request => {
           <Button
             onClick={() => handleUpdateStatus(selectedActionRequest.id, newStatus)}
             disabled={updating || !newStatus || newStatus === selectedActionRequest.status}
-            className="h-8 text-xs px-4 bg-gradient-to-r from-blue-500 to-cyan-500"
+            className="h-8 text-xs px-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
           >
             {updating ? (
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />

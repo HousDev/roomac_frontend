@@ -415,12 +415,12 @@ useEffect(() => {
         </SheetTrigger>
       )}
 
-      <SheetContent side="right" className="p-0 w-[90vw] sm:w-[400px] lg:max-w-md">
+      <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px] lg:max-w-md">
         <div className="h-full flex flex-col">
-          <SheetHeader className="p-4 border-b" style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #003d8c 100%)`, color: 'white' }}>
+          <SheetHeader className="p-1 border-b" style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #003d8c 100%)`, color: 'white' }}>
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2 text-white">
-                <Filter className="h-5 w-5" style={{ color: colors.secondary }} />
+                <Filter className="h-4 w-4" style={{ color: colors.secondary }} />
                 <span>Filter Rooms</span>
                 {activeFilterCount > 0 && (
                   <Badge style={{ backgroundColor: colors.secondary, color: '#000' }}>{activeFilterCount} active</Badge>
