@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { getSettings } from "@/lib/settingsApi";
 import {
   Download,
   Printer,
@@ -74,6 +75,7 @@ import {
 import { toast } from "sonner";
 import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
+import { request } from "@/lib/api";
 
   // Add pagination component
 const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChange }: any) => {
@@ -82,7 +84,7 @@ const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChang
   if (totalPages <= 1) return null;
   
   return (
-    <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+    <div className="flex items-center justify-between mt-4 pt-3 px-3 pb-2 border-t border-gray-200">
       <div className="flex items-center gap-2 text-xs text-gray-500">
         <span>Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}</span>
         <select 
@@ -154,6 +156,422 @@ const getAvailableFinancialYearsFromPayments = (payments: any[]): string[] => {
   return Array.from(years).sort().reverse();
 };
 
+// ─── Shared Print Branding ────────────────────────────────────────────────
+const PRINT_BRAND_STYLE = `
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;color:#111;font-size:12px;padding:32px;position:relative;margin:0}
+  .brand-header{display:grid;grid-template-columns:96px 1fr 96px;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1B3FA0}
+  .brand-logo-wrap{display:flex;align-items:center;justify-content:flex-start}
+  .brand-logo{max-width:88px;max-height:88px;object-fit:contain}
+  .brand-center{text-align:center}
+  .brand-name{font-size:20px;font-weight:900;color:#0D2567;letter-spacing:.01em}
+  .brand-sub{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);opacity:.06;z-index:-1;pointer-events:none;width:90%;text-align:center}
+  .watermark span{font-size:64px;font-weight:900;color:#0D2567;white-space:nowrap;display:block}
+  @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+
+  .report-title{font-size:18px;font-weight:900;color:#111;margin-bottom:2px}
+  .report-meta{font-size:11px;color:#6b7280;margin-bottom:20px;display:flex;gap:16px;flex-wrap:wrap}
+  .report-meta span b{color:#1B3FA0}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .summary-card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px}
+  .summary-card .lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:4px}
+  .summary-card .val{font-size:18px;font-weight:900;color:#111}
+  .summary-card .sub{font-size:9px;color:#9ca3af;margin-top:2px}
+
+  h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#374151;border-bottom:2px solid #f3f4f6;padding-bottom:6px;margin:22px 0 10px;break-after:avoid-page}
+
+  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:6px}
+  thead tr{background:#f8fafc}
+  th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 9px;white-space:nowrap}
+  td{padding:6px 9px;border-bottom:1px solid #f3f4f6;color:#111}
+  tfoot td{font-weight:800;border-top:2px solid #e5e7eb;background:#f8fafc}
+  .amt{color:#059669;font-weight:700}
+  .amt-red{color:#dc2626;font-weight:700}
+  .badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700}
+  .badge-green{background:#f0fdf4;color:#15803d}
+  .badge-amber{background:#fffbeb;color:#b45309}
+  .badge-red{background:#fef2f2;color:#b91c1c}
+  .badge-gray{background:#f3f4f6;color:#4b5563}
+
+  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9.5px;color:#9ca3af;display:flex;justify-content:space-between}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .row-line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f9fafb;font-size:11px}
+  .row-line .lbl{font-weight:700;color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em}
+  .row-line .val{font-weight:700;color:#111}
+  @page { margin: 14mm; size: A4; }
+`;
+
+function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
+  return `<div class="brand-header">
+    <div class="brand-logo-wrap">${orgLogo ? `<img class="brand-logo" src="${orgLogo}" alt="logo" onerror="this.style.display='none'"/>` : ""}</div>
+    <div class="brand-center">
+      <div class="brand-name">${orgName}</div>
+      <div class="brand-sub">${subtitle}</div>
+    </div>
+    <div></div>
+  </div>`;
+}
+
+function buildWatermarkHTML(orgName: string) {
+  const firstWord = orgName?.split(" ")[0] || "ROOMAC";
+  return `<div class="watermark"><span>${firstWord}</span></div>`;
+}
+
+function printCurrency(n: number) {
+  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
+}
+
+function openPrintWindow(html: string) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    toast.error("Please allow pop-ups to print the report");
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => {
+    w.print();
+  }, 300);
+}
+
+// ── Revenue Report Print ──────────────────────────────────────────────────
+function buildRevenuePrintHTML(reportData: any, filters: any, propertyName: string, orgLogo: string, orgName: string) {
+  const s = reportData.summary;
+  const payments = reportData.payments || [];
+  const monthly = s.monthlyBreakdown || [];
+
+  const rows = payments.slice(0, 200).map((p: any) => `
+    <tr>
+      <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
+      <td>${p.tenant_name || "N/A"}</td>
+      <td>${p.property_name || "N/A"}</td>
+      <td>${p.payment_type === "security_deposit" ? "Security Deposit" : (p.payment_type || "Other")}</td>
+      <td class="amt">${printCurrency(p.amount)}</td>
+      <td style="text-transform:capitalize">${p.payment_mode || "—"}</td>
+    </tr>`).join("");
+
+  const monthlyRows = monthly.map((m: any) => `
+    <tr>
+      <td>${m.month} ${m.year}</td>
+      <td class="amt">${printCurrency(m.total_amount)}</td>
+      <td>${printCurrency(m.rent_amount)}</td>
+      <td>${printCurrency(m.deposit_amount)}</td>
+      <td>${m.transaction_count}</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><title>Revenue Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Revenue Report")}
+    <div class="report-title">Revenue Report</div>
+    <div class="report-meta">
+      <span>Property: <b>${propertyName}</b></span>
+      <span>Period: <b>${filters.startDate} to ${filters.endDate}</b></span>
+      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Total Revenue</div><div class="val">${printCurrency(s.totalRevenue)}</div><div class="sub">${s.totalTransactions} transactions</div></div>
+      <div class="summary-card"><div class="lbl">Rent Revenue</div><div class="val">${printCurrency(s.revenueByType?.rent?.amount || 0)}</div><div class="sub">${(s.revenueByType?.rent?.percentage || 0).toFixed(1)}% of total</div></div>
+      <div class="summary-card"><div class="lbl">Deposit Revenue</div><div class="val">${printCurrency(s.revenueByType?.security_deposit?.amount || 0)}</div><div class="sub">${(s.revenueByType?.security_deposit?.percentage || 0).toFixed(1)}% of total</div></div>
+      <div class="summary-card"><div class="lbl">Avg Daily Revenue</div><div class="val">${printCurrency(s.averageDailyRevenue)}</div><div class="sub">Over ${s.daysInRange} days</div></div>
+    </div>
+
+    <h2>Monthly Breakdown</h2>
+    <table>
+      <thead><tr><th>Month</th><th>Total</th><th>Rent</th><th>Deposit</th><th>Txns</th></tr></thead>
+      <tbody>${monthlyRows || `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No data</td></tr>`}</tbody>
+    </table>
+
+    <h2>Transactions ${payments.length > 200 ? `(first 200 of ${payments.length})` : ""}</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Tenant</th><th>Property</th><th>Type</th><th>Amount</th><th>Mode</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#9ca3af">No transactions</td></tr>`}</tbody>
+    </table>
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
+// ── Payments Report Print ─────────────────────────────────────────────────
+function buildPaymentsPrintHTML(reportData: any, filters: any, propertyName: string, orgLogo: string, orgName: string) {
+  const s = reportData.summary;
+  const payments = reportData.payments || [];
+
+  const rows = payments.slice(0, 200).map((p: any) => `
+    <tr>
+      <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
+      <td>${p.tenant_name || "N/A"}</td>
+      <td>${p.property_name || "N/A"}</td>
+      <td>${p.payment_type === "security_deposit" ? "Security Deposit" : (p.payment_type || "Other")}</td>
+      <td class="amt">${printCurrency(p.amount)}</td>
+      <td>${p.status === "approved" || p.status === "paid"
+        ? `<span class="badge badge-green">${p.status}</span>`
+        : p.status === "pending"
+        ? `<span class="badge badge-amber">pending</span>`
+        : `<span class="badge badge-red">${p.status || "unknown"}</span>`}</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><title>Payments Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Payments Report")}
+    <div class="report-title">Payments Report</div>
+    <div class="report-meta">
+      <span>Property: <b>${propertyName}</b></span>
+      <span>Period: <b>${filters.startDate} to ${filters.endDate}</b></span>
+      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Total Transactions</div><div class="val">${s.totalTransactions}</div><div class="sub">Unique tenants: ${s.uniqueTenants}</div></div>
+      <div class="summary-card"><div class="lbl">Collection Rate</div><div class="val">${(s.collectionRateByAmount || 0).toFixed(1)}%</div><div class="sub">${printCurrency(s.statusBreakdown?.approved?.amount || 0)} of ${printCurrency(s.totalAmount)}</div></div>
+      <div class="summary-card"><div class="lbl">Pending Amount</div><div class="val">${printCurrency(s.statusBreakdown?.pending?.amount || 0)}</div><div class="sub">${s.statusBreakdown?.pending?.count || 0} payments</div></div>
+      <div class="summary-card"><div class="lbl">Avg Transaction</div><div class="val">${printCurrency(s.averageTransactionValue)}</div></div>
+    </div>
+
+    <h2>Transactions ${payments.length > 200 ? `(first 200 of ${payments.length})` : ""}</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Tenant</th><th>Property</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#9ca3af">No transactions</td></tr>`}</tbody>
+    </table>
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
+// ── Tenants Report Print ──────────────────────────────────────────────────
+function buildTenantsPrintHTML(reportData: any, propertyName: string, orgLogo: string, orgName: string) {
+  const s = reportData.summary;
+  const tenants = reportData.tenants || [];
+
+  const rows = tenants.slice(0, 300).map((t: any) => `
+    <tr>
+      <td>${t.full_name}</td>
+      <td>${t.property_name || "N/A"}</td>
+      <td>${t.room_number ? `R${t.room_number}${t.bed_number ? `/B${t.bed_number}` : ""}` : "—"}</td>
+      <td>${printCurrency(t.monthly_rent)}</td>
+      <td class="amt">${printCurrency(t.total_rent_paid)}</td>
+      <td class="amt-red">${printCurrency(t.pending_rent)}</td>
+      <td>${t.is_active ? `<span class="badge badge-green">Active</span>` : `<span class="badge badge-gray">Inactive</span>`}</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><title>Tenants Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Tenants Report")}
+    <div class="report-title">Tenants Report</div>
+    <div class="report-meta">
+      <span>Property: <b>${propertyName}</b></span>
+      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Total Tenants</div><div class="val">${s.totalTenants}</div><div class="sub">Active: ${s.activeTenants} · Inactive: ${s.inactiveTenants}</div></div>
+      <div class="summary-card"><div class="lbl">Collection Rate</div><div class="val">${s.financialSummary?.overall_rent_collection_rate || 0}%</div></div>
+      <div class="summary-card"><div class="lbl">Rent Pending</div><div class="val">${printCurrency(s.financialSummary?.total_rent_pending || 0)}</div></div>
+      <div class="summary-card"><div class="lbl">New This Month</div><div class="val">${s.newTenantsThisMonth}</div></div>
+    </div>
+
+    <h2>Tenants ${tenants.length > 300 ? `(first 300 of ${tenants.length})` : ""}</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Property</th><th>Room/Bed</th><th>Rent</th><th>Paid</th><th>Pending</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" style="text-align:center;color:#9ca3af">No tenants</td></tr>`}</tbody>
+    </table>
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
+// ── Tenant Payment Report Print ───────────────────────────────────────────
+function buildTenantPaymentReportPrintHTML(r: any, orgLogo: string, orgName: string) {
+  const monthRows = (r.month_wise_rent || []).map((m: any) => `
+    <tr>
+      <td>${m.month} ${m.year}</td>
+      <td>${printCurrency(m.expected)}</td>
+      <td class="amt">${printCurrency(m.paid)}</td>
+      <td class="amt-red">${printCurrency(m.pending)}</td>
+      <td>${m.pending === 0
+        ? `<span class="badge badge-green">Paid</span>`
+        : m.paid > 0
+        ? `<span class="badge badge-amber">Partial</span>`
+        : `<span class="badge badge-red">Pending</span>`}</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><title>Tenant Payment Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Payment Report")}
+    <div class="report-title">${r.tenant.name}</div>
+    <div class="report-meta">
+      <span>${r.tenant.property_name} · Room ${r.tenant.room_number}, Bed ${r.tenant.bed_number}</span>
+      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h2>Tenant Details</h2>
+        <div class="row-line"><span class="lbl">Phone / Email</span><span class="val">${r.tenant.phone} / ${r.tenant.email}</span></div>
+        <div class="row-line"><span class="lbl">Check-in Date</span><span class="val">${r.tenant.check_in_date ? new Date(r.tenant.check_in_date).toLocaleDateString("en-IN") : "—"}</span></div>
+        <div class="row-line"><span class="lbl">Months Completed</span><span class="val">${r.tenant.months_since_joining}</span></div>
+        <div class="row-line"><span class="lbl">Monthly Rent</span><span class="val amt">${printCurrency(r.tenant.monthly_rent)}</span></div>
+        ${r.tenant.vacated_date ? `<div class="row-line"><span class="lbl">Vacated On</span><span class="val amt-red">${new Date(r.tenant.vacated_date).toLocaleDateString("en-IN")}</span></div>` : ""}
+      </div>
+      <div>
+        <h2>Rent Summary</h2>
+        <div class="row-line"><span class="lbl">Expected Rent</span><span class="val">${printCurrency(r.summary.expected_rent)}</span></div>
+        <div class="row-line"><span class="lbl">Paid Rent</span><span class="val amt">${printCurrency(r.summary.paid_rent)}</span></div>
+        <div class="row-line"><span class="lbl">Pending Rent</span><span class="val amt-red">${printCurrency(r.summary.pending_rent)}</span></div>
+        <div class="row-line"><span class="lbl">Collection Rate</span><span class="val">${r.summary.collection_rate}%</span></div>
+      </div>
+    </div>
+
+    <h2>Month-wise Rent</h2>
+    <table>
+      <thead><tr><th>Month</th><th>Expected</th><th>Paid</th><th>Pending</th><th>Status</th></tr></thead>
+      <tbody>${monthRows || `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No data</td></tr>`}</tbody>
+    </table>
+
+    <h2>Security Deposit</h2>
+    <div class="summary-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="summary-card"><div class="lbl">Total</div><div class="val">${printCurrency(r.summary.security_deposit_total)}</div></div>
+      <div class="summary-card"><div class="lbl">Paid</div><div class="val" style="color:#059669">${printCurrency(r.summary.security_deposit_paid)}</div></div>
+      <div class="summary-card"><div class="lbl">Pending</div><div class="val" style="color:#d97706">${printCurrency(r.summary.security_deposit_pending)}</div></div>
+    </div>
+
+    ${r.vacate_info ? `
+    <h2>Vacate Details</h2>
+    <div class="row-line"><span class="lbl">Vacate Date</span><span class="val">${new Date(r.vacate_info.vacate_date).toLocaleDateString("en-IN")}</span></div>
+    <div class="row-line"><span class="lbl">Total Penalty</span><span class="val amt-red">${printCurrency(r.vacate_info.total_penalty)}</span></div>
+    <div class="row-line"><span class="lbl">Refundable Amount</span><span class="val amt">${printCurrency(r.vacate_info.refundable_amount)}</span></div>
+    ` : ""}
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
+// ── Property Payment Report Print ─────────────────────────────────────────
+function buildPropertyPaymentReportPrintHTML(r: any, orgLogo: string, orgName: string) {
+  const tenantRows = (r.tenant_reports || []).map((t: any) => `
+    <tr>
+      <td>${t.tenant_name}${t.is_vacated ? ` <span class="badge badge-red">Vacated</span>` : ""}</td>
+      <td>R${t.room_number}/B${t.bed_number}</td>
+      <td>${printCurrency(t.monthly_rent)}</td>
+      <td>${t.months_completed}</td>
+      <td>${printCurrency(t.expected_rent)}</td>
+      <td class="amt">${printCurrency(t.paid_rent)}</td>
+      <td class="amt-red">${printCurrency(t.pending_rent)}</td>
+      <td>${(t.rent_collection_rate || 0).toFixed(0)}%</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html><html><head><title>Property Payment Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Property Payment Report")}
+    <div class="report-title">${r.property?.name || "Property"}</div>
+    <div class="report-meta">
+      <span>${r.property?.address || ""}</span>
+      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Total Rooms / Beds</div><div class="val">${r.property?.total_rooms || 0} / ${r.property?.total_beds || 0}</div></div>
+      <div class="summary-card"><div class="lbl">Occupancy Rate</div><div class="val">${(r.property?.occupancy_rate || 0).toFixed(1)}%</div></div>
+      <div class="summary-card"><div class="lbl">Rent Collected</div><div class="val amt">${printCurrency(r.financial_summary?.total_rent_collected || 0)}</div></div>
+      <div class="summary-card"><div class="lbl">Rent Pending</div><div class="val amt-red">${printCurrency(r.financial_summary?.total_rent_pending || 0)}</div></div>
+    </div>
+
+    <h2>Tenant-wise Report</h2>
+    <table>
+      <thead><tr><th>Tenant</th><th>Room/Bed</th><th>Rent</th><th>Months</th><th>Expected</th><th>Paid</th><th>Pending</th><th>Coll. %</th></tr></thead>
+      <tbody>${tenantRows || `<tr><td colspan="8" style="text-align:center;color:#9ca3af">No tenants</td></tr>`}</tbody>
+    </table>
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>Total tenants: ${r.financial_summary?.total_tenants || 0} · Active: ${r.financial_summary?.active_tenants || 0}</span></div>
+  </body></html>`;
+}
+
+// ── PG Revenue Report Print ───────────────────────────────────────────────
+function buildPGRevenuePrintHTML(r: any, orgLogo: string, orgName: string) {
+  const propertyBlocks = (r.properties || []).map((p: any) => {
+    const rows = p.periods.map((per: any) => `
+      <tr>
+        <td>${per.period}</td>
+        <td class="amt">${printCurrency(per.revenue)}</td>
+        <td class="amt-red">${printCurrency(per.expenses)}</td>
+        <td class="${per.is_profit ? "amt" : "amt-red"}">${per.is_profit ? printCurrency(per.profit) : `-${printCurrency(Math.abs(per.profit))}`}</td>
+      </tr>`).join("");
+    return `
+      <h2>${p.property_name}</h2>
+      <table>
+        <thead><tr><th>${r.period_type === "month_wise" ? "Month" : "Year"}</th><th>Revenue</th><th>Expenses</th><th>Profit/Loss</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Total</td><td class="amt">${printCurrency(p.summary.total_revenue)}</td><td class="amt-red">${printCurrency(p.summary.total_expenses)}</td>
+        <td class="${p.summary.is_profit ? "amt" : "amt-red"}">${p.summary.is_profit ? printCurrency(p.summary.net_profit) : `-${printCurrency(p.summary.net_loss)}`}</td></tr></tfoot>
+      </table>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html><head><title>PG Revenue Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "PG Revenue Report")}
+    <div class="report-title">PG Revenue Report</div>
+    <div class="report-meta">
+      <span>${r.report_type === "all_property" ? "All Properties" : "Property Wise"}</span>
+      <span>${r.period_type === "month_wise" ? "Month Wise" : "Year Wise"} · Year ${r.year}</span>
+      <span>Generated: <b>${new Date(r.generated_at).toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Total Revenue</div><div class="val amt">${printCurrency(r.overall_summary.total_revenue)}</div></div>
+      <div class="summary-card"><div class="lbl">Total Expenses</div><div class="val amt-red">${printCurrency(r.overall_summary.total_expenses)}</div></div>
+      <div class="summary-card"><div class="lbl">Net ${r.overall_summary.is_profit ? "Profit" : "Loss"}</div><div class="val ${r.overall_summary.is_profit ? "amt" : "amt-red"}">${printCurrency(r.overall_summary.is_profit ? r.overall_summary.net_profit : r.overall_summary.net_loss)}</div></div>
+      <div class="summary-card"><div class="lbl">Properties</div><div class="val">${r.overall_summary.properties_count}</div></div>
+    </div>
+
+    ${propertyBlocks}
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
+// ── Occupancy Report Print (detailed scope/type/period version) ──────────
+function buildOccupancyReportPrintHTML(r: any, orgLogo: string, orgName: string) {
+  const propertyBlocks = (r.properties || []).map((p: any) => {
+    const rows = p.periods.map((per: any) => `
+      <tr>
+        <td>${per.period}</td>
+        <td class="amt">${per.display_total}</td>
+        <td>${per.display_new}</td>
+      </tr>`).join("");
+    return `
+      <h2>${p.property_name}</h2>
+      <table>
+        <thead><tr><th>${r.period_type === "month" ? "Month" : "Year"}</th><th>${r.report_type === "vacant" ? "Vacant Tenants" : r.report_type === "non_vacant" ? "Non-Vacant Tenants" : "Total Tenants"}</th><th>${r.report_type === "vacant" ? "New Vacates" : "New Joins"}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html><head><title>Occupancy Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Occupancy Report")}
+    <div class="report-title">Occupancy Report</div>
+    <div class="report-meta">
+      <span>${r.report_scope === "all" ? "All Properties" : "Property Wise"}</span>
+      <span>${r.report_type === "overall" ? "Overall" : r.report_type === "non_vacant" ? "Non-Vacant" : "Vacant"} · ${r.period_type === "month" ? "Month Wise" : "Year Wise"} · Year ${r.year}</span>
+      <span>Generated: <b>${new Date(r.generated_at).toLocaleString("en-IN")}</b></span>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="lbl">Properties</div><div class="val">${r.overall_summary.properties_count}</div></div>
+      <div class="summary-card"><div class="lbl">Current Tenants</div><div class="val amt">${r.overall_summary.overall_totals.total_non_vacant}</div></div>
+      <div class="summary-card"><div class="lbl">Vacated Tenants</div><div class="val">${r.overall_summary.overall_totals.total_vacant}</div></div>
+      <div class="summary-card"><div class="lbl">New Joins</div><div class="val">${r.overall_summary.overall_totals.total_new_joins}</div></div>
+    </div>
+
+    ${propertyBlocks}
+
+    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
+  </body></html>`;
+}
+
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -170,7 +588,10 @@ const [propertyTenantPage, setPropertyTenantPage] = useState(1);
 const [propertyTenantPageSize, setPropertyTenantPageSize] = useState(20);
 // ✅ ADD THIS MISSING STATE VARIABLE
   const [revenuePageSize, setRevenuePageSize] = useState(20);
-
+const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: string }>({
+  logoUrl: "",
+  orgName: "Roomac Co-Living",
+});
   const [dashboardStats, setDashboardStats] =
     useState<reportApi.DashboardStats>({
       totalProperties: 0,
@@ -257,6 +678,30 @@ useEffect(() => {
   loadPaymentDetails();
 }, [dateRange, filters.propertyId]);
 
+useEffect(() => {
+  (async () => {
+    try {
+      const settings: any = await getSettings();
+      if (settings && typeof settings === "object") {
+        const logo =
+          settings.logo_header?.value ||
+          settings.logo_admin_sidebar?.value ||
+          settings.logo_footer?.value ||
+          "";
+        const name = settings.site_name?.value || "Roomac Co-Living";
+        const resolvedLogo = logo
+          ? logo.startsWith("http")
+            ? logo
+            : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${logo}`
+          : "";
+        setOrgSettings({ logoUrl: resolvedLogo, orgName: name });
+      }
+    } catch (e) {
+      console.error("Failed to load org settings for print branding", e);
+    }
+  })();
+}, []);
+
   const loadProperties = async () => {
     try {
       const props = await reportApi.fetchProperties();
@@ -273,88 +718,89 @@ useEffect(() => {
   };
 
   const loadTenantsList = async () => {
-    try {
-      const response = await fetch(`/api/reports/tenants-list`);
-      const data = await response.json();
-      if (data.success) {
-        setTenantsList(data.data);
-      }
-    } catch (err) {
-      console.error("Error loading tenants list:", err);
-    }
-  };
+  try {
+    const data = await request<any>(`/api/reports/tenants-list`);
+    if (data.success) setTenantsList(data.data);
+  } catch (err) {
+    console.error("Error loading tenants list:", err);
+  }
+};
 
-  const loadPropertyDetails = async () => {
-    try {
-      const response = await fetch(`/api/properties?pageSize=100`);
-      const data = await response.json();
-      if (data.success) {
-        const propertiesData = data.data?.data || data.data || [];
-        setPropertyDetails(propertiesData);
-      }
-    } catch (error) {
-      console.error("Error loading property details:", error);
-    }
-  };
+const loadPropertyDetails = async () => {
+  try {
+    const data = await request<any>(`/api/properties?pageSize=100`);
+    if (data.success) setPropertyDetails(data.data?.data || data.data || []);
+  } catch (error) {
+    console.error("Error loading property details:", error);
+  }
+};
 
-  const loadRoomDetails = async () => {
-    try {
-      const response = await fetch(`/api/rooms`);
-      const data = await response.json();
-      const rooms = Array.isArray(data) ? data : data.data || [];
-      setRoomDetails(rooms);
-    } catch (error) {
-      console.error("Error loading room details:", error);
-    }
-  };
+const loadRoomDetails = async () => {
+  try {
+    const data = await request<any>(`/api/rooms`);
+    setRoomDetails(Array.isArray(data) ? data : data.data || []);
+  } catch (error) {
+    console.error("Error loading room details:", error);
+  }
+};
 
-  const loadTenantDetails = async () => {
-    try {
-      const response = await fetch(`/api/tenants?pageSize=1000`);
-      const data = await response.json();
-      const tenants = data.data || [];
-      setTenantDetails(tenants);
-    } catch (error) {
-      console.error("Error loading tenant details:", error);
-    }
-  };
+const loadTenantDetails = async () => {
+  try {
+    const data = await request<any>(`/api/tenants?pageSize=1000`);
+    setTenantDetails(data.data || []);
+  } catch (error) {
+    console.error("Error loading tenant details:", error);
+  }
+};
 
-  const loadPaymentDetails = async () => {
-    try {
-      const response = await fetch(`/api/payments`);
-      const data = await response.json();
-      const payments = data.data || [];
-      setPaymentDetails(payments);
-    } catch (error) {
-      console.error("Error loading payment details:", error);
-    }
-  };
+const loadPaymentDetails = async () => {
+  try {
+    const data = await request<any>(`/api/payments`);
+    setPaymentDetails(data.data || []);
+  } catch (error) {
+    console.error("Error loading payment details:", error);
+  }
+};
+
+  // Add this useEffect to set financial years when paymentDetails loads
+useEffect(() => {
+  if (paymentDetails.length > 0) {
+    const years = getAvailableFinancialYearsFromPayments(paymentDetails);
+    setAvailableFinancialYears(years);
+  } else {
+    // ✅ FALLBACK: Set default financial years even if no payments
+    const currentYear = getFinancialYear(new Date());
+    const defaultYears = [
+      currentYear,
+      `${parseInt(currentYear.split('-')[0]) - 1}-${parseInt(currentYear.split('-')[0])}`,
+      `${parseInt(currentYear.split('-')[0]) - 2}-${parseInt(currentYear.split('-')[0]) - 1}`
+    ];
+    setAvailableFinancialYears(defaultYears);
+  }
+}, [paymentDetails]);
+
 
 const loadDashboardStats = async () => {
   try {
     setDashboardLoading(true);
-
-    // Use the backend dashboard-stats API which has all correct calculations
-    const response = await fetch(`/api/reports/dashboard-stats`);
-    const data = await response.json();
-
+    const data = await request<any>(`/api/reports/summary`);
     if (data.success && data.data) {
       const d = data.data;
       setDashboardStats({
-        totalProperties: d.totalProperties || 0,
-        totalRooms: d.totalRooms || 0,
-        totalBeds: d.totalBeds || 0,
-        occupiedBeds: d.occupiedBeds || 0,
-        activeTenants: d.activeTenants || 0,
-        monthlyRevenue: d.monthlyRevenue || 0,
-        revenueGrowth: d.revenueGrowth || 0,
-        occupationGrowth: d.occupationGrowth || 0,
-        occupancyRate: d.occupancyRate || 0,
-        collectionRate: d.collectionRate || 0,
-        pendingPayments: d.pendingPayments || 0,
-        pendingAmount: d.pendingAmount || 0,
-        upcomingCheckouts: d.upcomingCheckouts || 0,
-        maintenanceRequests: d.maintenanceRequests || 0,
+        totalProperties: d.total_properties || 0,
+        totalRooms: d.total_rooms || 0,
+        totalBeds: parseInt(d.bed_occupancy?.split('/')[1] || 0),
+        occupiedBeds: parseInt(d.bed_occupancy?.split('/')[0] || 0),
+        activeTenants: d.active_tenants || 0,
+        monthlyRevenue: d.monthly_revenue || 0,
+        revenueGrowth: 0,
+        occupationGrowth: 0,
+        occupancyRate: d.occupancy_rate || 0,
+        collectionRate: d.collection_rate || 0,
+        pendingPayments: d.this_month_expected_count || 0,
+        pendingAmount: d.this_month_expected_amount || 0,
+        upcomingCheckouts: d.total_vacated || 0,
+        maintenanceRequests: d.total_expenses || 0,
       });
     }
   } catch (err) {
@@ -404,75 +850,56 @@ const loadDashboardStats = async () => {
     setTenantSearchTerm("");
   };
 
-  const generateTenantPaymentReport = async () => {
-    if (!selectedTenant) {
-      toast.error("Please select a tenant");
-      return;
+const generateTenantPaymentReport = async () => {
+  if (!selectedTenant) {
+    toast.error("Please select a tenant");
+    return;
+  }
+  setLoading(true);
+  try {
+    const url = `/api/reports/tenant-payment-report?tenantId=${selectedTenant.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
+    const data = await request<any>(url);
+    if (data.success) {
+      setTenantPaymentReport(data.data);
+      setPropertyPaymentReport(null);
+      setActiveTab("report");
+      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } else {
+      toast.error(data.message || "Failed to generate report");
     }
-
-    setLoading(true);
-    try {
-      const url = `/api/reports/tenant-payment-report?tenantId=${selectedTenant.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.success) {
-        setTenantPaymentReport(data.data);
-        setPropertyPaymentReport(null);
-        setActiveTab("report");
-
-        setTimeout(() => {
-          reportSectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }, 100);
-      } else {
-        toast.error(data.message || "Failed to generate report");
-      }
-    } catch (error) {
-      console.error("Error generating tenant payment report:", error);
-      toast.error("Failed to generate report");
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error generating tenant payment report:", error);
+    toast.error("Failed to generate report");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // In the generatePropertyPaymentReport function, update:
-  const generatePropertyPaymentReport = async () => {
-    if (!selectedProperty || filters.propertyId === "all") {
-      toast.error("Please select a property");
-      return;
+const generatePropertyPaymentReport = async () => {
+  if (!selectedProperty || filters.propertyId === "all") {
+    toast.error("Please select a property");
+    return;
+  }
+  setLoading(true);
+  try {
+    const url = `/api/reports/property-payment-report?propertyId=${selectedProperty.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
+    const data = await request<any>(url);
+    if (data.success) {
+      setPropertyPaymentReport(data.data);
+      setTenantPaymentReport(null);
+      setActiveTab("report");
+      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } else {
+      toast.error(data.message || "Failed to generate report");
     }
-
-    setLoading(true);
-    try {
-      const url = `/api/reports/property-payment-report?propertyId=${selectedProperty.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.success) {
-        // Store the data from data.data
-        setPropertyPaymentReport(data.data);
-        setTenantPaymentReport(null);
-        setActiveTab("report");
-
-        setTimeout(() => {
-          reportSectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }, 100);
-      } else {
-        toast.error(data.message || "Failed to generate report");
-      }
-    } catch (error) {
-      console.error("Error generating property payment report:", error);
-      toast.error("Failed to generate report");
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error generating property payment report:", error);
+    toast.error("Failed to generate report");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Add this function after generateReport or generatePropertyPaymentReport
 const generatePGRevenueReport = async () => {
@@ -481,43 +908,21 @@ const generatePGRevenueReport = async () => {
   setTenantPaymentReport(null);
   setPropertyPaymentReport(null);
   setReportData(null);
-
   try {
-    // Determine if we need property-wise or all properties
     let reportType = "all_property";
-    if (
-      filters.reportType === "pg_revenue_property" ||
-      (filters.propertyId && filters.propertyId !== "all")
-    ) {
+    if (filters.reportType === "pg_revenue_property" || (filters.propertyId && filters.propertyId !== "all")) {
       reportType = "property_wise";
     }
-
-    // ✅ USE FINANCIAL YEAR for the year parameter
     const yearForApi = getFinancialYearStartYear(selectedFinancialYear);
-    
     let url = `/api/reports/pg-revenue-report?reportType=${reportType}&periodType=${pgRevenuePeriodType}&year=${yearForApi}`;
-
-    if (
-      reportType === "property_wise" &&
-      filters.propertyId &&
-      filters.propertyId !== "all"
-    ) {
-      url = `/api/reports/pg-revenue-report?reportType=property_wise&periodType=${pgRevenuePeriodType}&propertyId=${filters.propertyId}&year=${yearForApi}`;
+    if (reportType === "property_wise" && filters.propertyId && filters.propertyId !== "all") {
+      url += `&propertyId=${filters.propertyId}`;
     }
-
-    const response = await fetch(url);
-    const data = await response.json();
-
+    const data = await request<any>(url);
     if (data.success) {
       setPgRevenueReport(data.data);
       setActiveTab("report");
-
-      setTimeout(() => {
-        reportSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 100);
+      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } else {
       toast.error(data.message || "Failed to generate report");
     }
@@ -531,37 +936,21 @@ const generatePGRevenueReport = async () => {
 
 const generateOccupancyReport = async () => {
   setLoading(true);
-  // Clear all other report states
   setOccupancyReport(null);
   setTenantPaymentReport(null);
   setPropertyPaymentReport(null);
   setReportData(null);
   setPgRevenueReport(null);
-
   try {
     let url = `/api/reports/occupancy-report?reportScope=${occupancyReportScope}&reportType=${occupancyReportType}&periodType=${occupancyPeriodType}&year=${occupancyYear}`;
-
-    if (
-      occupancyReportScope === "property" &&
-      filters.propertyId &&
-      filters.propertyId !== "all"
-    ) {
+    if (occupancyReportScope === "property" && filters.propertyId && filters.propertyId !== "all") {
       url += `&propertyId=${filters.propertyId}`;
     }
-
-    const response = await fetch(url);
-    const data = await response.json();
-
+    const data = await request<any>(url);
     if (data.success) {
       setOccupancyReport(data.data);
       setActiveTab("report");
-
-      setTimeout(() => {
-        reportSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 100);
+      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } else {
       toast.error(data.message || "Failed to generate report");
     }
@@ -1141,19 +1530,37 @@ const generateReport = async () => {
     }
   };
 
-  const handlePrint = () => {
-    if (
-      !reportData &&
-      !tenantPaymentReport &&
-      !propertyPaymentReport &&
-      !pgRevenueReport
-    ) {
-      toast.error("No data to print");
-      return;
+const handlePrint = () => {
+  const { logoUrl, orgName } = orgSettings;
+
+  if (tenantPaymentReport) {
+    return openPrintWindow(buildTenantPaymentReportPrintHTML(tenantPaymentReport, logoUrl, orgName));
+  }
+  if (propertyPaymentReport) {
+    return openPrintWindow(buildPropertyPaymentReportPrintHTML(propertyPaymentReport, logoUrl, orgName));
+  }
+  if (pgRevenueReport) {
+    return openPrintWindow(buildPGRevenuePrintHTML(pgRevenueReport, logoUrl, orgName));
+  }
+  if (occupancyReport) {
+    return openPrintWindow(buildOccupancyReportPrintHTML(occupancyReport, logoUrl, orgName));
+  }
+  if (reportData) {
+    switch (filters.reportType) {
+      case "revenue":
+        return openPrintWindow(buildRevenuePrintHTML(reportData, filters, getPropertyDisplay(), logoUrl, orgName));
+      case "payments":
+        return openPrintWindow(buildPaymentsPrintHTML(reportData, filters, getPropertyDisplay(), logoUrl, orgName));
+      case "tenants":
+        return openPrintWindow(buildTenantsPrintHTML(reportData, getPropertyDisplay(), logoUrl, orgName));
+      default:
+        toast.error("Nothing to print for this report type");
+        return;
     }
-    window.print();
-    toast.success("Opening print dialog...");
-  };
+  }
+
+  toast.error("No data to print");
+};
 
   const formatCurrency = (amount: number) => {
     if (!amount || isNaN(amount)) return "₹0";
@@ -1193,46 +1600,154 @@ useEffect(() => {
   return (
     <div className="p-1 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-6 max-w-full overflow-x-hidden -mt-7">
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
-        <StatCard
-          title="Total Properties"
-          value={dashboardStats.totalProperties}
-          icon={<Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-[#0A1F5C]" />}
-          loading={dashboardLoading}
-        />
-        <StatCard
-          title="Total Rooms"
-          value={dashboardStats.totalRooms}
-          icon={<DoorOpen className="h-3 w-3 sm:h-4 sm:w-4 text-[#123A9A]" />}
-          loading={dashboardLoading}
-        />
-        <StatCard
-          title="Bed Occupancy"
-          value={`${dashboardStats.occupiedBeds}/${dashboardStats.totalBeds}`}
-          icon={<Home className="h-3 w-3 sm:h-4 sm:w-4 text-[#1E4ED8]" />}
-          loading={dashboardLoading}
-        />
-        <StatCard
-          title="Active Tenants"
-          value={dashboardStats.activeTenants}
-          icon={<Users className="h-3 w-3 sm:h-4 sm:w-4 text-[#2563eb]" />}
-          loading={dashboardLoading}
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={formatCurrency(dashboardStats.monthlyRevenue)}
-          icon={
-            <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-[#16a34a]" />
-          }
-          loading={dashboardLoading}
-        />
-        <StatCard
-          title="Occupancy Rate"
-          value={`${dashboardStats.occupancyRate?.toFixed(1) || 0}%`}
-          icon={<Activity className="h-3 w-3 sm:h-4 sm:w-4 text-[#ea580c]" />}
-          loading={dashboardLoading}
-        />
+      {/* Main Stats Cards Row */}
+<div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
+  <Card className="bg-blue-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Building2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
+        <p className="text-[12px] sm:text-[14px] text-blue-700 font-medium">
+          Total Properties
+        </p>
       </div>
+      <p className="text-md sm:text-md font-bold text-blue-900">
+        {dashboardStats.totalProperties}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-purple-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <DoorOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
+        <p className="text-[9px] sm:text-[14px] text-purple-700 font-medium">
+          Total Rooms
+        </p>
+      </div>
+      <p className="text-md sm:text-md font-bold text-purple-900">
+        {dashboardStats.totalRooms}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-cyan-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Home className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-cyan-600" />
+        <p className="text-[9px] sm:text-[14px] text-cyan-700 font-medium">
+          Bed Occupancy
+        </p>
+      </div>
+      <p className="text-md sm:text-md font-bold text-cyan-900">
+        {dashboardStats.occupiedBeds}/{dashboardStats.totalBeds}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-indigo-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-indigo-600" />
+        <p className="text-[9px] sm:text-[14px] text-indigo-700 font-medium">
+          Active Tenants
+        </p>
+      </div>
+      <p className="text-md sm:text-md font-bold text-indigo-900">
+        {dashboardStats.activeTenants}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-green-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <IndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+        <p className="text-[9px] sm:text-[14px] text-green-700 font-medium">
+          Monthly Revenue
+        </p>
+      </div>
+      <p className="text-md sm:text-md font-bold text-green-900">
+        {formatCurrency(dashboardStats.monthlyRevenue)}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-orange-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Activity className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
+        <p className="text-[9px] sm:text-[14px] text-orange-700 font-medium">
+          Occupancy Rate
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-orange-900">
+        {dashboardStats.occupancyRate?.toFixed(1) || 0}%
+      </p>
+    </CardContent>
+  </Card>
+</div>
+
+{/* Extended Stats Cards Row */}
+{/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+  <Card className="bg-green-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <TrendUp className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+        <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
+          Collection Rate
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-green-900">
+        {dashboardStats.collectionRate?.toFixed(1) || 0}%
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-amber-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
+        <p className="text-[9px] sm:text-[10px] text-amber-700 font-medium">
+          This Month Expected
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-amber-900">
+        {dashboardStats.pendingPayments || 0}
+      </p>
+      <p className="text-[8px] text-amber-600 mt-0.5">
+        {formatCurrency(dashboardStats.pendingAmount || 0)}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-blue-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <DoorOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
+        <p className="text-[9px] sm:text-[10px] text-blue-700 font-medium">
+          Total Vacated
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-blue-900">
+        {dashboardStats.upcomingCheckouts || 0}
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-red-50 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Receipt className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
+        <p className="text-[9px] sm:text-[10px] text-red-700 font-medium">
+          Total Expenses
+        </p>
+      </div>
+      <p className="text-xs sm:text-sm font-bold text-red-900">
+        {formatCurrency(dashboardStats.maintenanceRequests || 0)}
+      </p>
+    </CardContent>
+  </Card>
+</div> */}
 
       {/* Extended Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
@@ -1480,7 +1995,7 @@ useEffect(() => {
       </Select>
     </div>
     
-    {/* ✅ ADD FINANCIAL YEAR DROPDOWN */}
+    {/* Financial Year - Now with default options */}
     <div className="space-y-1 sm:space-y-2">
       <Label className="text-xs">Financial Year</Label>
       <select 
@@ -1491,15 +2006,30 @@ useEffect(() => {
         }}
         className="w-full h-8 sm:h-9 text-xs border rounded-md px-2 py-1 bg-white"
       >
-        {availableFinancialYears.map(year => (
-          <option key={year} value={year}>
-            FY {year}
-          </option>
-        ))}
+        {availableFinancialYears.length > 0 ? (
+          availableFinancialYears.map(year => (
+            <option key={year} value={year}>
+              FY {year}
+            </option>
+          ))
+        ) : (
+          // ✅ FALLBACK: Show default financial years if paymentDetails not loaded yet
+          <>
+            <option value={getFinancialYear(new Date())}>
+              FY {getFinancialYear(new Date())}
+            </option>
+            <option value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
+              FY {new Date().getFullYear() - 1}-{new Date().getFullYear()}
+            </option>
+            <option value={`${new Date().getFullYear() - 2}-${new Date().getFullYear() - 1}`}>
+              FY {new Date().getFullYear() - 2}-{new Date().getFullYear() - 1}
+            </option>
+          </>
+        )}
       </select>
     </div>
     
-    {/* Property (Optional) - This already exists */}
+    {/* Property (Optional) */}
     <div className="space-y-1 sm:space-y-2">
       <Label className="text-xs">Property (Optional)</Label>
       <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
@@ -2404,170 +2934,163 @@ useEffect(() => {
           )}
 
           {/* PG Revenue Report */}
-          {pgRevenueReport && (
-            <div className="space-y-4">
-              {/* Report Actions */}
-              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToExcel}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Print
-                </Button>
-              </div>
+{pgRevenueReport && (
+  <div className="space-y-4">
+    {/* Report Actions */}
+    <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={exportToExcel}
+        className="h-7 sm:h-8 text-xs"
+      >
+        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Export Excel
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handlePrint}
+        className="h-7 sm:h-8 text-xs"
+      >
+        <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Print
+      </Button>
+    </div>
 
-              {/* Report Header */}
-              <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <h2 className="text-lg font-bold text-gray-800">
-                      PG Revenue Report
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {pgRevenueReport.report_type === "all_property"
-                        ? "All Properties"
-                        : "Property Wise"}{" "}
-                      |
-                      {pgRevenueReport.period_type === "month_wise"
-                        ? "Month Wise"
-                        : "Year Wise"}{" "}
-                      | Year: {pgRevenueReport.year}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      Generated on:{" "}
-                      {new Date(pgRevenueReport.generated_at).toLocaleString()}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+    {/* Report Header */}
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+      <CardContent className="p-4">
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-gray-800">
+            PG Revenue Report
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {pgRevenueReport.report_type === "all_property"
+              ? "All Properties"
+              : "Property Wise"}{" "}
+            |
+            {pgRevenueReport.period_type === "month_wise"
+              ? "Month Wise"
+              : "Year Wise"}{" "}
+            | Year: {pgRevenueReport.year}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1">
+            Generated on:{" "}
+            {new Date(pgRevenueReport.generated_at).toLocaleString()}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
 
-              {/* Overall Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Total Revenue</p>
-                  <p className="text-lg font-bold text-blue-700">
-                    {formatCurrency(
-                      pgRevenueReport.overall_summary.total_revenue,
-                    )}
-                  </p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Total Expenses</p>
-                  <p className="text-lg font-bold text-red-700">
-                    {formatCurrency(
-                      pgRevenueReport.overall_summary.total_expenses,
-                    )}
-                  </p>
-                </div>
-                <div
-                  className={`${pgRevenueReport.overall_summary.is_profit ? "bg-green-50" : "bg-amber-50"} rounded-lg p-3 text-center`}
-                >
-                  <p className="text-[10px] text-gray-600">
-                    Net{" "}
-                    {pgRevenueReport.overall_summary.is_profit
-                      ? "Profit"
-                      : "Loss"}
-                  </p>
-                  <p
-                    className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
-                  >
-                    {pgRevenueReport.overall_summary.is_profit
-                      ? formatCurrency(
-                          pgRevenueReport.overall_summary.net_profit,
-                        )
-                      : formatCurrency(
-                          pgRevenueReport.overall_summary.net_loss,
-                        )}
-                  </p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Properties</p>
-                  <p className="text-lg font-bold text-purple-700">
-                    {pgRevenueReport.overall_summary.properties_count}
-                  </p>
-                </div>
-              </div>
+    {/* Overall Summary Cards */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="bg-blue-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Total Revenue</p>
+        <p className="text-lg font-bold text-blue-700">
+          {formatCurrency(
+            pgRevenueReport.overall_summary.total_revenue,
+          )}
+        </p>
+      </div>
+      <div className="bg-red-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Total Expenses</p>
+        <p className="text-lg font-bold text-red-700">
+          {formatCurrency(
+            pgRevenueReport.overall_summary.total_expenses,
+          )}
+        </p>
+      </div>
+      <div
+        className={`${pgRevenueReport.overall_summary.is_profit ? "bg-green-50" : "bg-amber-50"} rounded-lg p-3 text-center`}
+      >
+        <p className="text-[10px] text-gray-600">
+          Net{" "}
+          {pgRevenueReport.overall_summary.is_profit
+            ? "Profit"
+            : "Loss"}
+        </p>
+        <p
+          className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
+        >
+          {pgRevenueReport.overall_summary.is_profit
+            ? formatCurrency(
+                pgRevenueReport.overall_summary.net_profit,
+              )
+            : formatCurrency(
+                pgRevenueReport.overall_summary.net_loss,
+              )}
+        </p>
+      </div>
+      <div className="bg-purple-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Properties</p>
+        <p className="text-lg font-bold text-purple-700">
+          {pgRevenueReport.overall_summary.properties_count}
+        </p>
+      </div>
+    </div>
 
-              {/* Property-wise Report Tables */}
-              {pgRevenueReport.properties.map((property: any, idx: number) => (
-                <Card key={idx} className="border-0 shadow-sm overflow-hidden">
-                  <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-gray-50 to-white">
-                    <CardTitle className="text-sm sm:text-base flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-blue-600" />
-                        <span>{property.property_name}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {property.summary.periods_count}{" "}
-                          {pgRevenueReport.period_type === "month_wise"
-                            ? "months"
-                            : "years"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-green-600">
-                          Revenue:{" "}
-                          {formatCurrency(property.summary.total_revenue)}
-                        </span>
-                        <span className="text-red-600">
-                          Expenses:{" "}
-                          {formatCurrency(property.summary.total_expenses)}
-                        </span>
-                        <span
-                          className={
-                            property.summary.is_profit
-                              ? "text-green-700 font-semibold"
-                              : "text-amber-700 font-semibold"
-                          }
-                        >
-                          {property.summary.is_profit ? "Profit" : "Loss"}:{" "}
-                          {formatCurrency(
-                            property.summary.is_profit
-                              ? property.summary.net_profit
-                              : property.summary.net_loss,
-                          )}
-                        </span>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-3 sm:px-6 pt-4">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left">
-                              {pgRevenueReport.period_type === "month_wise"
-                                ? "Month"
-                                : "Year"}
-                            </th>
-                            {/* ✅ ADD THESE NEW COLUMNS - Revenue Breakdown */}
+    {/* Property-wise Report Tables */}
+    {pgRevenueReport.properties.map((property: any, idx: number) => (
+      <Card key={idx} className="border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-gray-50 to-white">
+          <CardTitle className="text-sm sm:text-base flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span>{property.property_name}</span>
+              <Badge variant="outline" className="text-[10px]">
+                {property.summary.periods_count}{" "}
+                {pgRevenueReport.period_type === "month_wise"
+                  ? "months"
+                  : "years"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-green-600">
+                Revenue:{" "}
+                {formatCurrency(property.summary.total_revenue)}
+              </span>
+              <span className="text-red-600">
+                Expenses:{" "}
+                {formatCurrency(property.summary.total_expenses)}
+              </span>
+              <span
+                className={
+                  property.summary.is_profit
+                    ? "text-green-700 font-semibold"
+                    : "text-amber-700 font-semibold"
+                }
+              >
+                {property.summary.is_profit ? "Profit" : "Loss"}:{" "}
+                {formatCurrency(
+                  property.summary.is_profit
+                    ? property.summary.net_profit
+                    : property.summary.net_loss,
+                )}
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pt-4">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left">Month</th>
                   <th className="px-3 py-2 text-right">Total Revenue (₹)</th>
                   <th className="px-3 py-2 text-right">Rent (₹)</th>
                   <th className="px-3 py-2 text-right">Deposit (₹)</th>
-                  {/* End of new columns */}
                   <th className="px-3 py-2 text-right">Expenses (₹)</th>
                   <th className="px-3 py-2 text-right">Profit/Loss (₹)</th>
                   <th className="px-3 py-2 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
                 {property.periods.map((period: any, pIdx: number) => (
                   <tr key={pIdx} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium">
                       {period.period}
                     </td>
-                    {/* ✅ ADD THESE NEW CELLS - Revenue Breakdown */}
                     <td className="px-3 py-2 text-right text-green-600 font-semibold">
                       {formatCurrency(period.revenue)}
                     </td>
@@ -2577,8 +3100,6 @@ useEffect(() => {
                     <td className="px-3 py-2 text-right">
                       {formatCurrency(period.revenue_breakdown?.deposit || 0)}
                     </td>
-                   
-                    {/* End of new cells */}
                     <td className="px-3 py-2 text-right text-red-600">
                       {formatCurrency(period.expenses)}
                     </td>
@@ -2601,113 +3122,94 @@ useEffect(() => {
                   </tr>
                 ))}
               </tbody>
-                        <tfoot className="bg-gray-100">
-                          <tr>
-                            <td className="px-3 py-2 font-bold">Total</td>
-                            <td className="px-3 py-2 text-right font-bold text-green-700">
-                              {formatCurrency(property.summary.total_revenue)}
-                            </td>
-                            <td className="px-3 py-2 text-right font-bold text-red-700">
-                              {formatCurrency(property.summary.total_expenses)}
-                            </td>
-                            <td
-                              className={`px-3 py-2 text-right font-bold ${property.summary.is_profit ? "text-green-700" : "text-amber-700"}`}
-                            >
-                              {property.summary.is_profit
-                                ? formatCurrency(property.summary.net_profit)
-                                : `-${formatCurrency(property.summary.net_loss)}`}
-                            </td>
-                            <td className="px-3 py-2 text-center"></td>
-                          </tr>
-                          <tr className="bg-gray-50">
-                            <td
-                              className="px-3 py-2 text-xs text-gray-500"
-                              colSpan={5}
-                            >
-                              Average Revenue per{" "}
-                              {pgRevenueReport.period_type === "month_wise"
-                                ? "month"
-                                : "year"}
-                              : {formatCurrency(property.summary.avg_revenue)} |
-                              Average Expenses:{" "}
-                              {formatCurrency(property.summary.avg_expenses)}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <tfoot className="bg-gray-100 font-bold">
+                <tr>
+                  <td className="px-3 py-2 text-sm">Total</td>
+                  <td className="px-3 py-2 text-right text-green-700">
+                    {formatCurrency(property.summary.total_revenue)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {formatCurrency(property.periods.reduce((sum: number, p: any) => sum + (p.revenue_breakdown?.rent || 0), 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {formatCurrency(property.periods.reduce((sum: number, p: any) => sum + (p.revenue_breakdown?.deposit || 0), 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right text-red-700">
+                    {formatCurrency(property.summary.total_expenses)}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${property.summary.is_profit ? "text-green-700" : "text-amber-700"}`}>
+                    {property.summary.is_profit
+                      ? formatCurrency(property.summary.net_profit)
+                      : `-${formatCurrency(property.summary.net_loss)}`}
+                  </td>
+                  <td className="px-3 py-2 text-center"></td>
+                </tr>
+                <tr className="bg-gray-50 text-xs text-gray-500">
+                  <td colSpan={7} className="px-3 py-2">
+                    Average Revenue per {pgRevenueReport.period_type === "month_wise" ? "month" : "year"}: {formatCurrency(property.summary.avg_revenue)} | 
+                    Average Expenses: {formatCurrency(property.summary.avg_expenses)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    ))}
 
-              {/* Overall Summary Footer */}
-              <Card className="border-0 shadow-sm bg-gradient-to-r from-gray-100 to-white">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Total Properties
-                      </p>
-                      <p className="text-lg font-bold">
-                        {pgRevenueReport.overall_summary.properties_count}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Total Periods</p>
-                      <p className="text-lg font-bold">
-                        {pgRevenueReport.overall_summary.total_periods}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Total Revenue</p>
-                      <p className="text-lg font-bold text-green-700">
-                        {formatCurrency(
-                          pgRevenueReport.overall_summary.total_revenue,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Total Expenses
-                      </p>
-                      <p className="text-lg font-bold text-red-700">
-                        {formatCurrency(
-                          pgRevenueReport.overall_summary.total_expenses,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Net{" "}
-                        {pgRevenueReport.overall_summary.is_profit
-                          ? "Profit"
-                          : "Loss"}
-                      </p>
-                      <p
-                        className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
-                      >
-                        {formatCurrency(
-                          pgRevenueReport.overall_summary.is_profit
-                            ? pgRevenueReport.overall_summary.net_profit
-                            : pgRevenueReport.overall_summary.net_loss,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-gray-200 text-center text-[10px] text-gray-500">
-                    Average Revenue:{" "}
-                    {formatCurrency(
-                      pgRevenueReport.overall_summary.avg_revenue,
-                    )}{" "}
-                    | Average Expenses:{" "}
-                    {formatCurrency(
-                      pgRevenueReport.overall_summary.avg_expenses,
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+    {/* Overall Summary Footer */}
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-gray-100 to-white">
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div>
+            <p className="text-[10px] text-gray-500">Total Properties</p>
+            <p className="text-lg font-bold">
+              {pgRevenueReport.overall_summary.properties_count}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Periods</p>
+            <p className="text-lg font-bold">
+              {pgRevenueReport.overall_summary.total_periods}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Revenue</p>
+            <p className="text-lg font-bold text-green-700">
+              {formatCurrency(
+                pgRevenueReport.overall_summary.total_revenue,
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Expenses</p>
+            <p className="text-lg font-bold text-red-700">
+              {formatCurrency(
+                pgRevenueReport.overall_summary.total_expenses,
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Net Profit/Loss</p>
+            <p
+              className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
+            >
+              {formatCurrency(
+                pgRevenueReport.overall_summary.is_profit
+                  ? pgRevenueReport.overall_summary.net_profit
+                  : pgRevenueReport.overall_summary.net_loss,
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-gray-200 text-center text-[10px] text-gray-500">
+          Average Revenue: {formatCurrency(pgRevenueReport.overall_summary.avg_revenue)} | 
+          Average Expenses: {formatCurrency(pgRevenueReport.overall_summary.avg_expenses)}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
           {occupancyReport && (
             <div className="space-y-4">
@@ -3033,11 +3535,15 @@ useEffect(() => {
   />
 )}
                   {filters.reportType === "payments" && (
-                    <PaymentsReportDetails
-                      data={reportData}
-                      formatCurrency={formatCurrency}
-                    />
-                  )}
+  <PaymentsReportDetails
+    data={reportData}
+    formatCurrency={formatCurrency}
+    page={reportPage}
+    pageSize={reportPageSize}
+    onPageChange={setReportPage}
+    onPageSizeChange={(size: any) => { setReportPageSize(size); setReportPage(1); }}
+  />
+)}
                   {filters.reportType === "tenants" && reportData && (
   <TenantsReportDetails 
     data={reportData} 
@@ -3237,17 +3743,11 @@ function SummaryStatCard({ title, value, icon }: any) {
 }
 
 // Report Detail Components - KEEP EXISTING
-function RevenueReportDetails({data, 
-  formatCurrency, 
-  page = 1, 
-  pageSize = 20, 
-  onPageChange, 
-  onPageSizeChange  }: any) {
+function RevenueReportDetails({data, formatCurrency, page = 1, pageSize = 20, onPageChange, onPageSizeChange}: any) {
   const summary = data.summary;
   const payments = data.payments || [];
   const totalPayments = payments.length;
   
-  // Paginate payments
   const startIndex = (page - 1) * pageSize;
   const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
   
@@ -3287,7 +3787,7 @@ function RevenueReportDetails({data,
       
       {/* Revenue Distribution */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Revenue by Type - Pie Chart Style */}
+        {/* Revenue by Type */}
         <div className="border rounded-lg p-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Type</h4>
           <div className="space-y-2">
@@ -3324,7 +3824,7 @@ function RevenueReportDetails({data,
         </div>
       </div>
       
-      {/* Monthly Breakdown Table */}
+      {/* Monthly Breakdown Table - REMOVED MAINTENANCE COLUMN */}
       {monthlyData.length > 0 && (
         <div className="border rounded-lg p-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Monthly Revenue Breakdown</h4>
@@ -3336,7 +3836,6 @@ function RevenueReportDetails({data,
                   <th className="px-2 py-1 text-right">Total Revenue</th>
                   <th className="px-2 py-1 text-right">Rent</th>
                   <th className="px-2 py-1 text-right">Deposit</th>
-                  <th className="px-2 py-1 text-right">Maintenance</th>
                   <th className="px-2 py-1 text-center">Transactions</th>
                   <th className="px-2 py-1 text-center">Unique Tenants</th>
                 </tr>
@@ -3348,7 +3847,6 @@ function RevenueReportDetails({data,
                     <td className="px-2 py-1 text-right font-semibold">{formatCurrency(month.total_amount)}</td>
                     <td className="px-2 py-1 text-right">{formatCurrency(month.rent_amount)}</td>
                     <td className="px-2 py-1 text-right">{formatCurrency(month.deposit_amount)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(month.maintenance_amount)}</td>
                     <td className="px-2 py-1 text-center">{month.transaction_count}</td>
                     <td className="px-2 py-1 text-center">{month.unique_tenants}</td>
                   </tr>
@@ -3360,7 +3858,6 @@ function RevenueReportDetails({data,
                   <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.totalRevenue)}</td>
                   <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.rent?.amount || 0)}</td>
                   <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.security_deposit?.amount || 0)}</td>
-                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.maintenance?.amount || 0)}</td>
                   <td className="px-2 py-1 text-center font-bold">{summary.totalTransactions}</td>
                   <td className="px-2 py-1 text-center font-bold">{summary.uniqueTenants}</td>
                 </tr>
@@ -3370,7 +3867,7 @@ function RevenueReportDetails({data,
         </div>
       )}
       
-      {/* Property-wise Breakdown */}
+      {/* Property-wise Breakdown - REMOVED MAINTENANCE COLUMN */}
       {propertyData.length > 0 && (
         <div className="border rounded-lg p-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Property</h4>
@@ -3456,9 +3953,13 @@ function RevenueReportDetails({data,
   );
 }
 
-function PaymentsReportDetails({ data, formatCurrency }: any) {
+function PaymentsReportDetails({ data, formatCurrency, page = 1, pageSize = 20, onPageChange, onPageSizeChange }: any) {
   const summary = data.summary;
   const payments = data.payments || [];
+  const totalPayments = payments.length;
+  
+  const startIndex = (page - 1) * pageSize;
+  const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
   
   const totalAmount = summary.totalAmount || 0;
   const approvedAmount = summary.statusBreakdown?.approved?.amount || 0;
@@ -3577,7 +4078,7 @@ function PaymentsReportDetails({ data, formatCurrency }: any) {
         </div>
       )}
       
-      {/* Detailed Payments Table */}
+      {/* Detailed Payments Table with Pagination */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gray-50 sticky top-0">
@@ -3592,7 +4093,7 @@ function PaymentsReportDetails({ data, formatCurrency }: any) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {payments.slice(0, 20).map((payment: any) => (
+            {paginatedPayments.map((payment: any) => (
               <tr key={payment.id} className="hover:bg-gray-50">
                 <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td className="px-2 py-1.5">
@@ -3627,9 +4128,14 @@ function PaymentsReportDetails({ data, formatCurrency }: any) {
           </tbody>
         </table>
       </div>
-      {payments.length > 20 && (
-        <p className="text-center text-xs text-gray-500">Showing 20 of {payments.length} payments</p>
-      )}
+      {/* Add Pagination */}
+      <ReportPagination 
+        total={totalPayments}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 }
