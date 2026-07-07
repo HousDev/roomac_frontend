@@ -132,7 +132,7 @@ const handleDeleteClick = async () => {
     <Dialog open={isOpen} onOpenChange={onClose}>
 <DialogContent className="max-w-lg w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-medium text-white uppercase tracking-wider mb-0.5">Enquiry Details</p>
             <h2 className="text-sm font-semibold text-white truncate">{localEnquiry.tenant_name}</h2>

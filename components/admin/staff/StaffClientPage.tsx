@@ -769,10 +769,10 @@ const handleRemoveDocument = useCallback(
       </Button>
     </DialogTrigger>
 
-    <DialogContent className="max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-6xl w-[95vw] sm:w-full max-h-[95vh] sm:max-h-[97vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
-      <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between rounded-t-lg">
+    <DialogContent className="max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-4xl w-[95vw] sm:w-full max-h-[95vh] sm:max-h-[97vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 sm:px-2 md:px-2 py-1 sm:py-2 md:py-2 flex items-center justify-between rounded-t-lg">
         <div>
-          <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold">
+          <h2 className="text-sm sm:text-base md:text-md lg:text-md font-semibold">
             {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
           </h2>
           <p className="text-[10px] sm:text-xs md:text-sm text-blue-100">
@@ -817,7 +817,7 @@ const handleRemoveDocument = useCallback(
 
         <Button
           onClick={handleSubmit}
-          className="min-w-[100px] h-9 px-4 text-sm bg-blue-600 hover:bg-blue-700"
+          className="min-w-[100px] h-9 px-4 text-sm bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
           disabled={submitting}
         >
           {submitting ? (

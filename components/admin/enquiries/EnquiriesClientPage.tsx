@@ -983,7 +983,7 @@ useEffect(() => {
   <DialogTrigger asChild>
     {can('create_enquiries') && (
       <Button
-        className="bg-blue-600 hover:bg-blue-700 text-sm whitespace-nowrap py-0 px-2 sm:py-0 sm:px-2 h-[35px]"
+        className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:via-[#123A9A] hover:to-[#1E4ED8] text-sm whitespace-nowrap py-0 px-2 sm:py-0 sm:px-2 h-[35px]"
       >
         <Plus className="mr-2 h-4 w-4" />
         <span className="hidden sm:inline">Add Enquiry</span>
@@ -992,7 +992,7 @@ useEffect(() => {
     )}
   </DialogTrigger>
   <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-    <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
       <div>
         <h2 className="text-base font-semibold">Add Enquiry</h2>
         <p className="text-sm text-blue-100">Fill in the details to create a new enquiry</p>
@@ -1015,7 +1015,7 @@ useEffect(() => {
           <Button variant="outline" onClick={() => setShowAddDialog(false)} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={handleAddEnquiry} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+          <Button onClick={handleAddEnquiry} className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700 w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Enquiry
           </Button>
@@ -1337,7 +1337,7 @@ useEffect(() => {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
           {/* Gradient Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-2 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-1 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 className="text-base font-semibold">Edit Enquiry</h2>
               <p className="text-sm text-blue-100">Update enquiry details for {selectedEnquiry?.tenant_name}</p>
@@ -1377,7 +1377,7 @@ useEffect(() => {
                     <Button variant="outline" onClick={() => setShowEditDialog(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button onClick={handleUpdateEnquiry} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+                    <Button onClick={handleUpdateEnquiry} className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:via-[#123A9A] hover:to-[#1E4ED8] text-white w-full sm:w-auto">
                       <Save className="h-4 w-4 mr-2" />
                       Update Enquiry
                     </Button>
@@ -1429,9 +1429,9 @@ useEffect(() => {
 {/* Assign to Staff Dialog (single) */}
 <Dialog open={!!assignEnquiry} onOpenChange={(open) => { if (!open) { setAssignEnquiry(null); setAssignStaffId(""); } }}>
   <DialogContent className="max-w-md p-0 overflow-hidden">
-    <div className="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white px-6 py-4">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-2">
       <h2 className="text-lg font-semibold">Assign to Staff</h2>
-      <p className="text-sm text-indigo-100">
+      <p className="text-sm text-blue-700">
         Assign "{assignEnquiry?.tenant_name}" to a staff member
       </p>
     </div>
@@ -1471,9 +1471,9 @@ useEffect(() => {
 {/* Bulk Assign to Staff Dialog */}
 <Dialog open={showBulkAssignDialog} onOpenChange={(open) => { if (!open) { setShowBulkAssignDialog(false); setBulkAssignStaffId(""); } }}>
   <DialogContent className="max-w-md p-0 overflow-hidden">
-    <div className="bg-gradient-to-r from-indigo-700 to-indigo-600 text-white px-6 py-4">
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-6 py-4">
       <h2 className="text-lg font-semibold">Bulk Assign to Staff</h2>
-      <p className="text-sm text-indigo-100">
+      <p className="text-sm text-blue-700">
         Assign {selectedRows.length} selected enquiry(s) to a staff member
       </p>
     </div>
@@ -1498,7 +1498,7 @@ useEffect(() => {
           Cancel
         </Button>
         <Button
-          className="bg-indigo-600 hover:bg-indigo-700"
+          className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:from-[#0A1F5C] hover:via-[#123A9A] hover:to-[#1E4ED8] text-white"
           disabled={!bulkAssignStaffId}
           onClick={handleBulkAssign}
         >
@@ -1515,8 +1515,8 @@ useEffect(() => {
 {showImportDialog && (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div className="bg-white rounded-xl w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
-      <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-blue-700 to-blue-600">
-        <h2 className="text-sm font-bold text-white">📥 Import Enquiries</h2>
+      <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]">
+        <h2 className="text-sm font-bold text-white"> Import Enquiries</h2>
         <button
           onClick={() => { setShowImportDialog(false); setImportPreview([]); setImportFile(null); }}
           className="text-white/70 hover:text-white text-lg"
@@ -1618,7 +1618,7 @@ useEffect(() => {
         <button
           onClick={handleImportConfirm}
           disabled={importing || importPreview.length === 0}
-          className="flex-1 py-2 bg-gradient-to-r from-blue-700 to-blue-600 text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex-1 py-2 bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {importing ? (
             <><span className="animate-spin">⟳</span> Importing...</>
@@ -1638,7 +1638,7 @@ useEffect(() => {
   >
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-white" />
           <span className="text-sm font-semibold text-white">Filter Enquiries</span>

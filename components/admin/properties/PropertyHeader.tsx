@@ -125,13 +125,15 @@ export default function PropertyHeader({
   }, []);
 
   // Desktop Header - Your original code unchanged
-  const DesktopHeader = () => (
+ const DesktopHeader = () => {
+  const commonButtonClass =
+    "h-8 bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 hover:text-gray-900 shadow-sm transition-all duration-200";
+
+  return (
     <div
-      className="hidden md:block sticky top-0 z-10 
-  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] 
-  text-white -translate-y-1 pt-2 rounded-xl"
+      className="hidden md:block sticky top-0 z-10
+      bg-gray-200 text-gray-700 -translate-y-1 pt-2 rounded-xl"
     >
-      {" "}
       <div className="py-2 px-3">
         <div className="flex flex-col space-y-3">
           {/* Top Row */}
@@ -139,51 +141,51 @@ export default function PropertyHeader({
             {/* LEFT: Icon + Search */}
             <div className="flex items-center gap-3">
               {/* Icon */}
-              <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-md shadow-md ring-1 ring-white/30">
-                <Building2 className="h-5 w-5" />
+              <div className="p-1.5 rounded-lg bg-white border border-gray-300 shadow-sm">
+                <Building2 className="h-5 w-5 text-gray-700" />
               </div>
 
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                 <SearchInput
                   value={searchQuery}
                   onChange={onSearchChange}
                   placeholder="Search property..."
                   className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
-           bg-white/20 text-white placeholder-blue-100
-           backdrop-blur-md border border-white/30
-           shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+                  bg-white text-gray-800 placeholder:text-gray-400
+                  border border-gray-300 shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {/* RIGHT: Buttons */}
             <div className="flex items-center gap-2">
-              {/* Refresh (icon only) */}
+              {/* Refresh */}
               <Button
                 size="icon"
-                variant="ghost"
-                className="h-8 w-8 bg-white/10 text-white hover:bg-white/20 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                variant="outline"
+                className={`w-8 ${commonButtonClass}`}
                 onClick={onRefresh}
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
 
-              {/* Filter (icon only) */}
+              {/* Filter */}
               <Button
                 size="icon"
-                variant="ghost"
-                className="relative h-8 w-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                variant="outline"
+                className={`relative w-8 ${commonButtonClass}`}
                 onClick={onFilterClick}
               >
                 <Filter className="h-4 w-4" />
                 {(statusFilter !== "all" || tagFilter !== "all") && (
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-400 ring-1 ring-blue-500" />
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
                 )}
               </Button>
 
-              {/* Bulk Actions Dropdown */}
+              {/* Bulk Actions */}
               {canBulkAction && (
                 <DropdownMenu
                   open={isBulkActionOpen}
@@ -192,21 +194,23 @@ export default function PropertyHeader({
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                      className={`flex items-center gap-2 ${commonButtonClass}`}
                       disabled={selectedTableIds.length === 0}
                     >
                       <CheckSquare className="h-4 w-4" />
                       Bulk Actions
+
                       {selectedTableIds.length > 0 && (
                         <Badge
                           variant="secondary"
-                          className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-white/20 text-white"
+                          className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-gray-200 text-gray-700"
                         >
                           {selectedTableIds.length}
                         </Badge>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
+
                   <DropdownMenuContent align="end" className="w-56">
                     {bulkActions.map((action, index) => (
                       <DropdownMenuItem
@@ -215,7 +219,9 @@ export default function PropertyHeader({
                           handleBulkAction(action, selectedTableIds)
                         }
                         className={
-                          action.variant === "destructive" ? "text-red-600" : ""
+                          action.variant === "destructive"
+                            ? "text-red-600"
+                            : ""
                         }
                       >
                         {action.icon}
@@ -226,11 +232,11 @@ export default function PropertyHeader({
                 </DropdownMenu>
               )}
 
-              {/* Export Button */}
+              {/* Export */}
               {canExport && (
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                  className={`flex items-center gap-2 ${commonButtonClass}`}
                   onClick={onExport}
                 >
                   <Download className="h-4 w-4" />
@@ -238,11 +244,11 @@ export default function PropertyHeader({
                 </Button>
               )}
 
-              {/* Import Button - Added beside Export */}
+              {/* Import */}
               {canImport && onImport && (
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                  className={`flex items-center gap-2 ${commonButtonClass}`}
                   onClick={onImport}
                 >
                   <Upload className="h-4 w-4" />
@@ -250,33 +256,35 @@ export default function PropertyHeader({
                 </Button>
               )}
 
-              {/* Add Property (old style) */}
+              {/* Add Property */}
               {canCreate && (
                 <Button
-                  className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center"
+                  className="h-8 bg-white text-blue-700 border border-gray-300 hover:bg-gray-100 hover:text-gray-900 shadow-sm transition-all duration-200 px-3 text-sm font-medium flex items-center gap-2"
                   onClick={onAddProperty}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4" />
                   Add Property
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Bottom Row: Active Filters */}
+          {/* Bottom Row */}
           <div className="flex items-center justify-between">
-            <div></div>
+            <div />
+
             <div className="flex items-center gap-2">
               {(statusFilter !== "all" || tagFilter !== "all") && (
-                <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md rounded-md px-2 py-1">
-                  <span className="text-xs text-white">
+                <div className="flex items-center gap-1.5 bg-white border border-gray-300 rounded-md px-2 py-1 shadow-sm">
+                  <span className="text-xs text-gray-700">
                     Active: {statusFilter !== "all" && "Status"}{" "}
                     {tagFilter !== "all" && "• Tags"}
                   </span>
+
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-5 w-5 p-0 text-white hover:bg-white/20"
+                    className="h-5 w-5 p-0 text-gray-600 hover:bg-gray-100"
                     onClick={onClearFilters}
                   >
                     <X className="h-3 w-3" />
@@ -284,11 +292,11 @@ export default function PropertyHeader({
                 </div>
               )}
 
-              {/* Mobile Filter - Hidden on desktop */}
+              {/* Mobile Filter */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden text-white hover:bg-white/20"
+                className="lg:hidden text-gray-700 hover:bg-gray-100"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Filter className="h-4 w-4" />
@@ -299,39 +307,52 @@ export default function PropertyHeader({
       </div>
     </div>
   );
+};
 
   // Mobile Header - Compact version
-  const MobileHeader = () => (
-    <div className="md:hidden sticky top-0 z-10  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white py-1.5 rounded-xl">
+const MobileHeader = () => {
+  const commonButtonClass =
+    "border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900 shadow-sm transition-all duration-200";
+
+  return (
+    <div className="md:hidden sticky top-0 z-10 bg-gray-200 text-gray-700 py-1.5 rounded-xl">
       <div className="px-2">
         {/* Top Compact Row */}
         <div className="flex items-center justify-between mb-1">
           {/* Left: Title + Bulk Button */}
           <div className="flex items-center gap-1.5">
-            <div className="p-1 rounded-md bg-white/20 backdrop-blur-md shadow-sm ring-1 ring-white/30">
-              <Building2 className="h-3 w-3" />
+            <div className="p-1 rounded-md bg-white border border-gray-300 shadow-sm">
+              <Building2 className="h-3 w-3 text-gray-700" />
             </div>
-            <span className="text-sm font-semibold">Properties</span>
 
-            {/* Bulk Button next to title */}
+            <span className="text-sm font-semibold text-gray-700">
+              Properties
+            </span>
+
+            {/* Bulk Button */}
             {selectedTableIds.length > 0 ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
-                    className="h-6 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm text-xs px-2"
+                    className={`h-6 px-2 text-xs ${commonButtonClass}`}
                   >
                     <CheckSquare className="h-3 w-3 mr-1" />
                     {selectedTableIds.length}
                   </Button>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent align="start" className="w-48">
                   {bulkActions.map((action, index) => (
                     <DropdownMenuItem
                       key={index}
-                      onClick={() => handleBulkAction(action, selectedTableIds)}
+                      onClick={() =>
+                        handleBulkAction(action, selectedTableIds)
+                      }
                       className={
-                        action.variant === "destructive" ? "text-red-600" : ""
+                        action.variant === "destructive"
+                          ? "text-red-600"
+                          : ""
                       }
                     >
                       {action.icon}
@@ -343,97 +364,103 @@ export default function PropertyHeader({
             ) : (
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-5 bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs px-2 opacity-70"
+                variant="outline"
+                className={`h-5 px-2 text-xs opacity-60 ${commonButtonClass}`}
                 disabled
               >
-                <CheckSquare className="h-2 w-2 mr-1" />0
+                <CheckSquare className="h-2 w-2 mr-1" />
+                0
               </Button>
             )}
           </div>
 
-          {/* Right: Add Property + Action Icons */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-1">
-            {/* Action Icons */}
+            {/* Refresh */}
             <Button
               size="icon"
-              variant="ghost"
-              className="h-6 w-6 bg-white/10 text-white hover:bg-white/20 border-white/30 backdrop-blur-sm"
+              variant="outline"
+              className={`h-6 w-6 ${commonButtonClass}`}
               onClick={onRefresh}
             >
               <RefreshCw className="h-3 w-3" />
             </Button>
 
+            {/* Filter */}
             <Button
               size="icon"
-              variant="ghost"
-              className="relative h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+              variant="outline"
+              className={`relative h-6 w-6 ${commonButtonClass}`}
               onClick={onFilterClick}
             >
               <Filter className="h-3 w-3" />
               {(statusFilter !== "all" || tagFilter !== "all") && (
-                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-green-400 ring-1 ring-blue-500" />
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-green-500 ring-2 ring-white" />
               )}
             </Button>
 
-            {/* Export Button - Mobile */}
+            {/* Export */}
             <Button
               size="icon"
-              variant="ghost"
-              className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+              variant="outline"
+              className={`h-6 w-6 ${commonButtonClass}`}
               onClick={onExport}
             >
               <Download className="h-3 w-3" />
             </Button>
 
-            {/* Import Button - Mobile (if handler exists) */}
+            {/* Import */}
             {onImport && (
               <Button
                 size="icon"
-                variant="ghost"
-                className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+                variant="outline"
+                className={`h-6 w-6 ${commonButtonClass}`}
                 onClick={onImport}
               >
                 <Upload className="h-3 w-3" />
               </Button>
             )}
 
-            {/* Add Property Button */}
+            {/* Add */}
             <Button
               size="sm"
-              className="h-5 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
+              className={`h-5 px-2 text-xs flex items-center ml-1 font-medium ${commonButtonClass}`}
               onClick={onAddProperty}
             >
-              <Plus className="h-2 w-2" />
-              <span className="ml-0.2">Add</span>
+              <Plus className="h-2.5 w-2.5 text-blue-700" />
+              <span className="ml-1 text-blue-700">Add</span>
             </Button>
           </div>
         </div>
 
-        {/* Compact Search Bar */}
+        {/* Search */}
         <div className="relative py-2">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
+
           <SearchInput
             value={searchQuery}
             onChange={onSearchChange}
             placeholder="Search..."
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
-           bg-white/20 text-white placeholder-blue-100
-           backdrop-blur-md border border-white/30
-           shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+            bg-white text-gray-800 placeholder:text-gray-400
+            border border-gray-300 shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        {/* Active Filters Indicator - Only when needed */}
+        {/* Active Filters */}
         {(statusFilter !== "all" || tagFilter !== "all") && (
-          <div className="mt-1 flex items-center justify-between bg-white/10 backdrop-blur-md rounded px-1.5 py-0.5">
+          <div className="mt-1 flex items-center justify-between bg-white border border-gray-300 rounded px-1.5 py-0.5 shadow-sm">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-white">Active filters</span>
+              <span className="text-[10px] text-gray-700">
+                Active filters
+              </span>
             </div>
+
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 p-0 text-white hover:bg-white/20"
+              className="h-4 w-4 p-0 text-gray-700 hover:bg-gray-100"
               onClick={onClearFilters}
             >
               <X className="h-2.5 w-2.5" />
@@ -443,6 +470,7 @@ export default function PropertyHeader({
       </div>
     </div>
   );
+};
 
   return (
     <>

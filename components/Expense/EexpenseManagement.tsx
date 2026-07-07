@@ -2510,7 +2510,7 @@ useEffect(() => {
     <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
 
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
             {editId ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -3059,7 +3059,7 @@ const gridCols = isMP
           className={`h-8 flex-[2] rounded-lg text-[11px] font-bold text-white ${
             submitting
               ? "cursor-not-allowed bg-slate-300"
-              : "bg-gradient-to-r from-blue-600 to-blue-700 hover:opacity-90"
+              : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:opacity-90"
           }`}
         >
           {submitting ? "Saving…" : editId ? " Update" : " Save"}
@@ -3074,7 +3074,7 @@ const gridCols = isMP
     <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
 
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
             <Eye className="h-3.5 w-3.5" />
@@ -3214,7 +3214,7 @@ onClick={() => openReceiptPreview(viewItem)}
                 href={viewItem.receipt_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-2.5 py-1 text-[10px] font-semibold text-white"
+                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2.5 py-1 text-[10px] font-semibold text-white"
               >
                 Open Receipt
               </a>
@@ -3349,7 +3349,7 @@ onClick={() => openReceiptPreview(viewItem)}
         </button>
         <button
           onClick={() => { setViewItem(null); setPaymentTransactions([]); }}
-          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90"
+          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-bold text-white hover:opacity-90"
         >
           Close
         </button>
@@ -3365,7 +3365,7 @@ onClick={() => openReceiptPreview(viewItem)}
     <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
       
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
             <FileText className="h-3.5 w-3.5" />
@@ -3713,7 +3713,7 @@ onClick={() => openReceiptPreview(viewItem)}
             win.focus();
             win.print();
           }}
-          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-[11px] font-bold text-white hover:opacity-90 flex items-center justify-center gap-1"
+          className="h-8 flex-[2] rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-bold text-white hover:opacity-90 flex items-center justify-center gap-1"
         >
           <Printer className="h-3.5 w-3.5" /> Print Receipt
         </button>
@@ -3729,7 +3729,7 @@ onClick={() => openReceiptPreview(viewItem)}
     <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-2xl">
 
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-cyan-500 px-3.5 py-2">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-3.5 py-2">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-bold leading-tight text-white">
             <IndianRupeeIcon className="h-3.5 w-3.5" />
@@ -3851,7 +3851,8 @@ onClick={() => openReceiptPreview(viewItem)}
       <div className="flex flex-shrink-0 gap-2 border-t border-slate-100 px-3 py-2">
         <button
           onClick={closePaymentModal}
-          className="h-8 flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+          className="h-8 flex-1 rounded-lg 
+          border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
         >
           Cancel
         </button>
@@ -3859,7 +3860,7 @@ onClick={() => openReceiptPreview(viewItem)}
           onClick={processPayment}
           disabled={submitting}
           className={`h-8 flex-[2] rounded-lg text-[11px] font-bold text-white ${
-            submitting ? "cursor-not-allowed bg-slate-300" : "bg-gradient-to-r from-blue-600 to-blue-700 hover:opacity-90"
+            submitting ? "cursor-not-allowed bg-slate-300" : "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:opacity-90"
           }`}
         >
           {submitting ? "Processing…" : "Confirm Payment"}
@@ -4015,7 +4016,7 @@ onClick={() => openReceiptPreview(viewItem)}
 {showImportModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white">
               <h2 className="text-sm font-bold text-white"> Import Expenses</h2>
               <button onClick={() => { setShowImportModal(false); setImportPreview([]); setImportFile(null); }} className="text-white/70 hover:text-white text-lg">×</button>
             </div>

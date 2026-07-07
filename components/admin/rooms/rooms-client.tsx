@@ -1690,214 +1690,212 @@ const handleSelectVacatingBed = useCallback(async (bedAssignmentId: number, room
       {/* Main Content Card */}
       <Card className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-180px)] overflow-y-auto relative">
         {/* Desktop Header - Hidden on mobile */}
-        <CardHeader className="hidden md:block bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white sticky top-0 z-50 -translate-y-1 pt-2 pb-2 rounded-xl">
-          <div className="py-2 px-0  ">
-            <div className="flex flex-col space-y-3">
-              {/* Top Row */}
-              <div className="flex items-center justify-between ">
-                {/* LEFT: Icon + Search */}
-                <div className="flex items-center gap-3">
-                  {/* Icon */}
-                  <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-md shadow-md ring-1 ring-white/30">
-                    <BedDouble className="h-5 w-5" />
-                  </div>
-
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-                    <input
-                      type="text"
-                      placeholder="Search by room number, property, or tenant name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
-             bg-white/20 text-white placeholder-blue-100
-             backdrop-blur-md border border-white/30
-             shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-                    />
-                  </div>
-                </div>
-
-                {/* RIGHT: Buttons */}
-                <div className="flex items-center gap-2">
-                  {/* Refresh (icon only) */}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 bg-white/10 text-white hover:bg-white/20 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={handleRefresh}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-
-                  
-
-                  {/* Filter (icon only) */}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="relative h-8 w-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={() => setFilterSidebarOpen(true)}
-                  >
-                    <Filter className="h-4 w-4" />
-                  </Button>
-
-                  
-
-                  {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-                  {selectedRooms.length > 0 &&
-                    (can("edit_rooms") || can("delete_rooms")) && (
-                      <BulkActions
-                        selectedRooms={selectedRooms}
-                        onActionComplete={handleBulkActionComplete}
-                      />
-                    )}
-
-                  {/* Export Button */}
-                  {can("export_rooms") && (
-                    <Button
-                      variant="outline"
-                      className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                      onClick={handleExport}
-                    >
-                      <Download className="h-4 w-4" />
-                      Export
-                    </Button>
-                  )}
-
-                  {/* Import Button */}
-                  {can("import_rooms") && (
-                    <Button
-                      variant="outline"
-                      className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                      onClick={handleImportClick}
-                    >
-                      <Upload className="h-4 w-4" />
-                      Import
-                    </Button>
-                  )}
-
-                  {/* Add New Room Button */}
-                  {can("create_rooms") && (
-                    <Button
-                      className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center h-8"
-                      onClick={() => {
-                        resetForm();
-                        setRoomDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add New Room
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
+       <CardHeader className="hidden md:block bg-gray-200 text-gray-700 sticky top-0 z-50 -translate-y-1 pt-2 pb-2 rounded-xl">
+  <div className="py-2 px-0">
+    <div className="flex flex-col space-y-3">
+      {/* Top Row */}
+      <div className="flex items-center justify-between">
+        {/* LEFT: Icon + Search */}
+        <div className="flex items-center gap-3">
+          {/* Icon */}
+          <div className="p-1.5 rounded-lg bg-white border border-gray-300 shadow-sm">
+            <BedDouble className="h-5 w-5 text-gray-700" />
           </div>
-        </CardHeader>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+
+            <input
+              type="text"
+              placeholder="Search by room number, property, or tenant name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
+              bg-white text-gray-800 placeholder:text-gray-400
+              border border-gray-300 shadow-sm
+              focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* RIGHT: Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Refresh */}
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 bg-white text-gray-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200"
+            onClick={handleRefresh}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+
+          {/* Filter */}
+          <Button
+            size="icon"
+            variant="outline"
+            className="relative h-8 w-8 bg-white text-gray-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200"
+            onClick={() => setFilterSidebarOpen(true)}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+
+          {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
+          {selectedRooms.length > 0 &&
+            (can("edit_rooms") || can("delete_rooms")) && (
+              <BulkActions
+                selectedRooms={selectedRooms}
+                onActionComplete={handleBulkActionComplete}
+              />
+            )}
+
+          {/* Export */}
+          {can("export_rooms") && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 h-8 bg-white text-gray-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200"
+              onClick={handleExport}
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          )}
+
+          {/* Import */}
+          {can("import_rooms") && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 h-8 bg-white text-gray-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200"
+              onClick={handleImportClick}
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          )}
+
+          {/* Add New Room */}
+          {can("create_rooms") && (
+            <Button
+              className="h-8 bg-white text-blue-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200 px-3 py-1.5 text-sm flex items-center font-medium"
+              onClick={() => {
+                resetForm();
+                setRoomDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Room
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</CardHeader>
 
         {/* Mobile Header - Only visible on mobile */}
-        <CardHeader className="md:hidden bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white sticky top-0 z-30 py-1.5 rounded-xl">
-          <div className="px-2">
-            {/* Top Compact Row */}
-            <div className="flex items-center justify-between mb-1">
-              {/* Left: Title + Bulk Actions */}
-              <div className="flex items-center gap-1.5">
-                <div className="p-1 rounded-md bg-white/20 backdrop-blur-md shadow-sm ring-1 ring-white/30">
-                  <BedDouble className="h-3 w-3" />
-                </div>
-                <span className="text-sm font-semibold">Rooms</span>
+       <CardHeader className="md:hidden bg-gray-200 text-gray-700 sticky top-0 z-30 py-1.5 px-0 rounded-xl">
+  <div className="px-2">
+    {/* Top Compact Row */}
+    <div className="flex items-center justify-between mb-1">
+      {/* Left: Title + Bulk Actions */}
+      <div className="flex items-center gap-1.5">
+        <div className="p-1 rounded-md bg-white border border-gray-300 shadow-sm">
+          <BedDouble className="h-3 w-3 text-gray-700" />
+        </div>
 
-                {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-                {selectedRooms.length > 0 &&
-                  (can("edit_rooms") || can("delete_rooms")) && (
-                    <BulkActions
-                      selectedRooms={selectedRooms}
-                      onActionComplete={handleBulkActionComplete}
-                    />
-                  )}
-              </div>
+        <span className="text-sm font-semibold text-gray-700">Rooms</span>
 
-              {/* Right: Action Icons + Add Button */}
-              <div className="flex items-center gap-1">
-                {/* Refresh Icon */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 bg-white/10 text-white hover:bg-white/20 border-white/30 backdrop-blur-sm"
-                  onClick={handleRefresh}
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </Button>
+        {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
+        {selectedRooms.length > 0 &&
+          (can("edit_rooms") || can("delete_rooms")) && (
+            <BulkActions
+              selectedRooms={selectedRooms}
+              onActionComplete={handleBulkActionComplete}
+            />
+          )}
+      </div>
 
-                {/* Filter Icon */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="relative h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                  onClick={() => setFilterSidebarOpen(true)}
-                >
-                  <Filter className="h-3 w-3" />
-                </Button>
- 
+      {/* Right: Action Icons + Add Button */}
+      <div className="flex items-center gap-1">
+        {/* Refresh Icon */}
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-6 w-6 bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm"
+          onClick={handleRefresh}
+        >
+          <RefreshCw className="h-3 w-3" />
+        </Button>
 
-                {/* Export Icon */}
-                {can("export_rooms") && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                    onClick={handleExport}
-                  >
-                    <Download className="h-3 w-3" />
-                  </Button>
-                )}
+        {/* Filter Icon */}
+        <Button
+          size="icon"
+          variant="outline"
+          className="relative h-6 w-6 bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm"
+          onClick={() => setFilterSidebarOpen(true)}
+        >
+          <Filter className="h-3 w-3" />
+        </Button>
 
-                {/* Import Icon */}
-                {can("import_rooms") && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                    onClick={handleImportClick}
-                  >
-                    <Upload className="h-3 w-3" />
-                  </Button>
-                )}
+        {/* Export Icon */}
+        {can("export_rooms") && (
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-6 w-6 bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm"
+            onClick={handleExport}
+          >
+            <Download className="h-3 w-3" />
+          </Button>
+        )}
 
-                {/* Add Room Button */}
-                {can("create_rooms") && (
-                  <Button
-                    size="sm"
-                    className="h-6 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
-                    onClick={() => {
-                      resetForm();
-                      setRoomDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
-                  </Button>
-                )}
-              </div>
-            </div>
+        {/* Import Icon */}
+        {can("import_rooms") && (
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-6 w-6 bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm"
+            onClick={handleImportClick}
+          >
+            <Upload className="h-3 w-3" />
+          </Button>
+        )}
 
-            {/* Compact Search Bar */}
-            <div className="relative py-1">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
-              <input
-                type="text"
-                placeholder="Search room, property, or tenant..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
-             bg-white/20 text-white placeholder-blue-100
-             backdrop-blur-md border border-white/30
-             shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-              />
-            </div>
-          </div>
-        </CardHeader>
+        {/* Add Room Button */}
+        {can("create_rooms") && (
+          <Button
+            size="sm"
+            className="h-6 bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm px-2 text-xs flex items-center ml-1 font-medium"
+            onClick={() => {
+              resetForm();
+              setRoomDialogOpen(true);
+            }}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add
+          </Button>
+        )}
+      </div>
+    </div>
+
+    {/* Compact Search Bar */}
+    <div className="relative py-1">
+      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
+
+      <input
+        type="text"
+        placeholder="Search room, property, or tenant..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
+        bg-white text-gray-800 placeholder:text-gray-400
+        border border-gray-300 shadow-sm
+        focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  </div>
+</CardHeader>
 
         <CardContent className="p-6 pb-4">
           {loading ? (

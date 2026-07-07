@@ -3054,7 +3054,7 @@ const handleUploadDoc = (docType: string) => {
   <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
     <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl">
       {/* Visible header */}
-      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-shrink-0">
         <DialogTitle className="text-sm md:text-base font-semibold text-white">
           Edit Tenant: {tenant?.full_name || ""}
         </DialogTitle>

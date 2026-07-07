@@ -691,50 +691,63 @@ const { can } = useAuth();
     <div className=" bg-slate-50 -mt-3 px-0 md:px-0">
 
       <div className="p-0">
-        <Card className="border-0 shadow-sm bg-white sticky top-36 z-10 max-h-[650px]" >
-     <CardHeader
-  className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-t-lg p-3 sm:p-4"
->
-  <div className="flex flex-col gap-3">
-    
-    {/* Top row with icon, search (mobile) and create button */}
-    <div className="flex items-center justify-between">
+        <Card className="border-0 shadow-sm bg-white sticky top-36 z-10 h-[560px]" >
+   <CardHeader className="bg-gray-200 border-b border-gray-300 rounded-t-lg px-3 py-2">
+  <div className="flex flex-col gap-2">
+
+    {/* Top Row */}
+    <div className="flex items-center justify-between min-h-[34px]">
+
+      {/* Left */}
       <div className="flex items-center gap-2">
-        <div className="bg-white/20 p-1.5 sm:p-2 rounded-lg">
-          <Tag className="h-5 w-5 sm:h-6 sm:w-6" />
+
+        {/* Icon */}
+        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white border border-gray-300 shadow-sm">
+          <Tag className="h-4 w-4 text-gray-700" />
         </div>
-        
-        {/* Mobile: Search bar - now in top row with create button */}
-        <div className="relative md:hidden" style={{ width: 'calc(100vw - 180px)' }}>
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
+
+        {/* Mobile Search */}
+        <div
+          className="relative md:hidden"
+          style={{ width: "calc(100vw - 170px)" }}
+        >
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+
           <Input
             placeholder="Search offers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-7 h-8 text-xs bg-white/20 text-white placeholder:text-white border-white/30 focus:border-white/50"
+            className="h-7 pl-7 text-xs bg-white border-gray-300 text-gray-700 placeholder:text-gray-400 focus:border-blue-500"
           />
         </div>
 
-        {/* Desktop: Search + Filters (visible on md and above) */}
+        {/* Desktop Controls */}
         <div className="hidden md:flex items-center gap-2">
-          {/* Search bar */}
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-200" />
+
+          {/* Search */}
+          <div className="relative w-[260px]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+
             <Input
               placeholder="Search offers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-7 sm:pl-8 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white placeholder-blue-200 border-white/30 focus:border-white/50"
+              className="h-8 pl-8 text-xs bg-white border-gray-300 text-gray-700 placeholder:text-gray-400"
             />
           </div>
 
-          {/* Type Filter */}
-          <div className="relative min-w-[130px]">
-            <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="pl-7 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white border-white/30 focus:border-white/50">
+          {/* Type */}
+          <div className="relative w-[135px]">
+            <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500 z-10" />
+
+            <Select
+              value={filterType}
+              onValueChange={setFilterType}
+            >
+              <SelectTrigger className="h-8 pl-7 text-xs bg-white border-gray-300 text-gray-700">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="general">General</SelectItem>
@@ -742,23 +755,39 @@ const { can } = useAuth();
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="corporate">Corporate</SelectItem>
                 <SelectItem value="referral">Referral</SelectItem>
-                <SelectItem value="early_booking">Early Booking</SelectItem>
+                <SelectItem value="early_booking">
+                  Early Booking
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Property Filter */}
-          <div className="relative min-w-[150px]">
-            <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
-            <Select value={filterProperty} onValueChange={setFilterProperty}>
-              <SelectTrigger className="pl-7 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white border-white/30 focus:border-white/50">
+          {/* Property */}
+          <div className="relative w-[160px]">
+            <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500 z-10" />
+
+            <Select
+              value={filterProperty}
+              onValueChange={setFilterProperty}
+            >
+              <SelectTrigger className="h-8 pl-7 text-xs bg-white border-gray-300 text-gray-700">
                 <SelectValue placeholder="All Properties" />
               </SelectTrigger>
+
               <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                <SelectItem value="general">General Offers</SelectItem>
+                <SelectItem value="all">
+                  All Properties
+                </SelectItem>
+
+                <SelectItem value="general">
+                  General Offers
+                </SelectItem>
+
                 {properties.map((property) => (
-                  <SelectItem key={property.id} value={property.id.toString()}>
+                  <SelectItem
+                    key={property.id}
+                    value={property.id.toString()}
+                  >
                     {property.name}
                   </SelectItem>
                 ))}
@@ -766,21 +795,23 @@ const { can } = useAuth();
             </Select>
           </div>
 
-          {/* Clear filters button when filters are applied */}
-          {(filterType !== 'all' || filterProperty !== 'all' || searchQuery) && (
+          {(filterType !== "all" ||
+            filterProperty !== "all" ||
+            searchQuery) && (
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => {
-                setFilterType('all');
-                setFilterProperty('all');
-                setSearchQuery('');
+                setFilterType("all");
+                setFilterProperty("all");
+                setSearchQuery("");
               }}
-              className="h-8 text-xs text-white hover:bg-white/20"
+              className="h-8 px-3 bg-white border-gray-300 text-gray-700 hover:bg-gray-100 text-xs"
             >
               Clear
             </Button>
           )}
+
         </div>
       </div>
 

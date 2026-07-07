@@ -2546,55 +2546,46 @@ const totals = useMemo(() => {
           {" "}
           <CardHeader className="sticky top-0 z-20 p-0 bg-gray-200 shadow-md">
             {/* Desktop View (lg and above) */}
-            <div className="hidden lg:flex items-center gap-2 px-4 py-2.5">
-              {/* LEFT: Icon + Search */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 backdrop-blur-sm flex-shrink-0">
-                  <Users2 className="w-4 h-4 text-gray-700" />
-                </div>
-                {/* <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search tenants..."
-                  value={filters.search || ""}
-                  onChange={(e) => handleFilterChange({...filters, search: e.target.value})}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-                />
-              </div> */}
-              </div>
+         <div className="hidden lg:flex items-center gap-2 px-4 py-2.5">
+  {/* LEFT: Icon + Search */}
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white border border-gray-300 shadow-sm flex-shrink-0">
+      <Users2 className="w-4 h-4 text-gray-700" />
+    </div>
+  </div>
 
-              {/* RIGHT: Buttons */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {/* Refresh */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg"
-                  onClick={() => loadTenants()}
-                  disabled={loading}
-                >
-                  <RefreshCw
-                    className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-                  />
-                </Button>
+  {/* RIGHT: Buttons */}
+  <div className="flex items-center gap-1.5 flex-shrink-0">
+    {/* Refresh */}
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-8 w-8 p-0 bg-white text-gray-700 hover:bg-gray-300 hover:text-gray-700 border border-gray-300 shadow-sm transition-all duration-200"
+      onClick={() => loadTenants()}
+      disabled={loading}
+    >
+      <RefreshCw
+        className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+      />
+    </Button>
 
                 {/* Filter */}
         <Sheet open={isFilterSidebarOpen} onOpenChange={setIsFilterSidebarOpen}>
   <SheetTrigger asChild>
     <Button
-      variant="ghost"
-      size="sm"
-      className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs relative"
-    >
-      <Filter className="w-3.5 h-3.5 mr-1" />
-      Filters
-      {activeFiltersCount > 0 && (
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-400 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-          {activeFiltersCount}
-        </span>
-      )}
-    </Button>
+  variant="outline"
+  size="sm"
+  className="relative h-8 px-3 bg-white text-gray-700 hover:bg-gray-300  hover:text-gray-700 border border-gray-300 shadow-sm rounded-lg text-xs transition-all duration-200"
+>
+  <Filter className="w-3.5 h-3.5 mr-1" />
+  Filters
+
+  {activeFiltersCount > 0 && (
+    <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+      {activeFiltersCount}
+    </span>
+  )}
+</Button>
   </SheetTrigger>
 
   <SheetContent side="right" className="w-[85vw] sm:w-96 p-0 bg-white flex flex-col gap-0">
@@ -2821,19 +2812,20 @@ const totals = useMemo(() => {
                 {(can("edit_tenants") || can("delete_tenants")) && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs relative"
-                      >
-                        <CheckSquare className="w-3.5 h-3.5 mr-1" />
-                        Bulk Actions
-                        {selectedTenantIds.length > 0 && (
-                          <Badge className="ml-1 text-[8px] px-1 py-0 h-3.5 bg-orange-400 text-white border-0">
-                            {selectedTenantIds.length}
-                          </Badge>
-                        )}
-                      </Button>
+                     <Button
+  variant="outline"
+  size="sm"
+  className="relative h-8 px-3 bg-white text-gray-700 hover:bg-gray-300  hover:text-gray-700 border border-gray-300 shadow-sm rounded-lg text-xs transition-all duration-200"
+>
+  <CheckSquare className="w-3.5 h-3.5 mr-1" />
+  Bulk Actions
+
+  {selectedTenantIds.length > 0 && (
+    <Badge className="ml-1 h-4 min-w-[16px] px-1 flex items-center justify-center bg-green-500 text-white text-[8px] border-0 rounded-full">
+      {selectedTenantIds.length}
+    </Badge>
+  )}
+</Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 text-xs">
                       {bulkActions.map((action, index) => (
@@ -2856,30 +2848,31 @@ const totals = useMemo(() => {
                   </DropdownMenu>
                 )}
 
-                {/* Export Button */}
-                {can("export_tenants") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-gray-700 hover:text-gray-600 hover:bg-white/20 rounded-lg text-xs"
-                    onClick={handleExportToExcel}
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Export
-                  </Button>
-                )}
+              {/* Export Button */}
+{can("export_tenants") && (
+  <Button
+    variant="outline"
+    size="sm"
+    className="h-8 px-3 bg-white text-gray-700 hover:bg-gray-300  hover:text-gray-700 border border-gray-300 shadow-sm rounded-lg text-xs transition-all duration-200"
+    onClick={handleExportToExcel}
+  >
+    <Download className="w-3.5 h-3.5 mr-1" />
+    Export
+  </Button>
+)}
 
-                {can("import_tenants") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-gray-800 hover:text-gray-700 hover:bg-white/20 rounded-lg text-xs"
-                    onClick={handleImportClick}
-                  >
-                    <Upload className="w-3.5 h-3.5 mr-1" />
-                    Import
-                  </Button>
-                )}
+{/* Import Button */}
+{can("import_tenants") && (
+  <Button
+    variant="outline"
+    size="sm"
+    className="h-8 px-3 bg-white text-gray-700 hover:bg-gray-300  hover:text-gray-700 border border-gray-300 shadow-sm rounded-lg text-xs transition-all duration-200"
+    onClick={handleImportClick}
+  >
+    <Upload className="w-3.5 h-3.5 mr-1" />
+    Import
+  </Button>
+)}
 
                 {/* Add Tenant Button */}
                 {can("create_tenants") && (
@@ -3396,7 +3389,7 @@ const totals = useMemo(() => {
                   <p className="text-xs text-gray-400 mt-0.5">Add your first tenant to get started</p>
                 </div>
                 {can("create_tenants") && (
-                  <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
+                  <Button size="sm" className="text-xs h-7 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
                     <Plus className="w-3 h-3 mr-1" /> Add Tenant
                   </Button>
                 )}
@@ -3960,7 +3953,7 @@ const totalRefunded = payments
               }}
             >
               {/* Gradient header — responsive padding and height */}
-              <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 md:py-4 flex items-start justify-between flex-shrink-0">
+              <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 md:px-2 py-3 md:py-2 flex items-start justify-between flex-shrink-0">
                 <div>
                   <DialogTitle className="text-sm md:text-base font-semibold text-white">
                     + Add New Tenant
@@ -4769,7 +4762,7 @@ const totalRefunded = payments
                         setIsViewDialogOpen(false);
                         setIsEditDialogOpen(true);
                       }}
-                      className="h-7 text-[10px] px-3 font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg"
+                      className="h-7 text-[10px] px-3 font-semibold bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg"
                     >
                       <Edit className="h-3 w-3 mr-1" /> Edit Tenant
                     </Button>
@@ -4788,7 +4781,7 @@ const totalRefunded = payments
                 }}
               >
                 {/* Sticky Gradient Header */}
-                <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-shrink-0">
+                <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-shrink-0">
                   <div>
                     <DialogTitle className="text-sm md:text-base font-semibold text-white">
                       Edit Tenant: {selectedTenant.full_name}

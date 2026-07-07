@@ -1399,75 +1399,85 @@ const StatsCards = () => {
             </div>
 
             {/* Desktop */}
-            <div className="hidden md:block mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg p-3 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-white">
-                  <div className="p-1 bg-white/20 rounded">
-                    <Check className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-base">
-                    {selectedCardIds.length} property
-                    {selectedCardIds.length !== 1 ? "s" : ""} selected
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 bg-white/20 text-white border-white/30"
-                    onClick={handleSelectAllCards}
-                  >
-                    {selectedCardIds.length === filteredProperties.length
-                      ? "Deselect All"
-                      : "Select All"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 bg-white/20 text-white border-white/30"
-                    onClick={() => handleBulkStatusChange(selectedCardIds, true)}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Active
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 bg-white/20 text-white border-white/30"
-                    onClick={() => handleBulkStatusChange(selectedCardIds, false)}
-                  >
-                    <XSquare className="h-4 w-4 mr-2" />
-                    Deactive
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 bg-white/20 text-white border-white/30"
-                    onClick={() => setTagsModalOpen(true)}
-                  >
-                    <Tag className="h-4 w-4 mr-2" />
-                    Manage Tags
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => handleBulkDelete(selectedCardIds)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-white"
-                    onClick={() => setSelectedCardIds([])}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+          <div className="hidden md:block mb-4">
+  <div className="flex items-center justify-between gap-3 border border-[#E2E8F4] rounded-xl px-4 py-2.5 min-h-[48px] bg-white shadow-sm">
+    {/* Left */}
+    <div className="flex items-center gap-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 border border-blue-200">
+        <Check className="h-4 w-4 text-blue-700" />
+      </div>
+
+      <span className="font-semibold text-[#1A2B6D] text-sm whitespace-nowrap">
+        {selectedCardIds.length} property
+        {selectedCardIds.length !== 1 ? "s" : ""} selected
+      </span>
+    </div>
+
+    {/* Right */}
+    <div className="flex items-center gap-2 flex-wrap">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-3 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-500"
+        onClick={handleSelectAllCards}
+      >
+        {selectedCardIds.length === filteredProperties.length
+          ? "Deselect All"
+          : "Select All"}
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-3 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-500"
+        onClick={() => handleBulkStatusChange(selectedCardIds, true)}
+      >
+        <CheckCircle className="h-4 w-4 mr-1.5" />
+        Active
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-3 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-500"
+        onClick={() => handleBulkStatusChange(selectedCardIds, false)}
+      >
+        <XSquare className="h-4 w-4 mr-1.5" />
+        Deactive
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-3 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-500"
+        onClick={() => setTagsModalOpen(true)}
+      >
+        <Tag className="h-4 w-4 mr-1.5" />
+        Manage Tags
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 px-3 bg-red-50 border border-red-200 text-red-600 hover:bg-red-500"
+        onClick={() => handleBulkDelete(selectedCardIds)}
+      >
+        <Trash2 className="h-4 w-4 mr-1.5" />
+        Delete
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 px-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        onClick={() => setSelectedCardIds([])}
+      >
+        <X className="h-4 w-4 mr-1" />
+        Clear
+      </Button>
+    </div>
+  </div>
+</div>
           </>
         )}
 
