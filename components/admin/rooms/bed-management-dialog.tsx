@@ -1696,164 +1696,187 @@ const handlePreAssign = async (
   // ============================================
   // LOAD TENANTS BASED ON PREFERENCES
   // ============================================
-  const loadTenantsBasedOnPreferences = async () => {
-    try {
-      if (!room?.property_id) {
-        console.warn("room.property_id not available yet");
-        return;
+const loadTenantsBasedOnPreferences = async () => {
+  try {
+    if (!room?.property_id) {
+      console.warn("room.property_id not available yet");
+      return;
+    }
+    setLoadingTenants(true);
+
+    // 1) Active tenants — unchanged
+    const activeResponse: any = await request<Tenant[]>(
+      "/api/tenants?is_active=true&pageSize=1000",
+    );
+
+    // 2) Vacated tenants — separate call, doesn't touch the is_active filter
+    const vacatedResponse: any = await request<Tenant[]>(
+      "/api/tenants?is_active=false&vacate_status=vacated&pageSize=1000",
+    );
+
+    let activeList: Tenant[] = [];
+    if (Array.isArray(activeResponse)) {
+      activeList = activeResponse;
+    } else if (activeResponse.data && Array.isArray(activeResponse.data)) {
+      activeList = activeResponse.data;
+    }
+
+    let vacatedList: Tenant[] = [];
+    if (Array.isArray(vacatedResponse)) {
+      vacatedList = vacatedResponse;
+    } else if (vacatedResponse.data && Array.isArray(vacatedResponse.data)) {
+      vacatedList = vacatedResponse.data;
+    }
+
+    // Merge, de-duping by id just in case
+    const seen = new Set<number>();
+    const tenantsList: Tenant[] = [];
+    [...activeList, ...vacatedList].forEach((t) => {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        tenantsList.push(t);
       }
-      setLoadingTenants(true);
+    });
 
-      const response: any = await request<Tenant[]>(
-        "/api/tenants?is_active=true&pageSize=1000",
-      );
+    const tenantsWithDetails = await Promise.all(
+      tenantsList.map(async (tenant) => {
+        try {
+          const tenantDetails = await request<ApiResult<Tenant>>(
+            `/api/tenants/${tenant.id}`,
+          );
 
-      let tenantsList: Tenant[] = [];
+          let isVacated = false;
 
-      if (Array.isArray(response)) {
-        tenantsList = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        tenantsList = response.data;
-      }
+          if (tenantDetails.success && tenantDetails.data) {
+            const hasVacateHistory =
+              (!!tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) ||
+              tenantDetails.data.has_vacated === true;
 
-      const tenantsWithDetails = await Promise.all(
-        tenantsList.map(async (tenant) => {
-          try {
-            const tenantDetails = await request<ApiResult<Tenant>>(
-              `/api/tenants/${tenant.id}`,
-            );
+            const hasActiveAssignment =
+              !!tenantDetails.data.current_assignment &&
+              tenantDetails.data.current_assignment.is_available === false;
 
-            let isVacated = false;
-            
-            if (tenantDetails.success && tenantDetails.data) {
-              if (tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) {
-                isVacated = true;
-              }
-              if (tenantDetails.data.has_vacated === true) {
-                isVacated = true;
-              }
-            }
-            
-            if (!isVacated) {
+            isVacated = hasVacateHistory && !hasActiveAssignment;
+
+            if (!isVacated && !(tenantDetails.success && tenantDetails.data?.current_assignment)) {
               isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
             }
 
-            if (tenantDetails.success && tenantDetails.data) {
-              return {
-                ...tenant,
-                partner_full_name: tenantDetails.data.partner_full_name,
-                partner_phone: tenantDetails.data.partner_phone,
-                partner_email: tenantDetails.data.partner_email,
-                partner_gender: tenantDetails.data.partner_gender,
-                partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
-                partner_address: tenantDetails.data.partner_address,
-                partner_occupation: tenantDetails.data.partner_occupation,
-                partner_organization: tenantDetails.data.partner_organization,
-                partner_relationship: tenantDetails.data.partner_relationship,
-                partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
-                partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
-                partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
-                partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
-                partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
-                partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
-                partner_photo_url: tenantDetails.data.partner_photo_url,
-                is_couple_booking: tenantDetails.data.is_couple_booking,
-                couple_id: tenantDetails.data.couple_id,
-                partner_tenant_id: tenantDetails.data.partner_tenant_id,
-                is_primary_tenant: tenantDetails.data.is_primary_tenant,
-                partner_is_active: tenantDetails.data.partner_is_active,
-                partner_has_vacated: tenantDetails.data.partner_has_vacated,
-                is_vacated: isVacated,
-              };
-            }
             return {
               ...tenant,
+              partner_full_name: tenantDetails.data.partner_full_name,
+              partner_phone: tenantDetails.data.partner_phone,
+              partner_email: tenantDetails.data.partner_email,
+              partner_gender: tenantDetails.data.partner_gender,
+              partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
+              partner_address: tenantDetails.data.partner_address,
+              partner_occupation: tenantDetails.data.partner_occupation,
+              partner_organization: tenantDetails.data.partner_organization,
+              partner_relationship: tenantDetails.data.partner_relationship,
+              partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
+              partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
+              partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
+              partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
+              partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
+              partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
+              partner_photo_url: tenantDetails.data.partner_photo_url,
+              is_couple_booking: tenantDetails.data.is_couple_booking,
+              couple_id: tenantDetails.data.couple_id,
+              partner_tenant_id: tenantDetails.data.partner_tenant_id,
+              is_primary_tenant: tenantDetails.data.is_primary_tenant,
+              partner_is_active: tenantDetails.data.partner_is_active,
+              partner_has_vacated: tenantDetails.data.partner_has_vacated,
               is_vacated: isVacated,
             };
-          } catch (error) {
-            console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
-            return {
-              ...tenant,
-              is_vacated: false,
-            };
           }
-        }),
-      );
+          return {
+            ...tenant,
+            is_vacated: isVacated,
+          };
+        } catch (error) {
+          console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
+          return {
+            ...tenant,
+            is_vacated: false,
+          };
+        }
+      })
+    );
 
     const propertyRoomsResponse = await request<ApiResult<any>>(
-        `/api/rooms/property/${room.property_id}`
-      );
+      `/api/rooms/property/${room.property_id}`
+    );
+    
+    let allAssignedTenantIds = new Set<number>();
+    let coupleIdToBedNumber = new Map<number, number>();
+    
+    if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
+      const propertyRooms = propertyRoomsResponse.data;
       
-      let allAssignedTenantIds = new Set<number>();
-      let coupleIdToBedNumber = new Map<number, number>(); // ✅ was assignedCoupleIds Set
-      
-      if (propertyRoomsResponse.success && propertyRoomsResponse.data) {
-        const propertyRooms = propertyRoomsResponse.data;
-        
-        for (const propertyRoom of propertyRooms) {
-          const assignments = propertyRoom.bed_assignments || [];
-          for (const assignment of assignments) {
-            if (!assignment.is_available && assignment.tenant_id) {
-              allAssignedTenantIds.add(assignment.tenant_id);
-              
-              const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
-              if (assignedTenant?.couple_id) {
-                coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
-              }
+      for (const propertyRoom of propertyRooms) {
+        const assignments = propertyRoom.bed_assignments || [];
+        for (const assignment of assignments) {
+          if (!assignment.is_available && assignment.tenant_id) {
+            allAssignedTenantIds.add(assignment.tenant_id);
+            
+            const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
+            if (assignedTenant?.couple_id) {
+              coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
             }
           }
         }
       }
-      
-      const currentRoomAssignments = bedAssignments.filter(
-        (b) => !b.is_available && b.tenant_id,
-      );
-      
-      for (const assignment of currentRoomAssignments) {
-        if (assignment.tenant_id) {
-          allAssignedTenantIds.add(assignment.tenant_id);
-          const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
-          if (assignedTenant?.couple_id) {
-            coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
-          }
+    }
+    
+    const currentRoomAssignments = bedAssignments.filter(
+      (b) => !b.is_available && b.tenant_id,
+    );
+    
+    for (const assignment of currentRoomAssignments) {
+      if (assignment.tenant_id) {
+        allAssignedTenantIds.add(assignment.tenant_id);
+        const assignedTenant = tenantsWithDetails.find(t => t.id === assignment.tenant_id);
+        if (assignedTenant?.couple_id) {
+          coupleIdToBedNumber.set(assignedTenant.couple_id, assignment.bed_number);
         }
       }
-
-      const tenantsWithAssignment = tenantsWithDetails.map((tenant) => {
-        const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
-        
-        let isPartnerOfAssigned = false;
-        let partnerOfAssignedBedNumber: number | null = null;
-
-        if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
-          const bedNum = coupleIdToBedNumber.get(tenant.couple_id);
-          if (bedNum !== undefined) {
-            isPartnerOfAssigned = true;
-            partnerOfAssignedBedNumber = bedNum; // ✅ NEW
-          }
-        }
-        
-        return {
-          ...tenant,
-          is_assigned: hasActiveAssignment,
-          is_partner_of_assigned: isPartnerOfAssigned,
-          partner_of_assigned_bed_number: partnerOfAssignedBedNumber, // ✅ NEW
-        };
-      });
-
-      const filteredTenants = tenantsWithAssignment.filter(
-        (tenant) => tenant.property_id === room.property_id
-      );
-
-      setTenants(filteredTenants);
-    } catch (error: any) {
-      console.error("Error loading tenants:", error);
-      toast.error(`Failed to load tenants: ${error.message}`);
-      setTenants([]);
-    } finally {
-      setLoadingTenants(false);
     }
-  };
+
+    const tenantsWithAssignment = tenantsWithDetails.map((tenant) => {
+      const hasActiveAssignment = allAssignedTenantIds.has(tenant.id);
+      
+      let isPartnerOfAssigned = false;
+      let partnerOfAssignedBedNumber: number | null = null;
+
+      if (tenant.couple_id && tenant.is_couple_booking && !hasActiveAssignment) {
+        const bedNum = coupleIdToBedNumber.get(tenant.couple_id);
+        if (bedNum !== undefined) {
+          isPartnerOfAssigned = true;
+          partnerOfAssignedBedNumber = bedNum;
+        }
+      }
+      
+      return {
+        ...tenant,
+        is_assigned: hasActiveAssignment,
+        is_partner_of_assigned: isPartnerOfAssigned,
+        partner_of_assigned_bed_number: partnerOfAssignedBedNumber,
+      };
+    });
+
+    const filteredTenants = tenantsWithAssignment.filter(
+      (tenant) => tenant.property_id === room.property_id
+    );
+
+    setTenants(filteredTenants);
+  } catch (error: any) {
+    console.error("Error loading tenants:", error);
+    toast.error(`Failed to load tenants: ${error.message}`);
+    setTenants([]);
+  } finally {
+    setLoadingTenants(false);
+  }
+};
 
   // ============================================
   // GET BED STATUS

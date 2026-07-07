@@ -496,17 +496,12 @@ const handleResendOTP = async () => {
 
 const loadTenants = useCallback(async () => {
   try {
-    const res = await listTenants({ pageSize: 1000, is_active: true, vacate_status: 'active' });
+    const res = await listTenants({ pageSize: 1000 }); 
+    // omit is_active and vacate_status entirely, or pass vacate_status: 'all'
     const list = res?.data || [];
     const arr = Array.isArray(list) ? list : [];
 
-    // Only exclude tenants who are CURRENTLY vacated — has_vacated is a
-    // lifetime-history flag and stays true forever even after a tenant
-    // is successfully reassigned, so it must never be used to filter
-    // "who's available right now".
-    const activeOnly = arr.filter((t: any) => !t.is_vacated);
-
-    setTenants(activeOnly.map((t: any) => ({
+    setTenants(arr.map((t: any) => ({
       id: String(t.id),
       name: t.full_name || '',
       phone: t.phone || '',
