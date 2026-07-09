@@ -19,6 +19,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FaWhatsapp } from "react-icons/fa";
 
 interface LedgerReportProps {
   open: boolean;
@@ -149,7 +150,7 @@ export function LedgerReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl bg-gradient-to-r from-[#3381e6] to-[#175cde] w-[95vw] h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-w-3xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] w-[95vw] h-[85vh] flex flex-col p-0">
         {/* Header */}
         <DialogHeader className="px-6 py-1 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -157,23 +158,47 @@ export function LedgerReportDialog({
               <FileText className="h-5 w-5  text-white" />
               Tenant Ledger Report - {tenant.salutation} {tenant.name}
             </DialogTitle>
-            <div className="flex gap-2">
-              <Button size="sm"  variant="outline" onClick={handleDownload} disabled={isLoading}>
-                <Download className="h-4 w-4 mr-2" />
-                PDF
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleEmail}>
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleWhatsApp}>
-                <MessageCircle className="h-4 w-4 mr-2" />
-                WhatsApp
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+<div className="flex gap-1.5">
+  <Button
+    size="sm"
+    variant="outline"
+    className="h-7 px-2 text-[11px]"
+    onClick={handleDownload}
+    disabled={isLoading}
+  >
+    <Download className="h-3 w-3 mr-1" />
+    PDF
+  </Button>
+
+  <Button
+    size="sm"
+    variant="outline"
+    className="h-7 px-2 text-[11px]"
+    onClick={handleEmail}
+  >
+    <Mail className="h-3 w-3 mr-1" />
+    Email
+  </Button>
+
+  <Button
+    size="sm"
+    variant="outline"
+    className="h-7 px-2 text-[11px]"
+    onClick={handleWhatsApp}
+  >
+    <MessageCircle className="h-3 w-3 mr-1" />
+    WhatsApp
+  </Button>
+
+  <Button
+    size="icon"
+    variant="ghost"
+    className="h-7 w-7"
+    onClick={() => onOpenChange(false)}
+  >
+    <X className="h-4 w-4 text-white ml-2" />
+  </Button>
+</div>
           </div>
         </DialogHeader>
 
@@ -188,7 +213,7 @@ export function LedgerReportDialog({
             </div>
           ) : pdfUrl ? (
             <iframe
-              src={pdfUrl}
+              src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
               className="w-full h-full border-0"
               title="Ledger Report"
             />

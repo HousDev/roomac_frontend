@@ -123,6 +123,7 @@ import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDial
 import { useSocketIO } from "@/hooks/useSocketIO";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { Checkbox } from "@radix-ui/react-checkbox";
+import { renderToStaticMarkup } from "react-dom/server";
 import MySwal from "@/app/utils/swal"; // adjust path if needed
 // Types
 interface PaymentFormData {
@@ -2285,9 +2286,14 @@ if (exactPendingFilterValue && accuratePendingRentMap.size > 0) {
       group.total_paid_amount.toString().includes(columnFilters.total_paid_amount.trim())
     );
   }
-  if (columnFilters?.total_rejected_amount?.trim()) {
+ if (columnFilters?.total_rejected_amount?.trim()) {
     groupedArray = groupedArray.filter((group: any) =>
       group.total_rejected_amount.toString().includes(columnFilters.total_rejected_amount.trim())
+    );
+  }
+  if (columnFilters?.total_pending_amount?.trim()) {
+    groupedArray = groupedArray.filter((group: any) =>
+      group.total_pending_amount.toString().includes(columnFilters.total_pending_amount.trim())
     );
   }
 
@@ -3470,11 +3476,10 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
   overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;";
   
   const box = document.createElement("div");
-  box.style.cssText = "width:100%;max-width:900px;height:92vh;background:white;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.4);";
-  
+  box.style.cssText = "width:100%;max-width:650px;height:92vh;background:white;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.4);";  
+  const downloadIcon = renderToStaticMarkup(<Download size={14} />);
   const header = document.createElement("div");
-  header.style.cssText = "background:linear-gradient(135deg,#1e3c72,#2a5298);color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;";
-  header.innerHTML = `
+header.style.cssText = "background:linear-gradient(to right,#0A1F5C,#123A9A,#1E4ED8);color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;";  header.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;">
       <span style="font-size:18px;">📄</span>
       <span style="font-weight:600;font-size:14px;">${title} — ${count} document(s)</span>
@@ -3482,14 +3487,13 @@ const showPdfInModal = (blob: Blob, title: string, count: number) => {
     <div style="display:flex;gap:8px;align-items:center;">
       <a href="${url}" download="${title.toLowerCase().replace(/\s+/g,'-')}-${Date.now()}.pdf"
         style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);padding:5px 14px;border-radius:6px;font-size:12px;text-decoration:none;cursor:pointer;display:flex;align-items:center;gap:4px;">
-        ⬇ Download
-      </a>
+${downloadIcon} <span>Download</span>      </a>
       <button id="closePdfModal" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">×</button>
     </div>
   `;
   
-  const iframe = document.createElement("iframe");
-  iframe.src = url;
+ const iframe = document.createElement("iframe");
+  iframe.src = `${url}#toolbar=0&navpanes=0&scrollbar=0`;
   iframe.style.cssText = "flex:1;border:none;width:100%;";
   
   box.appendChild(header);
@@ -4496,7 +4500,7 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
 
     {/* Preview Receipts */}
     <Button size="sm"
-      className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 gap-1"
+      className="h-7 text-[10px] bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2.5 gap-1"
       onClick={async () => {
         const loadingToast = toast.loading("Merging receipts for preview...");
         try {
@@ -7198,7 +7202,7 @@ onPreviewReceipt={handleViewReceipt}
                   {/* Watermark */}
                  <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
   <span
-    className="absolute left-1/2 top-1/2 whitespace-nowrap text-[90px] font-black text-blue-100/50"
+    className="absolute left-1/2 top-1/2 whitespace-nowrap text-[90px] font-black text-gray-200/50"
     style={{
       transform: "translate(-50%, -50%) rotate(-25deg)",
       userSelect: "none",
@@ -7277,37 +7281,7 @@ onPreviewReceipt={handleViewReceipt}
                     )}
                   </div>
 
-                  {/* Payment details table */}
-                  {/* <p className="relative z-10 mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment Details</p> */}
-                  {/* <table className="relative z-10 mb-3 w-full border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-blue-50">
-                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">#</th>
-                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Tenant Name</th>
-                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Payment Type</th>
-                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Unit / Room</th>
-                        <th className="border border-blue-100 px-2 py-1 text-left text-[10px] font-semibold text-blue-500">Period</th>
-                        <th className="border border-blue-100 px-2 py-1 text-right text-[10px] font-semibold text-blue-500">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-slate-200 px-2 py-1 text-slate-600">1</td>
-                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{selectedReceipt.tenant_name || "—"}</td>
-                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{paymentTypeDisplay}</td>
-                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{roomBed || "—"}</td>
-                        <td className="border border-slate-200 px-2 py-1 text-slate-700">{selectedReceipt.month} {selectedReceipt.year}</td>
-                        <td className="border border-slate-200 px-2 py-1 text-right font-medium text-slate-800">₹{amt.toLocaleString("en-IN")}</td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-emerald-50">
-                        <td colSpan={5} className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">Total</td>
-                        <td className="border border-emerald-100 px-2 py-1 text-right font-bold text-emerald-700">₹{amt.toLocaleString("en-IN")}</td>
-                      </tr>
-                    </tfoot>
-                  </table> */}
-
+                 
                   {/* Payment history table */}
                   <p className="relative z-10 mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment History</p>
                   <table className="relative z-10 mb-3 w-full border-collapse text-xs">
@@ -8203,12 +8177,7 @@ const filteredGroups = pagination.items.map((group: any) => ({
 
   {/* Last Pay – no border-right (last column) */}
   <td className="p-1">
-    <Input
-      placeholder="dd/mm/yy"
-      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-      value={columnFilters?.payment_date || ""}
-      onChange={(e) => { setColumnFilters?.({ ...columnFilters, payment_date: e.target.value }); onPageChange?.(1); }}
-    />
+    
   </td>
 </tr>
 </thead>
