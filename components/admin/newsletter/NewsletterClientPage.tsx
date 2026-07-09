@@ -41,6 +41,7 @@ import {
   bulkDeleteNewsletterSubscribers
 } from "@/lib/newsletterApi";
 import { useAuth } from '@/context/authContext';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface NewsletterSubscribersClientPageProps {
   initialSubscribers: NewsletterSubscriber[];
@@ -810,7 +811,7 @@ export default function NewsletterSubscribersClientPage({
             className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-green-50 transition group"
           >
             <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center group-hover:scale-110 transition">
-              <MessageCircle className="h-5 w-5 text-white" />
+              <FaWhatsapp className="h-5 w-5 text-white" />
             </div>
             <span className="text-[10px] text-gray-600">WhatsApp</span>
           </button>

@@ -2005,7 +2005,7 @@ useEffect(() => {
       </div>
 
       {/* RIGHT - Action Buttons */}
-     <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-5">
+     <div className="flex items-center justify-end gap-2 shrink-0 sm:mt-2">
   {/* Add Expense - First on mobile */}
   {can("create_expenses") && (
     <button
@@ -2090,7 +2090,7 @@ useEffect(() => {
       </div>
     </div>
   )}
-</div>
+</div>5
 
 <div style={{ padding: "4px 0px" }}>
   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">

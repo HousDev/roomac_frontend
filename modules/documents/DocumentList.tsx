@@ -61,6 +61,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FaWhatsapp } from "react-icons/fa";
 // ── Timeline step definitions ─────────────────────────────────────────────────
 const MAIN_STEPS: Array<{
   key: string;
@@ -572,7 +573,7 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
   };
 
   const CHANNELS = [
-    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: MessageCircle, color:"green", gradient:"from-green-500 to-green-800" },
+    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: FaWhatsapp, color:"green", gradient:"from-green-500 to-green-800" },
     { id:"email",    label:"Email",       desc:"With attachment",    Icon: Mail,          color:"blue", gradient:"from-blue-500 to-blue-600" },
     { id:"sms",      label:"SMS",         desc:"Document link",      Icon: Smartphone,    color:"purple", gradient:"from-purple-500 to-purple-600" },
     { id:"public",   label:"Public Link", desc:"Shareable link",     Icon: Globe,         color:"orange", gradient:"from-orange-500 to-orange-600" },
