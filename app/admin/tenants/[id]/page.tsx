@@ -155,15 +155,18 @@ function resolveUrl(url: string | null | undefined): string {
 
 // ─── Shared Print Branding (logo header + watermark) ─────────────────────────
 const PRINT_BRAND_STYLE = `
-  .brand-header{display:grid;grid-template-columns:96px 1fr 96px;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1B3FA0}
-  .brand-logo-wrap{display:flex;align-items:center;justify-content:flex-start}
-  .brand-logo{max-width:88px;max-height:88px;object-fit:contain}
-  .brand-center{text-align:center}
-  .brand-name{font-size:20px;font-weight:900;color:#0D2567;letter-spacing:.01em}
-  .brand-sub{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
-  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);opacity:.06;z-index:-1;pointer-events:none;width:90%;text-align:center}
-  .watermark span{font-size:64px;font-weight:900;color:#0D2567;white-space:nowrap;display:block}
-  @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  .brand-header{display:flex;align-items:center;background:#fff;border-bottom:2px solid #e5e7eb;border-radius:12px 12px 0 0;padding:16px 20px;margin-bottom:20px}
+  .brand-logo-wrap{width:120px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-start}
+  .brand-logo{max-height:52px;width:auto;object-fit:contain}
+  .brand-center{flex:1;text-align:center;padding:0 12px}
+  .brand-name{font-size:22px;font-weight:700;color:#1e293b;letter-spacing:-0.5px}
+  .brand-sub{font-size:10px;font-weight:500;color:#4b5563;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .brand-right{width:120px;flex-shrink:0;text-align:right;font-size:9px;color:#6c7a8a;line-height:1.6}
+  .brand-right .label{font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;display:block}
+.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);
+  font-size:120px;font-weight:900;color:rgba(27,63,160,0.09);white-space:nowrap;
+  pointer-events:none;user-select:none;z-index:-1;letter-spacing:4px}
+    @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 `;
 
 function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
@@ -173,14 +176,17 @@ function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string
       <div class="brand-name">${orgName}</div>
       <div class="brand-sub">${subtitle}</div>
     </div>
-    <div></div>
+    <div class="brand-right">
+      <span class="label">Report Date</span>
+      ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+    </div>
   </div>`;
 }
 
 // ✅ Watermark is always the site NAME as text — never the logo image.
 function buildWatermarkHTML(orgLogo: string, orgName: string) {
   const firstWord = orgName?.split(" ")[0] || "ROOMAC";
-  return `<div class="watermark"><span>${firstWord}</span></div>`;
+  return `<div class="watermark">${firstWord}</div>`;
 }
 // ─── Primitives ───────────────────────────────────────────────────────────────
 function BadgePill({ children, variant = "gray" }: { children: React.ReactNode; variant?: string }) {
@@ -542,26 +548,35 @@ const buildOverviewPrintHTML = () => {
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
   ${PRINT_BRAND_STYLE}
-  .header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+ .header{display:flex;align-items:center;gap:16px;margin-bottom:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px}
   .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900;flex-shrink:0}
-  .header-info h1{font-size:18px;font-weight:900;margin-bottom:3px}
-  .header-info .meta{font-size:10px;color:#6b7280}
-  .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;margin-left:6px}
-  .badge-green{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
-  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;margin:20px 0;padding:14px 0;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6}
+  .header-info h1{font-size:18px;font-weight:900;margin-bottom:3px;color:#1e293b}
+  .header-info .meta{font-size:10px;color:#64748b}
+  .badge{display:inline-block;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:700;border:1px solid;margin-left:6px}
+  .badge-green{background:#d4edda;color:#155724;border-color:#c3e6cb}
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:20px 0}
+  .stat-box{padding:12px;border-radius:8px;text-align:center}
+  .stat-box.blue{background:#e6f0ff}
+  .stat-box.green{background:#e6ffe6}
+  .stat-box.amber{background:#fff9e6}
   .stat-val{font-size:20px;font-weight:900}
-  .stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin-top:2px}
-  .section{margin-bottom:18px}
-  .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;border-bottom:1.5px solid #f3f4f6;padding-bottom:4px;margin-bottom:8px}
-  .row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid #f9fafb}
+  .stat-box.blue .stat-val{color:#004aad}
+  .stat-box.green .stat-val{color:#28a745}
+  .stat-box.amber .stat-val{color:#d4a000}
+  .stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-top:2px}
+  .section{margin-bottom:18px;background:#f8fafc;border-radius:8px;padding:12px 14px;border:1px solid #eef2f7}
+.section-title{font-size:10.5px;font-weight:800;color:#1e293b;margin-bottom:10px;
+  padding-bottom:6px;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:.08em;
+  display:flex;align-items:center;gap:6px}
+.section-title::before{content:'';width:3px;height:11px;background:#1B3FA0;border-radius:2px}  .row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #e2e8f0}
   .row:last-child{border:0}
-  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
-  .val{font-size:11px;font-weight:600;color:#111;text-align:right}
+  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#666}
+  .val{font-size:11px;font-weight:600;color:#333;text-align:right}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .vacate-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-top:8px}
-  .vacate-title{font-size:9px;font-weight:800;color:#b91c1c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .vacate-box{background:#fee;border:1px solid #f8d7da;border-radius:8px;padding:10px;margin-top:8px}
+  .vacate-title{font-size:9px;font-weight:800;color:#dc3545;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
   .vacate-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
-  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#999;display:flex;justify-content:space-between}
 </style></head><body>
 ${buildWatermarkHTML(orgLogo, orgName)}
 ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Profile")}
@@ -574,9 +589,9 @@ ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Profile")}
 </div>
 
 <div class="stats">
-  <div><div class="stat-val" style="color:#2563eb">${staysCount}</div><div class="stat-lbl">Total Stays</div></div>
-  <div><div class="stat-val" style="color:#059669">${lifetimeRentDisplay}</div><div class="stat-lbl">Lifetime Rent</div></div>
-  <div><div class="stat-val" style="color:#d97706">${monthsStayed}</div><div class="stat-lbl">Months Stayed</div></div>
+  <div class="stat-box blue"><div class="stat-val">${staysCount}</div><div class="stat-lbl">Total Stays</div></div>
+  <div class="stat-box green"><div class="stat-val">${lifetimeRentDisplay}</div><div class="stat-lbl">Lifetime Rent</div></div>
+  <div class="stat-box amber"><div class="stat-val">${monthsStayed}</div><div class="stat-lbl">Months Stayed</div></div>
 </div>
 
 <div class="two-col">
@@ -635,9 +650,9 @@ ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Profile")}
   <div class="section">
     <div class="section-title">Terms &amp; Conditions</div>
     <div class="row"><span class="lbl">Lock-in Period</span><span class="val">${tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"}</span></div>
-    <div class="row"><span class="lbl">Lock-in Penalty</span><span class="val">${tenant.lockin_penalty_amount ? (tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of rent` : formatINR(tenant.lockin_penalty_amount)) : "—"}</span></div>
+    <div class="row"><span class="lbl">Lock-in Penalty</span><span class="val">${tenant.lockin_penalty_amount ? (tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of deposit` : formatINR(tenant.lockin_penalty_amount)) : "—"}</span></div>
     <div class="row"><span class="lbl">Notice Period</span><span class="val">${tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"}</span></div>
-    <div class="row"><span class="lbl">Notice Penalty</span><span class="val">${tenant.notice_penalty_amount ? (tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of rent` : formatINR(tenant.notice_penalty_amount)) : "—"}</span></div>
+    <div class="row"><span class="lbl">Notice Penalty</span><span class="val">${tenant.notice_penalty_amount ? (tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of deposit` : formatINR(tenant.notice_penalty_amount)) : "—"}</span></div>
     <div class="row"><span class="lbl">Penalty Applied</span><span class="val">${isActuallyVacated && vacateRecord ? formatINR(vacateRecord.total_penalty_amount || 0) : "₹0"}</span></div>
   </div>
 </div>
@@ -1024,13 +1039,13 @@ const handlePDFProfile = () => {
                   <InfoRow label="Lock-in Period" value={tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not set"} />
                   <InfoRow label="Lock-in Penalty" value={
                     tenant.lockin_penalty_amount
-                      ? <BadgePill variant="violet">{tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of rent` : `₹${Number(tenant.lockin_penalty_amount).toLocaleString()}`}</BadgePill>
+                      ? <BadgePill variant="violet">{tenant.lockin_penalty_type === "percentage" ? `${tenant.lockin_penalty_amount}% of deposit` : `₹${Number(tenant.lockin_penalty_amount).toLocaleString()}`}</BadgePill>
                       : "—"
                   } />
                   <InfoRow label="Notice Period" value={tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not set"} />
                   <InfoRow label="Notice Penalty" value={
                     tenant.notice_penalty_amount
-                      ? <BadgePill variant="amber">{tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of rent` : `₹${Number(tenant.notice_penalty_amount).toLocaleString()}`}</BadgePill>
+                      ? <BadgePill variant="amber">{tenant.notice_penalty_type === "percentage" ? `${tenant.notice_penalty_amount}% of deposit` : `₹${Number(tenant.notice_penalty_amount).toLocaleString()}`}</BadgePill>
                       : "—"
                   } />
                   <InfoRow label="Penalty Applied" value={
@@ -1801,9 +1816,9 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
       <h2>Terms &amp; Penalties</h2>
       <div class="g2">
         <div><div class="lbl">Lock-in Period</div><div class="val">${stay.lockInPeriod}</div></div>
-        <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of rent` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of deposit` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
         <div><div class="lbl">Notice Period</div><div class="val">${stay.noticePeriod}</div></div>
-        <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of rent` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of deposit` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
         ${stay.isVacatedRecord ? `<div class="g2full"><div class="lbl">Vacate Reason</div><div class="val">${stay.vacateReason}</div></div>` : ""}
       </div>
 
@@ -1820,46 +1835,73 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
 const STAY_PRINT_STYLE = `
   body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px;position:relative}
   ${PRINT_BRAND_STYLE}
-  h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
-  .sub{color:#2563eb;font-size:11px;margin-bottom:22px;font-weight:600}
-  h2{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #f3f4f6;padding-bottom:5px;margin:20px 0 10px}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:6px 32px;margin-bottom:12px}
-  .g2full{grid-column:span 2}
-  .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;font-weight:700;margin-bottom:1px}
-  .val{font-size:13px;font-weight:700;color:#111}
 
+  /* ── ONLY SMALLER FONT IN HEADER, KEEP LAYOUT ── */
+  .brand-name { font-size: 16px !important; }      /* was 22px */
+  .brand-sub  { font-size: 8px !important; }       /* was 10px */
+  /* .brand-logo-wrap and .brand-right remain visible */
+
+  h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
+  .sub{color:#64748b;font-size:11px;margin-bottom:22px;font-weight:600}
+  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
+  .g2full{grid-column:span 2}
+  .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:700;margin-bottom:2px}
+  .val{font-size:13px;font-weight:700;color:#333}
+
+  /* ── TABLES (matches ledger) ── */
   .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-  .ptable thead tr{background:#f8fafc}
-  .ptable th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 10px}
-  .ptable td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#111}
-  .ptable td:nth-child(2){color:#059669;font-weight:700}
+  .ptable thead tr{background:#eff6ff}
+  .ptable th{
+    text-align:left;
+    font-size:9px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:#2563eb;
+    border:1px solid #bfdbfe;
+    padding:7px 10px;
+  }
+  .ptable td{
+    padding:7px 10px;
+    border:1px solid #e2e8f0;
+    color:#111;
+  }
+  .ptable td:nth-child(2){color:#16a34a;font-weight:700}
 
   .doctable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-  .doctable thead tr{background:#f8fafc}
-  .doctable th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 10px}
-  .doctable td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#111}
+  .doctable thead tr{background:#eff6ff}
+  .doctable th{
+    text-align:left;
+    font-size:9px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:#2563eb;
+    border:1px solid #bfdbfe;
+    padding:7px 10px;
+  }
+  .doctable td{
+    padding:7px 10px;
+    border:1px solid #e2e8f0;
+    color:#111;
+  }
+
   .doc-type{color:#2563eb;font-weight:600}
   .doc-date{color:#6b7280}
   .doc-status{font-weight:600}
-  .doc-status-yes{color:#059669}
-  .doc-status-no{color:#dc2626}
+  .doc-status-yes{color:#16a34a}
+  .doc-status-no{color:#dc3545}
 
-  .totalline{font-size:13px;font-weight:800;color:#111;margin:6px 0 4px}
-  .totalline span{color:#059669}
+  .totalline{font-size:13px;font-weight:800;color:#166534;margin:6px 0 4px;background:#f0fdf4;padding:8px 12px;border-radius:6px}
+  .totalline span{color:#16a34a}
 
-  .ft{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}
+  .ft{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:8px}
 
-  /* Print-All specific: separator between stays. Content flows naturally
-     across pages — we don't force each whole stay-block to stay together,
-     since that can push an entire block (and leave the previous page
-     mostly blank) when it doesn't fully fit in the remaining space. Only
-     the section headers avoid breaking right after them. */
   .stay-block{margin-top:8px}
   .stay-block + .stay-block{margin-top:36px;padding-top:28px;border-top:3px double #d1d5db}
   h2{break-after:avoid-page}
-  .doc-type{color:#2563eb;font-weight:600}
   .doc-number{font-family:monospace;color:#374151}
-  .doc-date{color:#6b7280}
 `;
 
 const doPrint = (stay: any) => {
@@ -1869,8 +1911,10 @@ const doPrint = (stay: any) => {
   <style>${STAY_PRINT_STYLE}</style></head><body>
   ${buildWatermarkHTML(orgLogo, orgName)}
   ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
-  <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-  <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+  <div style="text-align:center">
+    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
+    <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+  </div>
   ${buildStayPrintSections(stay)}
   <div class="ft">Roomac Co-Living Management System</div></body></html>`);
   w.document.close();
@@ -1885,7 +1929,7 @@ const doPrintAll = () => {
   if (!w) return;
   const sections = allStays.map((stay, idx) => `
     <div class="stay-block">
-      <h1>Stay #${stay.stayNumber}${stay.isCurrent ? " (Current)" : ""}</h1>
+      <h1 class="stay-heading">Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</h1>
       <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
       ${buildStayPrintSections(stay)}
     </div>
@@ -1893,8 +1937,23 @@ const doPrintAll = () => {
 
   w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
   <style>${STAY_PRINT_STYLE}
-    .cover{margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #f3f4f6}
-    .cover h1{font-size:22px}
+   .cover {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f3f4f6;
+}
+.cover h1 {
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+.cover .sub {
+  font-size: 10px;
+  color: #64748b;
+}
+    .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
+    .current-tag{display:inline-block;font-size:9px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
   </style></head><body>
   ${buildWatermarkHTML(orgLogo, orgName)}
   ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
@@ -2559,17 +2618,29 @@ const handlePDF = () => {
         </div>
 
        <div className="px-5 pb-5 pt-1 grid grid-cols-3 gap-2">
-  <button onClick={handlePrint} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors text-slate-700">
-    <Printer size={16} />
-    <span className="text-[9px] font-bold uppercase tracking-wider">Print</span>
+  <button
+    onClick={handlePrint}
+    className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors text-slate-700"
+  >
+    <Printer size={15} />
+    <span className="text-[10px] font-semibold uppercase">Print</span>
   </button>
-  <button onClick={handlePDF} className="flex flex-col items-center gap-1.5 py-3 rounded-xl hover:opacity-90 transition-colors text-white" style={{ background: "#0D2567" }}>
-    <Download size={16} />
-    <span className="text-[9px] font-bold uppercase tracking-wider">Save PDF</span>
+
+  <button
+    onClick={handlePDF}
+    className="flex items-center justify-center gap-1.5 h-11 rounded-xl text-white hover:opacity-90 transition-opacity"
+    style={{ background: "#0D2567" }}
+  >
+    <Download size={15} />
+    <span className="text-[10px] font-semibold uppercase">Save PDF</span>
   </button>
-  <button onClick={handleShare} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-[#F5A623] hover:bg-amber-500 transition-colors text-white">
-    <Share2 size={16} />
-    <span className="text-[9px] font-bold uppercase tracking-wider">Share</span>
+
+  <button
+    onClick={handleShare}
+    className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-[#F5A623] hover:bg-amber-500 transition-colors text-white"
+  >
+    <Share2 size={15} />
+    <span className="text-[10px] font-semibold uppercase">Share</span>
   </button>
 </div>
         <p className="text-center text-[9px] text-slate-400 pb-3" style={fontStyle}>For security verification or tenant entry purposes</p>

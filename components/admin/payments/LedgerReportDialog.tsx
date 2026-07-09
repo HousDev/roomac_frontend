@@ -186,7 +186,7 @@ export function LedgerReportDialog({
     className="h-7 px-2 text-[11px]"
     onClick={handleWhatsApp}
   >
-    <MessageCircle className="h-3 w-3 mr-1" />
+    <FaWhatsapp className="h-3 w-3 mr-1" />
     WhatsApp
   </Button>
 

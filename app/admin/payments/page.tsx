@@ -125,6 +125,7 @@ import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { Checkbox } from "@radix-ui/react-checkbox";
 import { renderToStaticMarkup } from "react-dom/server";
 import MySwal from "@/app/utils/swal"; // adjust path if needed
+import { FaWhatsapp } from "react-icons/fa";
 // Types
 interface PaymentFormData {
   tenant: {
@@ -4889,7 +4890,7 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
         icon: 'info',
         confirmButtonColor: '#25d366',
       })}>
-      <MessageCircle className="h-3 w-3" /> WhatsApp
+      <FaWhatsapp className="h-3 w-3" /> WhatsApp
     </Button>
 
     <Button variant="ghost" size="sm" className="h-7 ml-auto text-[10px] text-slate-500 gap-1"

@@ -75,6 +75,7 @@ import {
   FaTwitter,
   FaLinkedinIn,
   FaTelegramPlane,
+  FaWhatsapp,
 } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
 
@@ -937,7 +938,7 @@ const PropertyDetailsClient = ({
                   className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
                 >
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                    <BsWhatsapp className="h-5 w-5 text-white" />
+                    <FaWhatsapp className="h-5 w-5 text-white" />
                   </div>
                   <span className="text-[10px] font-medium text-slate-700">
                     WhatsApp

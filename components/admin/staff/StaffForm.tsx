@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { StaffMember } from "@/lib/staffApi";
 import { useState } from "react";
+import { FaWhatsapp } from "react-icons/fa";
 
 interface StaffFormProps {
   formData: {
@@ -512,7 +513,7 @@ const StaffForm = ({
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-              <MessageSquare className="h-3 w-3 text-green-500" />
+              <FaWhatsapp className="h-3 w-3 text-green-500" />
               WhatsApp
             </label>
             <div className="flex items-center gap-1.5">

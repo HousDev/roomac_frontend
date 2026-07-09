@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface ShareButtonsProps {
   url: string;
@@ -143,7 +144,7 @@ const ShareButtons = ({ url, title, description, code }: ShareButtonsProps) => {
             className="h-9 flex-col gap-0.5 hover:bg-green-50 hover:text-green-600 hover:border-green-300"
             title="Share on WhatsApp"
           >
-            <MessageSquare className="h-4 w-4" />
+            <FaWhatsapp className="h-4 w-4" />
             <span className="text-xs">WhatsApp</span>
           </Button>
 
