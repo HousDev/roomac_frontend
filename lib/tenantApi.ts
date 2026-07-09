@@ -163,11 +163,13 @@ original_id?: number;
     notice_penalty_amount?: number;
     stay_check_in_date?: string;
     created_at: string;
+    partner_full_name?: string; // Partner's name at the time of vacate (snapshot)
   }>;
    total_refunded?: number;  
    total_pending? : number;
    security_deposit? : number; 
    vacated_date?:string;
+   has_own_bed_assignment?: boolean; // Flag indicating if tenant has their own bed assignment
 };
 
 // Add to Property type

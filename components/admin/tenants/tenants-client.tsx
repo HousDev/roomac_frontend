@@ -1727,7 +1727,16 @@ const handleVacatedTenantPayment = useCallback(
       );
       
       // Check if they have a partner name
-      const partnerName = tenant.partner_full_name || tenant.full_name || 'partner';
+      // ✅ In Vacated/Deleted tabs, use THIS row's own vacate_records[0]
+      // partner snapshot (frozen at vacate time) instead of the tenant's
+      // current live partner — otherwise every past stay shows today's
+      // partner instead of who they actually shared that stay with.
+      const rowVacateRecord = tenant.vacate_records?.[0];
+      const partnerName =
+        ((activeTab === "vacated" || activeTab === "deleted") && rowVacateRecord?.partner_full_name) ||
+        tenant.partner_full_name ||
+        tenant.full_name ||
+        'partner';
       
       return (
         <div className="space-y-1">
@@ -1774,9 +1783,15 @@ const handleVacatedTenantPayment = useCallback(
     const needsRefund = isVacated && refundableAmount > 0;
     const needsPayment = isVacated && refundableAmount < 0;
 
+   
     // Check if this tenant is in a couple booking (to display correctly)
     const isCoupleBooking = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
-    const partnerName = tenant.partner_full_name || '';
+    // ✅ Same fix as above — use this row's own vacate record snapshot in
+    // Vacated/Deleted tabs instead of the tenant's current live partner.
+    const partnerName =
+      ((activeTab === "vacated" || activeTab === "deleted") && vacateRecord?.partner_full_name) ||
+      tenant.partner_full_name ||
+      '';
 
     return (
       <div className="space-y-1">
@@ -3485,12 +3500,33 @@ const checkInDate = (() => {
   return "—";
 })();
 
-            const isCouple = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
-            const isPartner = isCouple && (
-              tenant.is_primary_tenant === false ||
-              (tenant.is_primary_tenant as any) === 0
-            );
-            const payments = tenant.payments || [];
+           const isCouple = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
+const payments = tenant.payments || [];
+
+// ✅ has_own_bed_assignment only reflects LIVE bed_assignments — for a
+// vacated tenant it's false for BOTH partners (neither currently holds an
+// active bed), so it can't distinguish them here.
+//
+// For the Vacated/Deleted tabs, use payment activity instead — payments
+// are always recorded against the tenant_id who actually paid, so this is
+// real per-tenant data (not a shared snapshot like refundable_amount /
+// bed_number / security_deposit_amount, which the backend currently
+// copies onto BOTH partners' vacate_records identically).
+//
+// LIMITATION: if the bed-holder genuinely has zero recorded payments,
+// this will incorrectly treat them as "no assignment" too. This is a
+// frontend-only heuristic, not a real fix — the correct fix is a backend
+// change to snapshot who actually held the bed, which we're deliberately
+// not doing here per your request.
+const hasAssignmentByLiveBed = tenant.has_own_bed_assignment === true;
+const hasPaymentActivity = payments.length > 0;
+
+const hasAssignment =
+  activeTab === "vacated" || activeTab === "deleted"
+    ? hasPaymentActivity
+    : hasAssignmentByLiveBed;
+
+const showSharedLabel = isCouple && !hasAssignment;
 const totalRefunded = payments
   .filter((p) => {
     const type = ((p as any).payment_type || '').toLowerCase();
@@ -3525,7 +3561,6 @@ const totalRefunded = payments
             const propName = tenant.current_assignment?.property_name || tenant.assigned_property_name || "";
             const roomNum = tenant.current_assignment?.room_number || tenant.assigned_room_number || "";
             const bedNum = tenant.current_assignment?.bed_number || tenant.assigned_bed_number || "";
-            const hasAssignment = !!(tenant.current_assignment || tenant.assigned_room_id);
 
             return (
             <tr
@@ -3773,11 +3808,16 @@ const totalRefunded = payments
 
                 {/* ── Monthly Rent ── */}
                <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 whitespace-nowrap border-r border-gray-200">
-  {isPartner ? (
-    <div className="text-[10px] text-gray-400 italic">
-      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ""}
-    </div>
-  ) : (
+{showSharedLabel ? (
+  <div className="text-[10px] text-gray-400 italic">
+    Shared {(() => {
+      const sharedPartner = (activeTab === "vacated" || activeTab === "deleted")
+        ? vacateRecord?.partner_full_name
+        : tenant.partner_full_name;
+      return sharedPartner ? `with ${sharedPartner}` : "";
+    })()}
+  </div>
+) : (
     <div className="flex items-center gap-1">
       <span className="text-[11px] font-semibold text-green-600">
         ₹{monthlyRent.toLocaleString()}
@@ -3794,11 +3834,16 @@ const totalRefunded = payments
 
                 {/* ── Security Deposit ── */}
                 <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 whitespace-nowrap border-r border-gray-200">
-                  {isPartner ? (
-                    <div className="text-[10px] text-gray-400 italic">
-                      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
-                    </div>
-                  ) : (
+                  {showSharedLabel ? (
+  <div className="text-[10px] text-gray-400 italic">
+    Shared {(() => {
+      const sharedPartner = (activeTab === "vacated" || activeTab === "deleted")
+        ? vacateRecord?.partner_full_name
+        : tenant.partner_full_name;
+      return sharedPartner ? `with ${sharedPartner}` : "";
+    })()}
+  </div>
+) : (
                     <div className="flex items-center gap-1">
                       <span className="text-[11px] text-gray-700">
                         ₹{securityDeposit.toLocaleString()}
@@ -3840,9 +3885,14 @@ const totalRefunded = payments
 
                 {/* ── Payments (includes refund info and pending deposit badge) ── */}
 <td className=" ${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-gray-200">
-  {isPartner ? (
+  {showSharedLabel ? (
     <div className="text-[10px] text-gray-400 italic whitespace-nowrap">
-      Shared {tenant.partner_full_name ? `with ${tenant.partner_full_name}` : ''}
+      Shared {(() => {
+        const sharedPartner = (activeTab === "vacated" || activeTab === "deleted")
+          ? vacateRecord?.partner_full_name
+          : tenant.partner_full_name;
+        return sharedPartner ? `with ${sharedPartner}` : "";
+      })()}
     </div>
   ) : (
     <div className="flex items-center gap-1 whitespace-nowrap">
