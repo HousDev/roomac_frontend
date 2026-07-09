@@ -30,7 +30,7 @@ async function getContactData(): Promise<ContactPageData> {
         color: "from-green-500 to-emerald-500"
       },
       {
-        icon: 'MessageSquare', // ✅ Changed to string
+        icon: 'FaWhatsapp', // ✅ Changed to string
         title: "WhatsApp",
         subtitle: "Instant Response",
         value: "+91 99239 53933",

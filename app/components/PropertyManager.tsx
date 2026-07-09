@@ -1,5 +1,6 @@
 import { Phone, MessageCircle, User, Mail, Star, CheckCircle2 } from 'lucide-react';
 import { PropertyManager as PropertyManagerType } from '@/types/property';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface PropertyManagerProps {
   manager: PropertyManagerType;
@@ -98,7 +99,7 @@ export function PropertyManager({ manager }: PropertyManagerProps) {
         className="group relative overflow-hidden flex items-center justify-center gap-1.5 px-3 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-bold text-xs shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-green-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <MessageCircle className="w-4 h-4 relative group-hover:rotate-6 transition-transform" />
+        <FaWhatsapp className="w-4 h-4 relative group-hover:rotate-6 transition-transform" />
         <span className="relative">WhatsApp</span>
       </button>
     </div>

@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getPropertyByStaffId } from "@/lib/staffApi";
+import { FaWhatsapp } from "react-icons/fa";
 
 interface StaffDetailsPopupProps {
   staff: StaffMember | null;
@@ -234,7 +235,7 @@ const StaffDetailsPopup = ({
                 <InfoRow icon={Phone} label="Phone" value={formattedPhone} action={{ href: `tel:${formattedPhone.replace(/[^0-9+]/g, '')}`, text: "" }} />
               )}
               {formattedWhatsApp && (
-                <InfoRow icon={MessageSquare} label="WhatsApp" value={formattedWhatsApp} action={{ href: `https://wa.me/${formattedWhatsApp.replace(/[^0-9]/g, '')}`, text: "" }} />
+                <InfoRow icon={FaWhatsapp} label="WhatsApp" value={formattedWhatsApp} action={{ href: `https://wa.me/${formattedWhatsApp.replace(/[^0-9]/g, '')}`, text: "" }} />
               )}
               {staff.blood_group && staff.blood_group !== "not_specified" && (
                 <InfoRow icon={Droplets} label="Blood" value={staff.blood_group.toUpperCase()} />

@@ -661,6 +661,7 @@ import {
   ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
+import { FaWhatsapp } from "react-icons/fa";
 
 interface StaffTableProps {
   staff: StaffMember[];
@@ -1074,7 +1075,7 @@ const StaffTable = ({
                         </div>
                         {member.whatsapp_number && (
                           <div className="flex items-center gap-0.5">
-                            <MessageSquare className="h-2 w-2 text-green-500 flex-shrink-0" />
+                            <FaWhatsapp className="h-2 w-2 text-green-500 flex-shrink-0" />
                             <span className="text-[9px] truncate">{member.whatsapp_number}</span>
                           </div>
                         )}

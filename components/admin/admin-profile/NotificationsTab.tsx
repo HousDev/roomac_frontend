@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Bell, Mail, MessageSquare, Smartphone, CreditCard, CalendarCheck, Wrench, Loader2 } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface NotificationSettings {
   email_notifications: boolean;
@@ -345,7 +346,7 @@ export default function NotificationsTab({
               field: 'sms_notifications' as keyof NotificationSettings,
             },
             {
-              icon: <MessageSquare size={17} />, iconBg: '#F0FFF4', iconColor: '#16A34A',
+              icon: <FaWhatsapp size={17} />, iconBg: '#F0FFF4', iconColor: '#16A34A',
               title: 'WhatsApp Notifications', sub: 'Receive notifications via WhatsApp',
               field: 'whatsapp_notifications' as keyof NotificationSettings,
             },
