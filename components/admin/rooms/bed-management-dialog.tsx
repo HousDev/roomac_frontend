@@ -1747,7 +1747,7 @@ const loadTenantsBasedOnPreferences = async () => {
 
           let isVacated = false;
 
-          if (tenantDetails.success && tenantDetails.data) {
+        if (tenantDetails.success && tenantDetails.data) {
             const hasVacateHistory =
               (!!tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) ||
               tenantDetails.data.has_vacated === true;
@@ -1756,7 +1756,17 @@ const loadTenantsBasedOnPreferences = async () => {
               !!tenantDetails.data.current_assignment &&
               tenantDetails.data.current_assignment.is_available === false;
 
-            isVacated = hasVacateHistory && !hasActiveAssignment;
+            // ✅ NEW: `has_vacated`/`hasVacateHistory` only means "has vacated
+            // at some point in the past" — it says nothing about right now.
+            // A tenant who was just reassigned (tenant.is_active === true in
+            // the DB) but hasn't been given a physical bed yet must NOT be
+            // treated as vacated just because they have old vacate_records.
+            // Without this, a couple's primary/partner shows "Vacated" and
+            // "Single from Couple" in this dropdown during the normal gap
+            // between reassigning them and assigning the bed.
+            const isCurrentlyInactive = tenantDetails.data.is_active === false;
+
+            isVacated = hasVacateHistory && !hasActiveAssignment && isCurrentlyInactive;
 
             if (!isVacated && !(tenantDetails.success && tenantDetails.data?.current_assignment)) {
               isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
