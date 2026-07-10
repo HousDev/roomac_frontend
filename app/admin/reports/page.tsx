@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSettings } from "@/lib/settingsApi";
 import {
   Download,
@@ -63,6 +64,8 @@ import {
   User,
   Search,
   ChevronDown,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import {
   format,
@@ -76,6 +79,7 @@ import { toast } from "sonner";
 import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
 import { request } from "@/lib/api";
+import OperationalInsightsReport from "@/components/admin/reports/OperationalInsightsReport";
 
   // Add pagination component
 const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChange }: any) => {
@@ -575,6 +579,9 @@ function buildOccupancyReportPrintHTML(r: any, orgLogo: string, orgName: string)
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [operationalInsights, setOperationalInsights] = useState<reportApi.OperationalInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(true);
   const [properties, setProperties] = useState<reportApi.PropertyOption[]>([]);
   const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] =
@@ -600,8 +607,13 @@ const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: strin
       occupiedBeds: 0,
       activeTenants: 0,
       monthlyRevenue: 0,
+      totalRevenue: 0,
       revenueGrowth: 0,
+      avgOccupation: 0,
       occupationGrowth: 0,
+      netProfit: 0,
+      profitGrowth: 0,
+      totalTenants: 0,
       occupancyRate: 0,
       collectionRate: 0,
       pendingPayments: 0,
@@ -672,6 +684,7 @@ useEffect(() => {
     updateDateRangeAutomatically();
   }
   loadDashboardStats(); // Call this directly instead of the old one
+  loadOperationalInsights();
   loadPropertyDetails();
   loadRoomDetails();
   loadTenantDetails();
@@ -793,8 +806,13 @@ const loadDashboardStats = async () => {
         occupiedBeds: parseInt(d.bed_occupancy?.split('/')[0] || 0),
         activeTenants: d.active_tenants || 0,
         monthlyRevenue: d.monthly_revenue || 0,
+        totalRevenue: d.monthly_revenue || 0,
         revenueGrowth: 0,
+        avgOccupation: d.occupancy_rate || 0,
         occupationGrowth: 0,
+        netProfit: 0,
+        profitGrowth: 0,
+        totalTenants: d.active_tenants || 0,
         occupancyRate: d.occupancy_rate || 0,
         collectionRate: d.collection_rate || 0,
         pendingPayments: d.this_month_expected_count || 0,
@@ -807,6 +825,18 @@ const loadDashboardStats = async () => {
     console.error('Error loading dashboard stats:', err);
   } finally {
     setDashboardLoading(false);
+  }
+};
+
+const loadOperationalInsights = async () => {
+  try {
+    setInsightsLoading(true);
+    setOperationalInsights(await reportApi.getOperationalInsights(filters));
+  } catch (error) {
+    console.error('Error loading operational insights:', error);
+    setOperationalInsights(null);
+  } finally {
+    setInsightsLoading(false);
   }
 };
 
@@ -964,6 +994,7 @@ const generateOccupancyReport = async () => {
 
 const generateReport = async () => {
   setLoading(true);
+  void loadOperationalInsights();
   // Clear ALL report states FIRST
   setReportData(null);
   setTenantPaymentReport(null);
@@ -1783,7 +1814,7 @@ useEffect(() => {
       </div>
 
       {/* Filters Card */}
-<Card className="border-0 shadow-sm">
+<Card className="hidden">
   <CardHeader className="pb-2 sm:pb-4 px-3 sm:px-6">
     <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
       <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-[#0A1F5C]" />
@@ -2148,22 +2179,61 @@ useEffect(() => {
   </CardContent>
 </Card>
 
-      {/* Report Tabs */}
+      
+      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto border-0 p-0 sm:max-w-md">
+          <SheetHeader className="bg-[#0A1F5C] px-6 py-5 text-white">
+            <div className="flex items-start justify-between gap-4"><div><SheetTitle className="text-white">Report filters</SheetTitle><SheetDescription className="mt-1 text-blue-200">Refine every existing report without leaving the workspace.</SheetDescription></div><SheetClose className="rounded-md p-1 text-blue-100 hover:bg-white/10"><X className="h-5 w-5" /></SheetClose></div>
+          </SheetHeader>
+          <div className="space-y-5 p-6">
+            <div className="space-y-2"><Label>Report type</Label><Select value={filters.reportType} onValueChange={(reportType: any) => setFilters({ ...filters, reportType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pg_revenue">PG Revenue</SelectItem><SelectItem value="revenue">Revenue</SelectItem><SelectItem value="payments">Payments</SelectItem><SelectItem value="tenants">Tenants</SelectItem><SelectItem value="occupancy">Occupancy</SelectItem><SelectItem value="tenant_payment">Tenant payment</SelectItem><SelectItem value="property_payment">Property payment</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label>Property</Label><Select value={filters.propertyId} onValueChange={handlePropertyChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All properties</SelectItem>{properties.map((property) => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Period</Label><Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="today">Today</SelectItem><SelectItem value="week">Last 7 days</SelectItem><SelectItem value="month">This month</SelectItem><SelectItem value="year">This year</SelectItem><SelectItem value="custom">Custom range</SelectItem></SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Start date</Label><Input type="date" value={filters.startDate} onChange={(e) => { setFilters({ ...filters, startDate: e.target.value }); setDateRange('custom'); }} /></div><div className="space-y-2"><Label>End date</Label><Input type="date" value={filters.endDate} onChange={(e) => { setFilters({ ...filters, endDate: e.target.value }); setDateRange('custom'); }} /></div></div>
+            {filters.reportType === 'tenant_payment' && <div className="space-y-2"><Label>Tenant</Label><Select value={selectedTenant?.id?.toString() || ''} onValueChange={(id) => handleTenantSelect(tenantsList.find((tenant) => String(tenant.id) === id))}><SelectTrigger><SelectValue placeholder="Select tenant" /></SelectTrigger><SelectContent>{tenantsList.map((tenant) => <SelectItem key={tenant.id} value={String(tenant.id)}>{tenant.full_name}</SelectItem>)}</SelectContent></Select></div>}
+            {filters.reportType === 'occupancy' && <div className="space-y-2"><Label>Occupancy view</Label><Select value={occupancyReportType} onValueChange={(value: any) => setOccupancyReportType(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="overall">Overall</SelectItem><SelectItem value="non_vacant">Non-vacant tenants</SelectItem><SelectItem value="vacant">Vacant tenants</SelectItem></SelectContent></Select></div>}
+          </div>
+          <SheetFooter className="sticky bottom-0 border-t bg-white p-5"><Button variant="outline" onClick={() => setFilterOpen(false)}>Cancel</Button><Button className="bg-[#0A1F5C]" onClick={() => { setFilterOpen(false); generateReport(); }} disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')}>{loading ? 'Generating…' : 'Apply & generate'}</Button></SheetFooter>
+        </SheetContent>
+      </Sheet>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex h-9">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm">
-            Quick Actions
-          </TabsTrigger>
-          <TabsTrigger
-            value="report"
-            disabled={
-              !reportData && !tenantPaymentReport && !propertyPaymentReport
-            }
-            className="text-xs sm:text-sm"
-          >
-            Generated Report
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex h-9">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+              Quick Actions
+            </TabsTrigger>
+            <TabsTrigger
+              value="report"
+              disabled={!reportData && !tenantPaymentReport && !propertyPaymentReport && !pgRevenueReport && !occupancyReport}
+              className="text-xs sm:text-sm"
+            >
+              Generated Report
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="text-xs sm:text-sm">
+              Operational Insights
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setFilterOpen(true)}
+            >
+              <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> Filters
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
+              onClick={generateReport}
+              disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')}
+            >
+              {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="mr-1.5 h-3.5 w-3.5" />} Generate report
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value="overview" className="mt-3 sm:mt-4">
   <Card className="border-0 shadow-sm">
@@ -3565,6 +3635,19 @@ useEffect(() => {
             </>
           )}
         </TabsContent>
+
+        <TabsContent value="insights" className="mt-3 sm:mt-4">
+          <OperationalInsightsReport
+            properties={properties}
+            data={operationalInsights}
+            loading={insightsLoading}
+            filters={filters}
+            orgLogo={orgSettings.logoUrl}
+            orgName={orgSettings.orgName}
+          />
+        </TabsContent>
+
+
       </Tabs>
     </div>
   );
@@ -3574,6 +3657,38 @@ useEffect(() => {
 // ... (include all the existing helper components from your original file)
 
 // Helper Components - KEEP EXISTING ONES
+function OperationalInsightsPanel({ data, loading, formatCurrency }: { data: reportApi.OperationalInsights | null; loading: boolean; formatCurrency: (value: number) => string }) {
+  if (loading) {
+    return <Card className="border-0 shadow-sm"><CardContent className="grid gap-3 p-5 md:grid-cols-3"><div className="h-24 animate-pulse rounded-xl bg-slate-100 md:col-span-2" /><div className="h-24 animate-pulse rounded-xl bg-slate-100" /></CardContent></Card>;
+  }
+  if (!data) return null;
+  const topExpense = data.expenses.categories[0];
+  return (
+    <section className="grid gap-4 xl:grid-cols-3">
+      <Card className="border-0 bg-gradient-to-br from-slate-950 to-[#0A2B77] text-white shadow-lg xl:col-span-2">
+        <CardContent className="p-5">
+          <div className="mb-4 flex items-center gap-2"><Sparkles className="h-4 w-4 text-amber-300" /><p className="text-sm font-semibold">Management conclusion</p></div>
+          <div className="space-y-3">
+            {data.insights.slice(0, 4).map((insight, index) => <div key={insight} className="flex gap-3 text-sm text-blue-50"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold text-amber-200">{index + 1}</span><p>{insight}</p></div>)}
+          </div>
+          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/15 pt-4 text-center"><div><p className="text-xs text-blue-200">Collections</p><p className="mt-1 font-bold">{formatCurrency(data.finance.collected)}</p></div><div><p className="text-xs text-blue-200">Expenses</p><p className="mt-1 font-bold">{formatCurrency(data.expenses.total)}</p></div><div><p className="text-xs text-blue-200">Pending</p><p className="mt-1 font-bold text-amber-200">{formatCurrency(data.finance.pending)}</p></div></div>
+        </CardContent>
+      </Card>
+      <Card className="border-0 shadow-md shadow-slate-200/70"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Receipt className="h-4 w-4 text-[#0A1F5C]" /> Expense mix</CardTitle></CardHeader><CardContent className="space-y-3">
+        {data.expenses.categories.length ? data.expenses.categories.slice(0, 4).map((category) => { const percentage = data.expenses.total ? (Number(category.amount) / data.expenses.total) * 100 : 0; return <div key={category.category}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate font-medium text-slate-700">{category.category}</span><span className="shrink-0 font-semibold text-slate-900">{formatCurrency(Number(category.amount))}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-[#0A1F5C] to-blue-500" style={{ width: `${percentage}%` }} /></div></div>; }) : <p className="py-4 text-sm text-slate-500">No paid expenses in this period.</p>}
+        {topExpense && <p className="border-t pt-3 text-xs text-slate-500">Highest spend: <span className="font-semibold text-slate-800">{topExpense.category}</span></p>}
+      </CardContent></Card>
+      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Bed className="h-4 w-4 text-blue-600" /> Room availability</CardTitle></CardHeader><CardContent className="grid grid-cols-3 gap-2 text-center"><Metric label="Empty rooms" value={data.occupancy.available_rooms} tone="text-emerald-600" /><Metric label="Partial" value={data.occupancy.partially_available_rooms} tone="text-amber-600" /><Metric label="Full" value={data.occupancy.fully_occupied_rooms} tone="text-blue-600" /></CardContent></Card>
+      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><UserPlus className="h-4 w-4 text-violet-600" /> New arrivals ({data.arrivals.count})</CardTitle></CardHeader><CardContent className="space-y-2">{data.arrivals.tenants.slice(0, 3).map((tenant) => <div key={tenant.id} className="flex items-center justify-between gap-3 text-xs"><div className="min-w-0"><p className="truncate font-semibold text-slate-800">{tenant.full_name}</p><p className="truncate text-slate-500">{tenant.property_name} · Room {tenant.room_number}/Bed {tenant.bed_number}</p></div><Badge variant="secondary">{tenant.gender || '—'}</Badge></div>)}{!data.arrivals.count && <p className="py-2 text-sm text-slate-500">No arrivals in this period.</p>}</CardContent></Card>
+      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Heart className="h-4 w-4 text-rose-500" /> Couple occupancy</CardTitle></CardHeader><CardContent><div className="flex items-end justify-between"><div><p className="text-2xl font-bold text-slate-900">{data.couples.booking_count}</p><p className="text-xs text-slate-500">active couple booking(s)</p></div><p className="text-sm font-semibold text-rose-600">{data.couples.tenant_count} tenants</p></div>{data.couples.tenants.slice(0, 2).map((tenant) => <p key={tenant.id} className="mt-3 truncate text-xs text-slate-600">{tenant.full_name}{tenant.partner_name ? ` + ${tenant.partner_name}` : ''}</p>)}</CardContent></Card>
+    </section>
+  );
+}
+
+function Metric({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return <div className="rounded-lg bg-slate-50 p-2"><p className={`text-lg font-bold ${tone}`}>{value || 0}</p><p className="text-[10px] text-slate-500">{label}</p></div>;
+}
+
 function StatCard({ title, value, icon, loading }: any) {
   if (loading) {
     return (

@@ -73,6 +73,12 @@ export interface ReportData {
 }
 
 export interface DashboardStats {
+  totalProperties: number;
+  totalRooms: number;
+  totalBeds: number;
+  occupiedBeds: number;
+  activeTenants: number;
+  monthlyRevenue: number;
   totalRevenue: number;
   revenueGrowth: number;
   avgOccupation: number;
@@ -80,13 +86,28 @@ export interface DashboardStats {
   netProfit: number;
   profitGrowth: number;
   totalTenants: number;
-  totalProperties: number;
   occupancyRate: number;
   collectionRate: number;
   pendingPayments: number;
   pendingAmount: number;
   upcomingCheckouts: number;
   maintenanceRequests: number;
+}
+
+export interface OperationalInsights {
+  period: { startDate: string; endDate: string };
+  occupancy: {
+    total_rooms: number; total_beds: number; occupied_beds: number; available_beds: number;
+    available_rooms: number; partially_available_rooms: number; fully_occupied_rooms: number; occupancy_rate: number;
+  };
+  arrivals: { count: number; tenants: any[] };
+  couples: { tenant_count: number; booking_count: number; tenants: any[] };
+  expenses: { total: number; categories: Array<{ category: string; expense_count: number; amount: number }> };
+  finance: { collected: number; pending: number; net_operating_cash: number };
+  property_performance: Array<{ property_id: number; property_name: string; revenue: number; pending: number; expenses: number; net: number }>;
+  floor_availability: Array<{ property_name: string; floor: string | number; total_rooms: number; total_beds: number; occupied_beds: number; available_beds: number }>;
+  tenant_payments: Array<{ id: number; full_name: string; gender: string; is_couple_booking: number; partner_name?: string; property_name: string; room_number: string; bed_number: string; paid_amount: number; pending_amount: number }>;
+  insights: string[];
 }
 
 export interface PropertyOption {
@@ -164,6 +185,12 @@ export async function getDashboardStats(filters?: Partial<ReportFilters>): Promi
 
 function getDefaultDashboardStats(): DashboardStats {
   return {
+    totalProperties: 0,
+    totalRooms: 0,
+    totalBeds: 0,
+    occupiedBeds: 0,
+    activeTenants: 0,
+    monthlyRevenue: 0,
     totalRevenue: 0,
     revenueGrowth: 0,
     avgOccupation: 0,
@@ -171,7 +198,6 @@ function getDefaultDashboardStats(): DashboardStats {
     netProfit: 0,
     profitGrowth: 0,
     totalTenants: 0,
-    totalProperties: 0,
     occupancyRate: 0,
     collectionRate: 0,
     pendingPayments: 0,
@@ -645,4 +671,13 @@ function generateOccupancyTableHTML(rooms: any[]): string {
       </tbody>
     </table>
   `;
+}
+
+export async function getOperationalInsights(filters: Partial<ReportFilters>): Promise<OperationalInsights | null> {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.propertyId && filters.propertyId !== 'all') params.append('propertyId', filters.propertyId);
+  const response = await request<any>(`/api/reports/operational-insights?${params.toString()}`);
+  return response.success ? response.data : null;
 }

@@ -3063,8 +3063,8 @@ const handleUploadDoc = (docType: string) => {
             <div className="flex min-w-max px-1 pt-1 sticky top-0 z-10">
               {TABS.map(tab => {
                 const stayCount = tab.countKey === "stayHistory"
-                  ? (tenant?.vacate_records?.length ?? 0) + (tenant?.is_active && !(tenant?.vacate_records?.length > 0) ? 1 : 0)
-                  : 0;
+  ? (tenant?.stay_history?.length ?? 0)
+  : 0;
                 return (
                   <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-t-lg mr-0.5 transition-all border-b-2 whitespace-nowrap ${
