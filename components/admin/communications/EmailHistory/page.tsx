@@ -10,6 +10,7 @@ import {
   exportCommunicationLogs,
   resendCommunication,
   deleteCommunicationLog,
+  getCommunicationLogById,
   type CommunicationLog,
 } from "@/lib/communicationLogApi";
 import { AlertCircle, CheckCircle, ChevronRight, Clock, FileText, Filter, Trash2, X } from "lucide-react";
@@ -585,6 +586,7 @@ function EmailRow({
   isExpanded,
   onToggle,
   onResend,
+  onViewContent, 
   onDelete,
   isSelected,
   onSelect,
@@ -595,6 +597,7 @@ function EmailRow({
   onResend: (id: number) => void;
   onDelete: (id: number) => void;
   isSelected: boolean;
+  onViewContent: (id: number) => void;
   onSelect: (id: number, checked: boolean) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -670,6 +673,15 @@ function EmailRow({
         </td>
         <td className={`${bgClass} px-3 py-2 align-middle text-center whitespace-nowrap`}>
           <button
+  onClick={(e) => {
+    e.stopPropagation();
+    onViewContent(row.id);
+  }}
+  className="text-[10px] px-2 py-1 rounded-md border border-[#E4E8F0] text-[#185FA5] cursor-pointer bg-none font-inherit mr-1.5"
+>
+  View
+</button>
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onResend(row.id);
@@ -711,6 +723,58 @@ const DEFAULT_FILTERS: FilterState = {
   ignoreDateFilter: false,
 };
 
+
+// A simple content-preview modal
+function EmailContentModal({
+  logId,
+  onClose,
+}: {
+  logId: number | null;
+  onClose: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+  const [subject, setSubject] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!logId) return;
+    setLoading(true);
+    getCommunicationLogById(logId)
+      .then((res) => {
+        if (res.success) {
+          setContent(res.data.content || "<p>No content stored for this email.</p>");
+          setSubject(res.data.subject || "");
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [logId]);
+
+  if (!logId) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[300] flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="text-sm font-semibold truncate pr-4">{subject || "Email Content"}</div>
+          <button onClick={onClose} className="text-xl text-gray-400">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <div className="text-center text-sm text-gray-400 py-10">Loading…</div>
+          ) : (
+            <iframe
+              title="email-content"
+              srcDoc={content || ""}
+              className="w-full h-[60vh] border border-gray-200 rounded-md"
+              sandbox=""
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EmailHistory() {
   const [logs, setLogs] = useState<CommunicationLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -733,6 +797,7 @@ export default function EmailHistory() {
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+const [viewingLogId, setViewingLogId] = useState<number | null>(null);
 
 const [pageSize, setPageSize] = useState(10);
 
@@ -1064,6 +1129,8 @@ const tableMaxHeight = someSelected ? "max-h-[250px] sm:max-h-[420px]" : "max-h-
         }}
       />
 
+      <EmailContentModal logId={viewingLogId} onClose={() => setViewingLogId(null)} />
+
       <div className="font-['DM Sans','Segoe UI',sans-serif] p-0 md:p-0">
         {/* Header Buttons */}
      {/* Top Section */}
@@ -1342,6 +1409,7 @@ const tableMaxHeight = someSelected ? "max-h-[250px] sm:max-h-[420px]" : "max-h-
                       onToggle={() => toggleExpand(row.id)}
                       onResend={handleResend}
                       onDelete={handleDelete}
+                      onViewContent={setViewingLogId} 
                       isSelected={selectedIds.has(row.id)}
                       onSelect={handleSelect}
                     />
