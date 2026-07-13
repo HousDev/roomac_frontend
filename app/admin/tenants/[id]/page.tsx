@@ -1766,10 +1766,20 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
   ];
 
-  const buildStayPrintSections = (stay: any) => {
+ const buildStayPrintSections = (stay: any, showStayHeading: boolean = false) => {
     const stayPayments = [
       ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
     ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
+
+    const stayHeadingHtml = showStayHeading ? `
+      <div class="stay-heading-row">
+        <div>
+          <div class="stay-heading-name">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</div>
+          <div class="stay-heading-sub">ID: ${tenant.id} · Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</div>
+        </div>
+        <div class="stay-heading-sub" style="text-align:right">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
+      </div>
+    ` : "";
 
    const docsRows = docs.map(d => {
       const uploadedDate = d.url && stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—";
@@ -1789,9 +1799,10 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
       <tbody>${docsRows}</tbody>
     </table>`;
 
-    return `
+   return `
       <h2>Stay Details</h2>
       <div class="g2">
+        ${stayHeadingHtml}
         <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
         <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
         <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
@@ -1854,11 +1865,14 @@ body{font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;margin:40px;col
   .brand-sub  { font-size: 8px !important; }       /* was 10px */
   /* .brand-logo-wrap and .brand-right remain visible */
 
-  h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
+ h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
   .sub{color:#64748b;font-size:11px;margin-bottom:22px;font-weight:600}
-  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
+  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#2563eb;padding-bottom:6px;margin:20px 0 12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
   .g2full{grid-column:span 2}
+  .stay-heading-row{grid-column:span 2;display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid #e2e8f0}
+  .stay-heading-name{font-size:15px;font-weight:800;color:#1e293b}
+  .stay-heading-sub{font-size:10px;color:#64748b;font-weight:600;margin-top:2px}
   .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:700;margin-bottom:2px}
   .val{font-size:13px;font-weight:700;color:#333}
 
@@ -1924,11 +1938,7 @@ const doPrint = (stay: any) => {
   <style>${STAY_PRINT_STYLE}</style></head><body>
   ${buildWatermarkHTML(orgLogo, orgName)}
   ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
-  <div style="text-align:center">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-    <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
-  </div>
-  ${buildStayPrintSections(stay)}
+  ${buildStayPrintSections(stay, true)}
   <div class="ft">Roomac Co-Living Management System</div></body></html>`);
   w.document.close();
   w.print();
@@ -1940,11 +1950,9 @@ const doPrint = (stay: any) => {
 const doPrintAll = () => {
   const w = window.open("", "_blank");
   if (!w) return;
-  const sections = allStays.map((stay, idx) => `
+const sections = allStays.map((stay, idx) => `
     <div class="stay-block">
-      <h1 class="stay-heading">Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</h1>
-      <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
-      ${buildStayPrintSections(stay)}
+      ${buildStayPrintSections(stay, true)}
     </div>
   `).join("");
 
@@ -1970,10 +1978,7 @@ const doPrintAll = () => {
   </style></head><body>
   ${buildWatermarkHTML(orgLogo, orgName)}
   ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
-  <div class="cover">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-    <div class="sub">ID: ${tenant.id} · ${allStays.length} stay(s) · Generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
-  </div>
+ 
   ${sections}
   </body></html>`);
   w.document.close();

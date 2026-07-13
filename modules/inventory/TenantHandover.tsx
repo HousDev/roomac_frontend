@@ -1388,7 +1388,7 @@ const handleDownloadPDF = async () => {
     if (siteSettings?.logo) {
       try {
         const imgProps = doc.getImageProperties(siteSettings.logo);
-        const maxW = 30, maxH = 30;
+const maxW = 40, maxH = 40;
         const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
         const imgW = imgProps.width * ratio;
         const imgH = imgProps.height * ratio;
@@ -1736,7 +1736,7 @@ const handlePrint = () => {
             z-index: 1;
           }
           .head .logo { width: 112px; flex-shrink: 0; }
-          .head .logo img { height: 44px; max-width: 110px; object-fit: contain; }
+.head .logo img { height: 52px; max-width: 120px; object-fit: contain; }
           .head .center { flex: 1; text-align: center; }
           .head .center .brand { font-size: 17px; font-weight: 800; color: #1e293b; }
           .head .center .sub { font-size: 12.5px; font-weight: 700; color: #3B5BDB; margin-top: 1px; }
@@ -3433,7 +3433,7 @@ const clearFilters = () => {
             <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
               <div className="w-28 flex-shrink-0">
                 {siteSettings.logo && (
-                  <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-20 w-auto object-contain"
+                 <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-[52px] w-auto object-contain"
                     onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
                 )}
               </div>
