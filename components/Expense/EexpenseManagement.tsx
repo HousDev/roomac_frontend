@@ -389,6 +389,7 @@ const dateInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState("");
+  const [existingTotalPaid, setExistingTotalPaid] = useState<number>(0);
   const [paymentDetails, setPaymentDetails] = useState<Record<string, any>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const isInitializingEdit = useRef(false);
@@ -916,10 +917,11 @@ useEffect(() => {
       ...blank,
       added_by_name: user?.name || "",
     });
-    setEditId(null);
+   setEditId(null);
     setErrors({});
     setReceiptFile(null);
     setReceiptPreview("");
+    setExistingTotalPaid(0);
 setPaymentDetails({
     showOtherBank: false,
     showOtherBankCheque: false,
@@ -1029,10 +1031,11 @@ setForm({
     setPaymentDetails({});
   }
   
-  setEditId(exp.id);
+setEditId(exp.id);
   setErrors({});
   setReceiptFile(null);
   setReceiptPreview(exp.receipt_name || "");
+  setExistingTotalPaid(Number(exp.total_paid) || 0);
   // Pehle subcategories fetch karo, phir modal open karo
  if (exp.category_name) {
     getSubcategoriesByCategory(exp.category_name)
@@ -1074,6 +1077,11 @@ setForm({
   if (!form.property_id) e.property_id = "Required";
   if (!form.category_id) e.category_id = "Required";
   if (!form.expense_date) e.expense_date = "Required";
+  const paidNowAmt = form.paid_now ? Number(form.paid_now) : 0;
+  if (paidNowAmt > 0) {
+    if (!form.payment_mode) e.payment_mode = "Required when amount is paid";
+    if (!form.vendor_name?.trim()) e.vendor_name = "Required when amount is paid";
+  }
   // if (!form.added_by_name?.trim()) e.added_by_name = "Required";
   // if (form.items.filter((i: any) => i.name).length === 0) e.items = "At least one item required";
   return e;
@@ -1165,9 +1173,36 @@ const payload = {
     
     console.log("Creating expense with payload:", payload);
 
-    if (editId) {
+  
+if (editId) {
       await updateExpense(editId, payload, receiptFile);
       toast.success("Expense updated");
+
+      if (form.payment_mode && paymentAmount > 0) {
+        try {
+          let paymentTransactionData: any = {
+            paid_amount: paymentAmount,
+            payment_mode: form.payment_mode,
+            transaction_date: expenseDate,
+            reference_no: transaction_id || cheque_no || null,
+            notes: `Payment of ${fmt(paymentAmount)} recorded via edit`,
+            created_by: user?.name,
+          };
+
+          if (transaction_id) {
+            paymentTransactionData.transaction_id = transaction_id;
+          }
+          if (bank_name) {
+            paymentTransactionData.bank_name = bank_name;
+          }
+
+          await addExpensePayment(editId, paymentTransactionData);
+          console.log("Payment transaction created for expense:", editId);
+        } catch (paymentError) {
+          console.error("Failed to create payment transaction:", paymentError);
+          toast.warning("Expense updated but payment recording failed");
+        }
+      }
     } else {
       const response = await createExpense(payload, receiptFile);
       toast.success("Expense created");
@@ -2521,9 +2556,15 @@ const gridCols = isMP
   <div className="mt-0.5 text-[9px] text-slate-400">Items: {fmt(totalAmount)} • override</div>
 )}
             </div>
+        
             <div>
-  <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+  <label className="mb-0.5 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
     Amount Paid Now (₹)
+    {existingTotalPaid === 0 && Number(form.paid_now) > 0 && (
+      <span className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[8px] font-bold normal-case tracking-normal text-blue-700">
+        First Transaction
+      </span>
+    )}
   </label>
   <input
     type="number"
@@ -2535,9 +2576,10 @@ const gridCols = isMP
   {/* <div className="mt-0.5 text-[9px] text-slate-400">Only fill this if you're recording a payment right now</div> */}
 </div>
 
+         
             <div>
               <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                Paid Through
+                Paid Through{Number(form.paid_now) > 0 && <span className="ml-0.5 text-rose-400">*</span>}
               </label>
               <select
                 value={form.payment_mode || ""}
@@ -2545,29 +2587,45 @@ const gridCols = isMP
                   setForm((f) => ({ ...f, payment_mode: e.target.value }));
                   setPaymentDetails({});
                   setShowCustomBankInput(false);
+                  setErrors((prev) => ({ ...prev, payment_mode: "" }));
                 }}
-                className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 px-2 text-[10px] focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className={`h-8 w-full rounded-md border px-2 text-[10px] focus:outline-none focus:ring-1 ${errors.payment_mode ? "border-rose-400 bg-rose-50 focus:ring-rose-400" : "border-slate-200 bg-slate-50 focus:border-blue-400 focus:ring-blue-400"}`}
               >
                 <option value="">Select Payment Method</option>
                 {paymentMethods.map((method) => (
                   <option key={method.id} value={method.name}>{method.name}</option>
                 ))}
               </select>
+              {errors.payment_mode && (
+                <p className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-500">
+                  <AlertCircle className="h-2.5 w-2.5" />{errors.payment_mode}
+                </p>
+              )}
             </div>
 
+           
             <div>
               <label className="mb-0.5 block text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                Vendor Name
+                Vendor Name{Number(form.paid_now) > 0 && <span className="ml-0.5 text-rose-400">*</span>}
               </label>
               <div className="[&_button]:!h-8 [&_input]:!h-8 [&_*]:!rounded-md [&_*]:!text-[10px]">
                 <SearchableDropdown
                   options={vendors}
                   value={form.vendor_name || ""}
-                  onChange={(val, opt) => setForm((f) => ({ ...f, vendor_name: opt.name }))}
+                  onChange={(val, opt) => {
+                    setForm((f) => ({ ...f, vendor_name: opt.name }));
+                    setErrors((prev) => ({ ...prev, vendor_name: "" }));
+                  }}
                   placeholder="Select vendor"
                   valueKey="name"
+                  error={errors.vendor_name}
                 />
               </div>
+              {errors.vendor_name && (
+                <p className="mt-0.5 flex items-center gap-0.5 text-[9px] text-red-500">
+                  <AlertCircle className="h-2.5 w-2.5" />{errors.vendor_name}
+                </p>
+              )}
             </div>
 
             {form.payment_mode === "UPI" && (
