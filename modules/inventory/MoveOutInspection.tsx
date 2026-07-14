@@ -1193,7 +1193,7 @@ const handleDownloadPDF = () => {
     if (siteSettings?.logo) {
       try {
         const imgProps = doc.getImageProperties(siteSettings.logo);
-        const maxW = 26, maxH = 26;
+const maxW = 40, maxH = 40;
         const ratio = Math.min(maxW / imgProps.width, maxH / imgProps.height);
         const imgW = imgProps.width * ratio;
         const imgH = imgProps.height * ratio;
@@ -2708,7 +2708,7 @@ const activeCount = [
           <div className="relative z-10 mb-3 flex items-center border-b border-slate-200 pb-3">
             <div className="w-28 flex-shrink-0">
               {siteSettings.logo && (
-                <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-20 w-auto object-contain"
+               <img src={siteSettings.logo} alt={siteSettings.siteName} className="h-[52px] w-auto object-contain"
                   onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
               )}
             </div>

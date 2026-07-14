@@ -793,10 +793,10 @@ const statusBadgeStyle = (status?: string) => {
             gap: 12px;
             flex: 0 0 auto;
           }
-          .head .brand img {
-            height: 48px;
-            max-width: 120px;
-            object-fit: contain;
+       .head .brand img {
+  height: 52px;
+  max-width: 120px;
+  object-fit: contain;
             background: #fff;
             border-radius: 6px;
             padding: 4px;
@@ -1928,9 +1928,9 @@ const handleCopyLink = () => {
             <div className="w-28 flex-shrink-0">
               {siteSettings.logo && (
                 <img
-                  src={siteSettings.logo}
-                  alt={siteSettings.siteName}
-                  className="h-16 w-auto object-contain"
+  src={siteSettings.logo}
+  alt={siteSettings.siteName}
+  className="h-[52px] w-auto object-contain"
                   onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
                 />
               )}
