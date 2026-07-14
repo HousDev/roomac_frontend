@@ -252,10 +252,15 @@ const totalRooms = useMemo(() => {
 
   // Filter handlers
   const handleFilterChange = (key: keyof FilterState, value: any) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
-  };
+  const newFilters = { ...filters, [key]: value };
+  setFilters(newFilters);
+};
+
+const applyFilters = () => {
+  onFilterChange(filters);
+  onOpenChange(false);
+};
+
 
   const handleSelectChange = (key: 'property_ids' | 'room_types' | 'gender_preferences' | 'amenities' | 'floors', value: string) => {
     handleFilterChange(key, (!value || value === 'all') ? [] : [value]);
@@ -819,13 +824,13 @@ useEffect(() => {
               <RefreshCw className="h-3 w-3" /> Reset
             </Button>
             <Button
-              className="flex-1 text-white h-8 text-xs"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-              style={{ backgroundColor: colors.primary }}
-            >
-              Apply Filters
-            </Button>
+  className="flex-1 text-white h-8 text-xs"
+  onClick={applyFilters}
+  disabled={loading}
+  style={{ backgroundColor: colors.primary }}
+>
+  Apply Filters
+</Button>
           </div>
         </div>
       </SheetContent>

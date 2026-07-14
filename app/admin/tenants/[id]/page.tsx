@@ -1663,6 +1663,25 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
               }
             : null);
 
+      // ✅ FIX: Get the rate and amount correctly
+      // For vacated records: use the vacate record's rate (new columns)
+      // For current stay: use the tenant's rate
+      const lockinPenaltyRate = isVacatedRecord
+        ? Number(vr?.lockin_penalty_rate || 0)
+        : Number(tenant.lockin_penalty_amount || 0);
+
+      const lockinPenaltyAmount = isVacatedRecord
+        ? Number(vr?.lockin_penalty_amount || 0)
+        : Number(tenant.lockin_penalty_amount || 0);
+
+      const noticePenaltyRate = isVacatedRecord
+        ? Number(vr?.notice_penalty_rate || 0)
+        : Number(tenant.notice_penalty_amount || 0);
+
+      const noticePenaltyAmount = isVacatedRecord
+        ? Number(vr?.notice_penalty_amount || 0)
+        : Number(tenant.notice_penalty_amount || 0);
+
       return {
         id: stay.isCurrent ? "current" : `vacate-${stay.vacateRecordId}`,
         stayNumber: stay.stayNumber,
@@ -1697,24 +1716,23 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
         noticePenalty: Number(vr?.notice_penalty_amount || 0),
         inspectionPenalty: Number(vr?.inspection_penalty_amount || 0),
         vacateReason: vr?.vacate_reason_value || "—",
-       lockInPeriod: vr?.lockin_period_months
-  ? `${vr.lockin_period_months} months`
-  : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
-lockinPenaltyType: isVacatedRecord
-  ? (vr?.lockin_penalty_type || "fixed")
-  : (tenant.lockin_penalty_type || "fixed"),
-lockinPenaltyAmount: Number(
-  isVacatedRecord ? (vr?.lockin_penalty_amount || 0) : (tenant.lockin_penalty_amount || 0)
-),
-noticePeriod: vr?.notice_period_days
-  ? `${vr.notice_period_days} days`
-  : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
-noticePenaltyType: isVacatedRecord
-  ? (vr?.notice_penalty_type || "fixed")
-  : (tenant.notice_penalty_type || "fixed"),
-noticePenaltyAmount: Number(
-  isVacatedRecord ? (vr?.notice_penalty_amount || 0) : (tenant.notice_penalty_amount || 0)
-),
+        lockInPeriod: vr?.lockin_period_months
+          ? `${vr.lockin_period_months} months`
+          : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
+        // ✅ FIX: These now use the rate columns correctly
+        lockinPenaltyType: isVacatedRecord
+          ? (vr?.lockin_penalty_type || "fixed")
+          : (tenant.lockin_penalty_type || "fixed"),
+        lockinPenaltyRate,           // ✅ NEW — original percentage rate
+        lockinPenaltyAmount,         // ✅ NEW — computed rupee amount
+        noticePeriod: vr?.notice_period_days
+          ? `${vr.notice_period_days} days`
+          : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
+        noticePenaltyType: isVacatedRecord
+          ? (vr?.notice_penalty_type || "fixed")
+          : (tenant.notice_penalty_type || "fixed"),
+        noticePenaltyRate,           // ✅ NEW — original percentage rate
+        noticePenaltyAmount,         // ✅ NEW — computed rupee amount
         partner: stayPartner,
       };
     })
@@ -1766,7 +1784,7 @@ noticePenaltyAmount: Number(
       ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
     ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
 
-   const docsRows = docs.map(d => {
+    const docsRows = docs.map(d => {
       const uploadedDate = d.url && stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—";
       return `<tr>
         <td class="doc-type">${d.label}</td>
@@ -1783,6 +1801,23 @@ noticePenaltyAmount: Number(
       <thead><tr><th>Document</th><th>Type</th><th>Number</th><th>Status</th><th>Uploaded</th></tr></thead>
       <tbody>${docsRows}</tbody>
     </table>`;
+
+    // ✅ FIX: Format penalty display with rate + amount
+    const formatLockinPenalty = (stay: any) => {
+      if (stay.lockinPenaltyAmount <= 0) return "—";
+      if (stay.lockinPenaltyType === "percentage" && stay.lockinPenaltyRate > 0) {
+        return `${stay.lockinPenaltyRate}% of deposit (₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")})`;
+      }
+      return `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`;
+    };
+
+    const formatNoticePenalty = (stay: any) => {
+      if (stay.noticePenaltyAmount <= 0) return "—";
+      if (stay.noticePenaltyType === "percentage" && stay.noticePenaltyRate > 0) {
+        return `${stay.noticePenaltyRate}% of deposit (₹${stay.noticePenaltyAmount.toLocaleString("en-IN")})`;
+      }
+      return `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`;
+    };
 
     return `
       <h2>Stay Details</h2>
@@ -1824,9 +1859,9 @@ noticePenaltyAmount: Number(
       <h2>Terms &amp; Penalties</h2>
       <div class="g2">
         <div><div class="lbl">Lock-in Period</div><div class="val">${stay.lockInPeriod}</div></div>
-        <div><div class="lbl">Lock-in Penalty</div><div class="val">${stay.lockinPenaltyAmount > 0 ? (stay.lockinPenaltyType === "percentage" ? `${stay.lockinPenaltyAmount}% of deposit` : `₹${stay.lockinPenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        <div><div class="lbl">Lock-in Penalty</div><div class="val">${formatLockinPenalty(stay)}</div></div>
         <div><div class="lbl">Notice Period</div><div class="val">${stay.noticePeriod}</div></div>
-        <div><div class="lbl">Notice Penalty</div><div class="val">${stay.noticePenaltyAmount > 0 ? (stay.noticePenaltyType === "percentage" ? `${stay.noticePenaltyAmount}% of deposit` : `₹${stay.noticePenaltyAmount.toLocaleString("en-IN")}`) : "—"}</div></div>
+        <div><div class="lbl">Notice Penalty</div><div class="val">${formatNoticePenalty(stay)}</div></div>
         ${stay.isVacatedRecord ? `<div class="g2full"><div class="lbl">Vacate Reason</div><div class="val">${stay.vacateReason}</div></div>` : ""}
       </div>
 
@@ -1840,140 +1875,140 @@ noticePenaltyAmount: Number(
     `;
   };
 
-const STAY_PRINT_STYLE = `
-  body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px;position:relative}
-  ${PRINT_BRAND_STYLE}
+  const STAY_PRINT_STYLE = `
+    body{font-family:system-ui,sans-serif;margin:40px;color:#111;font-size:12px;position:relative}
+    ${PRINT_BRAND_STYLE}
 
-  /* ── ONLY SMALLER FONT IN HEADER, KEEP LAYOUT ── */
-  .brand-name { font-size: 16px !important; }      /* was 22px */
-  .brand-sub  { font-size: 8px !important; }       /* was 10px */
-  /* .brand-logo-wrap and .brand-right remain visible */
+    /* ── ONLY SMALLER FONT IN HEADER, KEEP LAYOUT ── */
+    .brand-name { font-size: 16px !important; }      /* was 22px */
+    .brand-sub  { font-size: 8px !important; }       /* was 10px */
+    /* .brand-logo-wrap and .brand-right remain visible */
 
-  h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
-  .sub{color:#64748b;font-size:11px;margin-bottom:22px;font-weight:600}
-  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
-  .g2full{grid-column:span 2}
-  .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:700;margin-bottom:2px}
-  .val{font-size:13px;font-weight:700;color:#333}
+    h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
+    .sub{color:#64748b;font-size:11px;margin-bottom:22px;font-weight:600}
+    h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
+    .g2full{grid-column:span 2}
+    .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:700;margin-bottom:2px}
+    .val{font-size:13px;font-weight:700;color:#333}
 
-  /* ── TABLES (matches ledger) ── */
-  .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-  .ptable thead tr{background:#eff6ff}
-  .ptable th{
-    text-align:left;
-    font-size:9px;
-    font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    color:#2563eb;
-    border:1px solid #bfdbfe;
-    padding:7px 10px;
-  }
-  .ptable td{
-    padding:7px 10px;
-    border:1px solid #e2e8f0;
-    color:#111;
-  }
-  .ptable td:nth-child(2){color:#16a34a;font-weight:700}
+    /* ── TABLES (matches ledger) ── */
+    .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+    .ptable thead tr{background:#eff6ff}
+    .ptable th{
+      text-align:left;
+      font-size:9px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      color:#2563eb;
+      border:1px solid #bfdbfe;
+      padding:7px 10px;
+    }
+    .ptable td{
+      padding:7px 10px;
+      border:1px solid #e2e8f0;
+      color:#111;
+    }
+    .ptable td:nth-child(2){color:#16a34a;font-weight:700}
 
-  .doctable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-  .doctable thead tr{background:#eff6ff}
-  .doctable th{
-    text-align:left;
-    font-size:9px;
-    font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    color:#2563eb;
-    border:1px solid #bfdbfe;
-    padding:7px 10px;
-  }
-  .doctable td{
-    padding:7px 10px;
-    border:1px solid #e2e8f0;
-    color:#111;
-  }
+    .doctable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+    .doctable thead tr{background:#eff6ff}
+    .doctable th{
+      text-align:left;
+      font-size:9px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      color:#2563eb;
+      border:1px solid #bfdbfe;
+      padding:7px 10px;
+    }
+    .doctable td{
+      padding:7px 10px;
+      border:1px solid #e2e8f0;
+      color:#111;
+    }
 
-  .doc-type{color:#2563eb;font-weight:600}
-  .doc-date{color:#6b7280}
-  .doc-status{font-weight:600}
-  .doc-status-yes{color:#16a34a}
-  .doc-status-no{color:#dc3545}
+    .doc-type{color:#2563eb;font-weight:600}
+    .doc-date{color:#6b7280}
+    .doc-status{font-weight:600}
+    .doc-status-yes{color:#16a34a}
+    .doc-status-no{color:#dc3545}
 
-  .totalline{font-size:13px;font-weight:800;color:#166534;margin:6px 0 4px;background:#f0fdf4;padding:8px 12px;border-radius:6px}
-  .totalline span{color:#16a34a}
+    .totalline{font-size:13px;font-weight:800;color:#166534;margin:6px 0 4px;background:#f0fdf4;padding:8px 12px;border-radius:6px}
+    .totalline span{color:#16a34a}
 
-  .ft{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:8px}
+    .ft{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:8px}
 
-  .stay-block{margin-top:8px}
-  .stay-block + .stay-block{margin-top:36px;padding-top:28px;border-top:3px double #d1d5db}
-  h2{break-after:avoid-page}
-  .doc-number{font-family:monospace;color:#374151}
-`;
+    .stay-block{margin-top:8px}
+    .stay-block + .stay-block{margin-top:36px;padding-top:28px;border-top:3px double #d1d5db}
+    h2{break-after:avoid-page}
+    .doc-number{font-family:monospace;color:#374151}
+  `;
 
-const doPrint = (stay: any) => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
-  <style>${STAY_PRINT_STYLE}</style></head><body>
-  ${buildWatermarkHTML(orgLogo, orgName)}
-  ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
-  <div style="text-align:center">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-    <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
-  </div>
-  ${buildStayPrintSections(stay)}
-  <div class="ft">Roomac Co-Living Management System</div></body></html>`);
-  w.document.close();
-  w.print();
-};
-
-// ✅ Print All: ONE brand header + ONE watermark for the whole document.
-// Stays are separated with a simple divider and flow naturally onto new
-// pages only when content actually overflows (no forced page-break-after).
-const doPrintAll = () => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  const sections = allStays.map((stay, idx) => `
-    <div class="stay-block">
-      <h1 class="stay-heading">Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</h1>
-      <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
-      ${buildStayPrintSections(stay)}
+  const doPrint = (stay: any) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
+    <style>${STAY_PRINT_STYLE}</style></head><body>
+    ${buildWatermarkHTML(orgLogo, orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
+    <div style="text-align:center">
+      <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
+      <div class="sub">ID: ${tenant.id} · Stay #${stay.stayNumber} · ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
     </div>
-  `).join("");
+    ${buildStayPrintSections(stay)}
+    <div class="ft">Roomac Co-Living Management System</div></body></html>`);
+    w.document.close();
+    w.print();
+  };
 
-  w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
-  <style>${STAY_PRINT_STYLE}
-   .cover {
-  text-align: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #f3f4f6;
-}
-.cover h1 {
-  font-size: 16px;
-  font-weight: 900;
-  margin-bottom: 2px;
-}
-.cover .sub {
-  font-size: 10px;
-  color: #64748b;
-}
-    .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
-    .current-tag{display:inline-block;font-size:9px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
-  </style></head><body>
-  ${buildWatermarkHTML(orgLogo, orgName)}
-  ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
-  <div class="cover">
-    <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
-    <div class="sub">ID: ${tenant.id} · ${allStays.length} stay(s) · Generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
-  </div>
-  ${sections}
-  </body></html>`);
-  w.document.close();
-  w.print();
-};
+  // ✅ Print All: ONE brand header + ONE watermark for the whole document.
+  // Stays are separated with a simple divider and flow naturally onto new
+  // pages only when content actually overflows (no forced page-break-after).
+  const doPrintAll = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const sections = allStays.map((stay, idx) => `
+      <div class="stay-block">
+        <h1 class="stay-heading">Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</h1>
+        <div class="sub">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
+        ${buildStayPrintSections(stay)}
+      </div>
+    `).join("");
+
+    w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
+    <style>${STAY_PRINT_STYLE}
+     .cover {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f3f4f6;
+  }
+  .cover h1 {
+    font-size: 16px;
+    font-weight: 900;
+    margin-bottom: 2px;
+  }
+  .cover .sub {
+    font-size: 10px;
+    color: #64748b;
+  }
+      .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
+      .current-tag{display:inline-block;font-size:9px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
+    </style></head><body>
+    ${buildWatermarkHTML(orgLogo, orgName)}
+    ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
+    <div class="cover">
+      <h1>${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</h1>
+      <div class="sub">ID: ${tenant.id} · ${allStays.length} stay(s) · Generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+    </div>
+    ${sections}
+    </body></html>`);
+    w.document.close();
+    w.print();
+  };
 
   const doDownload = (stay: any) => {
     const csv = [
@@ -1998,20 +2033,21 @@ const doPrintAll = () => {
 
   // ── Top stat cards ──
   const totalStays = allStays.length;
-  const lifetimeRent = allStays.reduce((a, s) => a + (s.isCurrent ? s.totalRentPaidThisStay : s.monthlyRent), 0);
+ const lifetimeRent = allStays.reduce((a, s) => a + (s.totalRentPaidThisStay || 0), 0);
   const monthsStayed = (() => {
-    let total = 0;
-    for (const s of allStays) {
-      if (!s.checkIn) continue;
-      const start = new Date(s.checkIn);
-      const end = s.checkOut ? new Date(s.checkOut) : new Date();
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
-      let m = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-      if (end.getDate() < start.getDate()) m--;
-      total += Math.max(0, m);
-    }
-    return total;
-  })();
+  let totalDays = 0;
+  for (const s of allStays) {
+    if (!s.checkIn) continue;
+    const start = new Date(s.checkIn);
+    const end = s.checkOut ? new Date(s.checkOut) : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+    const days = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    totalDays += days;
+  }
+  // Average month length (~30.44 days) keeps this consistent with how
+  // rent proration elsewhere in the app treats a "month".
+  return Math.round(totalDays / 30.44);
+})();
 
   const refundReceived = allStays.filter(s => s.isVacatedRecord).reduce((a, s) => a + s.totalRefunded, 0);
 
@@ -2028,35 +2064,35 @@ const doPrintAll = () => {
     <div className="space-y-3">
       {/* Top stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-  <PaymentCard
-    title="Total Stays"
-    value={totalStays}
-    icon={Layers}
-    color="bg-blue-600"
-    bg="bg-gradient-to-br from-blue-50 to-blue-100"
-  />
-  <PaymentCard
-    title="Lifetime Rent"
-    value={formatINR(lifetimeRent)}
-    icon={IndianRupee}
-    color="bg-emerald-600"
-    bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
-  />
-  <PaymentCard
-    title="Months Stayed"
-    value={monthsStayed}
-    icon={Calendar}
-    color="bg-violet-600"
-    bg="bg-gradient-to-br from-violet-50 to-violet-100"
-  />
-  <PaymentCard
-    title="Refund Received"
-    value={formatINR(refundReceived)}
-    icon={Banknote}
-    color="bg-teal-600"
-    bg="bg-gradient-to-br from-teal-50 to-teal-100"
-  />
-</div>
+        <PaymentCard
+          title="Total Stays"
+          value={totalStays}
+          icon={Layers}
+          color="bg-blue-600"
+          bg="bg-gradient-to-br from-blue-50 to-blue-100"
+        />
+        <PaymentCard
+          title="Lifetime Rent"
+          value={formatINR(lifetimeRent)}
+          icon={IndianRupee}
+          color="bg-emerald-600"
+          bg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+        />
+        <PaymentCard
+          title="Months Stayed"
+          value={monthsStayed}
+          icon={Calendar}
+          color="bg-violet-600"
+          bg="bg-gradient-to-br from-violet-50 to-violet-100"
+        />
+        <PaymentCard
+          title="Refund Received"
+          value={formatINR(refundReceived)}
+          icon={Banknote}
+          color="bg-teal-600"
+          bg="bg-gradient-to-br from-teal-50 to-teal-100"
+        />
+      </div>
 
       <div className="flex justify-end">
         <button
@@ -2297,15 +2333,17 @@ const doPrintAll = () => {
                           <div className="grid grid-cols-2 gap-2">
                             {[
                               ["Lock-in Period", stay.lockInPeriod],
+                              // ✅ FIX: Show rate + amount for percentage, or just amount for fixed
                               ["Lock-in Penalty", stay.lockinPenaltyAmount > 0 ? (
-                                stay.lockinPenaltyType === "percentage"
-                                  ? `${stay.lockinPenaltyAmount}% of deposit`
+                                stay.lockinPenaltyType === "percentage" && stay.lockinPenaltyRate > 0
+                                  ? `${stay.lockinPenaltyRate}% of deposit (${formatINR(stay.lockinPenaltyAmount)})`
                                   : formatINR(stay.lockinPenaltyAmount)
                               ) : "—"],
                               ["Notice Period", stay.noticePeriod],
+                              // ✅ FIX: Same for notice penalty
                               ["Notice Penalty", stay.noticePenaltyAmount > 0 ? (
-                                stay.noticePenaltyType === "percentage"
-                                  ? `${stay.noticePenaltyAmount}% of deposit`
+                                stay.noticePenaltyType === "percentage" && stay.noticePenaltyRate > 0
+                                  ? `${stay.noticePenaltyRate}% of deposit (${formatINR(stay.noticePenaltyAmount)})`
                                   : formatINR(stay.noticePenaltyAmount)
                               ) : "—"],
                             ].map(([k, v]) => (

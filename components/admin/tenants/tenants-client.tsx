@@ -2636,7 +2636,6 @@ const totals = useMemo(() => {
         value={pendingFilters.has_credentials || ""}
         onChange={(value) => {
           setPendingFilters(prev => ({ ...prev, has_credentials: value === "" ? undefined : value }));
-          applyFiltersLive({ has_credentials: value === "" ? undefined : value });
         }}
         options={[
           { value: "true", label: "Has Login" },
@@ -2652,12 +2651,12 @@ const totals = useMemo(() => {
           if (val === "Couple") {
             setPendingCoupleFilter(true);
             setPendingFilters(prev => ({ ...prev, gender: "" }));
-            applyFiltersLive({ gender: "" }, true);
+            
           } else {
             setPendingCoupleFilter(false);
             const genderVal = val === "all" ? "" : val;
             setPendingFilters(prev => ({ ...prev, gender: genderVal }));
-            applyFiltersLive({ gender: genderVal }, false);
+            
           }
         }}
       >
@@ -2691,7 +2690,7 @@ const totals = useMemo(() => {
         value={pendingCheckInDateFrom}
         onChange={(e) => {
           setPendingCheckInDateFrom(e.target.value);
-          setCheckInDateFrom(e.target.value);
+          
         }}
         className="h-8 w-full text-xs border-gray-200 rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
@@ -2703,7 +2702,7 @@ const totals = useMemo(() => {
         value={pendingCheckInDateTo}
         onChange={(e) => {
           setPendingCheckInDateTo(e.target.value);
-          setCheckInDateTo(e.target.value);
+          
         }}
         className="h-8 w-full text-xs border-gray-200 rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
@@ -2726,7 +2725,7 @@ const totals = useMemo(() => {
   value={pendingVacatedDateFrom}
   onChange={(e) => {
     setPendingVacatedDateFrom(e.target.value);
-    setVacatedDateFrom(e.target.value);
+    
   }}
   className="h-8 w-full text-xs border-gray-200 rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
 />
@@ -2738,7 +2737,7 @@ const totals = useMemo(() => {
   value={pendingVacatedDateTo}
   onChange={(e) => {
     setPendingVacatedDateTo(e.target.value);
-    setVacatedDateTo(e.target.value);
+    
   }}
   className="h-8 w-full text-xs border-gray-200 rounded-md border px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
 />
@@ -2753,7 +2752,7 @@ const totals = useMemo(() => {
   onValueChange={(val) => {
     const v = val === "all" ? "" : val;
     setPendingRefundStatus(v);
-    setRefundStatus(v);
+    
   }}
 >
               <SelectTrigger className="h-8 text-xs border-gray-200">
@@ -2791,8 +2790,7 @@ const totals = useMemo(() => {
     const isDeposit = val === "pending_deposit";
     setPendingPendingRent(isRent);
     setPendingPendingDeposit(isDeposit);
-    setPendingRent(isRent);
-    setPendingDeposit(isDeposit);
+    
   }}
     >
       <SelectTrigger className="h-8 text-xs border-gray-200">

@@ -253,6 +253,14 @@ const [moveInTo, setMoveInTo] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusType>('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
 
+  // ── Draft filters (sidebar inputs bind to these, not applied until "Apply") ──
+const [draftStatusFilter, setDraftStatusFilter] = useState<StatusType>('all');
+const [draftPropertyFilter, setDraftPropertyFilter] = useState('all');
+const [draftDateFrom, setDraftDateFrom] = useState('');
+const [draftDateTo, setDraftDateTo] = useState('');
+const [draftMoveInFrom, setDraftMoveInFrom] = useState('');
+const [draftMoveInTo, setDraftMoveInTo] = useState('');
+
   const [colSearch, setColSearch] = useState({
     tenant_name: '', property_name: '', room_number: '', status: '', handover_date: '',
   });
@@ -660,7 +668,7 @@ const filteredItems = useMemo(() => {
 
     // Status & property filters (dropdowns)
     const statusOk = statusFilter === 'all' || h.status === statusFilter;
-    const propertyOk = propertyFilter === 'all' || h.property_id === propertyFilter;
+    const propertyOk = propertyFilter === 'all' || String(h.property_id) === String(propertyFilter);
 
     // Date ranges (handover date)
     const handoverDateOk = (dateFrom && dateTo)
@@ -2036,6 +2044,12 @@ const clearFilters = () => {
   setDateTo('');
   setMoveInFrom('');
   setMoveInTo('');
+  setDraftStatusFilter('all');
+  setDraftPropertyFilter('all');
+  setDraftDateFrom('');
+  setDraftDateTo('');
+  setDraftMoveInFrom('');
+  setDraftMoveInTo('');
 };
   const clearColSearch = () => setColSearch({ tenant_name: '', property_name: '', room_number: '', status: '', handover_date: '' });
 
@@ -2508,7 +2522,7 @@ const clearFilters = () => {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
             <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
           </p>
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+          <Select value={draftStatusFilter} onValueChange={(val) => setDraftStatusFilter(val as StatusType)}>
             <SelectTrigger className="w-full h-8 text-xs border-gray-200">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -2528,7 +2542,7 @@ const clearFilters = () => {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
             <Building className="h-3 w-3 text-indigo-500" /> Property
           </p>
-          <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+          <Select value={draftPropertyFilter} onValueChange={(val) => setDraftPropertyFilter(val)}>
             <SelectTrigger className="w-full h-8 text-xs border-gray-200">
               <SelectValue placeholder="Select property" />
             </SelectTrigger>
@@ -2551,8 +2565,8 @@ const clearFilters = () => {
               <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
               <Input
                 type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                value={draftDateFrom}
+                onChange={(e) => setDraftDateFrom(e.target.value)}
                 className="h-7 text-[10px]"
               />
             </div>
@@ -2560,8 +2574,8 @@ const clearFilters = () => {
               <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
               <Input
                 type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                value={draftDateTo}
+                onChange={(e) => setDraftDateTo(e.target.value)}
                 className="h-7 text-[10px]"
               />
             </div>
@@ -2578,8 +2592,8 @@ const clearFilters = () => {
               <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
               <Input
                 type="date"
-                value={moveInFrom}
-                onChange={(e) => setMoveInFrom(e.target.value)}
+                value={draftMoveInFrom}
+                onChange={(e) => setDraftMoveInFrom(e.target.value)}
                 className="h-7 text-[10px]"
               />
             </div>
@@ -2587,8 +2601,8 @@ const clearFilters = () => {
               <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
               <Input
                 type="date"
-                value={moveInTo}
-                onChange={(e) => setMoveInTo(e.target.value)}
+                value={draftMoveInTo}
+                onChange={(e) => setDraftMoveInTo(e.target.value)}
                 className="h-7 text-[10px]"
               />
             </div>
@@ -2606,7 +2620,15 @@ const clearFilters = () => {
         Clear All
       </button>
       <button
-        onClick={() => setSidebarOpen(false)}
+       onClick={() => {
+    setStatusFilter(draftStatusFilter);
+    setPropertyFilter(draftPropertyFilter);
+    setDateFrom(draftDateFrom);
+    setDateTo(draftDateTo);
+    setMoveInFrom(draftMoveInFrom);
+    setMoveInTo(draftMoveInTo);
+    setSidebarOpen(false);
+  }}
         className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
       >
         Apply & Close

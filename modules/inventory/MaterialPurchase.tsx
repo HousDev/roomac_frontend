@@ -187,6 +187,12 @@ useEffect(() => {
   const [mappingsLoading, setMappingsLoading] = useState(true);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
 
+  const [draftPropertyFilter, setDraftPropertyFilter] = useState("all");
+const [draftStatusFilter, setDraftStatusFilter] = useState<PaymentStatus>("all");
+const [draftVendorFilter, setDraftVendorFilter] = useState("all");
+const [draftAmountFilter, setDraftAmountFilter] = useState({ min: "", max: "" });
+const [draftDateFilter, setDraftDateFilter] = useState({ from: "", to: "" });
+
 const [siteSettings, setSiteSettings] = useState({
   siteName: "ROOMAC", logo: "", phone: "", email: "", address: "",
 });
@@ -255,6 +261,16 @@ useEffect(() => {
   const [selectedItems, setSelectedItems] = useState<Set<string | number>>(
     new Set(),
   );
+
+  useEffect(() => {
+  if (sidebarOpen) {
+    setDraftPropertyFilter(propertyFilter);
+    setDraftStatusFilter(statusFilter);
+    setDraftVendorFilter(vendorFilter);
+    setDraftAmountFilter(amountFilter);
+    setDraftDateFilter(dateFilter);
+  }
+}, [sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load categories from master
   const loadCategories = useCallback(async () => {
@@ -2267,7 +2283,7 @@ const clearFilters = () => {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                       <Building className="h-3 w-3 text-indigo-500" /> Property
                     </p>
-                    <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+                    <Select value={draftPropertyFilter} onValueChange={(val) => setDraftPropertyFilter(val)}>
                       <SelectTrigger className="w-full h-8 text-xs border-gray-200">
                         <SelectValue placeholder="Select property" />
                       </SelectTrigger>
@@ -2285,17 +2301,17 @@ const clearFilters = () => {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                       <TrendingDown className="h-3 w-3 text-orange-500" /> Payment Status
                     </p>
-                    <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as PaymentStatus)}>
-                      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Partial">Partial</SelectItem>
-                        <SelectItem value="Paid">Paid</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Select value={draftStatusFilter} onValueChange={(val) => setDraftStatusFilter(val as PaymentStatus)}>
+  <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+    <SelectValue placeholder="Select status" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Status</SelectItem>
+    <SelectItem value="Pending">Pending</SelectItem>
+    <SelectItem value="Partial">Partial</SelectItem>
+    <SelectItem value="Paid">Paid</SelectItem>
+  </SelectContent>
+</Select>
                   </div>
 
                   {/* Vendor — Advanced filter */}
@@ -2303,17 +2319,17 @@ const clearFilters = () => {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                       <Package className="h-3 w-3 text-cyan-500" /> Vendor
                     </p>
-                    <Select value={vendorFilter} onValueChange={(val) => setVendorFilter(val)}>
-                      <SelectTrigger className="w-full h-8 text-xs border-gray-200">
-                        <SelectValue placeholder="Select vendor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Vendors</SelectItem>
-                        {[...new Set(purchases.map((p) => p.vendor_name).filter(Boolean))].map((v) => (
-                          <SelectItem key={v} value={v}>{v}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Select value={draftVendorFilter} onValueChange={(val) => setDraftVendorFilter(val)}>
+  <SelectTrigger className="w-full h-8 text-xs border-gray-200">
+    <SelectValue placeholder="Select vendor" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Vendors</SelectItem>
+    {[...new Set(purchases.map((p) => p.vendor_name).filter(Boolean))].map((v) => (
+      <SelectItem key={v} value={v}>{v}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                   </div>
 
                   {/* Amount Range — Advanced filter */}
@@ -2351,44 +2367,58 @@ const clearFilters = () => {
                       Purchase Date
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-gray-500 block mb-0.5">From Date</label>
-                        <Input
-                          type="date"
-                          value={dateFilter.from}
-                          onChange={(e) => setDateFilter((prev) => ({ ...prev, from: e.target.value }))}
-                          className="h-7 text-[10px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-500 block mb-0.5">To Date</label>
-                        <Input
-                          type="date"
-                          value={dateFilter.to}
-                          onChange={(e) => setDateFilter((prev) => ({ ...prev, to: e.target.value }))}
-                          className="h-7 text-[10px]"
-                        />
-                      </div>
-                    </div>
+  <div>
+    <label className="text-[10px] text-gray-500 block mb-0.5">From Date</label>
+    <Input
+      type="date"
+      value={draftDateFilter.from}
+      onChange={(e) => setDraftDateFilter((prev) => ({ ...prev, from: e.target.value }))}
+      className="h-7 text-[10px]"
+    />
+  </div>
+  <div>
+    <label className="text-[10px] text-gray-500 block mb-0.5">To Date</label>
+    <Input
+      type="date"
+      value={draftDateFilter.to}
+      onChange={(e) => setDraftDateFilter((prev) => ({ ...prev, to: e.target.value }))}
+      className="h-7 text-[10px]"
+    />
+  </div>
+</div>
                   </div>
                 </div>
               </div>
 
               <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-                <button
-                  onClick={clearFilters}
-                  disabled={!hasFilters}
-                  className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40"
-                >
-                  Clear All
-                </button>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
-                >
-                  Apply & Close
-                </button>
-              </div>
+  <button
+    onClick={() => {
+      clearFilters();
+      setDraftPropertyFilter("all");
+      setDraftStatusFilter("all");
+      setDraftVendorFilter("all");
+      setDraftAmountFilter({ min: "", max: "" });
+      setDraftDateFilter({ from: "", to: "" });
+    }}
+    disabled={!hasFilters}
+    className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40"
+  >
+    Clear All
+  </button>
+  <button
+    onClick={() => {
+      setPropertyFilter(draftPropertyFilter);
+      setStatusFilter(draftStatusFilter);
+      setVendorFilter(draftVendorFilter);
+      setAmountFilter(draftAmountFilter);
+      setDateFilter(draftDateFilter);
+      setSidebarOpen(false);
+    }}
+    className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
+  >
+    Apply & Close
+  </button>
+</div>
             </aside>
           </>
         )}
