@@ -22,6 +22,7 @@ export interface CommunicationLog {
   deleted_at: string | null;
   tenant_name: string | null;
   property_name: string | null;
+  content?: string;
 }
 
 export interface CommunicationLogFilters {
@@ -46,6 +47,12 @@ export interface PaginatedResponse {
     total: number;
     total_pages: number;
   };
+}
+
+export interface CommunicationLogDetail extends CommunicationLog {
+  content: string;
+  tenant_email?: string;
+  tenant_phone?: string;
 }
 
 // Get all communication logs

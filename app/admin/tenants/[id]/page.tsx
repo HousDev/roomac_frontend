@@ -1710,16 +1710,24 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
         noticePenalty: Number(vr?.notice_penalty_amount || 0),
         inspectionPenalty: Number(vr?.inspection_penalty_amount || 0),
         vacateReason: vr?.vacate_reason_value || "—",
-        lockInPeriod: vr?.lockin_period_months
-          ? `${vr.lockin_period_months} months`
-          : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
-        lockinPenaltyType: vr?.lockin_penalty_type || tenant.lockin_penalty_type || "fixed",
-        lockinPenaltyAmount: Number(vr?.lockin_penalty_amount || tenant.lockin_penalty_amount || 0),
-        noticePeriod: vr?.notice_period_days
-          ? `${vr.notice_period_days} days`
-          : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
-        noticePenaltyType: vr?.notice_penalty_type || tenant.notice_penalty_type || "fixed",
-        noticePenaltyAmount: Number(vr?.notice_penalty_amount || tenant.notice_penalty_amount || 0),
+       lockInPeriod: vr?.lockin_period_months
+  ? `${vr.lockin_period_months} months`
+  : (tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "—"),
+lockinPenaltyType: isVacatedRecord
+  ? (vr?.lockin_penalty_type || "fixed")
+  : (tenant.lockin_penalty_type || "fixed"),
+lockinPenaltyAmount: Number(
+  isVacatedRecord ? (vr?.lockin_penalty_amount || 0) : (tenant.lockin_penalty_amount || 0)
+),
+noticePeriod: vr?.notice_period_days
+  ? `${vr.notice_period_days} days`
+  : (tenant.notice_period_days ? `${tenant.notice_period_days} days` : "—"),
+noticePenaltyType: isVacatedRecord
+  ? (vr?.notice_penalty_type || "fixed")
+  : (tenant.notice_penalty_type || "fixed"),
+noticePenaltyAmount: Number(
+  isVacatedRecord ? (vr?.notice_penalty_amount || 0) : (tenant.notice_penalty_amount || 0)
+),
         partner: stayPartner,
       };
     })
@@ -2309,13 +2317,13 @@ const sections = allStays.map((stay, idx) => `
                               ["Lock-in Period", stay.lockInPeriod],
                               ["Lock-in Penalty", stay.lockinPenaltyAmount > 0 ? (
                                 stay.lockinPenaltyType === "percentage"
-                                  ? `${stay.lockinPenaltyAmount}% of rent`
+                                  ? `${stay.lockinPenaltyAmount}% of deposit`
                                   : formatINR(stay.lockinPenaltyAmount)
                               ) : "—"],
                               ["Notice Period", stay.noticePeriod],
                               ["Notice Penalty", stay.noticePenaltyAmount > 0 ? (
                                 stay.noticePenaltyType === "percentage"
-                                  ? `${stay.noticePenaltyAmount}% of rent`
+                                  ? `${stay.noticePenaltyAmount}% of deposit`
                                   : formatINR(stay.noticePenaltyAmount)
                               ) : "—"],
                             ].map(([k, v]) => (
