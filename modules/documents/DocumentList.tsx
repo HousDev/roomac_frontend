@@ -1695,6 +1695,13 @@ const [totalPages, setTotalPages] = useState(1);
     completed: docs.filter(d => d.status === "Completed").length,
   }), [docs]);
 
+  // ── Draft filters (sidebar binds here, not applied until Apply & Close) ──
+const [draftStatusFilter, setDraftStatusFilter] = useState("all");
+const [draftPriorityFilter, setDraftPriorityFilter] = useState("all");
+const [draftSidebarTenantFilter, setDraftSidebarTenantFilter] = useState<string>("all");
+const [draftSidebarDocFilter, setDraftSidebarDocFilter] = useState<string>("all");
+const [draftSidebarPropertyFilter, setDraftSidebarPropertyFilter] = useState<string>("all");
+
 const loadDocs = useCallback(async (page = currentPage) => {
   setLoading(true);
   try {
@@ -2054,11 +2061,11 @@ const filterCount = [
 ].filter(Boolean).length;
 
 const clearFilters = () => {
-  setStatusFilter("all");
-  setPriorityFilter("all");
-  setSidebarTenantFilter("all");
-  setSidebarDocFilter("all");
-  setSidebarPropertyFilter("all");
+  setStatusFilter("all"); setDraftStatusFilter("all");
+  setPriorityFilter("all"); setDraftPriorityFilter("all");
+  setSidebarTenantFilter("all"); setDraftSidebarTenantFilter("all");
+  setSidebarDocFilter("all"); setDraftSidebarDocFilter("all");
+  setSidebarPropertyFilter("all"); setDraftSidebarPropertyFilter("all");
   setCol({ document_number: "", tenant_name: "", property_name: "" });
 };
   const hasColSearch = Object.values(col).some(v => v !== "");
@@ -2182,7 +2189,17 @@ function FilterSelect({
       )}
 
       <button
-        onClick={() => setSidebarOpen(o => !o)}
+        onClick={() => setSidebarOpen(o => {
+    const opening = !o;
+    if (opening) {
+      setDraftStatusFilter(statusFilter);
+      setDraftPriorityFilter(priorityFilter);
+      setDraftSidebarTenantFilter(sidebarTenantFilter);
+      setDraftSidebarDocFilter(sidebarDocFilter);
+      setDraftSidebarPropertyFilter(sidebarPropertyFilter);
+    }
+    return opening;
+  })}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
           ${
             sidebarOpen || hasFilters
@@ -2612,8 +2629,8 @@ function FilterSelect({
     {/* Document Name */}
     <FilterSelect
       label="Document Name"
-      value={sidebarDocFilter}
-      onChange={setSidebarDocFilter}
+      value={draftSidebarDocFilter}
+  onChange={setDraftSidebarDocFilter}
       options={[
         { value: "all", label: "All Documents" },
         ...documentNames.map(name => ({ value: name, label: name }))
@@ -2625,8 +2642,8 @@ function FilterSelect({
     {/* Tenant */}
     <FilterSelect
       label="Tenant"
-      value={sidebarTenantFilter}
-      onChange={setSidebarTenantFilter}
+      value={draftSidebarTenantFilter}
+  onChange={setDraftSidebarTenantFilter}
       options={[
         { value: "all", label: "All Tenants" },
         ...tenants.map(t => ({ value: String(t.id), label: `${t.full_name} ` }))
@@ -2638,8 +2655,8 @@ function FilterSelect({
     {/* Property */}
     <FilterSelect
       label="Property"
-      value={sidebarPropertyFilter}
-      onChange={setSidebarPropertyFilter}
+      value={draftSidebarPropertyFilter}
+  onChange={setDraftSidebarPropertyFilter}
       options={[
         { value: "all", label: "All Properties" },
         ...properties.map(p => ({ value: String(p.id), label: p.name }))
@@ -2653,8 +2670,8 @@ function FilterSelect({
     {/* Status */}
     <FilterSelect
       label="Status"
-      value={statusFilter}
-      onChange={setStatusFilter}
+      value={draftStatusFilter}
+  onChange={setDraftStatusFilter}
       options={[
         { value: "all", label: "All Statuses" },
         ...ALL_STATUSES.map(s => ({ value: s, label: s }))
@@ -2665,8 +2682,8 @@ function FilterSelect({
     {/* Priority */}
     <FilterSelect
       label="Priority"
-      value={priorityFilter}
-      onChange={setPriorityFilter}
+      value={draftPriorityFilter}
+      onChange={setDraftPriorityFilter}
       options={[
         { value: "all", label: "All Priorities" },
         { value: "low",    label: "Low" },
@@ -2684,7 +2701,14 @@ function FilterSelect({
       className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40">
       Clear All
     </button>
-    <button onClick={() => setSidebarOpen(false)}
+    <button onClick={() => {
+    setStatusFilter(draftStatusFilter);
+    setPriorityFilter(draftPriorityFilter);
+    setSidebarTenantFilter(draftSidebarTenantFilter);
+    setSidebarDocFilter(draftSidebarDocFilter);
+    setSidebarPropertyFilter(draftSidebarPropertyFilter);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-semibold">
       Apply & Close
     </button>

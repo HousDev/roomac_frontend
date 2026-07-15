@@ -403,7 +403,22 @@ if (p.total_beds > 0) {
     };
 
     initializeData();
-  }, []); // Run once on mount
+  }, []); // Run once on 
+  
+    // ── Helper: map a property's raw tag IDs to display names ──
+  const getTagNamesForProperty = useCallback((tags: any): string[] => {
+    if (!tags || !Array.isArray(tags)) return [];
+    if (!mastersLoaded || !propertiesMasters["Tags"]) return [];
+    return tags
+      .map((id: string | number) => {
+        const numId = Number(id);
+        const matchingTag = propertiesMasters["Tags"].find(
+          tag => tag.id === numId || tag.name === String(id)
+        );
+        return matchingTag ? matchingTag.name : null;
+      })
+      .filter(Boolean) as string[];
+  }, [propertiesMasters, mastersLoaded]);
 
   // Filter properties when search/filters change
  useEffect(() => {
@@ -445,8 +460,8 @@ if (p.total_beds > 0) {
   }
   if (propFilters.tag !== "all") {
     filtered = filtered.filter(p => {
-      const tags = Array.isArray(p.tags) ? p.tags : [];
-      return tags.some(t => typeof t === 'string' && t.toLowerCase() === propFilters.tag);
+      const names = getTagNamesForProperty(p.tags);
+      return names.some(name => name.toLowerCase() === propFilters.tag);
     });
   }
   if (propFilters.manager !== "all") {
@@ -454,7 +469,7 @@ if (p.total_beds > 0) {
   }
 
   setFilteredProperties(filtered);
-}, [properties, searchQuery, propFilters,rooms]);
+}, [properties, searchQuery, propFilters, rooms, getTagNamesForProperty]);
 
   // Update showBulkActions
   useEffect(() => {
@@ -936,6 +951,8 @@ if (p.total_beds > 0) {
         .filter(tag => tag && tag.trim() !== '' && typeof tag === 'string')
     )
   );
+
+
 
   // Stats Cards Component
 // Stats Cards Component

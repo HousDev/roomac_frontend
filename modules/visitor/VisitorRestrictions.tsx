@@ -205,6 +205,14 @@ const [startDateTo, setStartDateTo] = useState('');
 const [endDateFrom, setEndDateFrom] = useState('');
 const [endDateTo, setEndDateTo] = useState('');
 
+const [draftTypeFilter, setDraftTypeFilter] = useState('all');
+const [draftStatusFilter, setDraftStatusFilter] = useState('all');
+const [draftPropertyFilter, setDraftPropertyFilter] = useState('all');
+const [draftStartDateFrom, setDraftStartDateFrom] = useState('');
+const [draftStartDateTo, setDraftStartDateTo] = useState('');
+const [draftEndDateFrom, setDraftEndDateFrom] = useState('');
+const [draftEndDateTo, setDraftEndDateTo] = useState('');
+
   // Column search
   const [colSearch, setColSearch] = useState({
     property_name: '', restriction_type: '', description: '', start_time: '', status: '',
@@ -703,13 +711,13 @@ const activeCount = [
   !!endDateTo,
 ].filter(Boolean).length;
 const clearFilters = () => {
-  setStatusFilter('all');
-  setTypeFilter('all');
-  setPropertyFilter('all');
-  setStartDateFrom('');
-  setStartDateTo('');
-  setEndDateFrom('');
-  setEndDateTo('');
+  setStatusFilter('all'); setDraftStatusFilter('all');
+  setTypeFilter('all'); setDraftTypeFilter('all');
+  setPropertyFilter('all'); setDraftPropertyFilter('all');
+  setStartDateFrom(''); setDraftStartDateFrom('');
+  setStartDateTo(''); setDraftStartDateTo('');
+  setEndDateFrom(''); setDraftEndDateFrom('');
+  setEndDateTo(''); setDraftEndDateTo('');
 };
 
 const clearColSearch = () => setColSearch({ property_name: '', restriction_type: '', description: '', start_time: '', status: '' });
@@ -760,7 +768,19 @@ const clearColSearch = () => setColSearch({ property_name: '', restriction_type:
     {/* RIGHT - Action Buttons */}
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
       <button
-        onClick={() => setSidebarOpen(o => !o)}
+        onClick={() => setSidebarOpen(o => {
+    const opening = !o;
+    if (opening) {
+      setDraftTypeFilter(typeFilter);
+      setDraftStatusFilter(statusFilter);
+      setDraftPropertyFilter(propertyFilter);
+      setDraftStartDateFrom(startDateFrom);
+      setDraftStartDateTo(startDateTo);
+      setDraftEndDateFrom(endDateFrom);
+      setDraftEndDateTo(endDateTo);
+    }
+    return opening;
+  })}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
           ${
             sidebarOpen || hasFilters
@@ -1153,7 +1173,7 @@ const clearColSearch = () => setColSearch({ property_name: '', restriction_type:
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <CheckCircle className="h-3 w-3 text-green-500" /> Status
       </p>
-      <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+      <Select value={draftStatusFilter} onValueChange={setDraftStatusFilter}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select status" />
         </SelectTrigger>
@@ -1172,7 +1192,7 @@ const clearColSearch = () => setColSearch({ property_name: '', restriction_type:
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <ShieldAlert className="h-3 w-3 text-blue-500" /> Restriction Type
       </p>
-      <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val)}>
+      <Select value={draftTypeFilter} onValueChange={setDraftTypeFilter}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select type" />
         </SelectTrigger>
@@ -1192,7 +1212,7 @@ const clearColSearch = () => setColSearch({ property_name: '', restriction_type:
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <Building className="h-3 w-3 text-indigo-500" /> Property
       </p>
-      <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+      <Select value={draftPropertyFilter} onValueChange={setDraftPropertyFilter}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select property" />
         </SelectTrigger>
@@ -1213,7 +1233,16 @@ const clearColSearch = () => setColSearch({ property_name: '', restriction_type:
       className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
       Clear All
     </button>
-    <button onClick={() => setSidebarOpen(false)}
+    <button onClick={() => {
+    setTypeFilter(draftTypeFilter);
+    setStatusFilter(draftStatusFilter);
+    setPropertyFilter(draftPropertyFilter);
+    setStartDateFrom(draftStartDateFrom);
+    setStartDateTo(draftStartDateTo);
+    setEndDateFrom(draftEndDateFrom);
+    setEndDateTo(draftEndDateTo);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700">
       Apply & Close
     </button>
