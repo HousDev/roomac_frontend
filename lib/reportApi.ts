@@ -681,3 +681,30 @@ export async function getOperationalInsights(filters: Partial<ReportFilters>): P
   const response = await request<any>(`/api/reports/operational-insights?${params.toString()}`);
   return response.success ? response.data : null;
 }
+
+export async function getReportData(reportType: string, filters: { startDate?: string; endDate?: string; propertyId?: string }): Promise<any> {
+  try {
+    const params = new URLSearchParams();
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.propertyId && filters.propertyId !== 'all') params.append('propertyId', filters.propertyId);
+
+    const response = await request<any>(`/api/reports/data/${reportType}?${params.toString()}`);
+    return response;
+  } catch (error) {
+    console.error(`Error in getReportData api call for ${reportType}:`, error);
+    return { success: false, message: 'API Call failed' };
+  }
+}
+
+/** GET /api/reports/filters */
+export async function getReportFilters() {
+  return await request<{
+    success: boolean;
+    message?: string;
+    data?: {
+      properties: Array<{ id: string; name: string; address: string; city: string }>;
+      dateRanges: Array<{ value: string; label: string }>;
+    };
+  }>("/api/reports/filters", { method: "GET" });
+}

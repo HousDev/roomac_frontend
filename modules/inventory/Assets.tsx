@@ -136,6 +136,27 @@ const [categorySelectOpen, setCategorySelectOpen] = useState(false);
 const [itemSelectOpen, setItemSelectOpen] = useState(false);
 const [propertySelectOpen, setPropertySelectOpen] = useState(false);
 
+const [draftStockFilter, setDraftStockFilter] = useState<StockFilter>('all');
+const [draftCategoryFilter, setDraftCategoryFilter] = useState('all');
+const [draftPropertyFilter, setDraftPropertyFilter] = useState('all');
+const [draftAssetStatusFilter, setDraftAssetStatusFilter] = useState('all');
+const [draftVendorFilter, setDraftVendorFilter] = useState('all');
+const [draftDateFrom, setDraftDateFrom] = useState('');
+const [draftDateTo, setDraftDateTo] = useState('');
+
+
+useEffect(() => {
+  if (sidebarOpen) {
+    setDraftStockFilter(stockFilter);
+    setDraftCategoryFilter(categoryFilter);
+    setDraftPropertyFilter(propertyFilter);
+    setDraftAssetStatusFilter(assetStatusFilter);
+    setDraftVendorFilter(vendorFilter);
+    setDraftDateFrom(dateFrom);
+    setDraftDateTo(dateTo);
+  }
+}, [sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
 // NEW — auto-focus effects
 useEffect(() => {
   if (categorySelectOpen) {
@@ -1529,7 +1550,7 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <TrendingDown className="h-3 w-3 text-orange-500" /> Stock Status
       </p>
-      <Select value={stockFilter} onValueChange={(val) => setStockFilter(val as StockFilter)}>
+      <Select value={draftStockFilter} onValueChange={(val) => setDraftStockFilter(val as StockFilter)}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select status" />
         </SelectTrigger>
@@ -1546,7 +1567,7 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <Package className="h-3 w-3 text-blue-500" /> Category
       </p>
-      <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val)}>
+      <Select value={draftCategoryFilter} onValueChange={(val) => setDraftCategoryFilter(val)}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select category" />
         </SelectTrigger>
@@ -1564,7 +1585,7 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <Building className="h-3 w-3 text-indigo-500" /> Property
       </p>
-      <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+      <Select value={draftPropertyFilter} onValueChange={(val) => setDraftPropertyFilter(val)}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select property" />
         </SelectTrigger>
@@ -1582,7 +1603,7 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <AlertCircle className="h-3 w-3 text-purple-500" /> Asset Status
       </p>
-    <Select value={assetStatusFilter} onValueChange={(val) => setAssetStatusFilter(val)}>
+    <Select value={draftAssetStatusFilter} onValueChange={(val) => setDraftAssetStatusFilter(val)}>
   <SelectTrigger className="w-full h-8 text-xs border-gray-200">
     <SelectValue placeholder="Select status" />
   </SelectTrigger>
@@ -1601,7 +1622,7 @@ const handleCopyLink = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <Users className="h-3 w-3 text-cyan-500" /> Vendor
       </p>
-      <Select value={vendorFilter} onValueChange={(val) => setVendorFilter(val)}>
+      <Select value={draftVendorFilter} onValueChange={(val) => setDraftVendorFilter(val)}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select vendor" />
         </SelectTrigger>
@@ -1624,8 +1645,8 @@ const handleCopyLink = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
           <Input
             type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            value={draftDateFrom}
+            onChange={(e) => setDraftDateFrom(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1633,8 +1654,8 @@ const handleCopyLink = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
           <Input
             type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            value={draftDateTo}
+            onChange={(e) => setDraftDateTo(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1643,21 +1664,39 @@ const handleCopyLink = () => {
   </div>
 </div>
 
-          <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
-            <button
-              onClick={clearFilters}
-              disabled={!hasFilters}
-              className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Clear All
-            </button>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700 transition-colors"
-            >
-              Apply & Close
-            </button>
-          </div>
+         <div className="flex-shrink-0 border-t px-4 py-3 bg-gray-50 flex gap-2">
+  <button
+    onClick={() => {
+      clearFilters();
+      setDraftStockFilter('all');
+      setDraftCategoryFilter('all');
+      setDraftPropertyFilter('all');
+      setDraftAssetStatusFilter('all');
+      setDraftVendorFilter('all');
+      setDraftDateFrom('');
+      setDraftDateTo('');
+    }}
+    disabled={!hasFilters}
+    className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+  >
+    Clear All
+  </button>
+  <button
+    onClick={() => {
+      setStockFilter(draftStockFilter);
+      setCategoryFilter(draftCategoryFilter);
+      setPropertyFilter(draftPropertyFilter);
+      setAssetStatusFilter(draftAssetStatusFilter);
+      setVendorFilter(draftVendorFilter);
+      setDateFrom(draftDateFrom);
+      setDateTo(draftDateTo);
+      setSidebarOpen(false);
+    }}
+    className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700 transition-colors"
+  >
+    Apply & Close
+  </button>
+</div>
         </aside>
       </div>
 

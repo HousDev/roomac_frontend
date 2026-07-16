@@ -256,22 +256,19 @@ export function TenantForm({ tenant, onSuccess, onCancel, initialTab = "basic" }
     Array<{ filename: string; url: string; uploaded_at?: string }>
   >(tenant?.additional_documents || []);
  // Fix the createCredentials initialization
+// Fix the createCredentials initialization
 const [createCredentials, setCreateCredentials] = useState(() => {
   if (!tenant?.id) return false;
-  // Handle both boolean and number values from backend
+  // ✅ Portal access toggle reflects portal_access_enabled ONLY.
+  // has_credentials is a separate concern (whether a login has been
+  // created) — requiring both was silently turning portal access off
+  // for any tenant who had it enabled without credentials being set
+  // (e.g. via the standalone "Enable Portal Access" action), since
+  // every form save re-sends this value regardless of what was edited.
   const portalEnabled = tenant.portal_access_enabled === true || 
                         tenant.portal_access_enabled === 1 || 
                         tenant.portal_access_enabled === "1";
-  const hasCreds = tenant.has_credentials === true || 
-                   tenant.has_credentials === 1 || 
-                   tenant.has_credentials === "1";
-  // console.log('🔐 Initializing createCredentials:', { 
-  //   portalEnabled, 
-  //   hasCreds, 
-  //   rawPortal: tenant.portal_access_enabled,
-  //   rawHasCreds: tenant.has_credentials 
-  // });
-  return portalEnabled && hasCreds;
+  return portalEnabled;
 });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -441,23 +438,14 @@ useEffect(() => {
     const portalEnabled = tenant.portal_access_enabled === true || 
                           tenant.portal_access_enabled === 1 || 
                           tenant.portal_access_enabled === "1";
-    const hasCreds = tenant.has_credentials === true || 
-                     tenant.has_credentials === 1 || 
-                     tenant.has_credentials === "1";
-    const shouldBeEnabled = portalEnabled && hasCreds;
-    
-    // console.log('🔐 Syncing createCredentials:', { 
-    //   shouldBeEnabled, 
-    //   currentValue: createCredentials,
-    //   portalEnabled,
-    //   hasCreds
-    // });
+    // ✅ Same fix — sync purely off portal_access_enabled
+    const shouldBeEnabled = portalEnabled;
     
     if (shouldBeEnabled !== createCredentials) {
       setCreateCredentials(shouldBeEnabled);
     }
   }
-}, [tenant?.portal_access_enabled, tenant?.has_credentials]);
+}, [tenant?.portal_access_enabled]);
 
   useEffect(() => {
     loadOptions();

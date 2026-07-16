@@ -94,6 +94,7 @@ export default function NoticePeriodRequestsPage() {
   const [isTenantDropdownOpen, setIsTenantDropdownOpen] = useState(false);
   const tenantSearchRef = useRef<HTMLInputElement>(null);
   const tenantDropdownRef = useRef<HTMLDivElement>(null);
+  const [isSending, setIsSending] = useState(false); 
 
   // Load data on mount
   useEffect(() => {
@@ -254,8 +255,10 @@ export default function NoticePeriodRequestsPage() {
       toast.error("Please fill all required fields");
       return;
     }
+    if (isSending) return;
 
     try {
+      setIsSending(true);
       const result = await createNoticePeriodRequest({
         tenant_id: parseInt(selectedTenant),
         title,
@@ -277,7 +280,9 @@ export default function NoticePeriodRequestsPage() {
     } catch (error) {
       console.error("Failed to create request:", error);
       toast.error("Failed to send request");
-    }
+    }finally {
+    setIsSending(false); // ✅ reset regardless of outcome
+  }
   };
 
   const handleDelete = async (id: number) => {
@@ -995,7 +1000,8 @@ className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
 </Card>
 
       {/* Create Request Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+      <Dialog open={showCreateDialog} onOpenChange={(open) => { 
+        if (isSending) return;
         setShowCreateDialog(open);
         if (!open) {
           resetForm();
@@ -1027,6 +1033,7 @@ className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
                 variant="ghost" 
                 size="icon" 
                 onClick={() => {
+                  if (isSending) return;
                   setShowCreateDialog(false);
                   resetForm();
                   setTenantSearch("");
@@ -1282,11 +1289,13 @@ className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
         setIsTenantDropdownOpen(false);
       }}
       className="px-6 h-8 text-xs"
+      disabled={isSending} 
     >
       Cancel
     </Button>
     <Button
       type="submit"
+      disabled={isSending} 
       className="px-6 h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:from-blue-600 hover:to-cyan-600"
     >
       Send Request

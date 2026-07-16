@@ -127,6 +127,12 @@ const [toConditionFilter,   setToConditionFilter]   = useState('all');
 const [minPenaltyFilter,    setMinPenaltyFilter]    = useState('');
 const [maxPenaltyFilter,    setMaxPenaltyFilter]    = useState('');
 
+const [draftCategoryFilter, setDraftCategoryFilter] = useState('all');
+const [draftFromConditionFilter, setDraftFromConditionFilter] = useState('all');
+const [draftToConditionFilter, setDraftToConditionFilter] = useState('all');
+const [draftMinPenaltyFilter, setDraftMinPenaltyFilter] = useState('');
+const [draftMaxPenaltyFilter, setDraftMaxPenaltyFilter] = useState('');
+
   const [colSearch, setColSearch] = useState({
     item_category: '',
     from_condition: '',
@@ -391,42 +397,47 @@ useEffect(() => {
   }
 };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (formData.penalty_amount < 0) {
-      toast.error('Penalty amount cannot be negative');
-      return;
+  if (formData.penalty_amount < 0) {
+    toast.error('Penalty amount cannot be negative');
+    return;
+  }
+  if (formData.from_condition === formData.to_condition) {
+    toast.error('From condition and to condition cannot be the same');
+    return;
+  }
+  if (!formData.item_category) {
+    toast.error('Please select a category');
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    if (editingRule) {
+      const res = await penaltyRulesApi.update(editingRule.id, formData);
+      const updated = res?.data || res;
+      // ✅ Immediately reflect the change in local state
+      setRules(prev => prev.map(r => (r.id === editingRule.id ? { ...r, ...updated } : r)));
+      toast.success('Penalty rule updated successfully');
+    } else {
+      const res = await penaltyRulesApi.create(formData);
+      const created = res?.data || res;
+      // ✅ Immediately add the new rule to local state
+      setRules(prev => [created, ...prev]);
+      setCurrentPage(1); // ensure the new rule is visible even with pagination
+      toast.success('Penalty rule created successfully');
     }
 
-    if (formData.from_condition === formData.to_condition) {
-      toast.error('From condition and to condition cannot be the same');
-      return;
-    }
-
-    if (!formData.item_category) {
-      toast.error('Please select a category');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (editingRule) {
-        await penaltyRulesApi.update(editingRule.id, formData);
-        toast.success('Penalty rule updated successfully');
-      } else {
-        await penaltyRulesApi.create(formData);
-        toast.success('Penalty rule created successfully');
-      }
-      
-      setShowModal(false);
-      await loadRules();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save penalty rule');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setShowModal(false);
+    await loadRules(); // still re-sync with server as a safety net
+  } catch (err: any) {
+    toast.error(err.message || 'Failed to save penalty rule');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
 const handleExport = () => {
   try {
@@ -643,11 +654,11 @@ const activeFilterCount = [
 ].filter(Boolean).length;
 
 const clearFilters = () => {
-  setCategoryFilter('all');
-  setFromConditionFilter('all');
-  setToConditionFilter('all');
-  setMinPenaltyFilter('');
-  setMaxPenaltyFilter('');
+  setCategoryFilter('all'); setDraftCategoryFilter('all');
+  setFromConditionFilter('all'); setDraftFromConditionFilter('all');
+  setToConditionFilter('all'); setDraftToConditionFilter('all');
+  setMinPenaltyFilter(''); setDraftMinPenaltyFilter('');
+  setMaxPenaltyFilter(''); setDraftMaxPenaltyFilter('');
 };
 
   const clearColSearch = () => {
@@ -707,7 +718,17 @@ const clearFilters = () => {
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
 
      <button
-  onClick={() => setSidebarOpen(o => !o)}
+  onClick={() => setSidebarOpen(o => {
+    const opening = !o;
+    if (opening) {
+      setDraftCategoryFilter(categoryFilter);
+      setDraftFromConditionFilter(fromConditionFilter);
+      setDraftToConditionFilter(toConditionFilter);
+      setDraftMinPenaltyFilter(minPenaltyFilter);
+      setDraftMaxPenaltyFilter(maxPenaltyFilter);
+    }
+    return opening;
+  })}
   className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white
     ${
       sidebarOpen || hasFilters
@@ -1094,7 +1115,7 @@ const clearFilters = () => {
     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
       <Scale className="h-3 w-3 text-blue-500" /> Category
     </p>
-    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+    <Select value={draftCategoryFilter} onValueChange={setDraftCategoryFilter}>
       <SelectTrigger className="w-full h-8 text-xs border-gray-200">
         <SelectValue placeholder="Select category" />
       </SelectTrigger>
@@ -1112,7 +1133,7 @@ const clearFilters = () => {
     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
       <AlertTriangle className="h-3 w-3 text-amber-500" /> From Condition
     </p>
-    <Select value={fromConditionFilter} onValueChange={setFromConditionFilter}>
+    <Select value={draftFromConditionFilter} onValueChange={setDraftFromConditionFilter}>
       <SelectTrigger className="w-full h-8 text-xs border-gray-200">
         <SelectValue placeholder="Select condition" />
       </SelectTrigger>
@@ -1130,7 +1151,7 @@ const clearFilters = () => {
     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
       <Gavel className="h-3 w-3 text-orange-500" /> To Condition
     </p>
-    <Select value={toConditionFilter} onValueChange={setToConditionFilter}>
+    <Select value={draftToConditionFilter} onValueChange={setDraftToConditionFilter}>
       <SelectTrigger className="w-full h-8 text-xs border-gray-200">
         <SelectValue placeholder="Select condition" />
       </SelectTrigger>
@@ -1182,7 +1203,14 @@ const clearFilters = () => {
               Clear All
             </button>
             <button
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => {
+    setCategoryFilter(draftCategoryFilter);
+    setFromConditionFilter(draftFromConditionFilter);
+    setToConditionFilter(draftToConditionFilter);
+    setMinPenaltyFilter(draftMinPenaltyFilter);
+    setMaxPenaltyFilter(draftMaxPenaltyFilter);
+    setSidebarOpen(false);
+  }}
               className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700 transition-colors"
             >
               Apply & Close

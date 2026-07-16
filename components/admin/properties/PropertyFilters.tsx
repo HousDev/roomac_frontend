@@ -1,7 +1,7 @@
 // components/admin/properties/PropertyFilters.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -105,9 +105,20 @@ export default function PropertyFilters({
   properties,
   rooms,
 }: PropertyFiltersProps) {
+// ── Draft state: edits happen here, only pushed to parent on Apply ──
+  const [draftFilters, setDraftFilters] = useState<PropertyFilterState>(filters);
+
+  // Sync draft from parent whenever the sidebar opens (so reopening shows
+  // the currently-applied filters, and external resets are reflected too)
+  useEffect(() => {
+    if (sidebarOpen) {
+      setDraftFilters(filters);
+    }
+  }, [sidebarOpen, filters]);
 
   const set = (key: keyof PropertyFilterState, val: string) =>
-    onFiltersChange({ ...filters, [key]: val });
+    setDraftFilters((prev) => ({ ...prev, [key]: val }));
+
 
   const uniqueManagers = useMemo(() => {
     const s = new Set<string>();
@@ -183,10 +194,12 @@ const availCounts = useMemo(() => {
   return counts;
 }, [rooms, properties]);
 
-  const activeCount = useMemo(
-    () => Object.values(filters).filter((v) => v !== "all").length,
-    [filters]
+   const activeCount = useMemo(
+    () => Object.values(draftFilters).filter((v) => v !== "all").length,
+    [draftFilters]
   );
+
+  
 
   return (
     <>
@@ -239,31 +252,25 @@ const availCounts = useMemo(() => {
         </div>
 
         {/* Active pills */}
-        {activeCount > 0 && (
-          <div className="flex-shrink-0 px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex flex-wrap gap-1.5">
-            {filters.status !== "all" && (
-              <Pill
-                label={filters.status === "true" ? "Active" : "Inactive"}
-                onRemove={() => set("status", "all")}
-              />
-            )}
-            {filters.availability !== "all" && (
-              <Pill
-                label={`Avail: ${filters.availability}`}
-                onRemove={() => set("availability", "all")}
-              />
-            )}
-            {filters.location !== "all" && (
-              <Pill label={`Area: ${filters.location}`} onRemove={() => set("location", "all")} />
-            )}
-            {filters.tag !== "all" && (
-              <Pill label={`Tag: ${filters.tag}`} onRemove={() => set("tag", "all")} />
-            )}
-            {filters.manager !== "all" && (
-              <Pill label={`Mgr: ${filters.manager}`} onRemove={() => set("manager", "all")} />
-            )}
-          </div>
-        )}
+{activeCount > 0 && (
+  <div className="flex-shrink-0 px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex flex-wrap gap-1.5">
+    {draftFilters.status !== "all" && (
+      <Pill label={draftFilters.status === "true" ? "Active" : "Inactive"} onRemove={() => set("status", "all")} />
+    )}
+    {draftFilters.availability !== "all" && (
+      <Pill label={`Avail: ${draftFilters.availability}`} onRemove={() => set("availability", "all")} />
+    )}
+    {draftFilters.location !== "all" && (
+      <Pill label={`Area: ${draftFilters.location}`} onRemove={() => set("location", "all")} />
+    )}
+    {draftFilters.tag !== "all" && (
+      <Pill label={`Tag: ${draftFilters.tag}`} onRemove={() => set("tag", "all")} />
+    )}
+    {draftFilters.manager !== "all" && (
+      <Pill label={`Mgr: ${draftFilters.manager}`} onRemove={() => set("manager", "all")} />
+    )}
+  </div>
+)}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
@@ -271,7 +278,7 @@ const availCounts = useMemo(() => {
           {/* Status */}
           <div>
             <FLabel icon={CheckCircle}>Status</FLabel>
-            <Select value={filters.status} onValueChange={(v) => set("status", v)}>
+            <Select value={draftFilters.status} onValueChange={(v) => set("status", v)}>
               <SelectTrigger className="h-9 text-[12px] border-gray-200">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
@@ -296,7 +303,7 @@ const availCounts = useMemo(() => {
           {/* Availability */}
           <div>
             <FLabel icon={Bed}>Availability</FLabel>
-            <Select value={filters.availability} onValueChange={(v) => set("availability", v)}>
+            <Select value={draftFilters.availability} onValueChange={(v) => set("availability", v)}>
               <SelectTrigger className="h-9 text-[12px] border-gray-200">
                 <SelectValue placeholder="Any Availability" />
               </SelectTrigger>
@@ -339,7 +346,7 @@ const availCounts = useMemo(() => {
           {uniqueLocations.length > 0 && (
             <div>
               <FLabel icon={MapPin}>Location / Area</FLabel>
-              <Select value={filters.location} onValueChange={(v) => set("location", v)}>
+              <Select value={draftFilters.location} onValueChange={(v) => set("location", v)}>
                 <SelectTrigger className="h-9 text-[12px] border-gray-200">
                   <SelectValue placeholder="Any Location" />
                 </SelectTrigger>
@@ -362,7 +369,7 @@ const availCounts = useMemo(() => {
           {uniqueTags.length > 0 && (
             <div>
               <FLabel icon={Tag}>Tag</FLabel>
-              <Select value={filters.tag} onValueChange={(v) => set("tag", v)}>
+              <Select value={draftFilters.tag} onValueChange={(v) => set("tag", v)}>
                 <SelectTrigger className="h-9 text-[12px] border-gray-200">
                   <SelectValue placeholder="Any Tag" />
                 </SelectTrigger>
@@ -385,7 +392,7 @@ const availCounts = useMemo(() => {
           {uniqueManagers.length > 0 && (
             <div>
               <FLabel icon={Users}>Manager</FLabel>
-              <Select value={filters.manager} onValueChange={(v) => set("manager", v)}>
+              <Select value={draftFilters.manager} onValueChange={(v) => set("manager", v)}>
                 <SelectTrigger className="h-9 text-[12px] border-gray-200">
                   <SelectValue placeholder="Any Manager" />
                 </SelectTrigger>
@@ -417,28 +424,32 @@ const availCounts = useMemo(() => {
           </div>
           <div className="flex gap-2">
             <Button
-              type="button"
-              variant="outline"
-              className="flex-1 h-9 text-[12px] gap-1.5"
-              style={{ borderColor: colors.primary, color: colors.primary }}
-              onClick={onClearFilters}
-              disabled={activeCount === 0}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              className="flex-1 h-9 text-[12px] text-white gap-1.5"
-              style={{ backgroundColor: colors.primary }}
-              onClick={() => {
-                onApplyFilters();
-                setSidebarOpen(false);
-              }}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              Apply
-            </Button>
+  type="button"
+  variant="outline"
+  className="flex-1 h-9 text-[12px] gap-1.5"
+  style={{ borderColor: colors.primary, color: colors.primary }}
+  onClick={() => {
+    setDraftFilters(DEFAULT_PROPERTY_FILTERS);
+    onClearFilters();
+  }}
+  disabled={activeCount === 0}
+>
+  <RotateCcw className="h-3.5 w-3.5" />
+  Reset
+</Button>
+<Button
+  type="button"
+  className="flex-1 h-9 text-[12px] text-white gap-1.5"
+  style={{ backgroundColor: colors.primary }}
+  onClick={() => {
+    onFiltersChange(draftFilters);
+    onApplyFilters();
+    setSidebarOpen(false);
+  }}
+>
+  <Filter className="h-3.5 w-3.5" />
+  Apply
+</Button>
           </div>
         </div>
       </aside>

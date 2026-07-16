@@ -616,6 +616,10 @@ const [pageSize, setPageSize] = useState<number | "All">(25);
 const codeEditorRef = useRef<HTMLTextAreaElement>(null);
 const [cursorPos, setCursorPos] = useState<number | null>(null);
 
+// ── Draft filters (sidebar binds here, not applied until Apply & Close) ──
+const [draftCatFilter, setDraftCatFilter] = useState("all");
+const [draftStatusFilter, setDraftStatusFilter] = useState("all");
+
   // ── Column search ──────────────────────────────────────────────────────────
   const [col, setCol] = useState({
     name: "", category: "", description: "", version: "", status: "",
@@ -1457,7 +1461,10 @@ const handleExport = () => {
   // ── Filter helpers ─────────────────────────────────────────────────────────
   const hasFilters = catFilter !== "all" || statusFilter !== "all";
   const filterCount = [catFilter !== "all", statusFilter !== "all"].filter(Boolean).length;
-  const clearFilters = () => { setCatFilter("all"); setStatusFilter("all"); };
+  const clearFilters = () => {
+  setCatFilter("all"); setDraftCatFilter("all");
+  setStatusFilter("all"); setDraftStatusFilter("all");
+};
   const hasCol = Object.values(col).some(v => v !== "");
   const clearCol = () => setCol({ name: "", category: "", description: "", version: "", status: "" });
 
@@ -1544,7 +1551,14 @@ const handleExport = () => {
 
       {/* Filter */}
       <button
-        onClick={() => setSidebarOpen((o) => !o)}
+        onClick={() => setSidebarOpen((o) => {
+    const opening = !o;
+    if (opening) {
+      setDraftCatFilter(catFilter);
+      setDraftStatusFilter(statusFilter);
+    }
+    return opening;
+  })}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
           ${
             sidebarOpen || hasFilters
@@ -1961,8 +1975,8 @@ const handleExport = () => {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Category</p>
       </div>
       <select
-        value={catFilter}
-        onChange={(e) => setCatFilter(e.target.value)}
+        value={draftCatFilter}
+  onChange={(e) => setDraftCatFilter(e.target.value)}
         className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-[12px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       >
         <option value="all">All Categories</option>
@@ -1981,8 +1995,8 @@ const handleExport = () => {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
       </div>
       <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
+        value={draftStatusFilter}
+  onChange={(e) => setDraftStatusFilter(e.target.value)}
         className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-[12px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       >
         <option value="all">All</option>
@@ -2002,7 +2016,11 @@ const handleExport = () => {
       Clear All
     </button>
     <button
-      onClick={() => setSidebarOpen(false)}
+      onClick={() => {
+    setCatFilter(draftCatFilter);
+    setStatusFilter(draftStatusFilter);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-semibold"
     >
       Apply & Close

@@ -369,9 +369,7 @@ function FilterSidebar({
   }, [filters, open]);
 
 const set = (k: keyof FilterState, v: any) => {
-  const updated = { ...local, [k]: v };
-  setLocal(updated);
-  onApply(updated);  // ← fires immediately, triggers loadLogs
+  setLocal((prev) => ({ ...prev, [k]: v }));
 };
 
   const selectClasses =

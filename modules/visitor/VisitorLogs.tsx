@@ -96,6 +96,14 @@ const [entryDateTo, setEntryDateTo] = useState('');
 const [exitDateFrom, setExitDateFrom] = useState('');
 const [exitDateTo, setExitDateTo] = useState('');
 
+// ── Draft filters (sidebar binds here, not applied until Apply & Close) ──
+const [draftStatusFilter, setDraftStatusFilter] = useState<StatusFilter>('all');
+const [draftPropertyFilter, setDraftPropertyFilter] = useState('all');
+const [draftEntryDateFrom, setDraftEntryDateFrom] = useState('');
+const [draftEntryDateTo, setDraftEntryDateTo] = useState('');
+const [draftExitDateFrom, setDraftExitDateFrom] = useState('');
+const [draftExitDateTo, setDraftExitDateTo] = useState('');
+
   // filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
@@ -777,12 +785,12 @@ const activeCount = [
   !!exitDateTo,
 ].filter(Boolean).length;
 const clearFilters = () => {
-  setStatusFilter('all');
-  setPropertyFilter('all');
-  setEntryDateFrom('');
-  setEntryDateTo('');
-  setExitDateFrom('');
-  setExitDateTo('');
+  setStatusFilter('all'); setDraftStatusFilter('all');
+  setPropertyFilter('all'); setDraftPropertyFilter('all');
+  setEntryDateFrom(''); setDraftEntryDateFrom('');
+  setEntryDateTo(''); setDraftEntryDateTo('');
+  setExitDateFrom(''); setDraftExitDateFrom('');
+  setExitDateTo(''); setDraftExitDateTo('');
 };
   const clearColSearch  = () => setColSearch({ visitor_name: '', visitor_phone: '', tenant_name: '', property_name: '', room_number: '', status: '', entry_time: '' });
 
@@ -841,7 +849,18 @@ const clearFilters = () => {
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
 
       <button
-        onClick={() => setSidebarOpen(o => !o)}
+        onClick={() => setSidebarOpen(o => {
+    const opening = !o;
+    if (opening) {
+      setDraftStatusFilter(statusFilter);
+      setDraftPropertyFilter(propertyFilter);
+      setDraftEntryDateFrom(entryDateFrom);
+      setDraftEntryDateTo(entryDateTo);
+      setDraftExitDateFrom(exitDateFrom);
+      setDraftExitDateTo(exitDateTo);
+    }
+    return opening;
+  })}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
           ${
             sidebarOpen || hasFilters
@@ -1307,7 +1326,7 @@ const clearFilters = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
       </p>
-      <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusFilter)}>
+      <Select value={draftStatusFilter} onValueChange={(val) => setDraftStatusFilter(val as StatusFilter)}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select status" />
         </SelectTrigger>
@@ -1327,7 +1346,7 @@ const clearFilters = () => {
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
         <Building className="h-3 w-3 text-indigo-500" /> Property
       </p>
-      <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+      <Select value={draftPropertyFilter} onValueChange={setDraftPropertyFilter}>
         <SelectTrigger className="w-full h-8 text-xs border-gray-200">
           <SelectValue placeholder="Select property" />
         </SelectTrigger>
@@ -1352,8 +1371,7 @@ const clearFilters = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
           <Input
             type="date"
-            value={entryDateFrom}
-            onChange={(e) => setEntryDateFrom(e.target.value)}
+            value={draftEntryDateFrom} onChange={(e) => setDraftEntryDateFrom(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1361,8 +1379,7 @@ const clearFilters = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
           <Input
             type="date"
-            value={entryDateTo}
-            onChange={(e) => setEntryDateTo(e.target.value)}
+            value={draftEntryDateTo} onChange={(e) => setDraftEntryDateTo(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1379,8 +1396,7 @@ const clearFilters = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
           <Input
             type="date"
-            value={exitDateFrom}
-            onChange={(e) => setExitDateFrom(e.target.value)}
+            value={draftExitDateFrom} onChange={(e) => setDraftExitDateFrom(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1388,8 +1404,7 @@ const clearFilters = () => {
           <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
           <Input
             type="date"
-            value={exitDateTo}
-            onChange={(e) => setExitDateTo(e.target.value)}
+            value={draftExitDateTo} onChange={(e) => setDraftExitDateTo(e.target.value)}
             className="h-7 text-[10px]"
           />
         </div>
@@ -1402,7 +1417,15 @@ const clearFilters = () => {
       className="flex-1 h-8 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
       Clear All
     </button>
-    <button onClick={() => setSidebarOpen(false)}
+    <button onClick={() => {
+    setStatusFilter(draftStatusFilter);
+    setPropertyFilter(draftPropertyFilter);
+    setEntryDateFrom(draftEntryDateFrom);
+    setEntryDateTo(draftEntryDateTo);
+    setExitDateFrom(draftExitDateFrom);
+    setExitDateTo(draftExitDateTo);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-semibold hover:from-blue-700 hover:to-cyan-700">
       Apply & Close
     </button>

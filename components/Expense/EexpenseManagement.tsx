@@ -447,6 +447,17 @@ const importFileRef = useRef<HTMLInputElement>(null);
 // Receipt Preview Modal state
 const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
 const [receiptExpense, setReceiptExpense] = useState<any>(null);
+
+const [draftFilterMonth, setDraftFilterMonth] = useState("");
+const [draftFilterFromDate, setDraftFilterFromDate] = useState("");
+const [draftFilterToDate, setDraftFilterToDate] = useState("");
+const [draftIgnoreDateFilters, setDraftIgnoreDateFilters] = useState(false);
+const [draftFilterSubCat, setDraftFilterSubCat] = useState("All");
+const [draftFilterVendor, setDraftFilterVendor] = useState("All");
+const [draftFilterCat, setDraftFilterCat] = useState("All");
+const [draftFilterStatus, setDraftFilterStatus] = useState("All");
+const [draftFilterProp, setDraftFilterProp] = useState("All");
+
   // Auth
   const { can, user } = useAuth();
 
@@ -1787,8 +1798,19 @@ useEffect(() => {
   )}
 
   {/* Filter - Second on mobile */}
-  <button
-    onClick={() => setFilterPanelOpen(true)}
+ <button
+  onClick={() => {
+    setDraftFilterMonth(filterMonth);
+    setDraftFilterFromDate(filterFromDate);
+    setDraftFilterToDate(filterToDate);
+    setDraftIgnoreDateFilters(ignoreDateFilters);
+    setDraftFilterSubCat(filterSubCat);
+    setDraftFilterVendor(filterVendor);
+    setDraftFilterCat(filterCat);
+    setDraftFilterStatus(filterStatus);
+    setDraftFilterProp(filterProp);
+    setFilterPanelOpen(true);
+  }}
     className="order-2 sm:order-2 flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-xs font-semibold shadow-sm whitespace-nowrap"
   >
     <Filter size={14} />
@@ -3682,16 +3704,16 @@ onClick={() => openReceiptPreview(viewItem)}
         {/* Month */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Month</label>
-          <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
+         <input type="month" value={draftFilterMonth} onChange={(e) => setDraftFilterMonth(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, outline: "none" }} />
         </div>
 
         {/* Date Range */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Date Range</label>
-          <input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)}
+          <input type="date" value={draftFilterFromDate} onChange={(e) => setDraftFilterFromDate(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, marginBottom: 6, outline: "none" }} placeholder="From" />
-          <input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)}
+          <input type="date" value={draftFilterToDate} onChange={(e) => setDraftFilterToDate(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, outline: "none" }} placeholder="To" />
         </div>
 
@@ -3700,8 +3722,8 @@ onClick={() => openReceiptPreview(viewItem)}
   <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
     <input
       type="checkbox"
-      checked={ignoreDateFilters}
-      onChange={(e) => setIgnoreDateFilters(e.target.checked)}
+      checked={draftIgnoreDateFilters}
+      onChange={(e) => setDraftIgnoreDateFilters(e.target.checked)}
       style={{ width: 16, height: 16, cursor: "pointer" }}
     />
     <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>
@@ -3715,7 +3737,7 @@ onClick={() => openReceiptPreview(viewItem)}
         {/* Property */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Property</label>
-          <select value={filterProp} onChange={(e) => setFilterProp(e.target.value)}
+          <select value={draftFilterProp} onChange={(e) => setDraftFilterProp(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, background: "#fff", outline: "none" }}>
             <option value="All">All Properties</option>
             {[...new Set(expenses.map((e) => e.property_name))].map((p) => (
@@ -3728,10 +3750,10 @@ onClick={() => openReceiptPreview(viewItem)}
 <div style={{ marginBottom: 16 }}>
   <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Category</label>
   <select 
-    value={filterCat} 
+    value={draftFilterCat} 
     onChange={(e) => { 
-      setFilterCat(e.target.value); 
-      setFilterSubCat("All"); // Reset subcategory when category changes
+      setDraftFilterCat(e.target.value); 
+      setDraftFilterSubCat("All"); // Reset subcategory when category changes
     }}
     style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, background: "#fff", outline: "none" }}
   >
@@ -3746,15 +3768,15 @@ onClick={() => openReceiptPreview(viewItem)}
 <div style={{ marginBottom: 16 }}>
   <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Sub Category</label>
   <select 
-    value={filterSubCat} 
-    onChange={(e) => setFilterSubCat(e.target.value)}
+    value={draftFilterSubCat} 
+    onChange={(e) => setDraftFilterSubCat(e.target.value)}
     style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, background: "#fff", outline: "none" }}
-    disabled={filterCat === "All"}
+    disabled={draftFilterCat === "All"}
   >
     <option value="All">All Sub Categories</option>
-    {filterCat !== "All" && (() => {
+    {draftFilterCat !== "All" && (() => {
       // Get subcategories for selected category from your existing mapping
-      const subs = subCategories.filter(s => s.category_name === filterCat);
+      const subs = subCategories.filter(s => s.category_name === draftFilterCat);
       return subs.map((s) => (
         <option key={s.id} value={s.name}>{s.name}</option>
       ));
@@ -3765,7 +3787,7 @@ onClick={() => openReceiptPreview(viewItem)}
         {/* Vendor */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendor</label>
-          <select value={filterVendor} onChange={(e) => setFilterVendor(e.target.value)}
+          <select value={draftFilterVendor} onChange={(e) => setDraftFilterVendor(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, background: "#fff", outline: "none" }}>
             <option value="All">All Vendors</option>
             {[...new Set(expenses.map((e) => e.vendor_name).filter(Boolean))].map((v) => (
@@ -3777,7 +3799,7 @@ onClick={() => openReceiptPreview(viewItem)}
         {/* Status */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</label>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+          <select value={draftFilterStatus} onChange={(e) => setDraftFilterStatus(e.target.value)}
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, background: "#fff", outline: "none" }}>
             <option value="All">All Statuses</option>
             <option value="Paid">✓ Paid</option>
@@ -3789,18 +3811,39 @@ onClick={() => openReceiptPreview(viewItem)}
 
       {/* Footer */}
       <div style={{ padding: "14px 20px", borderTop: "1px solid #F0F3FA", display: "flex", gap: 10 }}>
-        <button onClick={() => {
-          setFilterCat("All"); setFilterSubCat("All"); setFilterStatus("All");
-          setFilterProp("All"); setFilterVendor("All");
-          setFilterMonth(""); setFilterFromDate(""); setFilterToDate("");setIgnoreDateFilters(false);
-        }} style={{ flex: 1, padding: "8px", border: "1px solid #E8ECF4", borderRadius: 8, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
-          Reset
-        </button>
-        <button onClick={() => setFilterPanelOpen(false)}
-          style={{ flex: 2, padding: "8px", border: "none", borderRadius: 8, background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-          Apply Filters
-        </button>
-      </div>
+  <button
+    onClick={() => {
+      setFilterCat("All"); setFilterSubCat("All"); setFilterStatus("All");
+      setFilterProp("All"); setFilterVendor("All");
+      setFilterMonth(""); setFilterFromDate(""); setFilterToDate(""); setIgnoreDateFilters(false);
+
+      setDraftFilterCat("All"); setDraftFilterSubCat("All"); setDraftFilterStatus("All");
+      setDraftFilterProp("All"); setDraftFilterVendor("All");
+      setDraftFilterMonth(""); setDraftFilterFromDate(""); setDraftFilterToDate("");
+      setDraftIgnoreDateFilters(false);
+    }}
+    style={{ flex: 1, padding: "8px", border: "1px solid #E8ECF4", borderRadius: 8, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}
+  >
+    Reset
+  </button>
+  <button
+    onClick={() => {
+      setFilterMonth(draftFilterMonth);
+      setFilterFromDate(draftFilterFromDate);
+      setFilterToDate(draftFilterToDate);
+      setIgnoreDateFilters(draftIgnoreDateFilters);
+      setFilterSubCat(draftFilterSubCat);
+      setFilterVendor(draftFilterVendor);
+      setFilterCat(draftFilterCat);
+      setFilterStatus(draftFilterStatus);
+      setFilterProp(draftFilterProp);
+      setFilterPanelOpen(false);
+    }}
+    style={{ flex: 2, padding: "8px", border: "none", borderRadius: 8, background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}
+  >
+    Apply Filters
+  </button>
+</div>
     </div>
   </>
 )}

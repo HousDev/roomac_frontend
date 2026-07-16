@@ -238,6 +238,11 @@ const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<StatusType>('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
+
+  // ── Draft filters for sidebar (not applied until Apply & Close) ──
+const [draftStatusFilter, setDraftStatusFilter] = useState<StatusType>('all');
+const [draftPropertyFilter, setDraftPropertyFilter] = useState('all');
+
   const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
 
   const [generatedOtp, setGeneratedOtp] = useState("");
@@ -272,8 +277,7 @@ const [totalPages, setTotalPages] = useState(1);
     setLoading(true);
     try {
       const filters: any = {};
-      if (statusFilter !== 'all') filters.status = statusFilter;
-      if (propertyFilter !== 'all') filters.property_id = propertyFilter;
+if (statusFilter !== 'all') filters.status = statusFilter;
 
       const res = await getInspections(filters);
       
@@ -301,10 +305,11 @@ const [totalPages, setTotalPages] = useState(1);
       }
 
       // Extract unique properties for filter
-      const uniqueProps = Array.from(new Set(data.map(i => i.property_name)))
-        .filter(Boolean)
-        .map(name => ({ id: name, name }));
-      setProperties(uniqueProps);
+      // Keep property_name as the value (rename for clarity, still works)
+const uniqueProps = Array.from(new Set(data.map(i => i.property_name)))
+  .filter(Boolean)
+  .map(name => ({ id: name, name })); // id === name intentionally, since inspections only carry property_name
+setProperties(uniqueProps);
     } catch (err: any) {
       console.error('Failed to load inspections:', err);
       toast.error(err.message || 'Failed to load inspections');
@@ -507,17 +512,21 @@ const [totalPages, setTotalPages] = useState(1);
 
   // ── Filtered rows ───────────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
-    return inspections.filter(i => {
-      const cs = colSearch;
-      const tn = !cs.tenant_name || i.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
-      const pn = !cs.property_name || i.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
-      const rn = !cs.room_number || i.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
-      const ins = !cs.inspector_name || i.inspector_name?.toLowerCase().includes(cs.inspector_name.toLowerCase());
-      const s = !cs.status || i.status?.toLowerCase().includes(cs.status.toLowerCase());
-      const d = !cs.inspection_date || fmt(i.inspection_date).includes(cs.inspection_date);
-      return tn && pn && rn && ins && s && d;
-    });
-  }, [inspections, colSearch]);
+  return inspections.filter(i => {
+    const cs = colSearch;
+    const tn = !cs.tenant_name || i.tenant_name?.toLowerCase().includes(cs.tenant_name.toLowerCase());
+    const pn = !cs.property_name || i.property_name?.toLowerCase().includes(cs.property_name.toLowerCase());
+    const rn = !cs.room_number || i.room_number?.toLowerCase().includes(cs.room_number.toLowerCase());
+    const ins = !cs.inspector_name || i.inspector_name?.toLowerCase().includes(cs.inspector_name.toLowerCase());
+    const s = !cs.status || i.status?.toLowerCase().includes(cs.status.toLowerCase());
+    const d = !cs.inspection_date || fmt(i.inspection_date).includes(cs.inspection_date);
+
+    const statusOk = statusFilter === 'all' || i.status === statusFilter;
+    const propertyOk = propertyFilter === 'all' || i.property_name === propertyFilter;
+
+    return tn && pn && rn && ins && s && d && statusOk && propertyOk;
+  });
+}, [inspections, colSearch, statusFilter, propertyFilter]);
 
   const paginatedItems = useMemo(() => {
   if (pageSize === "All") return filteredItems;
@@ -1557,7 +1566,12 @@ const activeCount = [
   statusFilter !== 'all',
   propertyFilter !== 'all',
 ].filter(Boolean).length;
-  const clearFilters = () => { setStatusFilter('all'); setPropertyFilter('all'); };
+  const clearFilters = () => {
+  setStatusFilter('all');
+  setPropertyFilter('all');
+  setDraftStatusFilter('all');
+  setDraftPropertyFilter('all');
+};
   const clearColSearch = () => setColSearch({
     tenant_name: '', property_name: '', room_number: '', inspector_name: '', status: '', inspection_date: ''
   });
@@ -1623,7 +1637,16 @@ const activeCount = [
     {/* RIGHT - Action Buttons */}
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
       <button
-        onClick={() => setSidebarOpen(o => !o)}
+       onClick={() => {
+    setSidebarOpen(o => {
+      const opening = !o;
+      if (opening) {
+        setDraftStatusFilter(statusFilter);
+        setDraftPropertyFilter(propertyFilter);
+      }
+      return opening;
+    });
+  }}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white text-[11px] font-medium transition-colors
           ${
             sidebarOpen || hasFilters
@@ -2050,7 +2073,7 @@ const activeCount = [
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
           <ShieldCheck className="h-3 w-3 text-blue-500" /> Status
         </p>
-        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusType)}>
+        <Select value={draftStatusFilter} onValueChange={(val) => setDraftStatusFilter(val as StatusType)}>
           <SelectTrigger className="w-full h-8 text-xs border-gray-200">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -2070,7 +2093,7 @@ const activeCount = [
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
           <Building className="h-3 w-3 text-indigo-500" /> Property
         </p>
-        <Select value={propertyFilter} onValueChange={(val) => setPropertyFilter(val)}>
+        <Select value={draftPropertyFilter} onValueChange={(val) => setDraftPropertyFilter(val)}>
           <SelectTrigger className="w-full h-8 text-xs border-gray-200">
             <SelectValue placeholder="Select property" />
           </SelectTrigger>
@@ -2094,7 +2117,11 @@ const activeCount = [
       Clear All
     </button>
     <button
-      onClick={() => setSidebarOpen(false)}
+      onClick={() => {
+    setStatusFilter(draftStatusFilter);
+    setPropertyFilter(draftPropertyFilter);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700"
     >
       Apply & Close

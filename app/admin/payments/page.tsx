@@ -299,6 +299,7 @@ const [loadingPendingRooms, setLoadingPendingRooms] = useState(false);
   const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
   const { on, connected } = useSocketIO();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  
 
   const [columnFilters, setColumnFilters] = useState({
     payment_date: "",
@@ -322,6 +323,16 @@ const [loadingPendingRooms, setLoadingPendingRooms] = useState(false);
   const [filterPropertyId, setFilterPropertyId] = useState("all");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [draftFilterPropertyId, setDraftFilterPropertyId] = useState("all");
+const [draftRoomFilterGlobal, setDraftRoomFilterGlobal] = useState("");
+const [draftPaymentTypeFilter, setDraftPaymentTypeFilter] = useState("all");
+const [draftShowPendingRentOnly, setDraftShowPendingRentOnly] = useState(false);
+const [draftExactPendingFilter, setDraftExactPendingFilter] = useState("");
+const [draftFilterStartDate, setDraftFilterStartDate] = useState("");
+const [draftFilterEndDate, setDraftFilterEndDate] = useState("");
+const [draftPaymentStatus, setDraftPaymentStatus] = useState("all");
+const [draftPaymentCount, setDraftPaymentCount] = useState("");
+const [draftIgnoreDateFilters, setDraftIgnoreDateFilters] = useState(false);
   // ===== END OF ADDITION =====
 
   // Filters
@@ -346,6 +357,8 @@ const [loadingPendingRooms, setLoadingPendingRooms] = useState(false);
   property: "",     
   ignore_date: false,          
   });
+
+  const [draftDemandFilters, setDraftDemandFilters] = useState(demandFilters);
 
   const [stats, setStats] = useState({
     total_collected: 0,
@@ -429,6 +442,26 @@ const [demandPagination, setDemandPagination] = useState<{
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+  if (showDemandFilterSidebar) setDraftDemandFilters(demandFilters);
+}, [showDemandFilterSidebar]);
+
+
+  useEffect(() => {
+  if (showPaymentFilterSidebar) {
+    setDraftFilterPropertyId(filterPropertyId);
+    setDraftRoomFilterGlobal(roomFilterGlobal);
+    setDraftPaymentTypeFilter(paymentTypeFilter);
+    setDraftShowPendingRentOnly(showPendingRentOnly);
+    setDraftExactPendingFilter(exactPendingFilter);
+    setDraftFilterStartDate(filterStartDate);
+    setDraftFilterEndDate(filterEndDate);
+    setDraftPaymentStatus(columnFilters.status);
+    setDraftPaymentCount(columnFilters.payment_count);
+    setDraftIgnoreDateFilters(ignoreDateFilters);
+  }
+}, [showPaymentFilterSidebar]);
 
   // Listen for new payment events
   useEffect(() => {
@@ -3983,8 +4016,8 @@ onViewReceipt={handleViewReceipt}
       <Input
         placeholder="dd/mm/yy"
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.date || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
+        value={draftDemandFilters.date || ""}
+onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, date: e.target.value })}
       />
     </td>
 
@@ -3993,8 +4026,8 @@ onViewReceipt={handleViewReceipt}
       <Input
         placeholder="Search..."
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.tenant || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+        value={draftDemandFilters.tenant || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, tenant: e.target.value })}
       />
     </td>
 
@@ -4003,8 +4036,8 @@ onViewReceipt={handleViewReceipt}
       <Input
         placeholder="Search..."
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.contact || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
+        value={draftDemandFilters.contact || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, contact: e.target.value })}
       />
     </td>
 
@@ -4013,8 +4046,8 @@ onViewReceipt={handleViewReceipt}
       <Input
         placeholder="Search..."
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.property || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
+        value={draftDemandFilters.property || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, property: e.target.value })}
       />
     </td>
 
@@ -4023,16 +4056,16 @@ onViewReceipt={handleViewReceipt}
       <Input
         placeholder="Search..."
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.room || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
+        value={draftDemandFilters.room || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, room: e.target.value })}
       />
     </td>
 
     {/* Type */}
     <td className="p-1 border-r border-gray-200">
       <select
-        value={demandFilters.payment_type || "all"}
-        onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
+        value={draftDemandFilters.payment_type || "all"}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, payment_type: e.target.value })}
         className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
       >
         <option value="all">All</option>
@@ -4047,8 +4080,8 @@ onViewReceipt={handleViewReceipt}
         placeholder="₹"
         type="number"
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.amount || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
+        value={draftDemandFilters.amount || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, amount: e.target.value })}
       />
     </td>
 
@@ -4058,8 +4091,8 @@ onViewReceipt={handleViewReceipt}
         type="text"
         placeholder="dd/mm/yy"
         className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={demandFilters.from_date || ""}
-        onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+        value={draftDemandFilters.from_date || ""}
+        onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, from_date: e.target.value })}
       />
     </td>
 
@@ -4298,192 +4331,188 @@ totalPages={demandPagination.itemsPerPage === "All" ? 1 : Math.ceil(filteredDema
 
             {/* ── Filter Sidebar ── */}
             <Sheet open={showDemandFilterSidebar} onOpenChange={setShowDemandFilterSidebar}>
-              <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
-                <div className="h-full flex flex-col">
+  <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
+    <div className="h-full flex flex-col">
 
-                  {/* Header — blue like receipts */}
-                  <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-4 h-4 text-white" />
-                      <span className="text-sm font-semibold text-white">Filter Demands</span>
-                    </div>
-                    <button onClick={() => setShowDemandFilterSidebar(false)} className="text-white/70 hover:text-white">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Demands</span>
+        </div>
+        <button onClick={() => setShowDemandFilterSidebar(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-                  {/* Body — two-column grid like receipts */}
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
 
-                      {/* Demand Date */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Demand Date</Label>
-                        <Input
-                          placeholder="dd/mm/yy"
-                          value={demandFilters.date || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Demand Date */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Demand Date</Label>
+            <Input
+              placeholder="dd/mm/yy"
+              value={draftDemandFilters.date || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, date: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                      {/* Tenant */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
-                        <Input
-                          placeholder="Search tenant..."
-                          value={demandFilters.tenant || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Tenant */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
+            <Input
+              placeholder="Search tenant..."
+              value={draftDemandFilters.tenant || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, tenant: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                      {/* Contact */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Contact</Label>
-                        <Input
-                          placeholder="Search phone..."
-                          value={demandFilters.contact || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, contact: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Contact */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Contact</Label>
+            <Input
+              placeholder="Search phone..."
+              value={draftDemandFilters.contact || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, contact: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                      {/* Property */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Property</Label>
-                        <Input
-                          placeholder="Search property..."
-                          value={demandFilters.property || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, property: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Property */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Property</Label>
+            <Input
+              placeholder="Search property..."
+              value={draftDemandFilters.property || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, property: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                      {/* Room/Bed */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
-                        <Input
-                          placeholder="Search room..."
-                          value={demandFilters.room || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Room/Bed */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
+            <Input
+              placeholder="Search room..."
+              value={draftDemandFilters.room || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, room: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                      {/* Amount */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Amount</Label>
-                        <Input
-                          type="number"
-                          placeholder="Search amount..."
-                          value={demandFilters.amount || ""}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+          {/* Amount */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Amount</Label>
+            <Input
+              type="number"
+              placeholder="Search amount..."
+              value={draftDemandFilters.amount || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, amount: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                    
+          {/* Status */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Status</Label>
+            <select
+              value={draftDemandFilters.status || "all"}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, status: e.target.value })}
+              className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              {["pending", "paid", "partial", "overdue", "cancelled"].map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
 
-                      {/* Status */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Status</Label>
-                        <select
-                          value={demandFilters.status || "all"}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, status: e.target.value })}
-                          className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="all">All Status</option>
-                          {["pending", "paid", "partial", "overdue", "cancelled"].map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
+          {/* Payment Type */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+            <select
+              value={draftDemandFilters.payment_type || "all"}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, payment_type: e.target.value })}
+              className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All Types</option>
+              <option value="rent">Rent</option>
+              <option value="security_deposit">Security Deposit</option>
+            </select>
+          </div>
 
-                      {/* Payment Type */}
-                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                        <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
-                        <select
-                          value={demandFilters.payment_type || "all"}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, payment_type: e.target.value })}
-                          className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="all">All Types</option>
-                          <option value="rent">Rent</option>
-                          <option value="security_deposit">Security Deposit</option>
-                        </select>
-                      </div>
-                      {/* Due Date Range */}
-<div className="space-y-1 col-span-2 sm:col-span-1">
-  <Label className="text-xs font-semibold text-blue-700">Due Date From</Label>
-  <Input
-    type="date"
-    value={demandFilters.from_date || ""}
-    onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
-    className="h-8 text-xs"
-  />
-</div>
-<div className="space-y-1 col-span-2 sm:col-span-1">
-  <Label className="text-xs font-semibold text-blue-700">Due Date To</Label>
-  <Input
-    type="date"
-    value={demandFilters.to_date || ""}
-    onChange={(e) => setDemandFilters({ ...demandFilters, to_date: e.target.value })}
-    className="h-8 text-xs"
-  />
-</div>
+          {/* Due Date From */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Due Date From</Label>
+            <Input
+              type="date"
+              value={draftDemandFilters.from_date || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, from_date: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                    </div>
-                    
+          {/* Due Date To */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label className="text-xs font-semibold text-blue-700">Due Date To</Label>
+            <Input
+              type="date"
+              value={draftDemandFilters.to_date || ""}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, to_date: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
 
-                    {/* Ignore Date Filter — full width, like receipts */}
-                    <div className="mt-4 space-y-1">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={demandFilters.ignore_date || false}
-                          onChange={(e) => setDemandFilters({ ...demandFilters, ignore_date: e.target.checked })}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
-                      </label>
-                      <p className="text-[10px] text-gray-500 ml-5">Show all demands regardless of demand date</p>
-                    </div>
-                  </div>
+        </div>
 
-                  {/* Footer */}
-                  <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs h-8"
-                      onClick={() => setDemandFilters({
-                        status: "",
-                        tenant: "",
-                        from_date: "",
-                        to_date: "",
-                        date: "",
-                        amount: "",
-                        room: "",
-                        payment_type: "",
-                        contact: "",
-                        property: "",
-                        ignore_date: false,
-                      })}
-                    >
-                      <RefreshCw className="w-3 h-3 mr-1" /> Reset
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
-                      onClick={() => setShowDemandFilterSidebar(false)}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+        {/* Ignore Date Filter */}
+        <div className="mt-4 space-y-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draftDemandFilters.ignore_date || false}
+              onChange={(e) => setDraftDemandFilters({ ...draftDemandFilters, ignore_date: e.target.checked })}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
+          </label>
+          <p className="text-[10px] text-gray-500 ml-5">Show all demands regardless of demand date</p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs h-8"
+          onClick={() => {
+            const cleared = { status: "", tenant: "", from_date: "", to_date: "", date: "", amount: "", room: "", payment_type: "", contact: "", property: "", ignore_date: false };
+            setDraftDemandFilters(cleared);
+            setDemandFilters(cleared);
+          }}
+        >
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button
+          size="sm"
+          className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
+          onClick={() => {
+            setDemandFilters(draftDemandFilters);
+            setDemandPagination(prev => ({ ...prev, currentPage: 1 }));
+            setShowDemandFilterSidebar(false);
+          }}
+        >
+          Apply
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
 
           </TabsContent>
 
@@ -7952,6 +7981,37 @@ const PaymentsTable = ({
 showPendingRentOnly,
 setShowPendingRentOnly,
 }: any) => {
+
+
+  const [draft, setDraft] = useState({
+  propertyId: filterPropertyId,
+  room: roomFilter,
+  paymentType: paymentTypeFilter,
+  pendingOnly: showPendingRentOnly,
+  exactPending: exactPendingFilter,
+  status: columnFilters?.status || "all",
+  startDate: filterStartDate,
+  endDate: filterEndDate,
+  paymentCount: columnFilters?.payment_count || "",
+  ignoreDate: ignoreDateFilters,
+});
+
+useEffect(() => {
+  if (showFilterSidebar) {
+    setDraft({
+      propertyId: filterPropertyId,
+      room: roomFilter,
+      paymentType: paymentTypeFilter,
+      pendingOnly: showPendingRentOnly,
+      exactPending: exactPendingFilter,
+      status: columnFilters?.status || "all",
+      startDate: filterStartDate,
+      endDate: filterEndDate,
+      paymentCount: columnFilters?.payment_count || "",
+      ignoreDate: ignoreDateFilters,
+    });
+  }
+}, [showFilterSidebar]);
  
   // Group payments by tenant using the passed function
   const { items: paginatedGroups, totalItems, totalPages } = pagination;
@@ -8670,108 +8730,125 @@ const filteredGroups = pagination.items.map((group: any) => ({
   </div>
 
   {/* Filter Sidebar + Pagination — UNCHANGED */}
-  <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-    <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
-      <div className="h-full flex flex-col">
-        <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-3 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-white" />
-            <span className="text-sm font-semibold text-white">Filter Payments</span>
-          </div>
-          <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
+{/* Filter Sidebar + Pagination */}
+<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+  <SheetContent side="right" className="p-0 w-[75%] sm:w-[340px]">
+    <div className="h-full flex flex-col">
+      <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-2 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Payments</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Property</Label>
-            <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Properties" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {properties.map((prop: any) => (
-                  <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
-            <Input placeholder="Search room or bed..." value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
-            <select value={paymentTypeFilter} onChange={(e) => setPaymentTypeFilter(e.target.value)} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
-              <option value="all">All Types</option>
-              <option value="rent">Rent</option>
-              <option value="security_deposit">Security Deposit</option>
-              <option value="deposit_refund">Deposit Refund</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={showPendingRentOnly} onChange={(e) => setShowPendingRentOnly(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
-              <span className="text-xs font-semibold text-blue-700">Show Tenants with Pending Rent Only</span>
-            </label>
-            <p className="text-[10px] text-gray-500 ml-5">Filter tenants who have any pending rent amount</p>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Pending Amount (₹)</Label>
-            <Input type="number" placeholder="Enter exact amount e.g. 5000" value={exactPendingFilter} onChange={(e) => setExactPendingFilter(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Status</Label>
-            <select value={columnFilters?.status || "all"} onChange={(e) => setColumnFilters?.({ ...columnFilters, status: e.target.value })} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
-              <option value="all">All Status</option>
-              <option value="paid">Paid</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Start Date</Label>
-            <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">End Date</Label>
-            <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
-            <Input type="number" placeholder="Exact count..." value={columnFilters?.payment_count || ""} onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })} className="h-8 text-xs" />
-          </div>
-          <div className="space-y-1">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={ignoreDateFilters} onChange={(e) => setIgnoreDateFilters(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
-              <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
-            </label>
-            <p className="text-[10px] text-gray-500 ml-5">Show all data regardless of payment date</p>
-          </div>
+        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Property</Label>
+          <Select value={draft.propertyId} onValueChange={(v) => setDraft(prev => ({ ...prev, propertyId: v }))}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All Properties" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Properties</SelectItem>
+              {properties.map((prop: any) => (
+                <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-          <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => {
-            setColumnFilters?.({ payment_date: "", tenant_name: "", property_name: "", room_bed: "", contact: "", amount: "", min_amount: "", max_amount: "", payment_mode: "all", transaction_id: "", month: "", status: "all", remark: "", payment_count: "", total_paid_amount: "", total_rejected_amount: "" });            setFilterPropertyId("all"); setFilterStartDate(""); setFilterEndDate("");
-            setRoomFilter(""); setIgnoreDateFilters(false); setPaymentTypeFilter("all");
-            setExactPendingFilter(""); setShowPendingRentOnly(false); onPageChange?.(1);
-          }}>
-            <RefreshCw className="w-3 h-3 mr-1" /> Reset
-          </Button>
-          <Button size="sm" className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700" onClick={() => setShowFilterSidebar?.(false)}>Apply</Button>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
+          <Input placeholder="Search room or bed..." value={draft.room} onChange={(e) => setDraft(prev => ({ ...prev, room: e.target.value }))} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+          <select value={draft.paymentType} onChange={(e) => setDraft(prev => ({ ...prev, paymentType: e.target.value }))} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+            <option value="all">All Types</option>
+            <option value="rent">Rent</option>
+            <option value="security_deposit">Security Deposit</option>
+            <option value="deposit_refund">Deposit Refund</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={draft.pendingOnly} onChange={(e) => setDraft(prev => ({ ...prev, pendingOnly: e.target.checked }))} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700">Show Tenants with Pending Rent Only</span>
+          </label>
+          <p className="text-[10px] text-gray-500 ml-5">Filter tenants who have any pending rent amount</p>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Pending Amount (₹)</Label>
+          <Input type="number" placeholder="Enter exact amount e.g. 5000" value={draft.exactPending} onChange={(e) => setDraft(prev => ({ ...prev, exactPending: e.target.value }))} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Status</Label>
+          <select value={draft.status} onChange={(e) => setDraft(prev => ({ ...prev, status: e.target.value }))} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+            <option value="all">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Start Date</Label>
+          <Input type="date" value={draft.startDate} onChange={(e) => setDraft(prev => ({ ...prev, startDate: e.target.value }))} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">End Date</Label>
+          <Input type="date" value={draft.endDate} onChange={(e) => setDraft(prev => ({ ...prev, endDate: e.target.value }))} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
+          <Input type="number" placeholder="Exact count..." value={draft.paymentCount} onChange={(e) => setDraft(prev => ({ ...prev, paymentCount: e.target.value }))} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={draft.ignoreDate} onChange={(e) => setDraft(prev => ({ ...prev, ignoreDate: e.target.checked }))} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
+          </label>
+          <p className="text-[10px] text-gray-500 ml-5">Show all data regardless of payment date</p>
         </div>
       </div>
-    </SheetContent>
-  </Sheet>
-
-  <PaginationControls
-    currentPage={pagination.currentPage}
-    totalPages={pagination.totalPages}
-    onPageChange={onPageChange}
-    itemsPerPage={pagination.itemsPerPage}
-    onItemsPerPageChange={onItemsPerPageChange}
-    totalItems={pagination.totalItems}
-    currentItemsCount={pagination.items.length}
-  />
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => {
+          const cleared = { propertyId: "all", room: "", paymentType: "all", pendingOnly: false, exactPending: "", status: "all", startDate: "", endDate: "", paymentCount: "", ignoreDate: false };
+          setDraft(cleared);
+          setFilterPropertyId("all"); setRoomFilter(""); setPaymentTypeFilter("all");
+          setShowPendingRentOnly(false); setExactPendingFilter("");
+          setFilterStartDate(""); setFilterEndDate("");
+          setColumnFilters?.({ ...columnFilters, status: "all", payment_count: "" });
+          setIgnoreDateFilters(false);
+          onPageChange?.(1);
+        }}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button size="sm" className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700" onClick={() => {
+          setFilterPropertyId(draft.propertyId);
+          setRoomFilter(draft.room);
+          setPaymentTypeFilter(draft.paymentType);
+          setShowPendingRentOnly(draft.pendingOnly);
+          setExactPendingFilter(draft.exactPending);
+          setFilterStartDate(draft.startDate);
+          setFilterEndDate(draft.endDate);
+          setColumnFilters?.({ ...columnFilters, status: draft.status, payment_count: draft.paymentCount });
+          setIgnoreDateFilters(draft.ignoreDate);
+          onPageChange?.(1);
+          setShowFilterSidebar?.(false);
+        }}>Apply</Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
+<PaginationControls
+  currentPage={pagination.currentPage}
+  totalPages={pagination.totalPages}
+  onPageChange={onPageChange}
+  itemsPerPage={pagination.itemsPerPage}
+  onItemsPerPageChange={onItemsPerPageChange}
+  totalItems={pagination.totalItems}
+  currentItemsCount={pagination.items.length}
+/>
 </Card>
   );
 };
@@ -8795,6 +8872,7 @@ const ReceiptsTable = ({
    selectedReceiptIds,  // ✅ ADD THIS
   setSelectedReceiptIds,  
 }: any) => {
+  
   // Add state for receipts column filters
   const [receiptFilters, setReceiptFilters] = useState({
     date: "",
@@ -8806,6 +8884,7 @@ const ReceiptsTable = ({
   payment_type: "all", 
   contact: "", 
   });
+  
 
   // Enhance receipts with salutation and country code
   const enhancedReceipts = receipts.map((receipt: any) => {
@@ -8827,6 +8906,16 @@ const ReceiptsTable = ({
     };
   });
   const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
+
+  const [draftReceiptFilters, setDraftReceiptFilters] = useState(receiptFilters);
+const [draftIgnoreReceiptDateFilter, setDraftIgnoreReceiptDateFilter] = useState(ignoreReceiptDateFilter);
+
+useEffect(() => {
+  if (showFilterSidebar) {
+    setDraftReceiptFilters(receiptFilters);
+    setDraftIgnoreReceiptDateFilter(ignoreReceiptDateFilter);
+  }
+}, [showFilterSidebar]);
   // Filter receipts based on column filters
   const filteredReceipts = enhancedReceipts.filter((receipt: any) => {
     const matchesDate =
@@ -8960,108 +9049,98 @@ return (
     </th>
   </tr>
 
-  {/* ── Row 2: Search Inputs ── */}
-  <tr className="bg-white border-t border-gray-300">
-    {/* Checkbox column – no input */}
-    <td className="p-1 border-r border-gray-200 text-center">
-      <input
-        type="checkbox"
-        checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
-        onChange={(e) => {
-          if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
-          else setSelectedReceiptIds([]);
-        }}
-        className="w-3 h-3 accent-blue-500"
-      />
-    </td>
+{/* ── Row 2: Search Inputs ── */}
+<tr className="bg-white border-t border-gray-300">
+  <td className="p-1 border-r border-gray-200 text-center">
+    <input
+      type="checkbox"
+      checked={selectedReceiptIds.length === paginatedReceiptsList.length && paginatedReceiptsList.length > 0}
+      onChange={(e) => {
+        if (e.target.checked) setSelectedReceiptIds(paginatedReceiptsList.map((r: any) => r.id));
+        else setSelectedReceiptIds([]);
+      }}
+      className="w-3 h-3 accent-blue-500"
+    />
+  </td>
 
-    {/* Receipt # */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="Search..."
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.receipt_number || ""}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, receipt_number: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.receipt_number || ""}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, receipt_number: e.target.value })}
+    />
+  </td>
 
-    {/* Date */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="dd/mm/yy"
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.date}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="dd/mm/yy"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.date}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
+    />
+  </td>
 
-    {/* Tenant */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="Search..."
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.tenant}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.tenant}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
+    />
+  </td>
 
-    {/* Contact */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="Search..."
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.contact || ""}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, contact: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.contact || ""}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, contact: e.target.value })}
+    />
+  </td>
 
-    {/* Type */}
-    <td className="p-1 border-r border-gray-200">
-      <select
-        value={receiptFilters.payment_type || "all"}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, payment_type: e.target.value })}
-        className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
-      >
-        <option value="all">All</option>
-        <option value="rent">Rent</option>
-        <option value="security_deposit">Security Deposit</option>
-      </select>
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <select
+      value={receiptFilters.payment_type || "all"}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, payment_type: e.target.value })}
+      className="h-5 text-[10px] bg-white border border-gray-300 px-1 rounded w-full"
+    >
+      <option value="all">All</option>
+      <option value="rent">Rent</option>
+      <option value="security_deposit">Security Deposit</option>
+    </select>
+  </td>
 
-    {/* Amount */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="₹"
-        type="number"
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.amount}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="₹"
+      type="number"
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.amount}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
+    />
+  </td>
 
-    {/* Method */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="Search..."
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.method}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.method}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
+    />
+  </td>
 
-    {/* Room */}
-    <td className="p-1 border-r border-gray-200">
-      <Input
-        placeholder="Search..."
-        className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
-        value={receiptFilters.room}
-        onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
-      />
-    </td>
+  <td className="p-1 border-r border-gray-200">
+    <Input
+      placeholder="Search..."
+      className="h-5 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1.5 font-normal w-full"
+      value={receiptFilters.room}
+      onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
+    />
+  </td>
 
-    {/* Actions – no input */}
-    <td className="p-1" />
-  </tr>
+  <td className="p-1" />
+</tr>
 </thead>
           </table>
 
@@ -9263,114 +9342,114 @@ return (
       </div>
 
       {/* Filter Body – two‑column grid */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          {/* Receipt Number */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Receipt #</Label>
-            <Input
-              placeholder="Search receipt #..."
-              value={receiptFilters.receipt_number || ""}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, receipt_number: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+<div className="flex-1 overflow-y-auto p-4">
+  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+    {/* Receipt Number */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Receipt #</Label>
+      <Input
+        placeholder="Search receipt #..."
+        value={draftReceiptFilters.receipt_number || ""}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, receipt_number: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Date */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Date</Label>
-            <Input
-              placeholder="dd/mm/yy"
-              value={receiptFilters.date}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, date: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Date */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Date</Label>
+      <Input
+        placeholder="dd/mm/yy"
+        value={draftReceiptFilters.date}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, date: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Tenant */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
-            <Input
-              placeholder="Search tenant..."
-              value={receiptFilters.tenant}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, tenant: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Tenant */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Tenant</Label>
+      <Input
+        placeholder="Search tenant..."
+        value={draftReceiptFilters.tenant}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, tenant: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Contact */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Contact</Label>
-            <Input
-              placeholder="Search phone..."
-              value={receiptFilters.contact || ""}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, contact: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Contact */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Contact</Label>
+      <Input
+        placeholder="Search phone..."
+        value={draftReceiptFilters.contact || ""}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, contact: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Amount */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Amount</Label>
-            <Input
-              placeholder="Search amount..."
-              type="number"
-              value={receiptFilters.amount}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, amount: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Amount */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Amount</Label>
+      <Input
+        placeholder="Search amount..."
+        type="number"
+        value={draftReceiptFilters.amount}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, amount: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Method/Bank */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Method / Bank</Label>
-            <Input
-              placeholder="Search method..."
-              value={receiptFilters.method}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, method: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Method/Bank */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Method / Bank</Label>
+      <Input
+        placeholder="Search method..."
+        value={draftReceiptFilters.method}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, method: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Room/Bed */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
-            <Input
-              placeholder="Search room..."
-              value={receiptFilters.room}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, room: e.target.value }))}
-              className="h-8 text-xs"
-            />
-          </div>
+    {/* Room/Bed */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Room / Bed</Label>
+      <Input
+        placeholder="Search room..."
+        value={draftReceiptFilters.room}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, room: e.target.value }))}
+        className="h-8 text-xs"
+      />
+    </div>
 
-          {/* Payment Type */}
-          <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
-            <select
-              value={receiptFilters.payment_type || "all"}
-              onChange={(e) => setReceiptFilters((prev) => ({ ...prev, payment_type: e.target.value }))}
-              className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="all">All Types</option>
-              <option value="rent">Rent</option>
-              <option value="security_deposit">Security Deposit</option>
-            </select>
-          </div>
-        </div>
+    {/* Payment Type */}
+    <div className="space-y-1 col-span-2 sm:col-span-1">
+      <Label className="text-xs font-semibold text-blue-700">Payment Type</Label>
+      <select
+        value={draftReceiptFilters.payment_type || "all"}
+        onChange={(e) => setDraftReceiptFilters((prev) => ({ ...prev, payment_type: e.target.value }))}
+        className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="all">All Types</option>
+        <option value="rent">Rent</option>
+        <option value="security_deposit">Security Deposit</option>
+      </select>
+    </div>
+  </div>
 
-        {/* Ignore Date Filter – full width */}
-        <div className="mt-4 space-y-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={ignoreReceiptDateFilter}
-              onChange={(e) => setIgnoreReceiptDateFilter(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
-          </label>
-        </div>
-      </div>
+  {/* Ignore Date Filter – full width */}
+  <div className="mt-4 space-y-1">
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={draftIgnoreReceiptDateFilter}
+        onChange={(e) => setDraftIgnoreReceiptDateFilter(e.target.checked)}
+        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
+      <span className="text-xs font-semibold text-blue-700">Ignore Date Filter</span>
+    </label>
+  </div>
+</div>
 
       {/* Footer Buttons */}
       <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
@@ -9379,28 +9458,24 @@ return (
           size="sm"
           className="flex-1 text-xs h-8"
           onClick={() => {
-            setReceiptFilters({
-              date: "",
-              tenant: "",
-              amount: "",
-              method: "",
-              room: "",
-              receipt_number: "",
-              payment_type: "all",
-              contact: "",
-            });
-            setIgnoreReceiptDateFilter(false);
-          }}
+  const cleared = { date: "", tenant: "", amount: "", method: "", room: "", receipt_number: "", payment_type: "all", contact: "" };
+  setDraftReceiptFilters(cleared);
+  setReceiptFilters(cleared);
+  setDraftIgnoreReceiptDateFilter(false);
+  setIgnoreReceiptDateFilter(false);
+}}
         >
           <RefreshCw className="w-3 h-3 mr-1" /> Reset
         </Button>
-        <Button
-          size="sm"
-          className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
-          onClick={() => setShowFilterSidebar?.(false)}
-        >
-          Apply
-        </Button>
+        <Button size="sm" className="flex-1 text-xs h-8 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white hover:bg-blue-700"
+  onClick={() => {
+    setReceiptFilters(draftReceiptFilters);
+    setIgnoreReceiptDateFilter(draftIgnoreReceiptDateFilter);
+    onPageChange?.(1);
+    setShowFilterSidebar?.(false);
+  }}>
+  Apply
+</Button>
       </div>
     </div>
   </SheetContent>

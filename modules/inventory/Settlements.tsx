@@ -148,6 +148,15 @@ const [settlementDateTo,    setSettlementDateTo]    = useState('');
 const [moveOutDateFrom,     setMoveOutDateFrom]     = useState('');
 const [moveOutDateTo,       setMoveOutDateTo]       = useState('');
 
+const [draftStatusFilter, setDraftStatusFilter] = useState<StatusType>('all');
+const [draftPaymentMethodFilter, setDraftPaymentMethodFilter] = useState('all');
+const [draftPropertyFilterAdv, setDraftPropertyFilterAdv] = useState('all');
+const [draftSettlementDateFrom, setDraftSettlementDateFrom] = useState('');
+const [draftSettlementDateTo, setDraftSettlementDateTo] = useState('');
+const [draftMoveOutDateFrom, setDraftMoveOutDateFrom] = useState('');
+const [draftMoveOutDateTo, setDraftMoveOutDateTo] = useState('');
+
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -609,13 +618,13 @@ const activeFilterCount = [
 ].filter(Boolean).length;
 
 const clearFilters = () => {
-  setStatusFilter('all');
-  setPaymentMethodFilter('all');
-  setPropertyFilterAdv('all');
-  setSettlementDateFrom('');
-  setSettlementDateTo('');
-  setMoveOutDateFrom('');
-  setMoveOutDateTo('');
+  setStatusFilter('all'); setDraftStatusFilter('all');
+  setPaymentMethodFilter('all'); setDraftPaymentMethodFilter('all');
+  setPropertyFilterAdv('all'); setDraftPropertyFilterAdv('all');
+  setSettlementDateFrom(''); setDraftSettlementDateFrom('');
+  setSettlementDateTo(''); setDraftSettlementDateTo('');
+  setMoveOutDateFrom(''); setDraftMoveOutDateFrom('');
+  setMoveOutDateTo(''); setDraftMoveOutDateTo('');
 };
   const hasColSearch = Object.values(colSearch).some(v => v);
   const clearCol     = () => setColSearch({ tenant_name:'', tenant_phone:'', property_name:'', room_number:'', settlement_date:'', security_deposit:'', penalties:'', penalty_discount:'', outstanding_rent:'', total_deductions:'', refund_amount:'', payment_method:'', status:'' });
@@ -666,7 +675,19 @@ const clearFilters = () => {
     {/* RIGHT - Action Buttons */}
     <div className="flex items-center justify-end gap-2 shrink-0 lg:mt-8">
      <button
-  onClick={() => setSidebarOpen(o => !o)}
+ onClick={() => setSidebarOpen(o => {
+    const opening = !o;
+    if (opening) {
+      setDraftStatusFilter(statusFilter);
+      setDraftPaymentMethodFilter(paymentMethodFilter);
+      setDraftPropertyFilterAdv(propertyFilterAdv);
+      setDraftSettlementDateFrom(settlementDateFrom);
+      setDraftSettlementDateTo(settlementDateTo);
+      setDraftMoveOutDateFrom(moveOutDateFrom);
+      setDraftMoveOutDateTo(moveOutDateTo);
+    }
+    return opening;
+  })}
   className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
     ${
       sidebarOpen || hasFilters
@@ -1079,7 +1100,7 @@ const clearFilters = () => {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
           <ShieldCheck className="h-3 w-3 text-emerald-500" /> Status
         </p>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusType)}>
+        <Select value={draftStatusFilter} onValueChange={(v) => setDraftStatusFilter(v as StatusType)}>
           <SelectTrigger className="w-full h-8 text-xs border-gray-200">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -1095,7 +1116,7 @@ const clearFilters = () => {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
           <CreditCard className="h-3 w-3 text-blue-500" /> Payment Method
         </p>
-        <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+        <Select value={draftPaymentMethodFilter} onValueChange={setDraftPaymentMethodFilter}>
           <SelectTrigger className="w-full h-8 text-xs border-gray-200">
             <SelectValue placeholder="Select method" />
           </SelectTrigger>
@@ -1111,7 +1132,7 @@ const clearFilters = () => {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
           <Building className="h-3 w-3 text-indigo-500" /> Property
         </p>
-        <Select value={propertyFilterAdv} onValueChange={setPropertyFilterAdv}>
+        <Select value={draftPropertyFilterAdv} onValueChange={setDraftPropertyFilterAdv}>
           <SelectTrigger className="w-full h-8 text-xs border-gray-200">
             <SelectValue placeholder="Select property" />
           </SelectTrigger>
@@ -1130,13 +1151,12 @@ const clearFilters = () => {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-[9px] text-gray-500 block mb-0.5">From</label>
-            <Input type="date" value={settlementDateFrom}
-              onChange={(e) => setSettlementDateFrom(e.target.value)} className="h-7 text-[10px]" />
+            <Input type="date" value={draftSettlementDateFrom} onChange={(e) => setDraftSettlementDateFrom(e.target.value)} className="h-7 text-[10px]" />
           </div>
           <div>
             <label className="text-[9px] text-gray-500 block mb-0.5">To</label>
-            <Input type="date" value={settlementDateTo}
-              onChange={(e) => setSettlementDateTo(e.target.value)} className="h-7 text-[10px]" />
+            <Input type="date" value={draftSettlementDateTo}
+              onChange={(e) => setDraftSettlementDateTo(e.target.value)} className="h-7 text-[10px]" />
           </div>
         </div>
       </div>
@@ -1172,7 +1192,16 @@ const clearFilters = () => {
       Clear All
     </button>
     <button
-      onClick={() => setSidebarOpen(false)}
+      onClick={() => {
+    setStatusFilter(draftStatusFilter);
+    setPaymentMethodFilter(draftPaymentMethodFilter);
+    setPropertyFilterAdv(draftPropertyFilterAdv);
+    setSettlementDateFrom(draftSettlementDateFrom);
+    setSettlementDateTo(draftSettlementDateTo);
+    setMoveOutDateFrom(draftMoveOutDateFrom);
+    setMoveOutDateTo(draftMoveOutDateTo);
+    setSidebarOpen(false);
+  }}
       className="flex-1 h-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold hover:from-blue-700 hover:to-indigo-700 transition-colors"
     >
       Apply & Close
