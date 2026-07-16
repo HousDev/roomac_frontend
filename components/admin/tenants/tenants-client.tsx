@@ -3517,11 +3517,14 @@ const payments = tenant.payments || [];
 // change to snapshot who actually held the bed, which we're deliberately
 // not doing here per your request.
 const hasAssignmentByLiveBed = tenant.has_own_bed_assignment === true;
-const hasPaymentActivity = payments.length > 0;
 
+// ✅ FIX: use the backend-computed held_bed flag (based on monthly_rent
+// existence for THIS specific stay window), not payment activity. A
+// bed-holder who simply hadn't paid yet when vacated was wrongly falling
+// through to "Shared with X" under the old payment-based heuristic.
 const hasAssignment =
   activeTab === "vacated" || activeTab === "deleted"
-    ? hasPaymentActivity
+    ? vacateRecord?.held_bed === true
     : hasAssignmentByLiveBed;
 
 const showSharedLabel = isCouple && !hasAssignment;

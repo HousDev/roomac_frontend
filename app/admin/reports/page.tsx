@@ -1,8 +1,8 @@
 // app/admin/reports/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,4517 +14,1757 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSettings } from "@/lib/settingsApi";
+
 import {
   Download,
   Printer,
   TrendingUp,
-  TrendingDown,
   IndianRupee,
   Users,
   Home,
   FileText,
   Filter,
-  BarChart3,
   Loader2,
   Building2,
   Calendar,
   RefreshCw,
   CreditCard,
-  Receipt,
+  Mail,
   Clock,
-  CheckCircle,
-  Activity,
-  PieChart,
-  TrendingUp as TrendUp,
   Wallet,
   DoorOpen,
-  AlertCircle,
   UserPlus,
   Bed,
-  Phone,
-  Mail,
-  MapPin,
-  CalendarDays,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Sparkles,
-  Target,
-  Zap,
-  Heart,
   Briefcase,
-  GraduationCap,
-  Landmark,
-  Store,
-  Laptop,
-  User,
   Search,
   ChevronDown,
-  SlidersHorizontal,
+  ChevronUp,
   X,
 } from "lucide-react";
 import {
   format,
   startOfMonth,
   endOfMonth,
-  startOfYear,
-  endOfYear,
-  subDays,
 } from "date-fns";
 import { toast } from "sonner";
 import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
-import { request } from "@/lib/api";
-import OperationalInsightsReport from "@/components/admin/reports/OperationalInsightsReport";
 
-  // Add pagination component
-const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChange }: any) => {
-  const totalPages = Math.ceil(total / pageSize);
-  
-  if (totalPages <= 1) return null;
-  
-  return (
-    <div className="flex items-center justify-between mt-4 pt-3 px-3 pb-2 border-t border-gray-200">
-      <div className="flex items-center gap-2 text-xs text-gray-500">
-        <span>Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}</span>
-        <select 
-          value={pageSize} 
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="border rounded px-1 py-0.5 text-xs"
-        >
-          <option value={10}>10</option>
-          <option value={20}>20</option>
-          <option value={50}>50</option>
-          <option value={100}>100</option>
-        </select>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(page - 1)}
-          disabled={page === 1}
-          className="h-7 px-2 text-xs"
-        >
-          Previous
-        </Button>
-        <span className="text-xs text-gray-600 px-2">
-          Page {page} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page === totalPages}
-          className="h-7 px-2 text-xs"
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  );
-};
+interface TabConfig {
+  id: string;
+  label: string;
+  icon: any;
+}
 
-  // Add these helper functions at the top of the file, before the component
-const getFinancialYear = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = date.getMonth(); // 0-11 (Jan=0, Apr=3)
-  if (month >= 3) { // April to December
-    return `${year}-${year + 1}`;
-  } else { // January to March
-    return `${year - 1}-${year}`;
-  }
-};
+const TABS: TabConfig[] = [
+  { id: "enquiry", label: "Enquiry Report", icon: FileText },
+  { id: "tenant", label: "Tenant Report", icon: Users },
+  { id: "property", label: "Property Report", icon: Home },
+  { id: "room", label: "Rooms / Bed Report", icon: Bed },
+  { id: "visitor", label: "Visitors Report", icon: UserPlus },
+  { id: "vacancy", label: "Vacancy Report", icon: DoorOpen },
+  { id: "expense", label: "Expenses", icon: Wallet },
+  { id: "communication", label: "Communication", icon: Mail },
+  { id: "inventory", label: "Inventory", icon: Briefcase },
+  { id: "payment", label: "Payment", icon: CreditCard },
+  { id: "login", label: "Logged In Report", icon: Clock },
+  { id: "revenue", label: "Revenue Report", icon: TrendingUp },
+];
 
-const getFinancialYearStartYear = (financialYear: string): number => {
-  return parseInt(financialYear.split('-')[0]);
-};
-
-// Helper to get all available financial years from payments data
-const getAvailableFinancialYearsFromPayments = (payments: any[]): string[] => {
-  const years = new Set<string>();
-  payments.forEach(payment => {
-    if (payment.payment_date) {
-      years.add(getFinancialYear(new Date(payment.payment_date)));
-    }
-  });
-  // Add current and previous years
-  const currentYear = getFinancialYear(new Date());
-  years.add(currentYear);
-  years.add(`${parseInt(currentYear.split('-')[0]) - 1}-${parseInt(currentYear.split('-')[0])}`);
-  years.add(`${parseInt(currentYear.split('-')[0]) - 2}-${parseInt(currentYear.split('-')[0]) - 1}`);
-  return Array.from(years).sort().reverse();
-};
-
-// ─── Shared Print Branding ────────────────────────────────────────────────
-const PRINT_BRAND_STYLE = `
-  *{box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;color:#111;font-size:12px;padding:32px;position:relative;margin:0}
-  .brand-header{display:grid;grid-template-columns:96px 1fr 96px;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1B3FA0}
-  .brand-logo-wrap{display:flex;align-items:center;justify-content:flex-start}
-  .brand-logo{max-width:88px;max-height:88px;object-fit:contain}
-  .brand-center{text-align:center}
-  .brand-name{font-size:20px;font-weight:900;color:#0D2567;letter-spacing:.01em}
-  .brand-sub{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
-  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);opacity:.06;z-index:-1;pointer-events:none;width:90%;text-align:center}
-  .watermark span{font-size:64px;font-weight:900;color:#0D2567;white-space:nowrap;display:block}
+export const PRINT_BRAND_STYLE = `
+  .brand-header{display:flex;align-items:center;background:#fff;border-bottom:2px solid #e5e7eb;border-radius:12px 12px 0 0;padding:16px 20px;margin-bottom:20px}
+  .brand-logo-wrap{width:120px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-start}
+  .brand-logo{max-height:52px;width:auto;object-fit:contain}
+  .brand-center{flex:1;text-align:center;padding:0 12px}
+  .brand-name{font-size:22px;font-weight:700;color:#1e293b;letter-spacing:-0.5px}
+  .brand-sub{font-size:10px;font-weight:500;color:#4b5563;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .brand-right{width:120px;flex-shrink:0;text-align:right;font-size:9px;color:#6c7a8a;line-height:1.6}
+  .brand-right .label{font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;display:block}
+  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);
+    font-size:120px;font-weight:900;color:rgba(27,63,160,0.09);white-space:nowrap;
+    pointer-events:none;user-select:none;z-index:-1;letter-spacing:4px}
   @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
-
-  .report-title{font-size:18px;font-weight:900;color:#111;margin-bottom:2px}
-  .report-meta{font-size:11px;color:#6b7280;margin-bottom:20px;display:flex;gap:16px;flex-wrap:wrap}
-  .report-meta span b{color:#1B3FA0}
-
-  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-  .summary-card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px}
-  .summary-card .lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:4px}
-  .summary-card .val{font-size:18px;font-weight:900;color:#111}
-  .summary-card .sub{font-size:9px;color:#9ca3af;margin-top:2px}
-
-  h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#374151;border-bottom:2px solid #f3f4f6;padding-bottom:6px;margin:22px 0 10px;break-after:avoid-page}
-
-  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:6px}
-  thead tr{background:#f8fafc}
-  th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding:7px 9px;white-space:nowrap}
-  td{padding:6px 9px;border-bottom:1px solid #f3f4f6;color:#111}
-  tfoot td{font-weight:800;border-top:2px solid #e5e7eb;background:#f8fafc}
-  .amt{color:#059669;font-weight:700}
-  .amt-red{color:#dc2626;font-weight:700}
-  .badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700}
-  .badge-green{background:#f0fdf4;color:#15803d}
-  .badge-amber{background:#fffbeb;color:#b45309}
-  .badge-red{background:#fef2f2;color:#b91c1c}
-  .badge-gray{background:#f3f4f6;color:#4b5563}
-
-  .footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9.5px;color:#9ca3af;display:flex;justify-content:space-between}
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  .row-line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f9fafb;font-size:11px}
-  .row-line .lbl{font-weight:700;color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em}
-  .row-line .val{font-weight:700;color:#111}
-  @page { margin: 14mm; size: A4; }
 `;
 
-function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
+export function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
   return `<div class="brand-header">
     <div class="brand-logo-wrap">${orgLogo ? `<img class="brand-logo" src="${orgLogo}" alt="logo" onerror="this.style.display='none'"/>` : ""}</div>
     <div class="brand-center">
       <div class="brand-name">${orgName}</div>
       <div class="brand-sub">${subtitle}</div>
     </div>
-    <div></div>
+    <div class="brand-right">
+      <span class="label">Report Date</span>
+      ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+    </div>
   </div>`;
 }
 
-function buildWatermarkHTML(orgName: string) {
+export function buildWatermarkHTML(orgName: string) {
   const firstWord = orgName?.split(" ")[0] || "ROOMAC";
-  return `<div class="watermark"><span>${firstWord}</span></div>`;
-}
-
-function printCurrency(n: number) {
-  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
-}
-
-function openPrintWindow(html: string) {
-  const w = window.open("", "_blank");
-  if (!w) {
-    toast.error("Please allow pop-ups to print the report");
-    return;
-  }
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => {
-    w.print();
-  }, 300);
-}
-
-// ── Revenue Report Print ──────────────────────────────────────────────────
-function buildRevenuePrintHTML(reportData: any, filters: any, propertyName: string, orgLogo: string, orgName: string) {
-  const s = reportData.summary;
-  const payments = reportData.payments || [];
-  const monthly = s.monthlyBreakdown || [];
-
-  const rows = payments.slice(0, 200).map((p: any) => `
-    <tr>
-      <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
-      <td>${p.tenant_name || "N/A"}</td>
-      <td>${p.property_name || "N/A"}</td>
-      <td>${p.payment_type === "security_deposit" ? "Security Deposit" : (p.payment_type || "Other")}</td>
-      <td class="amt">${printCurrency(p.amount)}</td>
-      <td style="text-transform:capitalize">${p.payment_mode || "—"}</td>
-    </tr>`).join("");
-
-  const monthlyRows = monthly.map((m: any) => `
-    <tr>
-      <td>${m.month} ${m.year}</td>
-      <td class="amt">${printCurrency(m.total_amount)}</td>
-      <td>${printCurrency(m.rent_amount)}</td>
-      <td>${printCurrency(m.deposit_amount)}</td>
-      <td>${m.transaction_count}</td>
-    </tr>`).join("");
-
-  return `<!DOCTYPE html><html><head><title>Revenue Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Revenue Report")}
-    <div class="report-title">Revenue Report</div>
-    <div class="report-meta">
-      <span>Property: <b>${propertyName}</b></span>
-      <span>Period: <b>${filters.startDate} to ${filters.endDate}</b></span>
-      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Total Revenue</div><div class="val">${printCurrency(s.totalRevenue)}</div><div class="sub">${s.totalTransactions} transactions</div></div>
-      <div class="summary-card"><div class="lbl">Rent Revenue</div><div class="val">${printCurrency(s.revenueByType?.rent?.amount || 0)}</div><div class="sub">${(s.revenueByType?.rent?.percentage || 0).toFixed(1)}% of total</div></div>
-      <div class="summary-card"><div class="lbl">Deposit Revenue</div><div class="val">${printCurrency(s.revenueByType?.security_deposit?.amount || 0)}</div><div class="sub">${(s.revenueByType?.security_deposit?.percentage || 0).toFixed(1)}% of total</div></div>
-      <div class="summary-card"><div class="lbl">Avg Daily Revenue</div><div class="val">${printCurrency(s.averageDailyRevenue)}</div><div class="sub">Over ${s.daysInRange} days</div></div>
-    </div>
-
-    <h2>Monthly Breakdown</h2>
-    <table>
-      <thead><tr><th>Month</th><th>Total</th><th>Rent</th><th>Deposit</th><th>Txns</th></tr></thead>
-      <tbody>${monthlyRows || `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No data</td></tr>`}</tbody>
-    </table>
-
-    <h2>Transactions ${payments.length > 200 ? `(first 200 of ${payments.length})` : ""}</h2>
-    <table>
-      <thead><tr><th>Date</th><th>Tenant</th><th>Property</th><th>Type</th><th>Amount</th><th>Mode</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#9ca3af">No transactions</td></tr>`}</tbody>
-    </table>
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
-}
-
-// ── Payments Report Print ─────────────────────────────────────────────────
-function buildPaymentsPrintHTML(reportData: any, filters: any, propertyName: string, orgLogo: string, orgName: string) {
-  const s = reportData.summary;
-  const payments = reportData.payments || [];
-
-  const rows = payments.slice(0, 200).map((p: any) => `
-    <tr>
-      <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString("en-IN") : "—"}</td>
-      <td>${p.tenant_name || "N/A"}</td>
-      <td>${p.property_name || "N/A"}</td>
-      <td>${p.payment_type === "security_deposit" ? "Security Deposit" : (p.payment_type || "Other")}</td>
-      <td class="amt">${printCurrency(p.amount)}</td>
-      <td>${p.status === "approved" || p.status === "paid"
-        ? `<span class="badge badge-green">${p.status}</span>`
-        : p.status === "pending"
-        ? `<span class="badge badge-amber">pending</span>`
-        : `<span class="badge badge-red">${p.status || "unknown"}</span>`}</td>
-    </tr>`).join("");
-
-  return `<!DOCTYPE html><html><head><title>Payments Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Payments Report")}
-    <div class="report-title">Payments Report</div>
-    <div class="report-meta">
-      <span>Property: <b>${propertyName}</b></span>
-      <span>Period: <b>${filters.startDate} to ${filters.endDate}</b></span>
-      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Total Transactions</div><div class="val">${s.totalTransactions}</div><div class="sub">Unique tenants: ${s.uniqueTenants}</div></div>
-      <div class="summary-card"><div class="lbl">Collection Rate</div><div class="val">${(s.collectionRateByAmount || 0).toFixed(1)}%</div><div class="sub">${printCurrency(s.statusBreakdown?.approved?.amount || 0)} of ${printCurrency(s.totalAmount)}</div></div>
-      <div class="summary-card"><div class="lbl">Pending Amount</div><div class="val">${printCurrency(s.statusBreakdown?.pending?.amount || 0)}</div><div class="sub">${s.statusBreakdown?.pending?.count || 0} payments</div></div>
-      <div class="summary-card"><div class="lbl">Avg Transaction</div><div class="val">${printCurrency(s.averageTransactionValue)}</div></div>
-    </div>
-
-    <h2>Transactions ${payments.length > 200 ? `(first 200 of ${payments.length})` : ""}</h2>
-    <table>
-      <thead><tr><th>Date</th><th>Tenant</th><th>Property</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#9ca3af">No transactions</td></tr>`}</tbody>
-    </table>
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
-}
-
-// ── Tenants Report Print ──────────────────────────────────────────────────
-function buildTenantsPrintHTML(reportData: any, propertyName: string, orgLogo: string, orgName: string) {
-  const s = reportData.summary;
-  const tenants = reportData.tenants || [];
-
-  const rows = tenants.slice(0, 300).map((t: any) => `
-    <tr>
-      <td>${t.full_name}</td>
-      <td>${t.property_name || "N/A"}</td>
-      <td>${t.room_number ? `R${t.room_number}${t.bed_number ? `/B${t.bed_number}` : ""}` : "—"}</td>
-      <td>${printCurrency(t.monthly_rent)}</td>
-      <td class="amt">${printCurrency(t.total_rent_paid)}</td>
-      <td class="amt-red">${printCurrency(t.pending_rent)}</td>
-      <td>${t.is_active ? `<span class="badge badge-green">Active</span>` : `<span class="badge badge-gray">Inactive</span>`}</td>
-    </tr>`).join("");
-
-  return `<!DOCTYPE html><html><head><title>Tenants Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Tenants Report")}
-    <div class="report-title">Tenants Report</div>
-    <div class="report-meta">
-      <span>Property: <b>${propertyName}</b></span>
-      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Total Tenants</div><div class="val">${s.totalTenants}</div><div class="sub">Active: ${s.activeTenants} · Inactive: ${s.inactiveTenants}</div></div>
-      <div class="summary-card"><div class="lbl">Collection Rate</div><div class="val">${s.financialSummary?.overall_rent_collection_rate || 0}%</div></div>
-      <div class="summary-card"><div class="lbl">Rent Pending</div><div class="val">${printCurrency(s.financialSummary?.total_rent_pending || 0)}</div></div>
-      <div class="summary-card"><div class="lbl">New This Month</div><div class="val">${s.newTenantsThisMonth}</div></div>
-    </div>
-
-    <h2>Tenants ${tenants.length > 300 ? `(first 300 of ${tenants.length})` : ""}</h2>
-    <table>
-      <thead><tr><th>Name</th><th>Property</th><th>Room/Bed</th><th>Rent</th><th>Paid</th><th>Pending</th><th>Status</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" style="text-align:center;color:#9ca3af">No tenants</td></tr>`}</tbody>
-    </table>
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
-}
-
-// ── Tenant Payment Report Print ───────────────────────────────────────────
-function buildTenantPaymentReportPrintHTML(r: any, orgLogo: string, orgName: string) {
-  const monthRows = (r.month_wise_rent || []).map((m: any) => `
-    <tr>
-      <td>${m.month} ${m.year}</td>
-      <td>${printCurrency(m.expected)}</td>
-      <td class="amt">${printCurrency(m.paid)}</td>
-      <td class="amt-red">${printCurrency(m.pending)}</td>
-      <td>${m.pending === 0
-        ? `<span class="badge badge-green">Paid</span>`
-        : m.paid > 0
-        ? `<span class="badge badge-amber">Partial</span>`
-        : `<span class="badge badge-red">Pending</span>`}</td>
-    </tr>`).join("");
-
-  return `<!DOCTYPE html><html><head><title>Tenant Payment Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Payment Report")}
-    <div class="report-title">${r.tenant.name}</div>
-    <div class="report-meta">
-      <span>${r.tenant.property_name} · Room ${r.tenant.room_number}, Bed ${r.tenant.bed_number}</span>
-      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="two-col">
-      <div>
-        <h2>Tenant Details</h2>
-        <div class="row-line"><span class="lbl">Phone / Email</span><span class="val">${r.tenant.phone} / ${r.tenant.email}</span></div>
-        <div class="row-line"><span class="lbl">Check-in Date</span><span class="val">${r.tenant.check_in_date ? new Date(r.tenant.check_in_date).toLocaleDateString("en-IN") : "—"}</span></div>
-        <div class="row-line"><span class="lbl">Months Completed</span><span class="val">${r.tenant.months_since_joining}</span></div>
-        <div class="row-line"><span class="lbl">Monthly Rent</span><span class="val amt">${printCurrency(r.tenant.monthly_rent)}</span></div>
-        ${r.tenant.vacated_date ? `<div class="row-line"><span class="lbl">Vacated On</span><span class="val amt-red">${new Date(r.tenant.vacated_date).toLocaleDateString("en-IN")}</span></div>` : ""}
-      </div>
-      <div>
-        <h2>Rent Summary</h2>
-        <div class="row-line"><span class="lbl">Expected Rent</span><span class="val">${printCurrency(r.summary.expected_rent)}</span></div>
-        <div class="row-line"><span class="lbl">Paid Rent</span><span class="val amt">${printCurrency(r.summary.paid_rent)}</span></div>
-        <div class="row-line"><span class="lbl">Pending Rent</span><span class="val amt-red">${printCurrency(r.summary.pending_rent)}</span></div>
-        <div class="row-line"><span class="lbl">Collection Rate</span><span class="val">${r.summary.collection_rate}%</span></div>
-      </div>
-    </div>
-
-    <h2>Month-wise Rent</h2>
-    <table>
-      <thead><tr><th>Month</th><th>Expected</th><th>Paid</th><th>Pending</th><th>Status</th></tr></thead>
-      <tbody>${monthRows || `<tr><td colspan="5" style="text-align:center;color:#9ca3af">No data</td></tr>`}</tbody>
-    </table>
-
-    <h2>Security Deposit</h2>
-    <div class="summary-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="summary-card"><div class="lbl">Total</div><div class="val">${printCurrency(r.summary.security_deposit_total)}</div></div>
-      <div class="summary-card"><div class="lbl">Paid</div><div class="val" style="color:#059669">${printCurrency(r.summary.security_deposit_paid)}</div></div>
-      <div class="summary-card"><div class="lbl">Pending</div><div class="val" style="color:#d97706">${printCurrency(r.summary.security_deposit_pending)}</div></div>
-    </div>
-
-    ${r.vacate_info ? `
-    <h2>Vacate Details</h2>
-    <div class="row-line"><span class="lbl">Vacate Date</span><span class="val">${new Date(r.vacate_info.vacate_date).toLocaleDateString("en-IN")}</span></div>
-    <div class="row-line"><span class="lbl">Total Penalty</span><span class="val amt-red">${printCurrency(r.vacate_info.total_penalty)}</span></div>
-    <div class="row-line"><span class="lbl">Refundable Amount</span><span class="val amt">${printCurrency(r.vacate_info.refundable_amount)}</span></div>
-    ` : ""}
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
-}
-
-// ── Property Payment Report Print ─────────────────────────────────────────
-function buildPropertyPaymentReportPrintHTML(r: any, orgLogo: string, orgName: string) {
-  const tenantRows = (r.tenant_reports || []).map((t: any) => `
-    <tr>
-      <td>${t.tenant_name}${t.is_vacated ? ` <span class="badge badge-red">Vacated</span>` : ""}</td>
-      <td>R${t.room_number}/B${t.bed_number}</td>
-      <td>${printCurrency(t.monthly_rent)}</td>
-      <td>${t.months_completed}</td>
-      <td>${printCurrency(t.expected_rent)}</td>
-      <td class="amt">${printCurrency(t.paid_rent)}</td>
-      <td class="amt-red">${printCurrency(t.pending_rent)}</td>
-      <td>${(t.rent_collection_rate || 0).toFixed(0)}%</td>
-    </tr>`).join("");
-
-  return `<!DOCTYPE html><html><head><title>Property Payment Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Property Payment Report")}
-    <div class="report-title">${r.property?.name || "Property"}</div>
-    <div class="report-meta">
-      <span>${r.property?.address || ""}</span>
-      <span>Generated: <b>${new Date().toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Total Rooms / Beds</div><div class="val">${r.property?.total_rooms || 0} / ${r.property?.total_beds || 0}</div></div>
-      <div class="summary-card"><div class="lbl">Occupancy Rate</div><div class="val">${(r.property?.occupancy_rate || 0).toFixed(1)}%</div></div>
-      <div class="summary-card"><div class="lbl">Rent Collected</div><div class="val amt">${printCurrency(r.financial_summary?.total_rent_collected || 0)}</div></div>
-      <div class="summary-card"><div class="lbl">Rent Pending</div><div class="val amt-red">${printCurrency(r.financial_summary?.total_rent_pending || 0)}</div></div>
-    </div>
-
-    <h2>Tenant-wise Report</h2>
-    <table>
-      <thead><tr><th>Tenant</th><th>Room/Bed</th><th>Rent</th><th>Months</th><th>Expected</th><th>Paid</th><th>Pending</th><th>Coll. %</th></tr></thead>
-      <tbody>${tenantRows || `<tr><td colspan="8" style="text-align:center;color:#9ca3af">No tenants</td></tr>`}</tbody>
-    </table>
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>Total tenants: ${r.financial_summary?.total_tenants || 0} · Active: ${r.financial_summary?.active_tenants || 0}</span></div>
-  </body></html>`;
-}
-
-// ── PG Revenue Report Print ───────────────────────────────────────────────
-function buildPGRevenuePrintHTML(r: any, orgLogo: string, orgName: string) {
-  const propertyBlocks = (r.properties || []).map((p: any) => {
-    const rows = p.periods.map((per: any) => `
-      <tr>
-        <td>${per.period}</td>
-        <td class="amt">${printCurrency(per.revenue)}</td>
-        <td class="amt-red">${printCurrency(per.expenses)}</td>
-        <td class="${per.is_profit ? "amt" : "amt-red"}">${per.is_profit ? printCurrency(per.profit) : `-${printCurrency(Math.abs(per.profit))}`}</td>
-      </tr>`).join("");
-    return `
-      <h2>${p.property_name}</h2>
-      <table>
-        <thead><tr><th>${r.period_type === "month_wise" ? "Month" : "Year"}</th><th>Revenue</th><th>Expenses</th><th>Profit/Loss</th></tr></thead>
-        <tbody>${rows}</tbody>
-        <tfoot><tr><td>Total</td><td class="amt">${printCurrency(p.summary.total_revenue)}</td><td class="amt-red">${printCurrency(p.summary.total_expenses)}</td>
-        <td class="${p.summary.is_profit ? "amt" : "amt-red"}">${p.summary.is_profit ? printCurrency(p.summary.net_profit) : `-${printCurrency(p.summary.net_loss)}`}</td></tr></tfoot>
-      </table>`;
-  }).join("");
-
-  return `<!DOCTYPE html><html><head><title>PG Revenue Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "PG Revenue Report")}
-    <div class="report-title">PG Revenue Report</div>
-    <div class="report-meta">
-      <span>${r.report_type === "all_property" ? "All Properties" : "Property Wise"}</span>
-      <span>${r.period_type === "month_wise" ? "Month Wise" : "Year Wise"} · Year ${r.year}</span>
-      <span>Generated: <b>${new Date(r.generated_at).toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Total Revenue</div><div class="val amt">${printCurrency(r.overall_summary.total_revenue)}</div></div>
-      <div class="summary-card"><div class="lbl">Total Expenses</div><div class="val amt-red">${printCurrency(r.overall_summary.total_expenses)}</div></div>
-      <div class="summary-card"><div class="lbl">Net ${r.overall_summary.is_profit ? "Profit" : "Loss"}</div><div class="val ${r.overall_summary.is_profit ? "amt" : "amt-red"}">${printCurrency(r.overall_summary.is_profit ? r.overall_summary.net_profit : r.overall_summary.net_loss)}</div></div>
-      <div class="summary-card"><div class="lbl">Properties</div><div class="val">${r.overall_summary.properties_count}</div></div>
-    </div>
-
-    ${propertyBlocks}
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
-}
-
-// ── Occupancy Report Print (detailed scope/type/period version) ──────────
-function buildOccupancyReportPrintHTML(r: any, orgLogo: string, orgName: string) {
-  const propertyBlocks = (r.properties || []).map((p: any) => {
-    const rows = p.periods.map((per: any) => `
-      <tr>
-        <td>${per.period}</td>
-        <td class="amt">${per.display_total}</td>
-        <td>${per.display_new}</td>
-      </tr>`).join("");
-    return `
-      <h2>${p.property_name}</h2>
-      <table>
-        <thead><tr><th>${r.period_type === "month" ? "Month" : "Year"}</th><th>${r.report_type === "vacant" ? "Vacant Tenants" : r.report_type === "non_vacant" ? "Non-Vacant Tenants" : "Total Tenants"}</th><th>${r.report_type === "vacant" ? "New Vacates" : "New Joins"}</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  }).join("");
-
-  return `<!DOCTYPE html><html><head><title>Occupancy Report</title><style>${PRINT_BRAND_STYLE}</style></head><body>
-    ${buildWatermarkHTML(orgName)}
-    ${buildBrandHeaderHTML(orgLogo, orgName, "Occupancy Report")}
-    <div class="report-title">Occupancy Report</div>
-    <div class="report-meta">
-      <span>${r.report_scope === "all" ? "All Properties" : "Property Wise"}</span>
-      <span>${r.report_type === "overall" ? "Overall" : r.report_type === "non_vacant" ? "Non-Vacant" : "Vacant"} · ${r.period_type === "month" ? "Month Wise" : "Year Wise"} · Year ${r.year}</span>
-      <span>Generated: <b>${new Date(r.generated_at).toLocaleString("en-IN")}</b></span>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="lbl">Properties</div><div class="val">${r.overall_summary.properties_count}</div></div>
-      <div class="summary-card"><div class="lbl">Current Tenants</div><div class="val amt">${r.overall_summary.overall_totals.total_non_vacant}</div></div>
-      <div class="summary-card"><div class="lbl">Vacated Tenants</div><div class="val">${r.overall_summary.overall_totals.total_vacant}</div></div>
-      <div class="summary-card"><div class="lbl">New Joins</div><div class="val">${r.overall_summary.overall_totals.total_new_joins}</div></div>
-    </div>
-
-    ${propertyBlocks}
-
-    <div class="footer"><span>Roomac Co-Living Management System</span><span>This is a system generated report</span></div>
-  </body></html>`;
+  return `<div class="watermark">${firstWord}</div>`;
 }
 
 export default function ReportsPage() {
-  const [loading, setLoading] = useState(false);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [operationalInsights, setOperationalInsights] = useState<reportApi.OperationalInsights | null>(null);
-  const [insightsLoading, setInsightsLoading] = useState(true);
-  const [properties, setProperties] = useState<reportApi.PropertyOption[]>([]);
-  const [tenantsList, setTenantsList] = useState<any[]>([]);
-  const [selectedProperty, setSelectedProperty] =
-    useState<reportApi.PropertyOption | null>(null);
-    const [reportPage, setReportPage] = useState(1);
-const [reportPageSize, setReportPageSize] = useState(20);
-const [reportTotalItems, setReportTotalItems] = useState(0);
-  const [selectedTenant, setSelectedTenant] = useState<any>(null);
-  const [revenuePage, setRevenuePage] = useState(1);
-const [propertyTenantPage, setPropertyTenantPage] = useState(1);
-const [propertyTenantPageSize, setPropertyTenantPageSize] = useState(20);
-// ✅ ADD THIS MISSING STATE VARIABLE
-  const [revenuePageSize, setRevenuePageSize] = useState(20);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("enquiry");
+  
+  // Sidebar State
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  
+  // Active/Applied Filters (Used for API calls)
+  const [startDate, setStartDate] = useState<string>(
+    format(startOfMonth(new Date()), "yyyy-MM-dd")
+  );
+  const [endDate, setEndDate] = useState<string>(
+    format(endOfMonth(new Date()), "yyyy-MM-dd")
+  );
+  const [propertyId, setPropertyId] = useState<string>("all");
+
+  // Sidebar Temporary Filters (Applied only when clicking "Apply")
+  const [tempStartDate, setTempStartDate] = useState<string>(startDate);
+  const [tempEndDate, setTempEndDate] = useState<string>(endDate);
+  const [tempPropertyId, setTempPropertyId] = useState<string>(propertyId);
+  
+  // Data State
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [reportStats, setReportStats] = useState<any>({});
+  const [loading, setLoading] = useState<boolean>(false);
+  const [propertiesLoading, setPropertiesLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>(currentSearchTerm => "");
+  
+  // Column Filters State (per-column input searches)
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+
+  // Sorting State
+  const [sortField, setSortField] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15);
+
+
+  const getApiUrl = () =>
+  (typeof window !== "undefined" && (window as any).__ENV__?.VITE_API_URL) || "http://localhost:3001";
+
+function resolveUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${getApiUrl()}${url}`;
+}
+
+// inside ReportsPage component
 const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: string }>({
   logoUrl: "",
   orgName: "Roomac Co-Living",
 });
-  const [dashboardStats, setDashboardStats] =
-    useState<reportApi.DashboardStats>({
-      totalProperties: 0,
-      totalRooms: 0,
-      totalBeds: 0,
-      occupiedBeds: 0,
-      activeTenants: 0,
-      monthlyRevenue: 0,
-      totalRevenue: 0,
-      revenueGrowth: 0,
-      avgOccupation: 0,
-      occupationGrowth: 0,
-      netProfit: 0,
-      profitGrowth: 0,
-      totalTenants: 0,
-      occupancyRate: 0,
-      collectionRate: 0,
-      pendingPayments: 0,
-      pendingAmount: 0,
-      upcomingCheckouts: 0,
-      maintenanceRequests: 0,
-    });
-
-  const [propertyDetails, setPropertyDetails] = useState<any[]>([]);
-  const [roomDetails, setRoomDetails] = useState<any[]>([]);
-  const [tenantDetails, setTenantDetails] = useState<any[]>([]);
-  const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
-  const [tenantPaymentReport, setTenantPaymentReport] = useState<any>(null);
-  const [propertyPaymentReport, setPropertyPaymentReport] = useState<any>(null);
-  const [tenantSearchOpen, setTenantSearchOpen] = useState(false);
-  const [tenantSearchTerm, setTenantSearchTerm] = useState("");
-  const [pgRevenueReport, setPgRevenueReport] = useState<any>(null);
-  const [pgRevenuePeriodType, setPgRevenuePeriodType] = useState<
-    "month_wise" | "year_wise"
-  >("month_wise");
-  const [pgRevenueYear, setPgRevenueYear] = useState(new Date().getFullYear());
-
-  const [filters, setFilters] = useState<reportApi.ReportFilters>({
-    reportType: "revenue",
-    startDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
-    endDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
-    propertyId: "all",
-  });
-
-  const reportSectionRef = useRef<HTMLDivElement>(null);
-  const [dateRange, setDateRange] = useState<
-    "today" | "week" | "month" | "year" | "custom"
-  >("month");
-  const [reportData, setReportData] = useState<reportApi.ReportData | null>(
-    null,
-  );
-  const [summaryStats, setSummaryStats] = useState({
-    totalRevenue: 0,
-    totalPayments: 0,
-    totalTenants: 0,
-    occupancyRate: 0,
-    collectionRate: 0,
-  });
-  const [activeTab, setActiveTab] = useState("overview");
-  const [occupancyReport, setOccupancyReport] = useState<any>(null);
-  const [occupancyReportScope, setOccupancyReportScope] = useState<
-    "all" | "property"
-  >("all");
-  const [occupancyReportType, setOccupancyReportType] = useState<
-    "overall" | "non_vacant" | "vacant"
-  >("overall");
-  const [occupancyPeriodType, setOccupancyPeriodType] = useState<
-    "month" | "year"
-  >("month");
-  const [occupancyYear, setOccupancyYear] = useState(new Date().getFullYear());
-   const [selectedFinancialYear, setSelectedFinancialYear] = useState(getFinancialYear(new Date()));
-  const [availableFinancialYears, setAvailableFinancialYears] = useState<string[]>([]);
-
-  // Load properties on mount
-  useEffect(() => {
-    loadProperties();
-    loadTenantsList();
-  }, []);
-
-  // Load dashboard stats when filters change
-useEffect(() => {
-  if (dateRange !== "custom") {
-    updateDateRangeAutomatically();
-  }
-  loadDashboardStats(); // Call this directly instead of the old one
-  loadOperationalInsights();
-  loadPropertyDetails();
-  loadRoomDetails();
-  loadTenantDetails();
-  loadPaymentDetails();
-}, [dateRange, filters.propertyId]);
 
 useEffect(() => {
   (async () => {
     try {
       const settings: any = await getSettings();
-      if (settings && typeof settings === "object") {
-        const logo =
-          settings.logo_header?.value ||
-          settings.logo_admin_sidebar?.value ||
-          settings.logo_footer?.value ||
-          "";
-        const name = settings.site_name?.value || "Roomac Co-Living";
-        const resolvedLogo = logo
-          ? logo.startsWith("http")
-            ? logo
-            : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${logo}`
-          : "";
-        setOrgSettings({ logoUrl: resolvedLogo, orgName: name });
-      }
+      const logo =
+        settings.logo_header?.value ||
+        settings.logo_admin_sidebar?.value ||
+        settings.logo_footer?.value ||
+        "";
+      const name = settings.site_name?.value || "Roomac Co-Living";
+      setOrgSettings({ logoUrl: logo ? resolveUrl(logo) : "", orgName: name });
     } catch (e) {
       console.error("Failed to load org settings for print branding", e);
     }
   })();
 }, []);
 
-  const loadProperties = async () => {
+  // Fetch properties for dropdown on load
+  // NOTE: previously called reportApi.getProperties(), which either doesn't exist
+  // or hits the wrong route, so the dropdown always came back empty. The backend
+  // already scopes/returns properties correctly via GET /api/reports/filters
+  // (ReportController.getReportFilters) — we just weren't calling it.
+  useEffect(() => {
+    const fetchPropertiesList = async () => {
+      setPropertiesLoading(true);
+      try {
+        const response = await reportApi.getReportFilters();
+        if (response?.success) {
+          setProperties(response.data?.properties || []);
+        } else {
+          setProperties([]);
+        }
+      } catch (err) {
+        console.error("Error loading properties:", err);
+        setProperties([]);
+      } finally {
+        setPropertiesLoading(false);
+      }
+    };
+    fetchPropertiesList();
+  }, []);
+
+  // Fetch report data when active applied filters or tab change
+  const fetchReportDetails = async () => {
+    setLoading(true);
+    setCurrentPage(1);
+    setColFilters({});
     try {
-      const props = await reportApi.fetchProperties();
-      setProperties(props);
+      const response = await reportApi.getReportData(activeTab, {
+        startDate,
+        endDate,
+        propertyId,
+      });
 
-      if (filters.propertyId && filters.propertyId !== "all") {
-        const selected = props.find((p) => p.id === filters.propertyId);
-        setSelectedProperty(selected || null);
+      if (response.success) {
+        setReportData(response.data || []);
+        setReportStats(response.stats || {});
+      } else {
+        toast.error(response.message || "Failed to fetch report data");
+        setReportData([]);
+        setReportStats({});
       }
-    } catch (err) {
-      console.error("Error loading properties:", err);
-      toast.error("Failed to load properties");
+    } catch (error) {
+      console.error("Error loading report details:", error);
+      toast.error("Error connecting to server. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadTenantsList = async () => {
-  try {
-    const data = await request<any>(`/api/reports/tenants-list`);
-    if (data.success) setTenantsList(data.data);
-  } catch (err) {
-    console.error("Error loading tenants list:", err);
-  }
-};
+  useEffect(() => {
+    fetchReportDetails();
+  }, [activeTab, startDate, endDate, propertyId]);
 
-const loadPropertyDetails = async () => {
-  try {
-    const data = await request<any>(`/api/properties?pageSize=100`);
-    if (data.success) setPropertyDetails(data.data?.data || data.data || []);
-  } catch (error) {
-    console.error("Error loading property details:", error);
-  }
-};
+  // Open filter sidebar and sync current state
+  const handleOpenFilters = () => {
+    setTempStartDate(startDate);
+    setTempEndDate(endDate);
+    setTempPropertyId(propertyId);
+    setSidebarOpen(true);
+  };
 
-const loadRoomDetails = async () => {
-  try {
-    const data = await request<any>(`/api/rooms`);
-    setRoomDetails(Array.isArray(data) ? data : data.data || []);
-  } catch (error) {
-    console.error("Error loading room details:", error);
-  }
-};
+  // Apply filters trigger
+  const handleApplyFilters = () => {
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+    setPropertyId(tempPropertyId);
+    setSidebarOpen(false);
+  };
 
-const loadTenantDetails = async () => {
-  try {
-    const data = await request<any>(`/api/tenants?pageSize=1000`);
-    setTenantDetails(data.data || []);
-  } catch (error) {
-    console.error("Error loading tenant details:", error);
-  }
-};
+  // Reset Filters inside Sidebar
+  // FIX: previously this only reset the *temp* sidebar fields and asked the
+  // user to click Apply — which read as "Reset does nothing" since the table
+  // behind it never changed. Reset now applies immediately, same as clicking
+  // Apply right after resetting.
+  const handleResetFilters = () => {
+    const resetStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const resetEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+    setTempStartDate(resetStart);
+    setTempEndDate(resetEnd);
+    setTempPropertyId("all");
+    setStartDate(resetStart);
+    setEndDate(resetEnd);
+    setPropertyId("all");
+  };
 
-const loadPaymentDetails = async () => {
-  try {
-    const data = await request<any>(`/api/payments`);
-    setPaymentDetails(data.data || []);
-  } catch (error) {
-    console.error("Error loading payment details:", error);
-  }
-};
+  // Handle Sort
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
 
-  // Add this useEffect to set financial years when paymentDetails loads
-useEffect(() => {
-  if (paymentDetails.length > 0) {
-    const years = getAvailableFinancialYearsFromPayments(paymentDetails);
-    setAvailableFinancialYears(years);
-  } else {
-    // ✅ FALLBACK: Set default financial years even if no payments
-    const currentYear = getFinancialYear(new Date());
-    const defaultYears = [
-      currentYear,
-      `${parseInt(currentYear.split('-')[0]) - 1}-${parseInt(currentYear.split('-')[0])}`,
-      `${parseInt(currentYear.split('-')[0]) - 2}-${parseInt(currentYear.split('-')[0]) - 1}`
-    ];
-    setAvailableFinancialYears(defaultYears);
-  }
-}, [paymentDetails]);
+  // Column Filters change handler
+  const handleColFilterChange = (field: string, val: string) => {
+    setColFilters(prev => ({
+      ...prev,
+      [field]: val
+    }));
+    setCurrentPage(1);
+  };
 
+  // Filter & Sort Data client-side
+  const getFilteredAndSortedData = () => {
+    let result = [...reportData];
 
-const loadDashboardStats = async () => {
-  try {
-    setDashboardLoading(true);
-    const data = await request<any>(`/api/reports/summary`);
-    if (data.success && data.data) {
-      const d = data.data;
-      setDashboardStats({
-        totalProperties: d.total_properties || 0,
-        totalRooms: d.total_rooms || 0,
-        totalBeds: parseInt(d.bed_occupancy?.split('/')[1] || 0),
-        occupiedBeds: parseInt(d.bed_occupancy?.split('/')[0] || 0),
-        activeTenants: d.active_tenants || 0,
-        monthlyRevenue: d.monthly_revenue || 0,
-        totalRevenue: d.monthly_revenue || 0,
-        revenueGrowth: 0,
-        avgOccupation: d.occupancy_rate || 0,
-        occupationGrowth: 0,
-        netProfit: 0,
-        profitGrowth: 0,
-        totalTenants: d.active_tenants || 0,
-        occupancyRate: d.occupancy_rate || 0,
-        collectionRate: d.collection_rate || 0,
-        pendingPayments: d.this_month_expected_count || 0,
-        pendingAmount: d.this_month_expected_amount || 0,
-        upcomingCheckouts: d.total_vacated || 0,
-        maintenanceRequests: d.total_expenses || 0,
+    // Filter by column inputs
+    Object.entries(colFilters).forEach(([col, val]) => {
+      if (val.trim()) {
+        const term = val.toLowerCase().trim();
+        result = result.filter((row) => {
+          let rowVal = row[col];
+          if (col === "is_active") {
+            const statusText = rowVal ? "active" : "inactive";
+            return statusText.includes(term);
+          }
+          if (rowVal === null || rowVal === undefined) return false;
+          return rowVal.toString().toLowerCase().includes(term);
+        });
+      }
+    });
+
+    // Sort
+    if (sortField) {
+      result.sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+
+        if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+        return 0;
       });
     }
-  } catch (err) {
-    console.error('Error loading dashboard stats:', err);
-  } finally {
-    setDashboardLoading(false);
-  }
-};
 
-const loadOperationalInsights = async () => {
-  try {
-    setInsightsLoading(true);
-    setOperationalInsights(await reportApi.getOperationalInsights(filters));
-  } catch (error) {
-    console.error('Error loading operational insights:', error);
-    setOperationalInsights(null);
-  } finally {
-    setInsightsLoading(false);
-  }
-};
-
-  const updateDateRangeAutomatically = () => {
-    const today = new Date();
-    let start = "";
-    let end = "";
-
-    switch (dateRange) {
-      case "today":
-        start = end = format(today, "yyyy-MM-dd");
-        break;
-      case "week":
-        start = format(subDays(today, 7), "yyyy-MM-dd");
-        end = format(today, "yyyy-MM-dd");
-        break;
-      case "month":
-        start = format(startOfMonth(today), "yyyy-MM-dd");
-        end = format(endOfMonth(today), "yyyy-MM-dd");
-        break;
-      case "year":
-        start = format(startOfYear(today), "yyyy-MM-dd");
-        end = format(endOfYear(today), "yyyy-MM-dd");
-        break;
-      default:
-        return;
-    }
-
-    setFilters((prev) => ({ ...prev, startDate: start, endDate: end }));
+    return result;
   };
 
-  const handlePropertyChange = (value: string) => {
-    setFilters((prev) => ({ ...prev, propertyId: value }));
-    const selected = properties.find((p) => p.id === value);
-    setSelectedProperty(selected || null);
-  };
-
-  const handleTenantSelect = (tenant: any) => {
-    setSelectedTenant(tenant);
-    setTenantSearchOpen(false);
-    setTenantSearchTerm("");
-  };
-
-const generateTenantPaymentReport = async () => {
-  if (!selectedTenant) {
-    toast.error("Please select a tenant");
-    return;
-  }
-  setLoading(true);
-  try {
-    const url = `/api/reports/tenant-payment-report?tenantId=${selectedTenant.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
-    const data = await request<any>(url);
-    if (data.success) {
-      setTenantPaymentReport(data.data);
-      setPropertyPaymentReport(null);
-      setActiveTab("report");
-      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } else {
-      toast.error(data.message || "Failed to generate report");
-    }
-  } catch (error) {
-    console.error("Error generating tenant payment report:", error);
-    toast.error("Failed to generate report");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // In the generatePropertyPaymentReport function, update:
-const generatePropertyPaymentReport = async () => {
-  if (!selectedProperty || filters.propertyId === "all") {
-    toast.error("Please select a property");
-    return;
-  }
-  setLoading(true);
-  try {
-    const url = `/api/reports/property-payment-report?propertyId=${selectedProperty.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
-    const data = await request<any>(url);
-    if (data.success) {
-      setPropertyPaymentReport(data.data);
-      setTenantPaymentReport(null);
-      setActiveTab("report");
-      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } else {
-      toast.error(data.message || "Failed to generate report");
-    }
-  } catch (error) {
-    console.error("Error generating property payment report:", error);
-    toast.error("Failed to generate report");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Add this function after generateReport or generatePropertyPaymentReport
-const generatePGRevenueReport = async () => {
-  setLoading(true);
-  setPgRevenueReport(null);
-  setTenantPaymentReport(null);
-  setPropertyPaymentReport(null);
-  setReportData(null);
-  try {
-    let reportType = "all_property";
-    if (filters.reportType === "pg_revenue_property" || (filters.propertyId && filters.propertyId !== "all")) {
-      reportType = "property_wise";
-    }
-    const yearForApi = getFinancialYearStartYear(selectedFinancialYear);
-    let url = `/api/reports/pg-revenue-report?reportType=${reportType}&periodType=${pgRevenuePeriodType}&year=${yearForApi}`;
-    if (reportType === "property_wise" && filters.propertyId && filters.propertyId !== "all") {
-      url += `&propertyId=${filters.propertyId}`;
-    }
-    const data = await request<any>(url);
-    if (data.success) {
-      setPgRevenueReport(data.data);
-      setActiveTab("report");
-      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } else {
-      toast.error(data.message || "Failed to generate report");
-    }
-  } catch (error) {
-    console.error("Error generating PG revenue report:", error);
-    toast.error("Failed to generate report");
-  } finally {
-    setLoading(false);
-  }
-};
-
-const generateOccupancyReport = async () => {
-  setLoading(true);
-  setOccupancyReport(null);
-  setTenantPaymentReport(null);
-  setPropertyPaymentReport(null);
-  setReportData(null);
-  setPgRevenueReport(null);
-  try {
-    let url = `/api/reports/occupancy-report?reportScope=${occupancyReportScope}&reportType=${occupancyReportType}&periodType=${occupancyPeriodType}&year=${occupancyYear}`;
-    if (occupancyReportScope === "property" && filters.propertyId && filters.propertyId !== "all") {
-      url += `&propertyId=${filters.propertyId}`;
-    }
-    const data = await request<any>(url);
-    if (data.success) {
-      setOccupancyReport(data.data);
-      setActiveTab("report");
-      setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } else {
-      toast.error(data.message || "Failed to generate report");
-    }
-  } catch (error) {
-    console.error("Error generating occupancy report:", error);
-    toast.error("Failed to generate report");
-  } finally {
-    setLoading(false);
-  }
-};
-
-const generateReport = async () => {
-  setLoading(true);
-  void loadOperationalInsights();
-  // Clear ALL report states FIRST
-  setReportData(null);
-  setTenantPaymentReport(null);
-  setPropertyPaymentReport(null);
-  setPgRevenueReport(null);
-  setOccupancyReport(null); // Add this line to clear occupancy report
-
-  try {
-    let response;
-    switch (filters.reportType) {
-      case "revenue":
-        response = await reportApi.generateRevenueReport(filters);
-        setSummaryStats({
-          totalRevenue: response.summary.totalRevenue,
-          totalPayments: response.summary.paymentCount,
-          totalTenants: 0,
-          occupancyRate: 0,
-          collectionRate: 100,
-        });
-        setReportData(response);
-        break;
-      case "payments":
-        response = await reportApi.generatePaymentsReport(filters);
-        const completed = (response.summary as reportApi.PaymentSummary)
-          .completedPayments;
-        const total = response.payments?.length || 1;
-        setSummaryStats({
-          totalRevenue: response.summary.totalAmount,
-          totalPayments: response.payments?.length || 0,
-          totalTenants: 0,
-          occupancyRate: 0,
-          collectionRate: (completed / total) * 100,
-        });
-        setReportData(response);
-        break;
-      case "tenants":
-        response = await reportApi.generateTenantsReport(filters);
-        const summary = response.summary as reportApi.TenantSummary;
-        setSummaryStats({
-          totalRevenue: 0,
-          totalPayments: 0,
-          totalTenants: summary.totalTenants,
-          occupancyRate: summary.totalTenants
-            ? (summary.withActiveBookings / summary.totalTenants) * 100
-            : 0,
-          collectionRate: 0,
-        });
-        setReportData(response);
-        break;
-      case "occupancy":
-        await generateOccupancyReport();
-        setLoading(false);
-        return;
-      case "tenant_payment":
-        await generateTenantPaymentReport();
-        setLoading(false);
-        return;
-      case "property_payment":
-        await generatePropertyPaymentReport();
-        setLoading(false);
-        return;
-      case "pg_revenue":
-        await generatePGRevenueReport();
-        setLoading(false);
-        return;
-      default:
-        // Handle any other report types
-        break;
-    }
-
-    setActiveTab("report");
-
-    setTimeout(() => {
-      reportSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
-  } catch (error) {
-    console.error("Error generating report:", error);
-    toast.error("Failed to generate report");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const exportToExcel = async () => {
-    if (tenantPaymentReport) {
-      // Export tenant payment report
-      const wb = XLSX.utils.book_new();
-
-      // Tenant Info Sheet
-      const tenantInfoData = [
-        {
-          "Tenant Name": tenantPaymentReport.tenant.name,
-          Email: tenantPaymentReport.tenant.email,
-          Phone: tenantPaymentReport.tenant.phone,
-          Property: tenantPaymentReport.tenant.property_name,
-          Room: tenantPaymentReport.tenant.room_number,
-          Bed: tenantPaymentReport.tenant.bed_number,
-          "Monthly Rent": tenantPaymentReport.tenant.monthly_rent,
-          "Check-in Date": tenantPaymentReport.tenant.check_in_date,
-          "Months Completed": tenantPaymentReport.tenant.months_since_joining,
-        },
-      ];
-      const tenantInfoWs = XLSX.utils.json_to_sheet(tenantInfoData);
-      XLSX.utils.book_append_sheet(wb, tenantInfoWs, "Tenant Info");
-
-      // Summary Sheet
-      const summaryData = [
-        {
-          Metric: "Expected Rent",
-          Value: tenantPaymentReport.summary.expected_rent,
-        },
-        {
-          Metric: "Paid Rent",
-          Value: tenantPaymentReport.summary.paid_rent,
-        },
-        {
-          Metric: "Pending Rent",
-          Value: tenantPaymentReport.summary.pending_rent,
-        },
-        {
-          Metric: "Collection Rate",
-          Value: `${tenantPaymentReport.summary.collection_rate.toFixed(1)}%`,
-        },
-        {
-          Metric: "Security Deposit Total",
-          Value: tenantPaymentReport.summary.security_deposit_total,
-        },
-        {
-          Metric: "Security Deposit Paid",
-          Value: tenantPaymentReport.summary.security_deposit_paid,
-        },
-        {
-          Metric: "Security Deposit Pending",
-          Value: tenantPaymentReport.summary.security_deposit_pending,
-        },
-      ];
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
-
-      // Rent Payments Sheet
-      if (tenantPaymentReport.rent_payments?.length > 0) {
-        const rentData = tenantPaymentReport.rent_payments.map((p: any) => ({
-          Date: new Date(p.payment_date).toLocaleDateString("en-IN"),
-          Amount: p.amount,
-          Mode: p.payment_mode,
-          Month: p.month,
-          Year: p.year,
-          Status: p.status,
-          "Transaction ID": p.transaction_id || "-",
-        }));
-        const rentWs = XLSX.utils.json_to_sheet(rentData);
-        XLSX.utils.book_append_sheet(wb, rentWs, "Rent Payments");
-      }
-
-      // Month-wise Rent Sheet
-      if (tenantPaymentReport.month_wise_rent?.length > 0) {
-        const monthData = tenantPaymentReport.month_wise_rent.map((m: any) => ({
-          Month: `${m.month} ${m.year}`,
-          "Expected Rent": m.expected,
-          "Paid Rent": m.paid,
-          "Pending Rent": m.pending,
-          Status: m.pending === 0 ? "Paid" : m.paid > 0 ? "Partial" : "Pending",
-        }));
-        const monthWs = XLSX.utils.json_to_sheet(monthData);
-        XLSX.utils.book_append_sheet(wb, monthWs, "Month-wise Rent");
-      }
-
-      // Deposit Payments Sheet
-      if (tenantPaymentReport.deposit_payments?.length > 0) {
-        const depositData = tenantPaymentReport.deposit_payments.map(
-          (p: any) => ({
-            Date: new Date(p.payment_date).toLocaleDateString("en-IN"),
-            Amount: p.amount,
-            Mode: p.payment_mode,
-            Status: p.status,
-            "Transaction ID": p.transaction_id || "-",
-          }),
-        );
-        const depositWs = XLSX.utils.json_to_sheet(depositData);
-        XLSX.utils.book_append_sheet(
-          wb,
-          depositWs,
-          "Security Deposit Payments",
-        );
-      }
-
-      const filename = `tenant_payment_report_${tenantPaymentReport.tenant.name.replace(/\s/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    } else if (propertyPaymentReport) {
-      // Export property payment report
-      const wb = XLSX.utils.book_new();
-
-      // Property Info Sheet
-      const propertyInfoData = [
-        {
-          "Property Name": propertyPaymentReport.summary.property.name,
-          Address: propertyPaymentReport.summary.property.address,
-          "Total Rooms": propertyPaymentReport.summary.property.total_rooms,
-          "Total Beds": propertyPaymentReport.summary.property.total_beds,
-          "Occupied Beds": propertyPaymentReport.summary.property.occupied_beds,
-          "Available Beds":
-            propertyPaymentReport.summary.property.available_beds,
-          "Occupancy Rate": `${propertyPaymentReport.summary.property.occupancy_rate.toFixed(1)}%`,
-          "Total Tenants":
-            propertyPaymentReport.summary.financial_summary.total_tenants,
-          "Active Tenants":
-            propertyPaymentReport.summary.financial_summary.active_tenants,
-        },
-      ];
-      const propertyInfoWs = XLSX.utils.json_to_sheet(propertyInfoData);
-      XLSX.utils.book_append_sheet(wb, propertyInfoWs, "Property Info");
-
-      // Financial Summary Sheet
-      const financialData = [
-        {
-          Metric: "Total Rent to be Collected",
-          Value:
-            propertyPaymentReport.summary.financial_summary
-              .total_rent_to_be_collected,
-        },
-        {
-          Metric: "Total Rent Collected",
-          Value:
-            propertyPaymentReport.summary.financial_summary
-              .total_rent_collected,
-        },
-        {
-          Metric: "Total Rent Pending",
-          Value:
-            propertyPaymentReport.summary.financial_summary.total_rent_pending,
-        },
-        {
-          Metric: "Rent Collection Rate",
-          Value: `${propertyPaymentReport.summary.financial_summary.total_rent_collection_rate.toFixed(1)}%`,
-        },
-        {
-          Metric: "Total Security Deposit to be Collected",
-          Value:
-            propertyPaymentReport.summary.financial_summary
-              .total_security_deposit_to_be_collected,
-        },
-        {
-          Metric: "Total Security Deposit Collected",
-          Value:
-            propertyPaymentReport.summary.financial_summary
-              .total_security_deposit_collected,
-        },
-        {
-          Metric: "Total Security Deposit Pending",
-          Value:
-            propertyPaymentReport.summary.financial_summary
-              .total_security_deposit_pending,
-        },
-      ];
-      const financialWs = XLSX.utils.json_to_sheet(financialData);
-      XLSX.utils.book_append_sheet(wb, financialWs, "Financial Summary");
-
-      // Floor Stats Sheet
-      if (propertyPaymentReport.summary.floor_stats?.length > 0) {
-        const floorData = propertyPaymentReport.summary.floor_stats.map(
-          (f: any) => ({
-            Floor: f.floor,
-            "Total Rooms": f.total_rooms,
-            "Total Beds": f.total_beds,
-            "Occupied Beds": f.occupied_beds,
-            "Available Beds": f.available_beds,
-          }),
-        );
-        const floorWs = XLSX.utils.json_to_sheet(floorData);
-        XLSX.utils.book_append_sheet(wb, floorWs, "Floor-wise Stats");
-      }
-
-      // Tenant-wise Report Sheet
-      if (propertyPaymentReport.summary.tenant_reports?.length > 0) {
-        const tenantData = propertyPaymentReport.summary.tenant_reports.map(
-          (t: any) => ({
-            "Tenant Name": t.tenant_name,
-            Phone: t.tenant_phone,
-            Room: t.room_number,
-            Bed: t.bed_number,
-            "Monthly Rent": t.monthly_rent,
-            "Months Completed": t.months_completed,
-            "Expected Rent": t.expected_rent,
-            "Paid Rent": t.paid_rent,
-            "Pending Rent": t.pending_rent,
-            "Collection Rate": `${t.rent_collection_rate.toFixed(1)}%`,
-            "Security Deposit": t.security_deposit,
-            "Deposit Paid": t.paid_deposit,
-            "Deposit Pending": t.pending_deposit,
-            Status: t.is_active ? "Active" : "Inactive",
-          }),
-        );
-        const tenantWs = XLSX.utils.json_to_sheet(tenantData);
-        XLSX.utils.book_append_sheet(wb, tenantWs, "Tenant-wise Report");
-      }
-
-      const filename = `property_payment_report_${propertyPaymentReport.summary.property.name.replace(/\s/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    } else if (pgRevenueReport) {
-      const wb = XLSX.utils.book_new();
-
-      // Overall Summary Sheet
-      const overallData = [
-        {
-          Metric: "Total Revenue",
-          Value: pgRevenueReport.overall_summary.total_revenue,
-        },
-        {
-          Metric: "Total Expenses",
-          Value: pgRevenueReport.overall_summary.total_expenses,
-        },
-        {
-          Metric: "Net Profit/Loss",
-          Value: pgRevenueReport.overall_summary.is_profit
-            ? pgRevenueReport.overall_summary.net_profit
-            : -pgRevenueReport.overall_summary.net_loss,
-        },
-        {
-          Metric: "Total Properties",
-          Value: pgRevenueReport.overall_summary.properties_count,
-        },
-        {
-          Metric: "Total Periods",
-          Value: pgRevenueReport.overall_summary.total_periods,
-        },
-        {
-          Metric: "Average Revenue",
-          Value: pgRevenueReport.overall_summary.avg_revenue,
-        },
-        {
-          Metric: "Average Expenses",
-          Value: pgRevenueReport.overall_summary.avg_expenses,
-        },
-      ];
-
-      const overallWs = XLSX.utils.json_to_sheet(overallData);
-      XLSX.utils.book_append_sheet(wb, overallWs, "Overall Summary");
-
-      // Property-wise Sheets
-      for (const property of pgRevenueReport.properties) {
-        const propertyData = property.periods.map((p: any) => ({
-          Period: p.period,
-          "Revenue (₹)": p.revenue,
-          "Expenses (₹)": p.expenses,
-          "Profit/Loss (₹)": p.profit,
-          Status: p.is_profit ? "Profit" : "Loss",
-        }));
-
-        // Add summary row
-        propertyData.push({
-          Period: "TOTAL",
-          "Revenue (₹)": property.summary.total_revenue,
-          "Expenses (₹)": property.summary.total_expenses,
-          "Profit/Loss (₹)": property.summary.is_profit
-            ? property.summary.net_profit
-            : -property.summary.net_loss,
-          Status: property.summary.is_profit ? "Profit" : "Loss",
-        });
-
-        propertyData.push({
-          Period: "AVERAGE",
-          "Revenue (₹)": property.summary.avg_revenue,
-          "Expenses (₹)": property.summary.avg_expenses,
-          "Profit/Loss (₹)":
-            property.summary.avg_revenue - property.summary.avg_expenses,
-          Status: "",
-        });
-
-        const ws = XLSX.utils.json_to_sheet(propertyData);
-        XLSX.utils.book_append_sheet(
-          wb,
-          ws,
-          property.property_name.substring(0, 31),
-        );
-      }
-
-      const filename = `pg_revenue_report_${pgRevenueReport.report_type}_${pgRevenueReport.period_type}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    } else if (reportData) {
-      // Existing export logic for other reports
-      let exportData: any[] = [];
-      let worksheetName = "";
-      let summaryData: any[] = [];
-
-      switch (filters.reportType) {
-        case "revenue":
-        case "payments":
-          worksheetName = "Payments";
-          exportData =
-            reportData.payments?.map((payment: any) => ({
-              "Payment #": payment.payment_number || payment.id,
-              Date: payment.payment_date
-                ? new Date(payment.payment_date).toLocaleDateString("en-IN")
-                : "-",
-              "Tenant Name": payment.tenant_name || "N/A",
-              Property: payment.property_name || "N/A",
-              "Payment Type": payment.payment_type || "-",
-              "Amount (₹)": payment.amount || 0,
-              "Payment Method": payment.payment_method || "-",
-              Status: payment.status || "unknown",
-            })) || [];
-          summaryData = [
-            {
-              Metric: "Total Revenue",
-              Value: `₹${(reportData.summary as any).totalRevenue?.toLocaleString("en-IN") || 0}`,
-            },
-            {
-              Metric: "Total Payments",
-              Value: (reportData.summary as any).paymentCount || 0,
-            },
-          ];
-          break;
-        case "tenants":
-          worksheetName = "Tenants";
-          exportData =
-            reportData.tenants?.map((tenant: any) => ({
-              Name: tenant.full_name || "-",
-              Email: tenant.email || "-",
-              Phone: tenant.phone || "-",
-              Gender: tenant.gender || "N/A",
-              Occupation: tenant.occupation || "N/A",
-              Status: tenant.is_active ? "Active" : "Inactive",
-              Property: tenant.property_name || "N/A",
-              "Created Date": tenant.created_at
-                ? new Date(tenant.created_at).toLocaleDateString("en-IN")
-                : "-",
-            })) || [];
-          const tenantSummary = reportData.summary as any;
-          summaryData = [
-            {
-              Metric: "Total Tenants",
-              Value: tenantSummary.totalTenants || 0,
-            },
-            {
-              Metric: "Active Tenants",
-              Value: tenantSummary.activeTenants || 0,
-            },
-          ];
-          break;
-        case "occupancy":
-          worksheetName = "Rooms";
-          exportData =
-            reportData.rooms?.map((room: any) => ({
-              Property: room.property_name || "N/A",
-              "Room Number": room.room_number || "-",
-              "Room Type": room.room_type || "-",
-              Status: room.status || "unknown",
-              "Occupied Beds": room.occupied_beds || 0,
-              "Total Beds": room.total_bed || 0,
-              "Available Beds":
-                (room.total_bed || 0) - (room.occupied_beds || 0),
-            })) || [];
-          const occupancySummary = reportData.summary as any;
-          summaryData = [
-            {
-              Metric: "Occupancy Rate",
-              Value: `${occupancySummary.occupancyRate || 0}%`,
-            },
-          ];
-          break;
-      }
-
-      const wb = XLSX.utils.book_new();
-
-      if (summaryData.length > 0) {
-        const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-        XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
-      }
-
-      if (exportData.length > 0) {
-        const dataWs = XLSX.utils.json_to_sheet(exportData);
-        XLSX.utils.book_append_sheet(wb, dataWs, worksheetName);
-      }
-
-      const filename = `${filters.reportType}_report_${format(new Date(), "yyyy-MM-dd_HH-mm")}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    } else if (occupancyReport) {
-      const wb = XLSX.utils.book_new();
-
-      // Summary Sheet
-      const summaryData = [
-        {
-          Metric: "Report Scope",
-          Value:
-            occupancyReport.report_scope === "all"
-              ? "All Properties"
-              : "Property Specific",
-        },
-        {
-          Metric: "Report Type",
-          Value:
-            occupancyReport.report_type === "overall"
-              ? "Overall (Total Tenants)"
-              : occupancyReport.report_type === "non_vacant"
-                ? "Non-Vacant Tenants"
-                : "Vacant Tenants",
-        },
-        {
-          Metric: "Period Type",
-          Value:
-            occupancyReport.period_type === "month"
-              ? "Month Wise"
-              : "Year Wise",
-        },
-        {
-          Metric: "Year",
-          Value: occupancyReport.year,
-        },
-        {
-          Metric: "Total Properties",
-          Value: occupancyReport.overall_summary.properties_count,
-        },
-        {
-          Metric: "Total Periods",
-          Value: occupancyReport.overall_summary.total_periods,
-        },
-        {
-          Metric: "Current Tenants",
-          Value:
-            occupancyReport.overall_summary.overall_totals.total_non_vacant,
-        },
-        {
-          Metric: "Vacated Tenants",
-          Value: occupancyReport.overall_summary.overall_totals.total_vacant,
-        },
-        {
-          Metric: "New Joins",
-          Value: occupancyReport.overall_summary.overall_totals.total_new_joins,
-        },
-        {
-          Metric: "New Vacates",
-          Value:
-            occupancyReport.overall_summary.overall_totals.total_new_vacates,
-        },
-      ];
-
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
-
-      // Property-wise Sheets
-      for (const property of occupancyReport.properties) {
-        const propertyData = property.periods.map((p: any) => ({
-          Period: p.period,
-          "Total Tenants": p.total_tenants,
-          "Non-Vacant Tenants": p.non_vacant_tenants,
-          "Vacant Tenants": p.vacant_tenants,
-          "New Joins": p.new_joins,
-          "New Vacates": p.new_vacates,
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(propertyData);
-        XLSX.utils.book_append_sheet(
-          wb,
-          ws,
-          property.property_name.substring(0, 31),
-        );
-      }
-
-      const filename = `occupancy_report_${occupancyReport.report_scope}_${occupancyReport.report_type}_${occupancyReport.period_type}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    }
-  };
-
-const handlePrint = () => {
-  const { logoUrl, orgName } = orgSettings;
-
-  if (tenantPaymentReport) {
-    return openPrintWindow(buildTenantPaymentReportPrintHTML(tenantPaymentReport, logoUrl, orgName));
-  }
-  if (propertyPaymentReport) {
-    return openPrintWindow(buildPropertyPaymentReportPrintHTML(propertyPaymentReport, logoUrl, orgName));
-  }
-  if (pgRevenueReport) {
-    return openPrintWindow(buildPGRevenuePrintHTML(pgRevenueReport, logoUrl, orgName));
-  }
-  if (occupancyReport) {
-    return openPrintWindow(buildOccupancyReportPrintHTML(occupancyReport, logoUrl, orgName));
-  }
-  if (reportData) {
-    switch (filters.reportType) {
-      case "revenue":
-        return openPrintWindow(buildRevenuePrintHTML(reportData, filters, getPropertyDisplay(), logoUrl, orgName));
-      case "payments":
-        return openPrintWindow(buildPaymentsPrintHTML(reportData, filters, getPropertyDisplay(), logoUrl, orgName));
-      case "tenants":
-        return openPrintWindow(buildTenantsPrintHTML(reportData, getPropertyDisplay(), logoUrl, orgName));
-      default:
-        toast.error("Nothing to print for this report type");
-        return;
-    }
-  }
-
-  toast.error("No data to print");
-};
-
-  const formatCurrency = (amount: number) => {
-    if (!amount || isNaN(amount)) return "₹0";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const getPropertyDisplay = () => {
-    if (filters.propertyId === "all") return "All Properties";
-    return selectedProperty?.name || "Loading...";
-  };
-
-  // Filtered tenants for search
-  const filteredTenants = tenantsList.filter(
-    (tenant) =>
-      tenant.full_name
-        ?.toLowerCase()
-        .includes(tenantSearchTerm.toLowerCase()) ||
-      tenant.phone?.includes(tenantSearchTerm) ||
-      tenant.email?.toLowerCase().includes(tenantSearchTerm.toLowerCase()),
+  const processedData = getFilteredAndSortedData();
+  const totalRecords = processedData.length;
+  const totalPages = Math.ceil(totalRecords / pageSize);
+  const paginatedData = processedData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
+  // Dynamic Avatar Circle Renderer
+  const renderTenantNameWithAvatar = (name: string) => {
+    if (!name) return "—";
+    const words = name.trim().split(" ");
+    let initials = "";
+    if (words.length > 0) {
+      initials += words[0][0];
+      if (words.length > 1) {
+        initials += words[1][0];
+      }
+    }
+    initials = initials.toUpperCase();
+    
+    // Choosing a dynamic pastel background based on character hash
+    const colors = [
+      "bg-blue-100 text-blue-800 border-blue-200",
+      "bg-emerald-100 text-emerald-800 border-emerald-200",
+      "bg-purple-100 text-purple-800 border-purple-200",
+      "bg-orange-100 text-orange-800 border-orange-200",
+      "bg-rose-100 text-rose-800 border-rose-200",
+      "bg-sky-100 text-sky-800 border-sky-200",
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colorClass = colors[Math.abs(hash) % colors.length];
 
+    return (
+      <div className="flex items-center gap-2">
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${colorClass}`}>
+          {initials}
+        </div>
+        <span className="font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">{name}</span>
+      </div>
+    );
+  };
 
-// Add this useEffect after loading payments
-useEffect(() => {
-  if (paymentDetails.length > 0) {
-    const years = getAvailableFinancialYearsFromPayments(paymentDetails);
-    setAvailableFinancialYears(years);
-  }
-}, [paymentDetails]);
+  // Dynamic KPI Card renderer (matching the pastel/border theme of other modules)
+  const renderKPIs = () => {
+    switch (activeTab) {
+      case "enquiry":
+        return (
+          <>
+            <KPICard title="Total Enquiries" value={reportStats.totalEnquiries || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Converted to Tenants" value={reportStats.convertedEnquiries || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Conversion Rate" value={reportStats.conversionRate || "0%"} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Active / Pending" value={reportStats.pendingEnquiries || 0} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+          </>
+        );
+      case "tenant":
+        return (
+          <>
+            <KPICard title="Total Registered Tenants" value={reportStats.totalTenants || 0} icon={Users} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="New Check-ins" value={reportStats.newTenants || 0} icon={UserPlus} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Vacated Tenants" value={reportStats.vacatedTenants || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Bed Occupancy Rate" value={reportStats.occupancyRate || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+          </>
+        );
+      case "property":
+        return (
+          <>
+            <KPICard title="Total Properties" value={reportStats.totalProperties || 0} icon={Building2} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Rooms" value={reportStats.totalRooms || 0} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Total Beds" value={reportStats.totalBeds || 0} icon={Bed} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Average Bed Occupancy" value={reportStats.occupancyRate || "0%"} icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+          </>
+        );
+      case "room":
+        return (
+          <>
+            <KPICard title="Total Rooms" value={reportStats.totalRooms || 0} icon={Home} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Beds" value={reportStats.totalBeds || 0} icon={Bed} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Occupied Beds" value={reportStats.occupiedBeds || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Available Beds" value={reportStats.availableBeds || 0} icon={DoorOpen} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+          </>
+        );
+      case "visitor":
+        return (
+          <>
+            <KPICard title="Total Visitors" value={reportStats.totalVisitors || 0} icon={UserPlus} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Visitors Today" value={reportStats.todayVisitors || 0} icon={Calendar} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Active Status" value={reportStats.pendingCheckOut || 0} icon={Clock} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Blocked Visitors" value={reportStats.blockedVisitors || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+          </>
+        );
+      case "vacancy":
+        return (
+          <>
+            <KPICard title="Vacated Accounts" value={reportStats.totalVacated || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Refundable Deposit Sum" value={reportStats.refundableAmount || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Penalties Charged" value={reportStats.collectedPenalties || "₹0"} icon={Wallet} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Deductions Settled" value={reportStats.totalVacated || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+          </>
+        );
+      case "expense":
+        return (
+          <>
+            <KPICard title="Total Period Expenses" value={reportStats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Paid Vouchers" value={reportStats.expenseCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Highest Category" value={reportStats.highestCategory || "N/A"} icon={Building2} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Tax Deductible Ratio" value="100.0%" icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+          </>
+        );
+      case "communication":
+        return (
+          <>
+            <KPICard title="Total Alerts Sent" value={reportStats.totalSent || 0} icon={Mail} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Email Dispatch" value={reportStats.emailsSent || 0} icon={Mail} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="SMS/WhatsApp" value={reportStats.smsSent || 0} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Failed Dispatches" value={reportStats.failedCount || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+          </>
+        );
+      case "inventory":
+        return (
+          <>
+            <KPICard title="Total Assets" value={reportStats.totalItems || 0} icon={Briefcase} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Available in Stock" value={reportStats.availableItems || 0} icon={Home} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Allocated to Rooms" value={reportStats.assignedItems || 0} icon={Users} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Damaged / Repair" value={reportStats.damagedItems || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+          </>
+        );
+      case "payment":
+        return (
+          <>
+            <KPICard title="Total Paid Revenue" value={reportStats.totalPaid || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Total Pending Accounts" value={reportStats.totalPending || "₹0"} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Approved Invoices" value={reportStats.paidCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Defaulters / Pending" value={reportStats.pendingCount || 0} icon={Users} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+          </>
+        );
+      case "login":
+        return (
+          <>
+            <KPICard title="Total Access Logins" value={reportStats.totalLogins || 0} icon={Clock} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Tenant Logins" value={reportStats.tenantLogins || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Admin & Staff Logins" value={reportStats.staffLogins || 0} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Portal Access Level" value="Live Audited" icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+          </>
+        );
+      case "revenue":
+        return (
+          <>
+            <KPICard title="Net Revenues" value={reportStats.totalRevenue || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Net Expenses" value={reportStats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Net Operational Profit" value={reportStats.netRevenue || "₹0"} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Profit Margin %" value={reportStats.netMargin || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const buildExportRows = (tab: string, data: any[]) => {
+    switch (tab) {
+      case "enquiry":
+        return data.map((row) => ({
+          "Created Date": row.created_at ? format(new Date(row.created_at), "dd-MM-yyyy") : "N/A",
+          "Tenant Name": row.tenant_name,
+          "Phone": row.phone,
+          "Email": row.email,
+          "Property": row.property_name || row.property_name_val || "N/A",
+          "Move-in Date": row.preferred_move_in_date || "N/A",
+          "Budget (₹)": row.budget_range || "N/A",
+          "Source": row.source,
+          "Status": row.status,
+          "Remarks": row.remark || "",
+        }));
+      case "tenant":
+        return data.map((row) => ({
+          "Name": row.full_name,
+          "Phone": row.phone,
+          "Email": row.email,
+          "Gender": row.gender,
+          "Check-in Date": row.check_in_date || "N/A",
+          "Property Name": row.property_name || "N/A",
+          "Room": row.room_number || "N/A",
+          "Bed": row.bed_number || "N/A",
+          "Rent (₹)": row.rent_per_bed || 0,
+          "Security Deposit (₹)": row.security_deposit || 0,
+          "Status": row.is_active ? "Active" : "Inactive",
+        }));
+      case "property":
+        return data.map((row) => ({
+          "Property Name": row.name,
+          "Address": row.address,
+          "Total Rooms": row.total_rooms,
+          "Total Beds": row.total_beds,
+          "Occupied Beds": row.occupied_beds,
+          "Available Beds": row.available_beds,
+          "Occupancy Rate": `${row.occupancy_rate}%`,
+        }));
+      case "room":
+        return data.map((row) => ({
+          "Property Name": row.property_name,
+          "Room #": row.room_number,
+          "Room Type": row.room_type,
+          "Sharing Type": row.sharing_type,
+          "Rent per Bed (₹)": row.rent_per_bed,
+          "Total Beds": row.total_bed,
+          "Occupied Beds": row.occupied_count,
+          "Available Beds": row.available_beds,
+          "Status": row.status,
+        }));
+      case "visitor":
+        return data.map((row) => ({
+          "Visitor Name": row.visitor_name,
+          "Visitor Phone": row.visitor_phone,
+          "Tenant Visited": row.tenant_name,
+          "Property Name": row.property_name,
+          "Room #": row.room_number,
+          "Entry Time": row.entry_time ? format(new Date(row.entry_time), "dd-MM-yyyy HH:mm") : "N/A",
+          "Exit Time": row.exit_time ? format(new Date(row.exit_time), "dd-MM-yyyy HH:mm") : "N/A",
+          "Purpose": row.purpose,
+          "Status": row.status,
+        }));
+      case "vacancy":
+        return data.map((row) => ({
+          "Tenant Name": row.tenant_name,
+          "Property Name": row.property_name,
+          "Room": row.room_number,
+          "Bed": row.bed_number,
+          "Stay Check-in": row.stay_check_in_date || "N/A",
+          "Notice Date": row.notice_given_date || "N/A",
+          "Vacate Date": row.requested_vacate_date || "N/A",
+          "Reason": row.vacate_reason_value,
+          "Security Deposit (₹)": row.security_deposit_amount,
+          "Penalty Applied (₹)": row.total_penalty_amount,
+          "Refundable Amount (₹)": row.refundable_amount,
+        }));
+      case "expense":
+        return data.map((row) => ({
+          "Expense Date": row.expense_date || "N/A",
+          "Category": row.category_name,
+          "Total Paid (₹)": row.total_paid,
+          "Payment Mode": row.payment_mode || "N/A",
+          "Status": row.status,
+          "Property": row.property_name || "N/A",
+          "Description": row.description || "",
+        }));
+      case "communication":
+        return data.map((row) => ({
+          "Recipient Name": row.recipient_name,
+          "Recipient Email/Phone": row.recipient_email || row.recipient_phone,
+          "Channel": row.channel,
+          "Subject": row.subject || "N/A",
+          "Template": row.template_name || "N/A",
+          "Type": row.communication_type,
+          "Status": row.status,
+          "Sent At": row.sent_at || row.created_at || "N/A",
+        }));
+      case "inventory":
+        return data.map((row) => ({
+          "Asset ID": row.asset_id,
+          "Item Name": row.item_name,
+          "Category": row.category_name,
+          "Property Name": row.property_name || "N/A",
+          "Purchase Price (₹)": row.unit_price,
+          "Status": row.asset_status,
+          "Purchase Date": row.purchase_date || "N/A",
+        }));
+      case "payment":
+        return data.map((row) => ({
+          "Tenant Name": row.tenant_name,
+          "Property": row.property_name || "N/A",
+          "Room #": row.room_number || "N/A",
+          "Transaction ID": row.transaction_id || "N/A",
+          "Amount (₹)": row.amount,
+          "Payment Mode": row.payment_mode,
+          "Status": row.status,
+          "Payment Date": row.payment_date || "N/A",
+        }));
+      case "login":
+        return data.map((row) => ({
+          "User Name": row.name,
+          "Email": row.email,
+          "Role": row.role,
+          "Login Time": row.login_time ? format(new Date(row.login_time), "dd-MM-yyyy HH:mm:ss") : "N/A",
+        }));
+      case "revenue":
+        return data.map((row) => ({
+          "Month": row.month,
+          "Collected Revenue (₹)": row.collected,
+          "Expenses Paid (₹)": row.expense,
+          "Net Profit (₹)": row.profit,
+          "Profit Margin": row.margin,
+        }));
+      default:
+        return [];
+    }
+  };
+
+  const buildReportPrintHTML = () => {
+  const rows = buildExportRows(activeTab, processedData);
+  const headers = rows.length ? Object.keys(rows[0]) : [];
+  const tabLabel = TABS.find((t) => t.id === activeTab)?.label || "Report";
+  const propertyLabel =
+    propertyId === "all" ? "All Properties" : properties.find((p) => p.id.toString() === propertyId)?.name || propertyId;
+
+  const kpiHtml = Object.entries(reportStats)
+    .map(([key, val]) => `
+      <div class="stat-box">
+        <div class="stat-lbl">${key.replace(/([A-Z])/g, " $1")}</div>
+        <div class="stat-val">${val}</div>
+      </div>`)
+    .join("");
+
+  const bodyRows = rows.length
+    ? rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h as keyof typeof r] ?? "—"}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${headers.length || 1}" style="text-align:center;color:#9ca3af;padding:24px">No records found</td></tr>`;
+
+  return `<!DOCTYPE html><html><head><title>${tabLabel} · Roomac Co-Living</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
+    ${PRINT_BRAND_STYLE}
+    .meta-line{display:flex;justify-content:space-between;font-size:10px;color:#475569;font-weight:600;
+      border-bottom:2px solid #1e3b8b;padding-bottom:10px;margin-bottom:16px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+    .stat-box{border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc}
+    .stat-lbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b}
+    .stat-val{font-size:14px;font-weight:900;color:#1e3b8b;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:10px}
+    th{background:#f8fafc;text-align:left;font-weight:800;text-transform:uppercase;font-size:8px;
+      letter-spacing:.05em;color:#334155;border:1px solid #cbd5e1;padding:7px 8px}
+    td{border:1px solid #e2e8f0;padding:6px 8px;color:#111}
+    tr:nth-child(even) td{background:#f8fafc}
+    .footer{margin-top:20px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;
+      display:flex;justify-content:space-between}
+  </style></head><body>
+  ${buildWatermarkHTML(orgSettings.orgName)}
+  ${buildBrandHeaderHTML(orgSettings.logoUrl, orgSettings.orgName, `${tabLabel} Report`)}
+  <div class="meta-line">
+    <span><strong>Property:</strong> ${propertyLabel}</span>
+    <span><strong>Period:</strong> ${startDate} to ${endDate}</span>
+    <span><strong>Generated:</strong> ${format(new Date(), "dd/MM/yyyy, hh:mm:ss a")}</span>
+  </div>
+  <div class="stats">${kpiHtml}</div>
+  <table>
+    <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+  <div class="footer">
+    <span>Roomac Co-Living Management System</span>
+    <span>${rows.length} record(s)</span>
+  </div>
+  </body></html>`;
+};
+
+const handlePrint = () => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(buildReportPrintHTML());
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300); // give the logo <img> a moment to load
+};
+
+  // Excel Export formatter
+// Excel Export formatter
+  const handleExportToExcel = () => {
+    const excelRows = buildExportRows(activeTab, processedData);
+    if (!excelRows.length) {
+      toast.error("No data available to export to Excel");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(excelRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `${activeTab}_Report`);
+    XLSX.writeFile(
+      workbook,
+      `Roomac_${activeTab}_Report_${format(new Date(), "yyyyMMdd")}.xlsx`
+    );
+    toast.success("Excel sheet exported successfully!");
+  };
+
+  // Sort arrow renderer
+  const renderSortIndicator = (field: string) => {
+    if (sortField !== field) return <ChevronDown className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    return sortOrder === "asc" ? (
+      <ChevronUp className="w-3 h-3 text-indigo-600 font-bold" />
+    ) : (
+      <ChevronDown className="w-3 h-3 text-indigo-600 font-bold" />
+    );
+  };
 
   return (
-    <div className="p-1 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-6 max-w-full overflow-x-hidden -mt-7">
-      {/* Stats Cards Row */}
-      {/* Main Stats Cards Row */}
-<div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
-  <Card className="bg-blue-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Building2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
-        <p className="text-[12px] sm:text-[14px] text-blue-700 font-medium">
-          Total Properties
-        </p>
-      </div>
-      <p className="text-md sm:text-md font-bold text-blue-900">
-        {dashboardStats.totalProperties}
-      </p>
-    </CardContent>
-  </Card>
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2  space-y-4 relative overflow-hidden font-sans">
+      
 
-  <Card className="bg-purple-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <DoorOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
-        <p className="text-[9px] sm:text-[14px] text-purple-700 font-medium">
-          Total Rooms
-        </p>
-      </div>
-      <p className="text-md sm:text-md font-bold text-purple-900">
-        {dashboardStats.totalRooms}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-cyan-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Home className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-cyan-600" />
-        <p className="text-[9px] sm:text-[14px] text-cyan-700 font-medium">
-          Bed Occupancy
-        </p>
-      </div>
-      <p className="text-md sm:text-md font-bold text-cyan-900">
-        {dashboardStats.occupiedBeds}/{dashboardStats.totalBeds}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-indigo-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-indigo-600" />
-        <p className="text-[9px] sm:text-[14px] text-indigo-700 font-medium">
-          Active Tenants
-        </p>
-      </div>
-      <p className="text-md sm:text-md font-bold text-indigo-900">
-        {dashboardStats.activeTenants}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-green-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <IndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
-        <p className="text-[9px] sm:text-[14px] text-green-700 font-medium">
-          Monthly Revenue
-        </p>
-      </div>
-      <p className="text-md sm:text-md font-bold text-green-900">
-        {formatCurrency(dashboardStats.monthlyRevenue)}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-orange-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Activity className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
-        <p className="text-[9px] sm:text-[14px] text-orange-700 font-medium">
-          Occupancy Rate
-        </p>
-      </div>
-      <p className="text-xs sm:text-sm font-bold text-orange-900">
-        {dashboardStats.occupancyRate?.toFixed(1) || 0}%
-      </p>
-    </CardContent>
-  </Card>
-</div>
-
-{/* Extended Stats Cards Row */}
-{/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-  <Card className="bg-green-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <TrendUp className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
-        <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
-          Collection Rate
-        </p>
-      </div>
-      <p className="text-xs sm:text-sm font-bold text-green-900">
-        {dashboardStats.collectionRate?.toFixed(1) || 0}%
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-amber-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
-        <p className="text-[9px] sm:text-[10px] text-amber-700 font-medium">
-          This Month Expected
-        </p>
-      </div>
-      <p className="text-xs sm:text-sm font-bold text-amber-900">
-        {dashboardStats.pendingPayments || 0}
-      </p>
-      <p className="text-[8px] text-amber-600 mt-0.5">
-        {formatCurrency(dashboardStats.pendingAmount || 0)}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-blue-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <DoorOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
-        <p className="text-[9px] sm:text-[10px] text-blue-700 font-medium">
-          Total Vacated
-        </p>
-      </div>
-      <p className="text-xs sm:text-sm font-bold text-blue-900">
-        {dashboardStats.upcomingCheckouts || 0}
-      </p>
-    </CardContent>
-  </Card>
-
-  <Card className="bg-red-50 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Receipt className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
-        <p className="text-[9px] sm:text-[10px] text-red-700 font-medium">
-          Total Expenses
-        </p>
-      </div>
-      <p className="text-xs sm:text-sm font-bold text-red-900">
-        {formatCurrency(dashboardStats.maintenanceRequests || 0)}
-      </p>
-    </CardContent>
-  </Card>
-</div> */}
-
-      {/* Extended Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-        <ExtendedStatCard
-          title="Collection Rate"
-          value={`${dashboardStats.collectionRate?.toFixed(1) || 0}%`}
-          icon={<TrendUp className="h-3 w-3 sm:h-4 sm:w-4" />}
-          loading={dashboardLoading}
-          color="green"
-        />
-        <ExtendedStatCard
-          title="This Month Expected"
-          value={dashboardStats.pendingPayments || 0}
-          subtitle={formatCurrency(dashboardStats.pendingAmount || 0)}
-          icon={<Clock className="h-3 w-3 sm:h-4 sm:w-4" />}
-          loading={dashboardLoading}
-          color="yellow"
-        />
-        <ExtendedStatCard
-          title="Total Vacated"
-          value={dashboardStats.upcomingCheckouts || 0}
-          icon={<DoorOpen className="h-3 w-3 sm:h-4 sm:w-4" />}
-          loading={dashboardLoading}
-          color="blue"
-        />
-        <ExtendedStatCard
-          title="Total Expenses"
-          value={formatCurrency(dashboardStats.maintenanceRequests || 0)}
-          icon={<Receipt className="h-3 w-3 sm:h-4 sm:w-4" />}
-          loading={dashboardLoading}
-          color="red"
-        />
-      </div>
-
-      {/* Filters Card */}
-<Card className="hidden">
-  <CardHeader className="pb-2 sm:pb-4 px-3 sm:px-6">
-    <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
-      <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-[#0A1F5C]" />
-      Report Filters
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="px-3 sm:px-6">
-    {/* Common Filters Row */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
-      {/* Report Type */}
-      <div className="space-y-1 sm:space-y-2">
-        <Label className="text-xs">Report Type</Label>
-        <Select
-          value={filters.reportType}
-          onValueChange={(value: any) => setFilters({ ...filters, reportType: value })}
-        >
-          <SelectTrigger className="h-8 sm:h-9 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pg_revenue" className="text-xs">🏢 PG Revenue Report</SelectItem>
-            <SelectItem value="revenue" className="text-xs">📊 Revenue Report</SelectItem>
-            <SelectItem value="payments" className="text-xs">💰 Payments Report</SelectItem>
-            <SelectItem value="tenants" className="text-xs">👥 Tenants Report</SelectItem>
-            <SelectItem value="occupancy" className="text-xs">🏠 Occupancy Report</SelectItem>
-            <SelectItem value="tenant_payment" className="text-xs">👤 Tenant Payment Report</SelectItem>
-            <SelectItem value="property_payment" className="text-xs">🏢 Property Payment Report</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Date Range */}
-      <div className="space-y-1 sm:space-y-2">
-        <Label className="text-xs">Date Range</Label>
-        <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
-          <SelectTrigger className="h-8 sm:h-9 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today" className="text-xs">Today</SelectItem>
-            <SelectItem value="week" className="text-xs">Last 7 Days</SelectItem>
-            <SelectItem value="month" className="text-xs">This Month</SelectItem>
-            <SelectItem value="year" className="text-xs">This Year</SelectItem>
-            <SelectItem value="custom" className="text-xs">Custom Range</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Start Date */}
-      <div className="space-y-1 sm:space-y-2">
-        <Label className="text-xs">Start Date</Label>
-        <Input
-          type="date"
-          value={filters.startDate}
-          onChange={(e) => {
-            setFilters({ ...filters, startDate: e.target.value });
-            setDateRange('custom');
-          }}
-          className="h-8 sm:h-9 text-xs"
-        />
-      </div>
-
-      {/* End Date */}
-      <div className="space-y-1 sm:space-y-2">
-        <Label className="text-xs">End Date</Label>
-        <Input
-          type="date"
-          value={filters.endDate}
-          onChange={(e) => {
-            setFilters({ ...filters, endDate: e.target.value });
-            setDateRange('custom');
-          }}
-          className="h-8 sm:h-9 text-xs"
-        />
-      </div>
-
-      {/* Property - Only show for property_payment report in main row */}
-      {filters.reportType === 'property_payment' && (
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Property</Label>
-          <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue placeholder="Select property" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
-              {properties.map(property => (
-                <SelectItem key={property.id} value={property.id} className="text-xs">
-                  <span>{property.name}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Tenant Selection - Only for tenant payment report */}
-      {filters.reportType === 'tenant_payment' && (
-        <div className="space-y-1 sm:space-y-2 relative">
-          <Label className="text-xs">Select Tenant</Label>
-          <div className="relative">
-            <button
-              onClick={() => setTenantSearchOpen(!tenantSearchOpen)}
-              className="w-full h-8 sm:h-9 px-3 text-xs border rounded-md bg-white flex items-center justify-between hover:border-blue-400 transition-colors"
-            >
-              <span className={selectedTenant ? 'text-gray-900' : 'text-gray-400'}>
-                {selectedTenant ? selectedTenant.full_name : 'Search and select tenant...'}
-              </span>
-              <ChevronDown className="h-3 w-3 text-gray-400" />
-            </button>
-            
-            {tenantSearchOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                <div className="sticky top-0 bg-white p-2 border-b">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by name, phone or email..."
-                      value={tenantSearchTerm}
-                      onChange={(e) => setTenantSearchTerm(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1 text-xs border rounded-md focus:outline-none focus:border-blue-400"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-<div className="divide-y">
-  {filteredTenants.length === 0 ? (
-    <div className="p-3 text-center text-xs text-gray-500">No tenants found</div>
-  ) : (
-    filteredTenants.map(tenant => (
-      <div
-        key={tenant.id}
-        className="p-2 hover:bg-gray-50 cursor-pointer transition-colors"
-        onClick={() => handleTenantSelect(tenant)}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium">{tenant.full_name}</p>
-            <p className="text-[10px] text-gray-500">{tenant.phone}</p>
-            {tenant.room_display && (
-              <p className="text-[10px] text-gray-400">Room {tenant.room_display} {tenant.bed_display && `• Bed ${tenant.bed_display}`}</p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <Badge variant="outline" className="text-[9px]">
-              {tenant.property_display || 'No Property'}
-            </Badge>
-            {tenant.tenant_status === 'vacated' && (
-              <Badge className="bg-red-100 text-red-700 text-[9px]">Vacated</Badge>
-            )}
-          </div>
-        </div>
-      </div>
-    ))
-  )}
-</div>
-              </div>
-            )}
-          </div>
-          {selectedTenant && (
-  <div className="mt-1 text-[10px] text-green-600 flex items-center gap-1 flex-wrap">
-    <CheckCircle2 className="h-3 w-3" />
-    Tenant selected: {selectedTenant.full_name} ({selectedTenant.property_display || 'No property'})
-    {selectedTenant.tenant_status === 'vacated' && (
-      <Badge className="bg-red-100 text-red-700 text-[9px] ml-1">Vacated</Badge>
-    )}
-  </div>
-)}
-        </div>
-      )}
-
-      {/* Generate Button */}
-      <div className="flex items-end">
-        <Button 
-          onClick={generateReport} 
-          disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')} 
-          className="w-full h-8 sm:h-9 text-xs bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#2563eb]"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <BarChart3 className="h-3 w-3 mr-1" />
-              Generate
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-
-    {/* PG Revenue Report Specific Filters - SEPARATE ROW */}
-{filters.reportType === 'pg_revenue' && (
-  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
-    {/* Period Type */}
-    <div className="space-y-1 sm:space-y-2">
-      <Label className="text-xs">Period Type</Label>
-      <Select value={pgRevenuePeriodType} onValueChange={(value: any) => setPgRevenuePeriodType(value)}>
-        <SelectTrigger className="h-8 sm:h-9 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="month_wise" className="text-xs">Month Wise</SelectItem>
-          <SelectItem value="year_wise" className="text-xs">Year Wise</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    
-    {/* Financial Year - Now with default options */}
-    <div className="space-y-1 sm:space-y-2">
-      <Label className="text-xs">Financial Year</Label>
-      <select 
-        value={selectedFinancialYear} 
-        onChange={(e) => {
-          setSelectedFinancialYear(e.target.value);
-          setPgRevenueYear(getFinancialYearStartYear(e.target.value));
-        }}
-        className="w-full h-8 sm:h-9 text-xs border rounded-md px-2 py-1 bg-white"
-      >
-        {availableFinancialYears.length > 0 ? (
-          availableFinancialYears.map(year => (
-            <option key={year} value={year}>
-              FY {year}
-            </option>
+      {/* 📊 DYNAMIC STATS ROW */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5  print:hidden">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <Card key={idx} className="bg-white border-slate-200 animate-pulse rounded-lg shadow-sm border">
+              <div className="p-3 h-14" />
+            </Card>
           ))
         ) : (
-          // ✅ FALLBACK: Show default financial years if paymentDetails not loaded yet
-          <>
-            <option value={getFinancialYear(new Date())}>
-              FY {getFinancialYear(new Date())}
-            </option>
-            <option value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
-              FY {new Date().getFullYear() - 1}-{new Date().getFullYear()}
-            </option>
-            <option value={`${new Date().getFullYear() - 2}-${new Date().getFullYear() - 1}`}>
-              FY {new Date().getFullYear() - 2}-{new Date().getFullYear() - 1}
-            </option>
-          </>
-        )}
-      </select>
-    </div>
-    
-    {/* Property (Optional) */}
-    <div className="space-y-1 sm:space-y-2">
-      <Label className="text-xs">Property (Optional)</Label>
-      <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
-        <SelectTrigger className="h-8 sm:h-9 text-xs">
-          <SelectValue placeholder="All Properties" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
-          {properties.map(property => (
-            <SelectItem key={property.id} value={property.id} className="text-xs">
-              {property.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-)}
-
-    {/* Occupancy Report Specific Filters - SEPARATE ROW */}
-    {filters.reportType === 'occupancy' && (
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Report Scope</Label>
-          <Select value={occupancyReportScope} onValueChange={(value: any) => setOccupancyReportScope(value)}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">All Properties</SelectItem>
-              <SelectItem value="property" className="text-xs">Specific Property</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Report Type</Label>
-          <Select value={occupancyReportType} onValueChange={(value: any) => setOccupancyReportType(value)}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="overall" className="text-xs">Overall (Total Tenants)</SelectItem>
-              <SelectItem value="non_vacant" className="text-xs">Non-Vacant Tenants Only</SelectItem>
-              <SelectItem value="vacant" className="text-xs">Vacant Tenants Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Period Type</Label>
-          <Select value={occupancyPeriodType} onValueChange={(value: any) => setOccupancyPeriodType(value)}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month" className="text-xs">Month Wise</SelectItem>
-              <SelectItem value="year" className="text-xs">Year Wise</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Year</Label>
-          <Select value={occupancyYear.toString()} onValueChange={(value) => setOccupancyYear(parseInt(value))}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2022, 2023, 2024, 2025, 2026].map(y => (
-                <SelectItem key={y} value={y.toString()} className="text-xs">{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {occupancyReportScope === 'property' && (
-          <div className="space-y-1 sm:space-y-2">
-            <Label className="text-xs">Select Property</Label>
-            <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
-              <SelectTrigger className="h-8 sm:h-9 text-xs">
-                <SelectValue placeholder="Choose property" />
-              </SelectTrigger>
-              <SelectContent>
-                {properties.map(property => (
-                  <SelectItem key={property.id} value={property.id} className="text-xs">
-                    {property.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          renderKPIs()
         )}
       </div>
-    )}
 
-    {/* Active Filters Display */}
-    <div className="mt-3 pt-2 border-t border-gray-100 flex flex-wrap gap-1 sm:gap-1.5">
-      <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
-        <Calendar className="h-2.5 w-2.5 mr-1" />
-        {filters.startDate} to {filters.endDate}
-      </Badge>
-      {(filters.reportType === 'property_payment' || filters.reportType === 'occupancy') && filters.propertyId !== 'all' && (
-        <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
-          <Building2 className="h-2.5 w-2.5 mr-1" />
-          {getPropertyDisplay()}
-        </Badge>
-      )}
-      {filters.reportType === 'tenant_payment' && selectedTenant && (
-        <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
-          <User className="h-2.5 w-2.5 mr-1" />
-          {selectedTenant.full_name}
-        </Badge>
-      )}
-    </div>
-  </CardContent>
-</Card>
+      {/* 🗂️ MAIN TABS LIST - Styled in grey wrapper with purple active underline */}
+      <div className="bg-[#f1f5f9] dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800 print:hidden overflow-x-auto">
+        <div className="flex space-x-1 min-w-max">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setColFilters({}); // Reset local column search inputs
+                }}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-md transition-all ${
+                  isActive
+                    ? "bg-white dark:bg-slate-800 text-[#1e3b8b] dark:text-indigo-400 shadow-sm border-b-2 border-indigo-600"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-950 hover:bg-white/40"
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      
-      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto border-0 p-0 sm:max-w-md">
-          <SheetHeader className="bg-[#0A1F5C] px-6 py-5 text-white">
-            <div className="flex items-start justify-between gap-4"><div><SheetTitle className="text-white">Report filters</SheetTitle><SheetDescription className="mt-1 text-blue-200">Refine every existing report without leaving the workspace.</SheetDescription></div><SheetClose className="rounded-md p-1 text-blue-100 hover:bg-white/10"><X className="h-5 w-5" /></SheetClose></div>
-          </SheetHeader>
-          <div className="space-y-5 p-6">
-            <div className="space-y-2"><Label>Report type</Label><Select value={filters.reportType} onValueChange={(reportType: any) => setFilters({ ...filters, reportType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pg_revenue">PG Revenue</SelectItem><SelectItem value="revenue">Revenue</SelectItem><SelectItem value="payments">Payments</SelectItem><SelectItem value="tenants">Tenants</SelectItem><SelectItem value="occupancy">Occupancy</SelectItem><SelectItem value="tenant_payment">Tenant payment</SelectItem><SelectItem value="property_payment">Property payment</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label>Property</Label><Select value={filters.propertyId} onValueChange={handlePropertyChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All properties</SelectItem>{properties.map((property) => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-2"><Label>Period</Label><Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="today">Today</SelectItem><SelectItem value="week">Last 7 days</SelectItem><SelectItem value="month">This month</SelectItem><SelectItem value="year">This year</SelectItem><SelectItem value="custom">Custom range</SelectItem></SelectContent></Select></div>
-            <div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label>Start date</Label><Input type="date" value={filters.startDate} onChange={(e) => { setFilters({ ...filters, startDate: e.target.value }); setDateRange('custom'); }} /></div><div className="space-y-2"><Label>End date</Label><Input type="date" value={filters.endDate} onChange={(e) => { setFilters({ ...filters, endDate: e.target.value }); setDateRange('custom'); }} /></div></div>
-            {filters.reportType === 'tenant_payment' && <div className="space-y-2"><Label>Tenant</Label><Select value={selectedTenant?.id?.toString() || ''} onValueChange={(id) => handleTenantSelect(tenantsList.find((tenant) => String(tenant.id) === id))}><SelectTrigger><SelectValue placeholder="Select tenant" /></SelectTrigger><SelectContent>{tenantsList.map((tenant) => <SelectItem key={tenant.id} value={String(tenant.id)}>{tenant.full_name}</SelectItem>)}</SelectContent></Select></div>}
-            {filters.reportType === 'occupancy' && <div className="space-y-2"><Label>Occupancy view</Label><Select value={occupancyReportType} onValueChange={(value: any) => setOccupancyReportType(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="overall">Overall</SelectItem><SelectItem value="non_vacant">Non-vacant tenants</SelectItem><SelectItem value="vacant">Vacant tenants</SelectItem></SelectContent></Select></div>}
+      {/* 📋 REPORT DETAILS CONTAINER WITH CUSTOM INPUT FILTERS IN HEADER */}
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
+        
+        {/* Table toolbar with Export & Print buttons - Print Hidden */}
+        <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 print:hidden bg-slate-50/40">
+          <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Report Records: <span className="text-[#1e3b8b] dark:text-indigo-400 font-bold">{totalRecords} entries found</span>
           </div>
-          <SheetFooter className="sticky bottom-0 border-t bg-white p-5"><Button variant="outline" onClick={() => setFilterOpen(false)}>Cancel</Button><Button className="bg-[#0A1F5C]" onClick={() => { setFilterOpen(false); generateReport(); }} disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')}>{loading ? 'Generating…' : 'Apply & generate'}</Button></SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex h-9">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm">
-              Quick Actions
-            </TabsTrigger>
-            <TabsTrigger
-              value="report"
-              disabled={!reportData && !tenantPaymentReport && !propertyPaymentReport && !pgRevenueReport && !occupancyReport}
-              className="text-xs sm:text-sm"
-            >
-              Generated Report
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="text-xs sm:text-sm">
-              Operational Insights
-            </TabsTrigger>
-          </TabsList>
-
+          
           <div className="flex items-center gap-2">
+            {/* Main Filter button matching theme - Deep Royal Blue */}
+          <Button
+            onClick={handleOpenFilters}
+            className="flex items-center gap-2 bg-[#1e3b8b] hover:bg-[#152960] text-white font-medium text-xs px-3 h-8 shadow-md rounded-md transition-all duration-200"
+          >
+            <Filter className="w-3.5 h-3.5" /> 
+            Filters
+            {(propertyId !== "all" || 
+              startDate !== format(startOfMonth(new Date()), "yyyy-MM-dd") || 
+              endDate !== format(endOfMonth(new Date()), "yyyy-MM-dd")) && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
-              onClick={() => setFilterOpen(true)}
+              onClick={handleExportToExcel}
+              className="flex items-center gap-1.5 text-slate-700 bg-white border border-slate-200 shadow-sm h-8 px-3 text-xs"
             >
-              <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> Filters
+              <Download className="w-3.5 h-3.5 text-[#1e3b8b]" /> Excel
             </Button>
             <Button
+              variant="outline"
               size="sm"
-              className="h-8 text-xs bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white"
-              onClick={generateReport}
-              disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')}
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 text-slate-700 bg-white border border-slate-200 shadow-sm h-8 px-3 text-xs"
             >
-              {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="mr-1.5 h-3.5 w-3.5" />} Generate report
+              <Printer className="w-3.5 h-3.5 text-slate-500" /> Print
             </Button>
           </div>
         </div>
 
-        <TabsContent value="overview" className="mt-3 sm:mt-4">
-  <Card className="border-0 shadow-sm">
-    <CardHeader className="pb-2 px-3 sm:px-6">
-      <CardTitle className="text-sm sm:text-base">
-        Generate Reports Quickly
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="px-3 sm:px-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-        <QuickActionButton
-          icon={<Building2 className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="PG Revenue"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "pg_revenue" });
-            generateReport();
-          }}
-          color="cyan"
-        />
-        <QuickActionButton
-          icon={<Users className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="Tenants Report"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "tenants" });
-            generateReport();
-          }}
-          color="purple"
-        />
-        <QuickActionButton
-          icon={<User className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="Tenant Payment"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "tenant_payment" });
-            generateReport();
-          }}
-          color="green"
-        />
-        
-        
-        <QuickActionButton
-          icon={<Home className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="Occupancy Report"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "occupancy" });
-            generateReport();
-          }}
-          color="orange"
-        />
-        
-        <QuickActionButton
-          icon={<Building2 className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="Property Payment"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "property_payment" });
-            generateReport();
-          }}
-          color="cyan"
-        />
-        <QuickActionButton
-          icon={<IndianRupee className="h-4 w-4 sm:h-5 sm:w-5" />}
-          label="Revenue Report"
-          onClick={() => {
-            setFilters({ ...filters, reportType: "revenue" });
-            generateReport();
-          }}
-          color="blue"
-        />
-        
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
+       
 
-        <TabsContent
-          value="report"
-          className="mt-3 sm:mt-4"
-          ref={reportSectionRef}
-        >
-          {/* Tenant Payment Report */}
-          {tenantPaymentReport && (
-            <div className="space-y-4">
-              {/* Report Actions */}
-              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToExcel}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Print
-                </Button>
-              </div>
-
-              {/* Tenant Information Card */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-600" />
-                    Tenant Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                      <p className="text-[10px] text-gray-500">Tenant Name</p>
-                      <p className="text-sm font-semibold">
-                        {tenantPaymentReport.tenant.name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Phone / Email</p>
-                      <p className="text-xs">
-                        {tenantPaymentReport.tenant.phone} /{" "}
-                        {tenantPaymentReport.tenant.email}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Property & Room
-                      </p>
-                      <p className="text-xs">
-                        {tenantPaymentReport.tenant.property_name} - Room{" "}
-                        {tenantPaymentReport.tenant.room_number}, Bed{" "}
-                        {tenantPaymentReport.tenant.bed_number}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Monthly Rent</p>
-                      <p className="text-sm font-semibold text-green-600">
-                        {formatCurrency(
-                          tenantPaymentReport.tenant.monthly_rent,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Check-in Date</p>
-                      <p className="text-xs">
-                        {tenantPaymentReport.tenant.check_in_date
-                          ? new Date(tenantPaymentReport.tenant.check_in_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Months Completed
-                      </p>
-                      <p className="text-sm font-semibold">
-                        {tenantPaymentReport.tenant.months_since_joining} months
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Security Deposit
-                      </p>
-                      <p className="text-xs">
-                        Total:{" "}
-                        {formatCurrency(
-                          tenantPaymentReport.tenant.security_deposit,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Gender / Occupation
-                      </p>
-                      <p className="text-xs">
-                        {tenantPaymentReport.tenant.gender} /{" "}
-                        {tenantPaymentReport.tenant.occupation || "N/A"}
-                      </p>
-                    </div>
-                    {tenantPaymentReport.tenant.vacated_date && (
-  <div>
-    <p className="text-[10px] text-gray-500">Vacated Date</p>
-    <p className="text-sm font-semibold text-red-600">
-      {new Date(tenantPaymentReport.tenant.vacated_date).toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      })}
-    </p>
-  </div>
-)}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Rent Summary Card */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-green-600" />
-                    Rent Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-blue-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Expected Rent</p>
-                      <p className="text-lg font-bold text-blue-700">
-                        {formatCurrency(
-                          tenantPaymentReport.summary.expected_rent,
-                        )}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {tenantPaymentReport.tenant.months_since_joining} months
-                        ×{" "}
-                        {formatCurrency(
-                          tenantPaymentReport.tenant.monthly_rent,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Paid Rent</p>
-                      <p className="text-lg font-bold text-green-700">
-                        {formatCurrency(tenantPaymentReport.summary.paid_rent)}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {tenantPaymentReport.rent_payments?.length || 0}{" "}
-                        payments
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 rounded-lg p-3 text-center">
-  <p className="text-[10px] text-gray-600">Pending Rent</p>
-  <p className="text-lg font-bold text-yellow-700">
-    {formatCurrency(
-      tenantPaymentReport.summary.pending_rent,
-    )}
-  </p>
-  <p className="text-[10px] text-gray-500">
-    {typeof tenantPaymentReport.summary.collection_rate === 'number' 
-      ? tenantPaymentReport.summary.collection_rate.toFixed(1) 
-      : parseFloat(tenantPaymentReport.summary.collection_rate || '0').toFixed(1)}% collected
-  </p>
-</div>
-                    <div className="bg-indigo-50 rounded-lg p-3 text-center">
-  <p className="text-[10px] text-gray-600">
-    Collection Rate
-  </p>
-  <p className="text-2xl font-bold text-indigo-700">
-    {typeof tenantPaymentReport.summary.collection_rate === 'number' 
-      ? tenantPaymentReport.summary.collection_rate.toFixed(1) 
-      : parseFloat(tenantPaymentReport.summary.collection_rate || '0').toFixed(1)}%
-  </p>
-</div>
-                  </div>
-
-                  {/* Month-wise Rent Table */}
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">
-                      Month-wise Rent Details
-                    </p>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Month</th>
-                            <th className="px-3 py-2 text-right">
-                              Expected Rent
-                            </th>
-                            <th className="px-3 py-2 text-right">Paid Rent</th>
-                            <th className="px-3 py-2 text-right">
-                              Pending Rent
-                            </th>
-                            <th className="px-3 py-2 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {tenantPaymentReport.month_wise_rent?.map(
-                            (month: any, idx: number) => (
-                              <tr key={idx} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-medium">
-                                  {month.month} {month.year}
-                                </td>
-                                <td className="px-3 py-2 text-right">
-                                  {formatCurrency(month.expected)}
-                                </td>
-                                <td className="px-3 py-2 text-right text-green-600">
-                                  {formatCurrency(month.paid)}
-                                </td>
-                                <td className="px-3 py-2 text-right text-yellow-600">
-                                  {formatCurrency(month.pending)}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  <Badge
-                                    className={
-                                      month.pending === 0
-                                        ? "bg-green-100 text-green-700"
-                                        : month.paid > 0
-                                          ? "bg-yellow-100 text-yellow-700"
-                                          : "bg-red-100 text-red-700"
-                                    }
-                                  >
-                                    {month.pending === 0
-                                      ? "Paid"
-                                      : month.paid > 0
-                                        ? "Partial"
-                                        : "Pending"}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ),
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Security Deposit Summary */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-purple-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-purple-600" />
-                    Security Deposit Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                    <div className="bg-purple-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Total Deposit</p>
-                      <p className="text-lg font-bold text-purple-700">
-                        {formatCurrency(
-                          tenantPaymentReport.summary.security_deposit_total,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Deposit Paid</p>
-                      <p className="text-lg font-bold text-green-700">
-                        {formatCurrency(
-                          tenantPaymentReport.summary.security_deposit_paid,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Deposit Pending
-                      </p>
-                      <p className="text-lg font-bold text-yellow-700">
-                        {formatCurrency(
-                          tenantPaymentReport.summary.security_deposit_pending,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Deposit Payments Table */}
-                  {tenantPaymentReport.deposit_payments?.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">
-                        Deposit Payment History
-                      </p>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Date</th>
-                              <th className="px-3 py-2 text-right">Amount</th>
-                              <th className="px-3 py-2 text-left">Mode</th>
-                              <th className="px-3 py-2 text-left">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {tenantPaymentReport.deposit_payments.map(
-                              (payment: any) => (
-                                <tr
-                                  key={payment.id}
-                                  className="hover:bg-gray-50"
-                                >
-                                  <td className="px-3 py-2">
-                                    {new Date(
-                                      payment.payment_date,
-                                    ).toLocaleDateString("en-IN")}
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-semibold">
-                                    {formatCurrency(payment.amount)}
-                                  </td>
-                                  <td className="px-3 py-2 capitalize">
-                                    {payment.payment_mode}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <Badge
-                                      className={
-                                        payment.status === "approved" ||
-                                        payment.status === "paid"
-                                          ? "bg-green-100 text-green-700"
-                                          : "bg-yellow-100 text-yellow-700"
-                                      }
-                                    >
-                                      {payment.status === "approved" ||
-                                      payment.status === "paid"
-                                        ? "Paid"
-                                        : payment.status}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              ),
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+        <div className="p-0 overflow-x-auto">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin text-[#1e3b8b]" />
+              <p className="text-xs font-semibold">Generating live report grid...</p>
+            </div>
+          ) : reportData.length === 0 ? (
+            <div className="text-center py-20 text-slate-400 space-y-2">
+              <FileText className="w-10 h-10 mx-auto opacity-50 text-slate-300" />
+              <p className="text-sm font-semibold">No records matches filters</p>
+              <p className="text-xs">Select filter parameters from the side panel.</p>
+            </div>
+          ) : (
+            <div className="w-full">
+              {/* DYNAMIC GRID WITH COLUMN FILTER INPUTS */}
+              <table className="report-table w-full text-left text-xs">
+                <thead className="bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                  {/* TAB: Enquiry */}
+                  {activeTab === "enquiry" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("created_at")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">DATE {renderSortIndicator("created_at")}</div>
+                        </th>
+                        <th onClick={() => handleSort("tenant_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT {renderSortIndicator("tenant_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CONTACT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">EMAIL</th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">MOVE-IN DATE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">SOURCE</th>
+                        <th onClick={() => handleSort("status")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">STATUS {renderSortIndicator("status")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">REMARKS</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="dd/mm/yy" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.created_at || ""} onChange={e => handleColFilterChange("created_at", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search phone" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.phone || ""} onChange={e => handleColFilterChange("phone", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search property" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5"><Input placeholder="Search source" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.source || ""} onChange={e => handleColFilterChange("source", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="new">New</option>
+                            <option value="followup">Followup</option>
+                            <option value="active">Active</option>
+                            <option value="converted">Converted</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
-          {/* Property Payment Report */}
-          {propertyPaymentReport && (
-            <div className="space-y-4">
-              {/* Report Actions */}
-              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToExcel}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Print
-                </Button>
-              </div>
-
-              {/* Property Information Card */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-blue-600" />
-                    Property Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div>
-                      <p className="text-[10px] text-gray-500">Property Name</p>
-                      <p className="text-sm font-semibold">
-                        {propertyPaymentReport.property?.name || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Address</p>
-                      <p className="text-xs">
-                        {propertyPaymentReport.property?.address || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Total Rooms / Beds
-                      </p>
-                      <p className="text-sm">
-                        {propertyPaymentReport.property?.total_rooms || 0} rooms
-                        / {propertyPaymentReport.property?.total_beds || 0} beds
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Occupancy Rate
-                      </p>
-                      <p className="text-sm font-semibold text-green-600">
-                        {propertyPaymentReport.property?.occupancy_rate?.toFixed(
-                          1,
-                        ) || 0}
-                        %
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Floor-wise Statistics */}
-                  {propertyPaymentReport.floor_stats?.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">
-                        Floor-wise Statistics
-                      </p>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Floor</th>
-                              <th className="px-3 py-2 text-center">Rooms</th>
-                              <th className="px-3 py-2 text-center">
-                                Total Beds
-                              </th>
-                              <th className="px-3 py-2 text-center">
-                                Occupied Beds
-                              </th>
-                              <th className="px-3 py-2 text-center">
-                                Available Beds
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {propertyPaymentReport.floor_stats.map(
-                              (floor: any, idx: number) => (
-                                <tr key={idx} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 font-medium">
-                                    Floor {floor.floor}
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    {floor.total_rooms}
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    {floor.total_beds}
-                                  </td>
-                                  <td className="px-3 py-2 text-center text-green-600">
-                                    {floor.occupied_beds}
-                                  </td>
-                                  <td className="px-3 py-2 text-center text-yellow-600">
-                                    {floor.available_beds}
-                                  </td>
-                                </tr>
-                              ),
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                  {/* TAB: Tenant */}
+                  {activeTab === "tenant" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("full_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT {renderSortIndicator("full_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CONTACT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">EMAIL</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">GENDER</th>
+                        <th onClick={() => handleSort("check_in_date")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">CHECK-IN {renderSortIndicator("check_in_date")}</div>
+                        </th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">BED </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">RENT (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.full_name || ""} onChange={e => handleColFilterChange("full_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Phone.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.phone || ""} onChange={e => handleColFilterChange("phone", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Email.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.gender || ""} onChange={e => handleColFilterChange("gender", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.check_in_date || ""} onChange={e => handleColFilterChange("check_in_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </td>
+                      </tr>
+                    </>
                   )}
-                </CardContent>
-              </Card>
 
-              {/* Financial Summary Card */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-green-600" />
-                    Financial Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-blue-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Total Rent to Collect
-                      </p>
-                      <p className="text-lg font-bold text-blue-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_rent_to_be_collected || 0,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Rent Collected
-                      </p>
-                      <p className="text-lg font-bold text-green-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_rent_collected || 0,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">Rent Pending</p>
-                      <p className="text-lg font-bold text-yellow-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_rent_pending || 0,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Collection Rate
-                      </p>
-                      <p className="text-2xl font-bold text-indigo-700">
-                        {propertyPaymentReport.financial_summary?.total_rent_collection_rate?.toFixed(
-                          1,
-                        ) || 0}
-                        %
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-purple-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Security Deposit to Collect
-                      </p>
-                      <p className="text-lg font-bold text-purple-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_security_deposit_to_be_collected || 0,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Deposit Collected
-                      </p>
-                      <p className="text-lg font-bold text-emerald-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_security_deposit_collected || 0,
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-gray-600">
-                        Deposit Pending
-                      </p>
-                      <p className="text-lg font-bold text-amber-700">
-                        {formatCurrency(
-                          propertyPaymentReport.financial_summary
-                            ?.total_security_deposit_pending || 0,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* TAB: Property */}
+                  {activeTab === "property" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY NAME {renderSortIndicator("name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ADDRESS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">TOTAL ROOMS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">TOTAL BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">OCCUPIED BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">AVAILABLE BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">OCCUPANCY RATE</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search address" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.address || ""} onChange={e => handleColFilterChange("address", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={5}></td>
+                      </tr>
+                    </>
+                  )}
 
-              {/* Tenant-wise Payment Report Table */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-orange-50 to-white">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Users className="h-4 w-4 text-orange-600" />
-                    Tenant-wise Payment Report
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 pt-4">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-xs">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left">#</th>
-                          <th className="px-3 py-2 text-left">Tenant Name</th>
-                          <th className="px-3 py-2 text-center">Room/Bed</th>
-                          <th className="px-3 py-2 text-center">
-                            Monthly Rent
-                          </th>
-                          <th className="px-3 py-2 text-center">Months</th>
-                          <th className="px-3 py-2 text-right">
-                            Expected Rent
-                          </th>
-                          <th className="px-3 py-2 text-right">Paid Rent</th>
-                          <th className="px-3 py-2 text-right">Pending Rent</th>
-                          <th className="px-3 py-2 text-center">
-                            Collection %
-                          </th>
-                          <th className="px-3 py-2 text-right">Deposit</th>
-                          <th className="px-3 py-2 text-right">Deposit Paid</th>
-                          <th className="px-3 py-2 text-right">
-                            Deposit Pending
-                          </th>
-                          <th className="px-3 py-2 text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {propertyPaymentReport.tenant_reports
-                          ?.slice((propertyTenantPage - 1) * propertyTenantPageSize, propertyTenantPage * propertyTenantPageSize)
-                          ?.map(
-                          (tenant: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-gray-400">
-                                {(propertyTenantPage - 1) * propertyTenantPageSize + idx + 1}
-                              </td>
-                              <td className="px-3 py-2 font-medium">
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  {tenant.tenant_name}
-                                  {tenant.is_vacated ? (
-                                    <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge>
-                                  ) : !tenant.is_active ? (
-                                    <Badge className="bg-gray-100 text-gray-600 text-[9px] px-1 py-0">Inactive</Badge>
-                                  ) : null}
-                                </div>
-                                {tenant.vacated_date && (
-                                  <p className="text-[10px] text-red-500 mt-0.5">
-                                    {new Date(tenant.vacated_date).toLocaleDateString('en-IN')}
-                                  </p>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                R{tenant.room_number}/B{tenant.bed_number}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                {formatCurrency(tenant.monthly_rent)}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                {tenant.months_completed}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatCurrency(tenant.expected_rent)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-green-600">
-                                {formatCurrency(tenant.paid_rent)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-yellow-600">
-                                {formatCurrency(tenant.pending_rent)}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <div className="flex items-center gap-1">
-                                  <Progress
-                                    value={tenant.rent_collection_rate}
-                                    className="h-1.5 w-12"
-                                  />
-                                  <span className="text-[10px]">
-                                    {tenant.rent_collection_rate?.toFixed(0) ||
-                                      0}
-                                    %
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatCurrency(tenant.security_deposit)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-green-600">
-                                {formatCurrency(tenant.paid_deposit)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-yellow-600">
-                                {formatCurrency(tenant.pending_deposit)}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <Badge
-                                  className={
-                                    tenant.is_active
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-red-100 text-red-700"
-                                  }
-                                >
-                                  {tenant.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ),
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <ReportPagination
-                    total={propertyPaymentReport.tenant_reports?.length || 0}
-                    page={propertyTenantPage}
-                    pageSize={propertyTenantPageSize}
-                    onPageChange={setPropertyTenantPage}
-                    onPageSizeChange={(size: number) => { setPropertyTenantPageSize(size); setPropertyTenantPage(1); }}
-                  />
-                  <div className="mt-2 text-right text-xs text-gray-500">
-                    Total Tenants:{" "}
-                    {propertyPaymentReport.financial_summary?.total_tenants ||
-                      0}{" "}
-                    | Active:{" "}
-                    {propertyPaymentReport.financial_summary?.active_tenants ||
-                      0}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  {/* TAB: Room */}
+                  {activeTab === "room" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th onClick={() => handleSort("room_number")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">ROOM  {renderSortIndicator("room_number")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM TYPE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">SHARING TYPE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">RENT PER BED (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">TOTAL BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">OCCUPIED BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">AVAILABLE BEDS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room type.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_type || ""} onChange={e => handleColFilterChange("room_type", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Sharing.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.sharing_type || ""} onChange={e => handleColFilterChange("sharing_type", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={4}></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="Vacant">Vacant</option>
+                            <option value="Partially Occupied">Partially Occupied</option>
+                            <option value="Fully Occupied">Fully Occupied</option>
+                          </select>
+                        </td>
+                      </tr>
+                    </>
+                  )}
 
-          {/* PG Revenue Report */}
-{pgRevenueReport && (
-  <div className="space-y-4">
-    {/* Report Actions */}
-    <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={exportToExcel}
-        className="h-7 sm:h-8 text-xs"
-      >
-        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-        Export Excel
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handlePrint}
-        className="h-7 sm:h-8 text-xs"
-      >
-        <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-        Print
-      </Button>
-    </div>
+                  {/* TAB: Visitor */}
+                  {activeTab === "visitor" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("visitor_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">VISITOR NAME {renderSortIndicator("visitor_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">PHONE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">TENANT VISITED</th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ENTRY TIME</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">EXIT TIME</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">PURPOSE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.visitor_name || ""} onChange={e => handleColFilterChange("visitor_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Phone.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.visitor_phone || ""} onChange={e => handleColFilterChange("visitor_phone", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Tenant.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={3}></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="checked_in">Checked In</option>
+                            <option value="checked_out">Checked Out</option>
+                          </select>
+                        </td>
+                      </tr>
+                    </>
+                  )}
 
-    {/* Report Header */}
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
-      <CardContent className="p-4">
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-gray-800">
-            PG Revenue Report
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {pgRevenueReport.report_type === "all_property"
-              ? "All Properties"
-              : "Property Wise"}{" "}
-            |
-            {pgRevenueReport.period_type === "month_wise"
-              ? "Month Wise"
-              : "Year Wise"}{" "}
-            | Year: {pgRevenueReport.year}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-1">
-            Generated on:{" "}
-            {new Date(pgRevenueReport.generated_at).toLocaleString()}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+                  {/* TAB: Vacancy */}
+                  {activeTab === "vacancy" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("tenant_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT NAME {renderSortIndicator("tenant_name")}</div>
+                        </th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">BED </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CHECK-IN</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">NOTICE</th>
+                        <th onClick={() => handleSort("requested_vacate_date")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">VACATED {renderSortIndicator("requested_vacate_date")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">REASON</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PENALTY (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">REFUND (₹)</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search tenant" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={3}></td>
+                        <td className="p-1.5"><Input placeholder="Reason.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.vacate_reason_value || ""} onChange={e => handleColFilterChange("vacate_reason_value", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={3}></td>
+                      </tr>
+                    </>
+                  )}
 
-    {/* Overall Summary Cards */}
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-      <div className="bg-blue-50 rounded-lg p-3 text-center">
-        <p className="text-[10px] text-gray-600">Total Revenue</p>
-        <p className="text-lg font-bold text-blue-700">
-          {formatCurrency(
-            pgRevenueReport.overall_summary.total_revenue,
-          )}
-        </p>
-      </div>
-      <div className="bg-red-50 rounded-lg p-3 text-center">
-        <p className="text-[10px] text-gray-600">Total Expenses</p>
-        <p className="text-lg font-bold text-red-700">
-          {formatCurrency(
-            pgRevenueReport.overall_summary.total_expenses,
-          )}
-        </p>
-      </div>
-      <div
-        className={`${pgRevenueReport.overall_summary.is_profit ? "bg-green-50" : "bg-amber-50"} rounded-lg p-3 text-center`}
-      >
-        <p className="text-[10px] text-gray-600">
-          Net{" "}
-          {pgRevenueReport.overall_summary.is_profit
-            ? "Profit"
-            : "Loss"}
-        </p>
-        <p
-          className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
-        >
-          {pgRevenueReport.overall_summary.is_profit
-            ? formatCurrency(
-                pgRevenueReport.overall_summary.net_profit,
-              )
-            : formatCurrency(
-                pgRevenueReport.overall_summary.net_loss,
-              )}
-        </p>
-      </div>
-      <div className="bg-purple-50 rounded-lg p-3 text-center">
-        <p className="text-[10px] text-gray-600">Properties</p>
-        <p className="text-lg font-bold text-purple-700">
-          {pgRevenueReport.overall_summary.properties_count}
-        </p>
-      </div>
-    </div>
+                  {/* TAB: Expense */}
+                  {activeTab === "expense" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("expense_date")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">EXPENSE DATE {renderSortIndicator("expense_date")}</div>
+                        </th>
+                        <th onClick={() => handleSort("category_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">CATEGORY {renderSortIndicator("category_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">TOTAL PAID (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">PAYMENT MODE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">DESCRIPTION</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense_date || ""} onChange={e => handleColFilterChange("expense_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="upi">UPI</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Unpaid">Unpaid</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
+                  )}
 
-    {/* Property-wise Report Tables */}
-    {pgRevenueReport.properties.map((property: any, idx: number) => (
-      <Card key={idx} className="border-0 shadow-sm overflow-hidden">
-        <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-gray-50 to-white">
-          <CardTitle className="text-sm sm:text-base flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-blue-600" />
-              <span>{property.property_name}</span>
-              <Badge variant="outline" className="text-[10px]">
-                {property.summary.periods_count}{" "}
-                {pgRevenueReport.period_type === "month_wise"
-                  ? "months"
-                  : "years"}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-green-600">
-                Revenue:{" "}
-                {formatCurrency(property.summary.total_revenue)}
-              </span>
-              <span className="text-red-600">
-                Expenses:{" "}
-                {formatCurrency(property.summary.total_expenses)}
-              </span>
-              <span
-                className={
-                  property.summary.is_profit
-                    ? "text-green-700 font-semibold"
-                    : "text-amber-700 font-semibold"
-                }
-              >
-                {property.summary.is_profit ? "Profit" : "Loss"}:{" "}
-                {formatCurrency(
-                  property.summary.is_profit
-                    ? property.summary.net_profit
-                    : property.summary.net_loss,
-                )}
-              </span>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 sm:px-6 pt-4">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-xs">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left">Month</th>
-                  <th className="px-3 py-2 text-right">Total Revenue (₹)</th>
-                  <th className="px-3 py-2 text-right">Rent (₹)</th>
-                  <th className="px-3 py-2 text-right">Deposit (₹)</th>
-                  <th className="px-3 py-2 text-right">Expenses (₹)</th>
-                  <th className="px-3 py-2 text-right">Profit/Loss (₹)</th>
-                  <th className="px-3 py-2 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {property.periods.map((period: any, pIdx: number) => (
-                  <tr key={pIdx} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium">
-                      {period.period}
-                    </td>
-                    <td className="px-3 py-2 text-right text-green-600 font-semibold">
-                      {formatCurrency(period.revenue)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {formatCurrency(period.revenue_breakdown?.rent || 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {formatCurrency(period.revenue_breakdown?.deposit || 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-red-600">
-                      {formatCurrency(period.expenses)}
-                    </td>
-                    <td className={`px-3 py-2 text-right font-semibold ${period.is_profit ? "text-green-700" : "text-amber-700"}`}>
-                      {period.is_profit
-                        ? formatCurrency(period.profit)
-                        : `-${formatCurrency(Math.abs(period.profit))}`}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <Badge
-                        className={
-                          period.is_profit
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }
-                      >
-                        {period.is_profit ? "Profit" : "Loss"}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-100 font-bold">
-                <tr>
-                  <td className="px-3 py-2 text-sm">Total</td>
-                  <td className="px-3 py-2 text-right text-green-700">
-                    {formatCurrency(property.summary.total_revenue)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {formatCurrency(property.periods.reduce((sum: number, p: any) => sum + (p.revenue_breakdown?.rent || 0), 0))}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {formatCurrency(property.periods.reduce((sum: number, p: any) => sum + (p.revenue_breakdown?.deposit || 0), 0))}
-                  </td>
-                  <td className="px-3 py-2 text-right text-red-700">
-                    {formatCurrency(property.summary.total_expenses)}
-                  </td>
-                  <td className={`px-3 py-2 text-right ${property.summary.is_profit ? "text-green-700" : "text-amber-700"}`}>
-                    {property.summary.is_profit
-                      ? formatCurrency(property.summary.net_profit)
-                      : `-${formatCurrency(property.summary.net_loss)}`}
-                  </td>
-                  <td className="px-3 py-2 text-center"></td>
-                </tr>
-                <tr className="bg-gray-50 text-xs text-gray-500">
-                  <td colSpan={7} className="px-3 py-2">
-                    Average Revenue per {pgRevenueReport.period_type === "month_wise" ? "month" : "year"}: {formatCurrency(property.summary.avg_revenue)} | 
-                    Average Expenses: {formatCurrency(property.summary.avg_expenses)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-    ))}
+                  {/* TAB: Communication */}
+                  {activeTab === "communication" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("recipient_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">RECIPIENT NAME {renderSortIndicator("recipient_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CONTACT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CHANNEL</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">SUBJECT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">TEMPLATE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">TYPE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                        <th onClick={() => handleSort("created_at")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">SENT AT {renderSortIndicator("created_at")}</div>
+                        </th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.recipient_name || ""} onChange={e => handleColFilterChange("recipient_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search contact" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.recipient_email || ""} onChange={e => handleColFilterChange("recipient_email", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.channel || ""} onChange={e => handleColFilterChange("channel", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="email">Email</option>
+                            <option value="sms">SMS</option>
+                            <option value="whatsapp">WhatsApp</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Subject.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.subject || ""} onChange={e => handleColFilterChange("subject", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Template.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.template_name || ""} onChange={e => handleColFilterChange("template_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Type.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.communication_type || ""} onChange={e => handleColFilterChange("communication_type", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="sent">Sent</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="failed">Failed</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
+                  )}
 
-    {/* Overall Summary Footer */}
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-gray-100 to-white">
-      <CardContent className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div>
-            <p className="text-[10px] text-gray-500">Total Properties</p>
-            <p className="text-lg font-bold">
-              {pgRevenueReport.overall_summary.properties_count}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500">Total Periods</p>
-            <p className="text-lg font-bold">
-              {pgRevenueReport.overall_summary.total_periods}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500">Total Revenue</p>
-            <p className="text-lg font-bold text-green-700">
-              {formatCurrency(
-                pgRevenueReport.overall_summary.total_revenue,
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500">Total Expenses</p>
-            <p className="text-lg font-bold text-red-700">
-              {formatCurrency(
-                pgRevenueReport.overall_summary.total_expenses,
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500">Net Profit/Loss</p>
-            <p
-              className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? "text-green-700" : "text-amber-700"}`}
-            >
-              {formatCurrency(
-                pgRevenueReport.overall_summary.is_profit
-                  ? pgRevenueReport.overall_summary.net_profit
-                  : pgRevenueReport.overall_summary.net_loss,
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3 pt-2 border-t border-gray-200 text-center text-[10px] text-gray-500">
-          Average Revenue: {formatCurrency(pgRevenueReport.overall_summary.avg_revenue)} | 
-          Average Expenses: {formatCurrency(pgRevenueReport.overall_summary.avg_expenses)}
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
+                  {/* TAB: Inventory */}
+                  {activeTab === "inventory" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("asset_id")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">ASSET ID {renderSortIndicator("asset_id")}</div>
+                        </th>
+                        <th onClick={() => handleSort("item_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">ITEM NAME {renderSortIndicator("item_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">CATEGORY</th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY NAME {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">UNIT PRICE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                        <th onClick={() => handleSort("purchase_date")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PURCHASE DATE {renderSortIndicator("purchase_date")}</div>
+                        </th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Asset ID.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.asset_id || ""} onChange={e => handleColFilterChange("asset_id", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Item name.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.item_name || ""} onChange={e => handleColFilterChange("item_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.asset_status || ""} onChange={e => handleColFilterChange("asset_status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="available">Available</option>
+                            <option value="allocated">Allocated</option>
+                            <option value="damaged">Damaged</option>
+                            <option value="repair">Repair</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
+                  )}
 
-          {occupancyReport && (
-            <div className="space-y-4">
-              {/* Report Actions */}
-              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToExcel}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Print
-                </Button>
-              </div>
+                  {/* TAB: Payment */}
+                  {activeTab === "payment" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("tenant_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT NAME {renderSortIndicator("tenant_name")}</div>
+                        </th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">TRANSACTION ID</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">AMOUNT (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">METHOD</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                        <th onClick={() => handleSort("payment_date")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">DATE {renderSortIndicator("payment_date")}</div>
+                        </th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search tenant" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Txn ID.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.transaction_id || ""} onChange={e => handleColFilterChange("transaction_id", e.target.value)} /></td>
+                        <td className="p-1.5"></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="upi">UPI</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="online_payment_gateway">Gateway</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="approved">Approved</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
+                  )}
 
-              {/* Report Header */}
-              <Card className="border-0 shadow-sm bg-gradient-to-r from-teal-50 to-cyan-50">
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <h2 className="text-lg font-bold text-gray-800">
-                      Occupancy Report
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {occupancyReport.report_scope === "all"
-                        ? "All Properties"
-                        : "Property Wise"}{" "}
-                      |
-                      {occupancyReport.report_type === "overall"
-                        ? "Overall"
-                        : occupancyReport.report_type === "non_vacant"
-                          ? "Non-Vacant Tenants"
-                          : "Vacant Tenants"}{" "}
-                      |
-                      {occupancyReport.period_type === "month"
-                        ? "Month Wise"
-                        : "Year Wise"}{" "}
-                      | Year: {occupancyReport.year}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      Generated on:{" "}
-                      {new Date(occupancyReport.generated_at).toLocaleString()}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* TAB: Login */}
+                  {activeTab === "login" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">USER NAME {renderSortIndicator("name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">EMAIL ADDRESS</th>
+                        <th onClick={() => handleSort("role")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">ROLE {renderSortIndicator("role")}</div>
+                        </th>
+                        <th onClick={() => handleSort("login_time")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">LOGIN TIME {renderSortIndicator("login_time")}</div>
+                        </th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.role || ""} onChange={e => handleColFilterChange("role", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="admin">Admin</option>
+                            <option value="tenant">Tenant</option>
+                            <option value="staff">Staff</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"></td>
+                      </tr>
+                    </>
+                  )}
 
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Total Properties</p>
-                  <p className="text-lg font-bold text-blue-700">
-                    {occupancyReport.overall_summary.properties_count}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Current Tenants</p>
-                  <p className="text-lg font-bold text-green-700">
-                    {
-                      occupancyReport.overall_summary.overall_totals
-                        .total_non_vacant
-                    }
-                  </p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">Vacated Tenants</p>
-                  <p className="text-lg font-bold text-yellow-700">
-                    {
-                      occupancyReport.overall_summary.overall_totals
-                        .total_vacant
-                    }
-                  </p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">
-                    New Joins ({occupancyReport.year})
-                  </p>
-                  <p className="text-lg font-bold text-purple-700">
-                    {
-                      occupancyReport.overall_summary.overall_totals
-                        .total_new_joins
-                    }
-                  </p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-gray-600">
-                    New Vacates ({occupancyReport.year})
-                  </p>
-                  <p className="text-lg font-bold text-red-700">
-                    {
-                      occupancyReport.overall_summary.overall_totals
-                        .total_new_vacates
-                    }
-                  </p>
-                </div>
-              </div>
+                  {/* TAB: Revenue */}
+                  {activeTab === "revenue" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("month")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">MONTH {renderSortIndicator("month")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">COLLECTED REVENUE (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">EXPENSES PAID (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">OPERATIONAL PROFIT (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">MARGIN %</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="yyyy-mm" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.month || ""} onChange={e => handleColFilterChange("month", e.target.value)} /></td>
+                        <td className="p-1.5" colSpan={4}></td>
+                      </tr>
+                    </>
+                  )}
+                </thead>
 
-              {/* Property-wise Report Tables */}
-              {occupancyReport.properties.map((property: any, idx: number) => (
-                <Card key={idx} className="border-0 shadow-sm overflow-hidden">
-                  <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-gray-50 to-white">
-                    <CardTitle className="text-sm sm:text-base flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-teal-600" />
-                        <span>{property.property_name}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {property.summary.periods_count}{" "}
-                          {occupancyReport.period_type === "month"
-                            ? "months"
-                            : "years"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-green-600">
-                          Current: {property.summary.non_vacant_tenants}
-                        </span>
-                        <span className="text-yellow-600">
-                          Vacated: {property.summary.vacant_tenants}
-                        </span>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-3 sm:px-6 pt-4">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left">
-                              {occupancyReport.period_type === "month"
-                                ? "Month"
-                                : "Year"}
-                            </th>
-                            <th className="px-3 py-2 text-right">
-                              {occupancyReport.report_type === "non_vacant"
-                                ? "Non-Vacant Tenants"
-                                : occupancyReport.report_type === "vacant"
-                                  ? "Vacant Tenants"
-                                  : "Total Tenants"}
-                            </th>
-                            <th className="px-3 py-2 text-right">
-                              {occupancyReport.report_type === "vacant"
-                                ? "New Vacates"
-                                : "New Joins"}
-                            </th>
-                            <th className="px-3 py-2 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {property.periods.map((period: any, pIdx: number) => (
-                            <tr key={pIdx} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 font-medium">
-                                {period.period}
-                              </td>
-                              <td className="px-3 py-2 text-right font-semibold text-blue-600">
-                                {period.display_total}
-                              </td>
-                              <td className="px-3 py-2 text-right text-green-600">
-                                {period.display_new}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <Badge
-                                  className={
-                                    period.display_total > 0
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-gray-100 text-gray-500"
-                                  }
-                                >
-                                  {period.display_total > 0
-                                    ? "Active"
-                                    : "No Tenants"}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-gray-100">
-                          <tr>
-                            <td className="px-3 py-2 font-bold">Max / Total</td>
-                            <td className="px-3 py-2 text-right font-bold text-blue-700">
-                              Max:{" "}
-                              {occupancyReport.report_type === "non_vacant"
-                                ? property.summary.non_vacant_tenants
-                                : occupancyReport.report_type === "vacant"
-                                  ? property.summary.vacant_tenants
-                                  : property.summary.total_tenants}
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {paginatedData.map((row: any, index: number) => {
+                    const zebraBg = index % 2 === 1 ? "bg-slate-50/30 dark:bg-slate-900/10" : "";
+                    
+                    return (
+                      <tr key={index} className={`hover:bg-[#f1f5f9]/40 dark:hover:bg-slate-800/40 transition-colors ${zebraBg}`}>
+                        {activeTab === "enquiry" && (
+                          <>
+                            <td className="p-3 text-slate-500 font-medium whitespace-nowrap">
+                              {row.created_at ? format(new Date(row.created_at), "dd/MM/yyyy") : "—"}
                             </td>
-                            <td className="px-3 py-2 text-right" />
-                            <td className="px-3 py-2 text-center" />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {/* Overall Summary Footer */}
-              <Card className="border-0 shadow-sm bg-gradient-to-r from-gray-100 to-white">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                    <div>
-                      <p className="text-[10px] text-gray-500">Properties</p>
-                      <p className="text-lg font-bold">
-                        {occupancyReport.overall_summary.properties_count}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Periods</p>
-                      <p className="text-lg font-bold">
-                        {occupancyReport.overall_summary.total_periods}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Current Tenants
-                      </p>
-                      <p className="text-lg font-bold text-green-700">
-                        {
-                          occupancyReport.overall_summary.overall_totals
-                            .total_non_vacant
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Vacated Tenants
-                      </p>
-                      <p className="text-lg font-bold text-yellow-700">
-                        {
-                          occupancyReport.overall_summary.overall_totals
-                            .total_vacant
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">New Joins</p>
-                      <p className="text-lg font-bold text-purple-700">
-                        {
-                          occupancyReport.overall_summary.overall_totals
-                            .total_new_joins
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">New Vacates</p>
-                      <p className="text-lg font-bold text-red-700">
-                        {
-                          occupancyReport.overall_summary.overall_totals
-                            .total_new_vacates
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-gray-200 text-center text-[10px] text-gray-500">
-                    Report Type:{" "}
-                    {occupancyReport.report_type === "overall"
-                      ? "Overall (Total Tenants)"
-                      : occupancyReport.report_type === "non_vacant"
-                        ? "Non-Vacant Tenants Only"
-                        : "Vacant Tenants Only"}
-                  </div>
-                </CardContent>
-              </Card>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
+                            <td className="p-3 text-slate-600 font-mono">{row.phone}</td>
+                            <td className="p-3 text-slate-500 font-medium">{row.email || "—"}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || row.property_name_val || "—"}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.preferred_move_in_date || "—"}</td>
+                            <td className="p-3 text-slate-500">{row.source}</td>
+                            <td className="p-3">
+                              <Badge className={
+                                row.status === "converted"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                  : row.status === "new"
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.status}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-500 max-w-xs truncate">{row.remark || "—"}</td>
+                          </>
+                        )}
+                        {activeTab === "tenant" && (
+                          <>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.full_name)}</td>
+                            <td className="p-3 text-slate-600 font-mono">{row.phone}</td>
+                            <td className="p-3 text-slate-500">{row.email || "—"}</td>
+                            <td className="p-3 text-slate-500 capitalize">{row.gender}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.check_in_date || "—"}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.bed_number || "—"}</td>
+                            <td className="p-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
+                              ₹{(row.rent_per_bed || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-500">
+                              ₹{(row.security_deposit || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.is_active
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px] font-semibold"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200 shadow-none text-[10px] font-semibold"
+                              }>
+                                {row.is_active ? "Active" : "Inactive"}
+                              </Badge>
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "property" && (
+                          <>
+                            <td className="p-3 font-bold text-slate-900 dark:text-slate-50">{row.name}</td>
+                            <td className="p-3 text-slate-500 max-w-sm truncate">{row.address}</td>
+                            <td className="p-3 text-center font-semibold text-slate-700">{row.total_rooms}</td>
+                            <td className="p-3 text-center font-semibold text-slate-700">{row.total_beds}</td>
+                            <td className="p-3 text-center text-emerald-600 font-semibold">{row.occupied_beds}</td>
+                            <td className="p-3 text-center text-indigo-600 font-semibold">{row.available_beds}</td>
+                            <td className="p-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{row.occupancy_rate}%</td>
+                          </>
+                        )}
+                        {activeTab === "room" && (
+                          <>
+                            <td className="p-3 font-semibold text-slate-700">{row.property_name}</td>
+                            <td className="p-3 font-bold text-slate-900 dark:text-slate-100">{row.room_number}</td>
+                            <td className="p-3 text-slate-500 capitalize">{row.room_type}</td>
+                            <td className="p-3 text-slate-500 capitalize">{row.sharing_type}</td>
+                            <td className="p-3 text-right font-mono font-semibold text-slate-800">
+                              ₹{Number(row.rent_per_bed).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-center text-slate-600">{row.total_bed}</td>
+                            <td className="p-3 text-center text-emerald-600 font-semibold">{row.occupied_count}</td>
+                            <td className="p-3 text-center text-indigo-600 font-semibold">{row.available_beds}</td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.status === "Fully Occupied"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[10px]"
+                                  : row.status === "Partially Occupied"
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.status}
+                              </Badge>
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "visitor" && (
+                          <>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{row.visitor_name}</td>
+                            <td className="p-3 text-slate-600 font-mono">{row.visitor_phone}</td>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
+                            <td className="p-3 text-slate-500">{row.property_name}</td>
+                            <td className="p-3 text-slate-500 font-bold">{row.room_number}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">
+                              {row.entry_time ? format(new Date(row.entry_time), "dd/MM/yyyy HH:mm") : "—"}
+                            </td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">
+                              {row.exit_time ? format(new Date(row.exit_time), "dd/MM/yyyy HH:mm") : "—"}
+                            </td>
+                            <td className="p-3 text-slate-500 max-w-xs truncate">{row.purpose}</td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.status === "checked_out"
+                                  ? "bg-slate-50 text-slate-700 border border-slate-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.status}
+                              </Badge>
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "vacancy" && (
+                          <>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.room_number}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.bed_number}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.stay_check_in_date || "—"}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.notice_given_date || "—"}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.requested_vacate_date || "—"}</td>
+                            <td className="p-3 text-slate-500 max-w-xs truncate">{row.vacate_reason_value || "—"}</td>
+                            <td className="p-3 text-right font-mono font-medium text-slate-800">
+                              ₹{Number(row.security_deposit_amount || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono text-rose-600">
+                              ₹{Number(row.total_penalty_amount || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                              ₹{Number(row.refundable_amount || 0).toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "expense" && (
+                          <>
+                            <td className="p-3 text-slate-500 font-medium whitespace-nowrap">{row.expense_date || "—"}</td>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{row.category_name}</td>
+                            <td className="p-3 text-right font-mono font-bold text-rose-650 text-rose-600">
+                              ₹{Number(row.total_paid || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-slate-500 capitalize">{row.payment_mode || "—"}</td>
+                            <td className="p-3 text-center">
+                              <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]">{row.status}</Badge>
+                            </td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
+                            <td className="p-3 text-slate-500 max-w-xs truncate">{row.description || "—"}</td>
+                          </>
+                        )}
+                        {activeTab === "communication" && (
+                          <>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{row.recipient_name}</td>
+                            <td className="p-3 text-slate-600 font-mono">{row.recipient_email || row.recipient_phone}</td>
+                            <td className="p-3 capitalize">
+                              <Badge className={
+                                row.channel === "email"
+                                  ? "bg-sky-50 text-sky-700 border border-sky-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.channel}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-600 max-w-xs truncate">{row.subject || "—"}</td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.template_name || "—"}</td>
+                            <td className="p-3 text-slate-500 capitalize">{row.communication_type}</td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.status === "sent" || row.status === "delivered"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.status}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">
+                              {row.sent_at ? format(new Date(row.sent_at), "dd/MM/yyyy HH:mm") : "—"}
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "inventory" && (
+                          <>
+                            <td className="p-3 text-slate-600 font-mono font-bold">{row.asset_id}</td>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{row.item_name}</td>
+                            <td className="p-3 text-slate-500">{row.category_name}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
+                            <td className="p-3 text-right font-mono font-medium text-slate-800">
+                              ₹{Number(row.unit_price || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.asset_status === "available"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                    : row.asset_status === "assigned" || row.asset_status === "allocated"
+                                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.asset_status}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.purchase_date || "—"}</td>
+                          </>
+                        )}
+                        {activeTab === "payment" && (
+                          <>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
+                            <td className="p-3 text-slate-500 font-mono">{row.transaction_id || "—"}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                              ₹{Number(row.amount || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-slate-500 capitalize">{row.payment_mode}</td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.status === "approved" || row.status === "paid"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                    : "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.status}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-500 whitespace-nowrap">{row.payment_date || "—"}</td>
+                          </>
+                        )}
+                        {activeTab === "login" && (
+                          <>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{row.name}</td>
+                            <td className="p-3 text-slate-500">{row.email}</td>
+                            <td className="p-3 capitalize">
+                              <Badge className={
+                                row.role === "tenant"
+                                  ? "bg-sky-50 text-sky-700 border border-sky-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
+                              }>
+                                {row.role}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-slate-500 font-mono whitespace-nowrap">
+                              {row.login_time ? format(new Date(row.login_time), "dd/MM/yyyy HH:mm:ss") : "—"}
+                            </td>
+                          </>
+                        )}
+                        {activeTab === "revenue" && (
+                          <>
+                            <td className="p-3 font-bold text-slate-800 dark:text-slate-100">{row.month}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                              ₹{Number(row.collected || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-rose-600">
+                              ₹{Number(row.expense || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-indigo-600">
+                              ₹{Number(row.profit || 0).toLocaleString("en-IN")}
+                            </td>
+                            <td className="p-3 text-right font-mono font-semibold text-slate-800">{row.margin}</td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-
-          {/* Existing Report Data Display */}
-          {reportData && !tenantPaymentReport && !propertyPaymentReport && (
-            <>
-              {/* Report Actions */}
-              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+        </div>
+      </Card>
+      
+      {/* Table footer / Pagination - Hidden on print */}
+      {!loading && totalRecords > 0 && (
+        <div className="p-3 bg-white border border-slate-200 dark:border-slate-800 dark:bg-slate-900 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-slate-500">
+              Showing {(currentPage - 1) * pageSize + 1} to{" "}
+              {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} entries
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <span>Show</span>
+              <select 
+                value={pageSize} 
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="h-7 text-xs border border-slate-200 rounded px-1 w-16 bg-white"
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span>entries</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="h-7 text-xs bg-white border border-slate-200"
+            >
+              Previous
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }).map((_, idx) => {
+              const pageNum = idx + 1;
+              return (
                 <Button
-                  variant="outline"
+                  key={pageNum}
+                  variant={currentPage === pageNum ? "default" : "outline"}
                   size="sm"
-                  onClick={exportToExcel}
-                  className="h-7 sm:h-8 text-xs"
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`h-7 w-7 text-xs ${
+                    currentPage === pageNum
+                      ? "bg-[#1e3b8b] hover:bg-[#152960] text-white"
+                      : "bg-white border border-slate-200 text-slate-700"
+                  }`}
                 >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export Excel
+                  {pageNum}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 sm:h-8 text-xs"
-                >
-                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Print
-                </Button>
-              </div>
+              );
+            })}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="h-7 text-xs bg-white border border-slate-200"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
-            
-
-              {/* Detailed Report */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-2 px-3 sm:px-6">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <PieChart className="h-4 w-4 text-[#0A1F5C]" />
-                    Detailed Report Data
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6 overflow-x-auto">
-                  {filters.reportType === "revenue" && reportData && (
-  <RevenueReportDetails 
-    data={reportData} 
-    formatCurrency={formatCurrency}
-    page={revenuePage || 1}
-    pageSize={revenuePageSize || 20}
-    onPageChange={setRevenuePage}
-    onPageSizeChange={(size: number) => { 
-      setRevenuePageSize(size); 
-      setRevenuePage(1); 
-    }}
-  />
-)}
-                  {filters.reportType === "payments" && (
-  <PaymentsReportDetails
-    data={reportData}
-    formatCurrency={formatCurrency}
-    page={reportPage}
-    pageSize={reportPageSize}
-    onPageChange={setReportPage}
-    onPageSizeChange={(size: any) => { setReportPageSize(size); setReportPage(1); }}
-  />
-)}
-                  {filters.reportType === "tenants" && reportData && (
-  <TenantsReportDetails 
-    data={reportData} 
-    formatCurrency={formatCurrency}
-    page={reportPage}
-    pageSize={reportPageSize}
-    onPageChange={setReportPage}
-    onPageSizeChange={(size:any) => { setReportPageSize(size); setReportPage(1); }}
-  />
-)}
-                  {filters.reportType === "occupancy" && (
-                    <OccupancyReportDetails
-                      data={reportData}
-                      formatCurrency={formatCurrency}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="insights" className="mt-3 sm:mt-4">
-          <OperationalInsightsReport
-            properties={properties}
-            data={operationalInsights}
-            loading={insightsLoading}
-            filters={filters}
-            orgLogo={orgSettings.logoUrl}
-            orgName={orgSettings.orgName}
+      {/* 📋 FILTER SIDEBAR PANEL (Matching your 2nd screenshot layout) */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop overlay */}
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/40 z-40 transition-opacity animate-in fade-in duration-200 print:hidden" 
           />
-        </TabsContent>
+          {/* Sidebar Drawer Container */}
+          <div className="fixed inset-y-0 right-0 z-50 w-80 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out transform translate-x-0 animate-in slide-in-from-right duration-200 print:hidden">
+            
+            <div>
+              {/* Header: Solid Deep Blue with white text, Close button */}
+              <div className="flex items-center justify-between bg-[#1e3b8b] p-4 text-white">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-white" />
+                  <h3 className="text-sm font-bold tracking-wide uppercase">Filter Reports</h3>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setSidebarOpen(false)}
+                  className="h-8 w-8 text-white hover:text-slate-200 hover:bg-white/10 rounded-full"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
 
+              {/* Sidebar Content Form Fields */}
+              <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-140px)]">
+                
+                {/* Select Property */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
+                    Property
+                  </Label>
+                  <Select value={tempPropertyId} onValueChange={setTempPropertyId}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue placeholder={propertiesLoading ? "Loading properties..." : "All Properties"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {properties.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!propertiesLoading && properties.length === 0 && (
+                    <p className="text-[10px] text-amber-600">No properties found for your account.</p>
+                  )}
+                </div>
 
-      </Tabs>
+                {/* Start Date */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
+                    Start Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={tempStartDate}
+                      onChange={(e) => setTempStartDate(e.target.value)}
+                      className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700 pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* End Date */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
+                    End Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={tempEndDate}
+                      onChange={(e) => setTempEndDate(e.target.value)}
+                      className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700 pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Bottom Actions footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 flex items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                onClick={handleResetFilters}
+                className="flex-1 border-slate-200 text-slate-700 bg-white hover:bg-slate-400 text-xs h-9 rounded-md flex items-center justify-center gap-1.5 font-semibold"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Reset
+              </Button>
+              <Button
+                onClick={handleApplyFilters}
+                className="flex-1 bg-[#1e3b8b] hover:bg-[#152960] text-white text-xs h-9 rounded-md font-semibold"
+              >
+                Apply
+              </Button>
+            </div>
+            
+          </div>
+        </>
+      )}
+      
+      {/* ⚠️ MODERN CSS PRINT STYLING INJECTION (Produces exact print preview style with logo, metadata line, watermark) */}
+      <style jsx global>{`
+        /* Bordered, compact grid table for all report tabs — applies on screen only.
+           Because every tab renders its own <th>/<td> markup, we style them via
+           this shared .report-table class instead of touching each of the 12
+           tab branches individually. */
+        .report-table {
+          border-collapse: collapse;
+          border: 1px solid #e2e8f0;
+        }
+        .report-table th,
+        .report-table td {
+          border: 1px solid #e2e8f0;
+          padding: 6px 10px !important;
+        }
+        .report-table thead th {
+          background-color: #f8fafc;
+        }
+        .dark .report-table th,
+        .dark .report-table td {
+          border-color: #1e293b;
+        }
+
+    
+      `}</style>
+
     </div>
   );
 }
 
-// Helper Components (keep all existing helper components - StatCard, ExtendedStatCard, QuickActionButton, SummaryStatCard, and all Report Detail components)
-// ... (include all the existing helper components from your original file)
-
-// Helper Components - KEEP EXISTING ONES
-function OperationalInsightsPanel({ data, loading, formatCurrency }: { data: reportApi.OperationalInsights | null; loading: boolean; formatCurrency: (value: number) => string }) {
-  if (loading) {
-    return <Card className="border-0 shadow-sm"><CardContent className="grid gap-3 p-5 md:grid-cols-3"><div className="h-24 animate-pulse rounded-xl bg-slate-100 md:col-span-2" /><div className="h-24 animate-pulse rounded-xl bg-slate-100" /></CardContent></Card>;
-  }
-  if (!data) return null;
-  const topExpense = data.expenses.categories[0];
+// Internal KPI Card renderer — compact layout matching the Payments page stat cards
+function KPICard({ title, value, icon: Icon, bgColor, textColor, borderColor, iconBg, iconColor }: any) {
   return (
-    <section className="grid gap-4 xl:grid-cols-3">
-      <Card className="border-0 bg-gradient-to-br from-slate-950 to-[#0A2B77] text-white shadow-lg xl:col-span-2">
-        <CardContent className="p-5">
-          <div className="mb-4 flex items-center gap-2"><Sparkles className="h-4 w-4 text-amber-300" /><p className="text-sm font-semibold">Management conclusion</p></div>
-          <div className="space-y-3">
-            {data.insights.slice(0, 4).map((insight, index) => <div key={insight} className="flex gap-3 text-sm text-blue-50"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold text-amber-200">{index + 1}</span><p>{insight}</p></div>)}
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/15 pt-4 text-center"><div><p className="text-xs text-blue-200">Collections</p><p className="mt-1 font-bold">{formatCurrency(data.finance.collected)}</p></div><div><p className="text-xs text-blue-200">Expenses</p><p className="mt-1 font-bold">{formatCurrency(data.expenses.total)}</p></div><div><p className="text-xs text-blue-200">Pending</p><p className="mt-1 font-bold text-amber-200">{formatCurrency(data.finance.pending)}</p></div></div>
-        </CardContent>
-      </Card>
-      <Card className="border-0 shadow-md shadow-slate-200/70"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Receipt className="h-4 w-4 text-[#0A1F5C]" /> Expense mix</CardTitle></CardHeader><CardContent className="space-y-3">
-        {data.expenses.categories.length ? data.expenses.categories.slice(0, 4).map((category) => { const percentage = data.expenses.total ? (Number(category.amount) / data.expenses.total) * 100 : 0; return <div key={category.category}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="truncate font-medium text-slate-700">{category.category}</span><span className="shrink-0 font-semibold text-slate-900">{formatCurrency(Number(category.amount))}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-[#0A1F5C] to-blue-500" style={{ width: `${percentage}%` }} /></div></div>; }) : <p className="py-4 text-sm text-slate-500">No paid expenses in this period.</p>}
-        {topExpense && <p className="border-t pt-3 text-xs text-slate-500">Highest spend: <span className="font-semibold text-slate-800">{topExpense.category}</span></p>}
-      </CardContent></Card>
-      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Bed className="h-4 w-4 text-blue-600" /> Room availability</CardTitle></CardHeader><CardContent className="grid grid-cols-3 gap-2 text-center"><Metric label="Empty rooms" value={data.occupancy.available_rooms} tone="text-emerald-600" /><Metric label="Partial" value={data.occupancy.partially_available_rooms} tone="text-amber-600" /><Metric label="Full" value={data.occupancy.fully_occupied_rooms} tone="text-blue-600" /></CardContent></Card>
-      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><UserPlus className="h-4 w-4 text-violet-600" /> New arrivals ({data.arrivals.count})</CardTitle></CardHeader><CardContent className="space-y-2">{data.arrivals.tenants.slice(0, 3).map((tenant) => <div key={tenant.id} className="flex items-center justify-between gap-3 text-xs"><div className="min-w-0"><p className="truncate font-semibold text-slate-800">{tenant.full_name}</p><p className="truncate text-slate-500">{tenant.property_name} · Room {tenant.room_number}/Bed {tenant.bed_number}</p></div><Badge variant="secondary">{tenant.gender || '—'}</Badge></div>)}{!data.arrivals.count && <p className="py-2 text-sm text-slate-500">No arrivals in this period.</p>}</CardContent></Card>
-      <Card className="border-0 shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Heart className="h-4 w-4 text-rose-500" /> Couple occupancy</CardTitle></CardHeader><CardContent><div className="flex items-end justify-between"><div><p className="text-2xl font-bold text-slate-900">{data.couples.booking_count}</p><p className="text-xs text-slate-500">active couple booking(s)</p></div><p className="text-sm font-semibold text-rose-600">{data.couples.tenant_count} tenants</p></div>{data.couples.tenants.slice(0, 2).map((tenant) => <p key={tenant.id} className="mt-3 truncate text-xs text-slate-600">{tenant.full_name}{tenant.partner_name ? ` + ${tenant.partner_name}` : ''}</p>)}</CardContent></Card>
-    </section>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return <div className="rounded-lg bg-slate-50 p-2"><p className={`text-lg font-bold ${tone}`}>{value || 0}</p><p className="text-[10px] text-slate-500">{label}</p></div>;
-}
-
-function StatCard({ title, value, icon, loading }: any) {
-  if (loading) {
-    return (
-      <Card className="border-0 shadow-sm bg-white">
-        <CardContent className="p-2 sm:p-3">
-          <div className="animate-pulse flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="h-2 w-12 bg-gray-200 rounded"></div>
-              <div className="h-4 w-8 bg-gray-300 rounded"></div>
-            </div>
-            <div className="h-6 w-6 bg-gray-200 rounded-lg"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="bg-white border-0 shadow-sm">
-      <CardContent className="p-2 sm:p-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase tracking-wider">
-              {title}
-            </p>
-            <p className="text-sm sm:text-base font-bold text-gray-900">
-              {value}
-            </p>
-          </div>
-          <div className="p-1.5 sm:p-2 rounded-lg bg-gray-100">{icon}</div>
+    <Card className={`border shadow-sm rounded-lg overflow-hidden ${bgColor} ${borderColor} transition-all duration-200 hover:scale-[1.01]`}>
+      <CardContent className="p-2.5 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">{title}</p>
+          <h3 className={`text-base md:text-lg font-extrabold tracking-tight mt-0.5 ${textColor} truncate`}>{value}</h3>
+        </div>
+        <div className={`p-1.5 rounded-md shrink-0 ${iconBg} ${iconColor}`}>
+          <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function ExtendedStatCard({
-  title,
-  value,
-  subtitle,
-  icon,
-  loading,
-  color,
-}: any) {
-  const colors = {
-    green: "from-green-50 to-emerald-50 text-green-600",
-    yellow: "from-yellow-50 to-amber-50 text-yellow-600",
-    blue: "from-blue-50 to-cyan-50 text-blue-600",
-    red: "from-red-50 to-rose-50 text-red-600",
-  };
-
-  if (loading) {
-    return (
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-2 sm:p-3">
-          <div className="animate-pulse flex items-center gap-2">
-            <div className="rounded-full bg-gray-200 h-6 w-6"></div>
-            <div className="flex-1">
-              <div className="h-2 bg-gray-200 rounded w-12 mb-1"></div>
-              <div className="h-3 bg-gray-300 rounded w-16"></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className={`border-0 shadow-sm bg-gradient-to-br ${colors[color]}`}>
-      <CardContent className="p-2 sm:p-3">
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <div className={`p-1 rounded-lg bg-white/50`}>{icon}</div>
-          <div>
-            <p className="text-[10px] sm:text-xs text-gray-600">{title}</p>
-            <p className="text-xs sm:text-sm font-bold">{value}</p>
-            {subtitle && (
-              <p className="text-[8px] sm:text-[10px] text-gray-500">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuickActionButton({ icon, label, onClick, color }: any) {
-  const colors = {
-    blue: "from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-600",
-    purple: "from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 text-purple-600",
-    orange: "from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 text-orange-600",
-    green: "from-green-50 to-emerald-100 hover:from-green-100 hover:to-emerald-200 text-green-600",
-    cyan: "from-cyan-50 to-sky-100 hover:from-cyan-100 hover:to-sky-200 text-cyan-600",
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      className={`w-full h-auto py-3 sm:py-4 px-2 sm:px-3 flex flex-col items-center justify-center gap-1.5 sm:gap-2 bg-gradient-to-br ${colors[color]} border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-200`}
-      onClick={onClick}
-    >
-      <div className="p-2 rounded-full bg-white/50">
-        {icon}
-      </div>
-      <span className="text-[11px] sm:text-xs font-semibold text-center">{label}</span>
-    </Button>
-  );
-}
-
-function SummaryStatCard({ title, value, icon }: any) {
-  const getBgColor = (title: string) => {
-    switch (title) {
-      case "Revenue":
-        return "bg-emerald-50";
-      case "Payments":
-        return "bg-blue-50";
-      case "Tenants":
-        return "bg-purple-50";
-      case "Occupancy":
-        return "bg-orange-50";
-      case "Collection":
-        return "bg-indigo-50";
-      default:
-        return "bg-gray-50";
-    }
-  };
-
-  const getIconColor = (title: string) => {
-    switch (title) {
-      case "Revenue":
-        return "text-emerald-600";
-      case "Payments":
-        return "text-blue-600";
-      case "Tenants":
-        return "text-purple-600";
-      case "Occupancy":
-        return "text-orange-600";
-      case "Collection":
-        return "text-indigo-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
-  return (
-    <Card className={`${getBgColor(title)} border-0 shadow-sm`}>
-      <CardContent className="p-2 sm:p-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[8px] sm:text-[10px] text-gray-600 font-medium uppercase tracking-wider">
-              {title}
-            </p>
-            <p className="text-xs sm:text-sm font-bold text-gray-900">
-              {value}
-            </p>
-          </div>
-          <div
-            className={`p-1.5 rounded-lg bg-white/70 ${getIconColor(title)}`}
-          >
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Report Detail Components - KEEP EXISTING
-function RevenueReportDetails({data, formatCurrency, page = 1, pageSize = 20, onPageChange, onPageSizeChange}: any) {
-  const summary = data.summary;
-  const payments = data.payments || [];
-  const totalPayments = payments.length;
-  
-  const startIndex = (page - 1) * pageSize;
-  const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
-  
-  const monthlyData = summary.monthlyBreakdown || [];
-  const propertyData = summary.propertyBreakdown || [];
-  
-  return (
-    <div className="space-y-4">
-      {/* Executive Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-blue-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Total Revenue</p>
-          <p className="text-2xl font-bold text-blue-700">{formatCurrency(summary.totalRevenue)}</p>
-          <p className="text-[10px] text-gray-500">{summary.totalTransactions} transactions</p>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Rent Revenue</p>
-          <p className="text-xl font-bold text-green-700">{formatCurrency(summary.revenueByType?.rent?.amount || 0)}</p>
-          <p className="text-[10px] text-gray-500">{summary.revenueByType?.rent?.percentage?.toFixed(1) || 0}% of total</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Deposit Revenue</p>
-          <p className="text-xl font-bold text-purple-700">{formatCurrency(summary.revenueByType?.security_deposit?.amount || 0)}</p>
-          <p className="text-[10px] text-gray-500">{summary.revenueByType?.security_deposit?.percentage?.toFixed(1) || 0}% of total</p>
-        </div>
-        <div className="bg-amber-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Avg Daily Revenue</p>
-          <p className="text-xl font-bold text-amber-700">{formatCurrency(summary.averageDailyRevenue)}</p>
-          <p className="text-[10px] text-gray-500">Over {summary.daysInRange} days</p>
-        </div>
-        <div className="bg-indigo-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Unique Tenants</p>
-          <p className="text-2xl font-bold text-indigo-700">{summary.uniqueTenants}</p>
-          <p className="text-[10px] text-gray-500">Avg: {formatCurrency(summary.averageTransactionValue)}/txn</p>
-        </div>
-      </div>
-      
-      {/* Revenue Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Revenue by Type */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Type</h4>
-          <div className="space-y-2">
-            {Object.entries(summary.revenueByType || {}).map(([type, data]: [string, any]) => (
-              data.amount > 0 && (
-                <div key={type}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="capitalize">{type.replace('_', ' ')}</span>
-                    <span>{formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)</span>
-                  </div>
-                  <Progress value={data.percentage} className="h-1.5" />
-                </div>
-              )
-            ))}
-          </div>
-        </div>
-        
-        {/* Revenue by Payment Mode */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Payment Mode</h4>
-          <div className="space-y-2">
-            {Object.entries(summary.revenueByMode || {}).map(([mode, data]: [string, any]) => (
-              data.amount > 0 && (
-                <div key={mode}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="capitalize">{mode.replace('_', ' ')}</span>
-                    <span>{formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)</span>
-                  </div>
-                  <Progress value={data.percentage} className="h-1.5" />
-                </div>
-              )
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Monthly Breakdown Table - REMOVED MAINTENANCE COLUMN */}
-      {monthlyData.length > 0 && (
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Monthly Revenue Breakdown</h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">Month</th>
-                  <th className="px-2 py-1 text-right">Total Revenue</th>
-                  <th className="px-2 py-1 text-right">Rent</th>
-                  <th className="px-2 py-1 text-right">Deposit</th>
-                  <th className="px-2 py-1 text-center">Transactions</th>
-                  <th className="px-2 py-1 text-center">Unique Tenants</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyData.map((month: any) => (
-                  <tr key={month.month_key} className="border-t">
-                    <td className="px-2 py-1 font-medium">{month.month} {month.year}</td>
-                    <td className="px-2 py-1 text-right font-semibold">{formatCurrency(month.total_amount)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(month.rent_amount)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(month.deposit_amount)}</td>
-                    <td className="px-2 py-1 text-center">{month.transaction_count}</td>
-                    <td className="px-2 py-1 text-center">{month.unique_tenants}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-100">
-                <tr>
-                  <td className="px-2 py-1 font-bold">TOTAL</td>
-                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.totalRevenue)}</td>
-                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.rent?.amount || 0)}</td>
-                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.security_deposit?.amount || 0)}</td>
-                  <td className="px-2 py-1 text-center font-bold">{summary.totalTransactions}</td>
-                  <td className="px-2 py-1 text-center font-bold">{summary.uniqueTenants}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-      
-      {/* Property-wise Breakdown - REMOVED MAINTENANCE COLUMN */}
-      {propertyData.length > 0 && (
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Property</h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">Property</th>
-                  <th className="px-2 py-1 text-right">Total Revenue</th>
-                  <th className="px-2 py-1 text-right">Rent</th>
-                  <th className="px-2 py-1 text-right">Deposit</th>
-                  <th className="px-2 py-1 text-center">Transactions</th>
-                  <th className="px-2 py-1 text-center">Unique Tenants</th>
-                </tr>
-              </thead>
-              <tbody>
-                {propertyData.map((prop: any) => (
-                  <tr key={prop.property_name} className="border-t">
-                    <td className="px-2 py-1 font-medium">{prop.property_name}</td>
-                    <td className="px-2 py-1 text-right font-semibold">{formatCurrency(prop.total_amount)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(prop.rent_amount)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(prop.deposit_amount)}</td>
-                    <td className="px-2 py-1 text-center">{prop.transaction_count}</td>
-                    <td className="px-2 py-1 text-center">{prop.unique_tenants}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      
-      {/* Detailed Payments Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <h4 className="text-xs font-semibold text-gray-700 p-3 bg-gray-50 border-b">Transaction Details</h4>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-xs">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-2 py-2 text-left">Date</th>
-                <th className="px-2 py-2 text-left">Tenant</th>
-                <th className="px-2 py-2 text-left">Property</th>
-                <th className="px-2 py-2 text-left">Type</th>
-                <th className="px-2 py-2 text-right">Amount</th>
-                <th className="px-2 py-2 text-left">Mode</th>
-                <th className="px-2 py-2 text-left">Source</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedPayments.map((payment: any) => (
-                <tr key={payment.id} className="hover:bg-gray-50">
-                  <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
-                  <td className="px-2 py-1.5">
-                    <div className="font-medium flex items-center gap-1">
-                      {payment.tenant_name || 'N/A'}
-                      {payment.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
-                    </div>
-                    <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
-                  </td>
-                  <td className="px-2 py-1.5">{payment.property_name || 'N/A'} / Room {payment.room_number || 'N/A'}</td>
-                  <td className="px-2 py-1.5">
-                    <Badge variant="outline" className="text-[10px]">
-                      {payment.payment_type === 'security_deposit' ? 'Security Deposit' : payment.payment_type || 'Other'}
-                    </Badge>
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(payment.amount)}</td>
-                  <td className="px-2 py-1.5 capitalize">{payment.payment_mode || 'N/A'}</td>
-                  <td className="px-2 py-1.5 capitalize">{payment.source || 'N/A'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <ReportPagination 
-          total={totalPayments}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PaymentsReportDetails({ data, formatCurrency, page = 1, pageSize = 20, onPageChange, onPageSizeChange }: any) {
-  const summary = data.summary;
-  const payments = data.payments || [];
-  const totalPayments = payments.length;
-  
-  const startIndex = (page - 1) * pageSize;
-  const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
-  
-  const totalAmount = summary.totalAmount || 0;
-  const approvedAmount = summary.statusBreakdown?.approved?.amount || 0;
-  const pendingAmount = summary.statusBreakdown?.pending?.amount || 0;
-  const rejectedAmount = summary.statusBreakdown?.rejected?.amount || 0;
-  const collectionRate = summary.collectionRateByAmount || 0;
-  
-  const monthlyData = summary.monthlyBreakdown || [];
-  const propertyData = summary.propertyBreakdown || [];
-  
-  return (
-    <div className="space-y-4">
-      {/* Executive Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-blue-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Total Transactions</p>
-          <p className="text-2xl font-bold text-blue-700">{summary.totalTransactions}</p>
-          <p className="text-[10px] text-gray-500">Unique Tenants: {summary.uniqueTenants}</p>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Collection Rate</p>
-          <p className="text-2xl font-bold text-green-700">{collectionRate.toFixed(1)}%</p>
-          <p className="text-[10px] text-gray-500">₹{approvedAmount.toLocaleString()} of ₹{totalAmount.toLocaleString()}</p>
-        </div>
-        <div className="bg-amber-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Avg Transaction</p>
-          <p className="text-2xl font-bold text-amber-700">{formatCurrency(summary.averageTransactionValue)}</p>
-          <p className="text-[10px] text-gray-500">Pending: ₹{pendingAmount.toLocaleString()}</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Rent Collection</p>
-          <p className="text-2xl font-bold text-purple-700">{summary.typeBreakdown?.rent?.percentage?.toFixed(1) || 0}%</p>
-          <p className="text-[10px] text-gray-500">Deposit: {summary.typeBreakdown?.security_deposit?.percentage?.toFixed(1) || 0}%</p>
-        </div>
-      </div>
-      
-      {/* Status & Mode Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Status Distribution */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Payment Status</h4>
-          <div className="space-y-2">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Approved</span>
-                <span>₹{approvedAmount.toLocaleString()} ({summary.statusBreakdown?.approved?.percentage?.toFixed(1) || 0}%)</span>
-              </div>
-              <Progress value={summary.statusBreakdown?.approved?.percentage || 0} className="h-1.5 bg-green-100" />
-            </div>
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Pending</span>
-                <span>₹{pendingAmount.toLocaleString()} ({summary.statusBreakdown?.pending?.percentage?.toFixed(1) || 0}%)</span>
-              </div>
-              <Progress value={summary.statusBreakdown?.pending?.percentage || 0} className="h-1.5 bg-yellow-100" />
-            </div>
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Rejected</span>
-                <span>₹{rejectedAmount.toLocaleString()} ({summary.statusBreakdown?.rejected?.percentage?.toFixed(1) || 0}%)</span>
-              </div>
-              <Progress value={summary.statusBreakdown?.rejected?.percentage || 0} className="h-1.5 bg-red-100" />
-            </div>
-          </div>
-        </div>
-        
-        {/* Payment Mode Distribution */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Payment Mode</h4>
-          <div className="space-y-2">
-            {Object.entries(summary.modeBreakdown || {}).map(([mode, data]: [string, any]) => (
-              data.count > 0 && (
-                <div key={mode}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="capitalize">{mode.replace('_', ' ')}</span>
-                    <span>{data.count} txns (₹{data.amount.toLocaleString()})</span>
-                  </div>
-                  <Progress value={data.percentage} className="h-1" />
-                </div>
-              )
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Monthly Trend Chart Data */}
-      {monthlyData.length > 0 && (
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Monthly Trend</h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">Month</th>
-                  <th className="px-2 py-1 text-right">Amount</th>
-                  <th className="px-2 py-1 text-center">Approved</th>
-                  <th className="px-2 py-1 text-center">Pending</th>
-                  <th className="px-2 py-1 text-center">Rejected</th>
-                  <th className="px-2 py-1 text-center">Txns</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyData.map((month: any) => (
-                  <tr key={month.month_key} className="border-t">
-                    <td className="px-2 py-1 font-medium">{month.month} {month.year}</td>
-                    <td className="px-2 py-1 text-right">₹{month.total_amount.toLocaleString()}</td>
-                    <td className="px-2 py-1 text-center text-green-600">{((month.approved_amount / month.total_amount) * 100).toFixed(0)}%</td>
-                    <td className="px-2 py-1 text-center text-amber-600">{((month.pending_amount / month.total_amount) * 100).toFixed(0)}%</td>
-                    <td className="px-2 py-1 text-center text-red-600">{((month.rejected_amount / month.total_amount) * 100).toFixed(0)}%</td>
-                    <td className="px-2 py-1 text-center">{month.transaction_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      
-      {/* Detailed Payments Table with Pagination */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50 sticky top-0">
-            <tr>
-              <th className="px-2 py-2 text-left">Date</th>
-              <th className="px-2 py-2 text-left">Tenant</th>
-              <th className="px-2 py-2 text-left">Property</th>
-              <th className="px-2 py-2 text-left">Type</th>
-              <th className="px-2 py-2 text-right">Amount</th>
-              <th className="px-2 py-2 text-left">Mode</th>
-              <th className="px-2 py-2 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {paginatedPayments.map((payment: any) => (
-              <tr key={payment.id} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
-                <td className="px-2 py-1.5">
-                  <div className="font-medium flex items-center gap-1">
-                    {payment.tenant_name || 'N/A'}
-                    {payment.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
-                  </div>
-                  <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
-                </td>
-                <td className="px-2 py-1.5">
-                  {payment.property_name || 'N/A'}<br />
-                  {payment.room_number && `Room ${payment.room_number}`}
-                </td>
-                <td className="px-2 py-1.5">
-                  <Badge variant="outline" className="text-[10px]">
-                    {payment.payment_type === 'security_deposit' ? 'Security Deposit' : payment.payment_type || 'Other'}
-                  </Badge>
-                </td>
-                <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(payment.amount)}</td>
-                <td className="px-2 py-1.5 capitalize">{payment.payment_mode || 'N/A'}</td>
-                <td className="px-2 py-1.5">
-                  <Badge className={
-                    payment.status === 'approved' || payment.status === 'paid' ? 'bg-green-100 text-green-700' :
-                    payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                    payment.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
-                  }>
-                    {payment.status || 'N/A'}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {/* Add Pagination */}
-      <ReportPagination 
-        total={totalPayments}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-      />
-    </div>
-  );
-}
-
-function TenantsReportDetails({ data, formatCurrency, page, pageSize, onPageChange, onPageSizeChange }: any) {
-  const summary = data.summary;
-  const tenants = data.tenants || [];
-  const totalTenants = tenants.length;
-  
-  // Paginate tenants - FIXED: use the props passed in
-  const startIndex = (page - 1) * pageSize;
-  const paginatedTenants = tenants.slice(startIndex, startIndex + pageSize);
-  
-  // Calculate additional stats
-  const totalExpectedRent = summary.financialSummary?.total_expected_rent || 0;
-  const totalRentPaid = summary.financialSummary?.total_rent_paid || 0;
-  const totalRentPending = summary.financialSummary?.total_rent_pending || 0;
-  const collectionRate = summary.financialSummary?.overall_rent_collection_rate || 0;
-  
-  const depositTotal = summary.financialSummary?.total_security_deposit_to_collect || 0;
-  const depositPaid = summary.financialSummary?.total_security_deposit_paid || 0;
-  const depositPending = summary.financialSummary?.total_security_deposit_pending || 0;
-  
-  // Occupation breakdown for display
-  const occupationEntries = Object.entries(summary.occupationBreakdown || {});
-  
-  return (
-    <div className="space-y-4">
-      {/* Executive Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-blue-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Total Tenants</p>
-          <p className="text-2xl font-bold text-blue-700">{summary.totalTenants}</p>
-          <p className="text-[10px] text-gray-500">Active: {summary.activeTenants} | Inactive: {summary.inactiveTenants}</p>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Collection Rate</p>
-          <p className="text-2xl font-bold text-green-700">{collectionRate}%</p>
-          <p className="text-[10px] text-gray-500">₹{totalRentPaid.toLocaleString()} of ₹{totalExpectedRent.toLocaleString()}</p>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Deposit Collection</p>
-          <p className="text-2xl font-bold text-purple-700">{summary.financialSummary?.overall_deposit_collection_rate || 0}%</p>
-          <p className="text-[10px] text-gray-500">₹{depositPaid.toLocaleString()} of ₹{depositTotal.toLocaleString()}</p>
-        </div>
-        <div className="bg-amber-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-500">Portal Access</p>
-          <p className="text-2xl font-bold text-amber-700">{summary.withPortalAccess}</p>
-          <p className="text-[10px] text-gray-500">Bed Assigned: {summary.withBedAssignment}</p>
-        </div>
-      </div>
-      
-      {/* Demographics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Gender Distribution */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Gender Distribution</h4>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span>Male</span>
-              <span className="font-medium">{summary.maleCount} ({summary.genderDistribution?.male || 0}%)</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span>Female</span>
-              <span className="font-medium">{summary.femaleCount} ({summary.genderDistribution?.female || 0}%)</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span>Other</span>
-              <span className="font-medium">{summary.otherCount} ({summary.genderDistribution?.other || 0}%)</span>
-            </div>
-          </div>
-        </div>
-        
-        {/* New Tenants */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">New Tenants</h4>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span>This Month</span>
-              <span className="font-medium text-green-600">{summary.newTenantsThisMonth}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span>This Year</span>
-              <span className="font-medium text-blue-600">{summary.newTenantsThisYear}</span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Occupation Top Categories */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Top Occupations</h4>
-          <div className="space-y-1">
-            {occupationEntries.slice(0, 3).map(([name, count]) => (
-              <div key={name} className="flex justify-between text-xs">
-                <span className="truncate">{name}</span>
-                <span className="font-medium">{count as number}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Tenant-wise Table */}
-      <div className="overflow-x-auto mt-3">
-        <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50 sticky top-0">
-            <tr>
-              <th className="px-2 py-2 text-left">Tenant</th>
-              <th className="px-2 py-2 text-left">Property/Room</th>
-              <th className="px-2 py-2 text-center">Months</th>
-              <th className="px-2 py-2 text-right">Monthly Rent</th>
-              <th className="px-2 py-2 text-right">Expected</th>
-              <th className="px-2 py-2 text-right">Paid</th>
-              <th className="px-2 py-2 text-right">Pending</th>
-              <th className="px-2 py-2 text-center">Collection %</th>
-              <th className="px-2 py-2 text-right">Deposit</th>
-              <th className="px-2 py-2 text-right">Deposit Paid</th>
-              <th className="px-2 py-2 text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {paginatedTenants.map((tenant: any) => (
-              <tr key={tenant.id} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5">
-                  <div className="font-medium flex items-center gap-1">
-                    {tenant.full_name}
-                    {tenant.is_vacated ? <Badge className="bg-red-100 text-red-700 text-[9px] px-1 py-0">Vacated</Badge> : null}
-                  </div>
-                  <div className="text-[10px] text-gray-500">{tenant.email || tenant.phone}</div>
-                </td>
-                <td className="px-2 py-1.5">
-                  {tenant.property_name || 'N/A'}<br />
-                  {tenant.room_number && `Room ${tenant.room_number}`}
-                  {tenant.bed_number && ` / Bed ${tenant.bed_number}`}
-                </td>
-                <td className="px-2 py-1.5 text-center">{tenant.months_since_joining || 0}</td>
-                <td className="px-2 py-1.5 text-right font-semibold">₹{tenant.monthly_rent?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-right">₹{tenant.expected_rent?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-right text-green-600">₹{tenant.total_rent_paid?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-right text-amber-600">₹{tenant.pending_rent?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Progress value={parseFloat(tenant.rent_collection_rate) || 0} className="h-1.5 w-12" />
-                    <span className="text-[10px]">{tenant.rent_collection_rate || 0}%</span>
-                  </div>
-                </td>
-                <td className="px-2 py-1.5 text-right">₹{tenant.security_deposit?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-right text-green-600">₹{tenant.total_deposit_paid?.toLocaleString() || 0}</td>
-                <td className="px-2 py-1.5 text-center">
-                  <Badge className={tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
-                    {tenant.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-gray-100">
-            <tr>
-              <td className="px-2 py-2 font-bold" colSpan={4}>TOTAL</td>
-              <td className="px-2 py-2 text-right font-bold">₹{totalExpectedRent.toLocaleString()}</td>
-              <td className="px-2 py-2 text-right font-bold text-green-700">₹{totalRentPaid.toLocaleString()}</td>
-              <td className="px-2 py-2 text-right font-bold text-amber-700">₹{totalRentPending.toLocaleString()}</td>
-              <td className="px-2 py-2 text-center font-bold">{collectionRate}%</td>
-              <td className="px-2 py-2 text-right font-bold">₹{depositTotal.toLocaleString()}</td>
-              <td className="px-2 py-2 text-right font-bold text-green-700">₹{depositPaid.toLocaleString()}</td>
-              <td className="px-2 py-2 text-center"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      
-      {/* Add pagination - FIXED: now using props correctly */}
-      <ReportPagination 
-        total={totalTenants}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-      />
-    </div>
-  );
-}
-
-function OccupancyReportDetails({ data, formatCurrency }: any) {
-  const summary = data.summary;
-
-  return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
-        <SummaryCard
-          title="Total Rooms"
-          value={summary.totalRooms?.toString() || "0"}
-          bgColor="bg-blue-50"
-        />
-        <SummaryCard
-          title="Occupied"
-          value={summary.occupiedRooms?.toString() || "0"}
-          bgColor="bg-green-50"
-        />
-        <SummaryCard
-          title="Vacant"
-          value={summary.vacantRooms?.toString() || "0"}
-          bgColor="bg-orange-50"
-        />
-        <SummaryCard
-          title="Maintenance"
-          value={summary.maintenanceRooms?.toString() || "0"}
-          bgColor="bg-red-50"
-        />
-        <SummaryCard
-          title="Occupancy Rate"
-          value={`${summary.occupancyRate || 0}%`}
-          bgColor="bg-purple-50"
-        />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-2 py-2 text-left">Property</th>
-              <th className="px-2 py-2 text-left">Room #</th>
-              <th className="px-2 py-2 text-left">Type</th>
-              <th className="px-2 py-2 text-left">Rent</th>
-              <th className="px-2 py-2 text-left">Status</th>
-              <th className="px-2 py-2 text-left">Occupancy</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {data.rooms?.slice(0, 10).map((room: any) => (
-              <tr key={room.id} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5">{room.property_name || "N/A"}</td>
-                <td className="px-2 py-1.5 font-medium">{room.room_number}</td>
-                <td className="px-2 py-1.5">{room.room_type || "Standard"}</td>
-                <td className="px-2 py-1.5 font-semibold">
-                  {formatCurrency(room.rent_amount || 0)}
-                </td>
-                <td className="px-2 py-1.5">
-                  <Badge
-                    variant={
-                      room.status === "occupied"
-                        ? "default"
-                        : room.status === "vacant"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                    className="text-[10px]"
-                  >
-                    {room.status || "N/A"}
-                  </Badge>
-                </td>
-                <td className="px-2 py-1.5">
-                  {room.occupied_beds || 0} / {room.total_bed || 0}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.rooms?.length > 10 && (
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Showing 10 of {data.rooms.length} rooms
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ title, value, subtitle, bgColor }: any) {
-  return (
-    <div className={`${bgColor} p-2 rounded-lg shadow-sm`}>
-      <p className="text-[10px] text-gray-600 font-medium">{title}</p>
-      <p className="text-sm font-bold text-gray-900">{value}</p>
-      {subtitle && <p className="text-[8px] text-gray-500">{subtitle}</p>}
-    </div>
   );
 }

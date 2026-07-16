@@ -164,12 +164,14 @@ original_id?: number;
     stay_check_in_date?: string;
     created_at: string;
     partner_full_name?: string; // Partner's name at the time of vacate (snapshot)
+    held_bed?: boolean; // Flag indicating if the tenant held the bed at the time of vacate
   }>;
    total_refunded?: number;  
    total_pending? : number;
    security_deposit? : number; 
    vacated_date?:string;
    has_own_bed_assignment?: boolean; // Flag indicating if tenant has their own bed assignment
+   held_by_tenant_id?: number; // If the bed is held by another tenant, this field will have that tenant's ID
 };
 
 // Add to Property type
