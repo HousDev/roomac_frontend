@@ -3264,7 +3264,7 @@ const totals = useMemo(() => {
 <th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-36 border-r border-gray-200 border-b static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>STATUS</th>
 
           {/* Sticky: NAME */}
-       <th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40 border-r border-gray-200 border-b static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
+      <th className={`bg-gray-50 px-2 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-40 border-l border-r border-gray-200 border-b static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
   NAME
 </th>
 
@@ -3288,7 +3288,7 @@ const totals = useMemo(() => {
         <tr className="border-t border-gray-200 bg-white">
 <td className="bg-white w-8 px-2 py-1.5 text-center border-r border-gray-200 static lg:sticky lg:left-0 lg:z-40" />
 <td className="bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:left-8 lg:z-40" />
-<td className={`bg-white px-2 py-1.5 border-r border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>
+<td className={`bg-white px-2 py-1.5 border-r border-b border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>
             <Input
               placeholder="Status..."
               value={columnSearch.status}
@@ -3296,7 +3296,7 @@ const totals = useMemo(() => {
               className="h-6 text-[10px] w-full border-gray-200"
             />
           </td>
-<td className={`bg-white px-1 py-1 border-r border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
+<td className={`bg-white px-1 py-1 border-l border-r border-b border-gray-200 static lg:sticky lg:z-40 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
             <Input
               placeholder="Name..."
               value={columnSearch.name}
@@ -3673,7 +3673,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── STATUS (now scrollable) ── */}
-<td className={`${rowBg} group-hover:bg-blue-100 px-2 py-2 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`} style={{ boxShadow: "inset -1px 0 0 0 #e5e7eb" }}>
+<td className={`${rowBg} group-hover:bg-blue-100 px-2 py-2 border-r border-b border-gray-200 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[144px]" : "lg:left-[128px]"}`}>
                   <div className="flex whitespace-nowrap gap-1">
                     <Badge className={`text-[7px] px-1.5 py-0 h-4 font-semibold ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
                       {tenant.is_active ? "Active" : "Inactive"}
@@ -3700,7 +3700,7 @@ const totalRefunded = payments
                 </td>
 
                 {/* ── NAME ── */}
-<td className={`${rowBg} group-hover:bg-blue-100 px-1 py-1 border-r border-gray-200 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
+<td className={`${rowBg} group-hover:bg-blue-100 px-1 py-1 border-l border-r border-b border-gray-200 static lg:sticky lg:z-10 ${activeTab === "vacated" ? "lg:left-[288px]" : "lg:left-[272px]"}`}>
                   <Link href={`/admin/tenants/${tenant.id}`} className="flex items-center gap-1.5">
                     {tenant.photo_url ? (
                       <img src={tenant.photo_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />

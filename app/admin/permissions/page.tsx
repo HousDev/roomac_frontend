@@ -643,7 +643,7 @@ export default function Permissions() {
   // ── Load roles from Masters (same as StaffForm fetchRoles) ────────────────
   const loadRolesFromMasters = async () => {
     try {
-      const response = await consumeMasters({ tab: "Roles", type: "Role" });
+      const response = await consumeMasters({ tab: "Common", type: "Role" });
 
       if (response?.success && Array.isArray(response.data)) {
         const masterRoles = response.data.map((item: any) => ({

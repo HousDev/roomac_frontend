@@ -98,7 +98,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 // ─── Font style (matching ui-sans-serif, system-ui, -apple-system) ────────────
 const fontStyle = {
-  fontFamily: "ui-sans-serif, system-ui, -apple-system",
+  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
 };
 
 // ─── Brand colors from Roomac logo ────────────────────────────────────────────
@@ -163,9 +163,14 @@ const PRINT_BRAND_STYLE = `
   .brand-sub{font-size:10px;font-weight:500;color:#4b5563;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
   .brand-right{width:120px;flex-shrink:0;text-align:right;font-size:9px;color:#6c7a8a;line-height:1.6}
   .brand-right .label{font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;display:block}
+  .info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:20px}
+.info-item{display:flex;flex-direction:column}
+.info-label{font-size:10px;color:#666;margin-bottom:4px}
+.info-value{font-size:13px;font-weight:600;color:#333}
 .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);
   font-size:120px;font-weight:900;color:rgba(27,63,160,0.09);white-space:nowrap;
   pointer-events:none;user-select:none;z-index:-1;letter-spacing:4px}
+  
     @media print { .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 `;
 
@@ -211,8 +216,8 @@ function BadgePill({ children, variant = "gray" }: { children: React.ReactNode; 
 function InfoRow({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2 border-b border-gray-50 last:border-0">
-      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap flex-shrink-0">{label}</span>
-      <div className={`text-xs font-semibold text-gray-800 text-right ${mono ? "font-mono" : ""}`} style={fontStyle}>
+      <span className="text-[10px] font-normal text-[#666] tracking-wider whitespace-nowrap flex-shrink-0" style={fontStyle}>{label}</span>
+      <div className={`text-[13px] font-semibold text-[#333] text-right ${mono ? "font-mono" : ""}`} style={fontStyle}>
         {value ?? <span className="text-gray-300 font-normal">—</span>}
       </div>
     </div>
@@ -546,7 +551,7 @@ const buildOverviewPrintHTML = () => {
   return `<!DOCTYPE html><html><head><title>Tenant Profile · ${tenant.full_name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
+body{font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
   ${PRINT_BRAND_STYLE}
  .header{display:flex;align-items:center;gap:16px;margin-bottom:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px}
   .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:900;flex-shrink:0}
@@ -564,14 +569,13 @@ const buildOverviewPrintHTML = () => {
   .stat-box.green .stat-val{color:#28a745}
   .stat-box.amber .stat-val{color:#d4a000}
   .stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-top:2px}
-  .section{margin-bottom:18px;background:#f8fafc;border-radius:8px;padding:12px 14px;border:1px solid #eef2f7}
-.section-title{font-size:10.5px;font-weight:800;color:#1e293b;margin-bottom:10px;
-  padding-bottom:6px;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:.08em;
-  display:flex;align-items:center;gap:6px}
-.section-title::before{content:'';width:3px;height:11px;background:#1B3FA0;border-radius:2px}  .row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #e2e8f0}
+.section{margin-bottom:18px;background:#f8fafc;border-radius:8px;padding:12px 14px;border:1px solid #eef2f7}
+.section-title{font-size:14px;font-weight:bold;color:#2563eb;margin-bottom:12px;
+  padding-bottom:5px;border-bottom:2px solid #2563eb}
+  .row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #e2e8f0}
   .row:last-child{border:0}
-  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#666}
-  .val{font-size:11px;font-weight:600;color:#333;text-align:right}
+  .lbl{font-size:10px;color:#666}
+  .val{font-size:13px;font-weight:600;color:#333;text-align:right}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .vacate-box{background:#fee;border:1px solid #f8d7da;border-radius:8px;padding:10px;margin-top:8px}
   .vacate-title{font-size:9px;font-weight:800;color:#dc3545;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
@@ -580,6 +584,7 @@ const buildOverviewPrintHTML = () => {
 </style></head><body>
 ${buildWatermarkHTML(orgLogo, orgName)}
 ${buildBrandHeaderHTML(orgLogo, orgName, "Tenant Profile")}
+
 <div class="header">
   <div class="avatar">${tenant.full_name?.charAt(0)?.toUpperCase() ?? "?"}</div>
   <div class="header-info">
@@ -669,17 +674,25 @@ const handlePrintProfile = () => {
   w.print();
 };
 
-const handlePDFProfile = () => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  const html = buildOverviewPrintHTML().replace("</style>", `
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    @page { margin: 16mm; size: A4; }
-  </style>`);
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => { w.print(); w.close(); }, 400);
+const handlePDFProfile = async () => {
+  try {
+    const html = buildOverviewPrintHTML();
+    const res = await fetch(`${getApiUrl()}/api/tenants/${tenant.id}/profile-pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html }),
+    });
+    if (!res.ok) throw new Error("PDF generation failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tenant-${tenant.id}-profile.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast.error("Failed to download PDF");
+  }
 };
 
   return (
@@ -881,8 +894,8 @@ const handlePDFProfile = () => {
                 { label: "Refund", value: isActuallyVacated && vacateRecord ? <span className="font-black text-emerald-600">{formatINR(vacateRecord.refundable_amount || 0)}</span> : "—" },
               ].map(({ label, value, wide }: any) => (
                 <div key={label} className={wide ? "col-span-2 sm:col-span-1" : ""}>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
-                  <div className="text-xs font-semibold text-gray-800" style={fontStyle}>{value}</div>
+                  <p className="text-[10px] font-normal text-[#666] tracking-wider mb-0.5" style={fontStyle}>{label}</p>
+                  <div className="text-[13px] font-semibold text-[#333]" style={fontStyle}>{value}</div>
                 </div>
               ))}
             </div>
@@ -927,8 +940,8 @@ const handlePDFProfile = () => {
                   { label: "Refund Amount", value: <span className="font-black text-emerald-600">{formatINR(previousStay.refundAmount)}</span> },
                 ].map(({ label, value, wide }: any) => (
                   <div key={label} className={wide ? "col-span-2 sm:col-span-1" : ""}>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5" style={fontStyle}>{label}</p>
-                    <div className="text-xs font-semibold text-gray-800" style={fontStyle}>{value}</div>
+                   <p className="text-[10px] font-normal text-[#666] tracking-widest mb-0.5" style={fontStyle}>{label}</p>
+<div className="text-[13px] font-semibold text-[#333]" style={fontStyle}>{value}</div>
                   </div>
                 ))}
               </div>
@@ -1779,12 +1792,23 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     { label: "Photograph", type: undefined, number: undefined, url: tenant.photo_url },
   ];
 
-  const buildStayPrintSections = (stay: any) => {
+ const buildStayPrintSections = (stay: any, showStayHeading: boolean = false) => {
     const stayPayments = [
       ...stay.rentPayments, ...stay.depositPayments, ...stay.refundPayments, ...stay.penaltyPayments,
     ].sort((a: any, b: any) => new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime());
 
     const docsRows = docs.map(d => {
+    const stayHeadingHtml = showStayHeading ? `
+      <div class="stay-heading-row">
+        <div>
+          <div class="stay-heading-name">${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}</div>
+          <div class="stay-heading-sub">ID: ${tenant.id} · Stay #${stay.stayNumber}${stay.isCurrent ? ' <span class="current-tag">Current</span>' : ""}</div>
+        </div>
+        <div class="stay-heading-sub" style="text-align:right">${stay.property} · ${stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—"} — ${stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN") : "Active"}</div>
+      </div>
+    ` : "";
+
+   const docsRows = docs.map(d => {
       const uploadedDate = d.url && stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN") : "—";
       return `<tr>
         <td class="doc-type">${d.label}</td>
@@ -1820,8 +1844,10 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     };
 
     return `
+   return `
       <h2>Stay Details</h2>
       <div class="g2">
+        ${stayHeadingHtml}
         <div><div class="lbl">Property</div><div class="val">${stay.property}</div></div>
         <div><div class="lbl">Room/Bed</div><div class="val">Room ${stay.room} · Bed ${stay.bed}</div></div>
         <div><div class="lbl">Type</div><div class="val">${stay.stayType}</div></div>
@@ -1985,6 +2011,43 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     margin-bottom: 24px;
     padding-bottom: 16px;
     border-bottom: 2px solid #f3f4f6;
+const STAY_PRINT_STYLE = `
+body{font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;margin:40px;color:#111;font-size:12px;position:relative}
+  ${PRINT_BRAND_STYLE}
+
+  /* ── ONLY SMALLER FONT IN HEADER, KEEP LAYOUT ── */
+  .brand-name { font-size: 16px !important; }      /* was 22px */
+  .brand-sub  { font-size: 8px !important; }       /* was 10px */
+  /* .brand-logo-wrap and .brand-right remain visible */
+
+ h1{font-size:20px;font-weight:900;margin-bottom:2px;color:#111}
+  .sub{color:#64748b;font-size:11px;margin-bottom:22px;font-weight:600}
+  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#2563eb;padding-bottom:6px;margin:20px 0 12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;background:#f8f9fa;padding:14px 16px;border-radius:8px;margin-bottom:14px}
+  .g2full{grid-column:span 2}
+  .stay-heading-row{grid-column:span 2;display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid #e2e8f0}
+  .stay-heading-name{font-size:15px;font-weight:800;color:#1e293b}
+  .stay-heading-sub{font-size:10px;color:#64748b;font-weight:600;margin-top:2px}
+  .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:700;margin-bottom:2px}
+  .val{font-size:13px;font-weight:700;color:#333}
+
+  /* ── TABLES (matches ledger) ── */
+  .ptable{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+  .ptable thead tr{background:#eff6ff}
+  .ptable th{
+    text-align:left;
+    font-size:9px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:#2563eb;
+    border:1px solid #bfdbfe;
+    padding:7px 10px;
+  }
+  .ptable td{
+    padding:7px 10px;
+    border:1px solid #e2e8f0;
+    color:#111;
   }
   .cover h1 {
     font-size: 16px;
@@ -1995,7 +2058,7 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     font-size: 10px;
     color: #64748b;
   }
-      .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
+D      .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
       .current-tag{display:inline-block;font-size:9px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
     </style></head><body>
     ${buildWatermarkHTML(orgLogo, orgName)}
@@ -2009,6 +2072,77 @@ function HistoryTab({ tenant, orgLogo, orgName }: { tenant: any; orgLogo: string
     w.document.close();
     w.print();
   };
+
+  .doc-type{color:#2563eb;font-weight:600}
+  .doc-date{color:#6b7280}
+  .doc-status{font-weight:600}
+  .doc-status-yes{color:#16a34a}
+  .doc-status-no{color:#dc3545}
+
+  .totalline{font-size:13px;font-weight:800;color:#166534;margin:6px 0 4px;background:#f0fdf4;padding:8px 12px;border-radius:6px}
+  .totalline span{color:#16a34a}
+
+  .ft{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:8px}
+
+  .stay-block{margin-top:8px}
+  .stay-block + .stay-block{margin-top:36px;padding-top:28px;border-top:3px double #d1d5db}
+  h2{break-after:avoid-page}
+  .doc-number{font-family:monospace;color:#374151}
+`;
+
+const doPrint = (stay: any) => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>Stay #${stay.stayNumber}</title>
+  <style>${STAY_PRINT_STYLE}</style></head><body>
+  ${buildWatermarkHTML(orgLogo, orgName)}
+  ${buildBrandHeaderHTML(orgLogo, orgName, `Stay #${stay.stayNumber}`)}
+  ${buildStayPrintSections(stay, true)}
+  <div class="ft">Roomac Co-Living Management System</div></body></html>`);
+  w.document.close();
+  w.print();
+};
+
+// ✅ Print All: ONE brand header + ONE watermark for the whole document.
+// Stays are separated with a simple divider and flow naturally onto new
+// pages only when content actually overflows (no forced page-break-after).
+const doPrintAll = () => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+const sections = allStays.map((stay, idx) => `
+    <div class="stay-block">
+      ${buildStayPrintSections(stay, true)}
+    </div>
+  `).join("");
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Stay History · ${tenant.full_name}</title>
+  <style>${STAY_PRINT_STYLE}
+   .cover {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f3f4f6;
+}
+.cover h1 {
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+.cover .sub {
+  font-size: 10px;
+  color: #64748b;
+}
+    .stay-heading{font-size:15px;font-weight:800;letter-spacing:.02em;color:#1e293b;margin-bottom:2px}
+    .current-tag{display:inline-block;font-size:9px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em}
+  </style></head><body>
+  ${buildWatermarkHTML(orgLogo, orgName)}
+  ${buildBrandHeaderHTML(orgLogo, orgName, "Complete Stay History")}
+ 
+  ${sections}
+  </body></html>`);
+  w.document.close();
+  w.print();
+};
 
   const doDownload = (stay: any) => {
     const csv = [
@@ -2472,7 +2606,7 @@ const buildCardHTML = () => {
   return `<!DOCTYPE html><html><head><title>Resident ID Card · ${tenant.full_name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;padding:24px}
+body{background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;padding:24px}
   .page{display:flex;flex-direction:column;gap:20px;align-items:center}
   .card{width:340px;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
   .front{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%);padding:20px;position:relative;min-height:200px}
@@ -2500,8 +2634,8 @@ const buildCardHTML = () => {
   .back-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#334155}
   .back-id{font-size:9px;font-weight:700;color:#94a3b8;font-family:monospace}
   .back-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:12px}
-  .bf .lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:2px}
-  .bf .val{font-size:10px;font-weight:700;color:#1e293b}
+.bf .lbl{font-size:10px;font-weight:400;text-transform:none;letter-spacing:normal;color:#666;margin-bottom:2px}
+.bf .val{font-size:13px;font-weight:600;color:#333}
   .bf .val-mono{font-size:10px;font-weight:700;color:#1e293b;font-family:monospace}
   .bf-full{grid-column:span 2}
   .qr-section{display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;padding-top:10px;border-top:1.5px solid #e2e8f0}

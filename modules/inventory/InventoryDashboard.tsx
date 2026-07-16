@@ -445,7 +445,7 @@ export function InventoryDashboard() {
       {/* ── Alerts (single row, responsive) ── */}
       {(lowStockCount > 0 || outOfStockCount > 0 || pendingInspections > 0) && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {outOfStockCount > 0 && (
+          {/* {outOfStockCount > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-xs md:text-sm text-red-700 font-medium flex items-center gap-1.5">
               <AlertCircle className="h-4 w-4" />
               {outOfStockCount} item{outOfStockCount > 1 ? "s" : ""} out of stock
@@ -456,7 +456,7 @@ export function InventoryDashboard() {
               <AlertCircle className="h-4 w-4" />
               {lowStockCount} item{lowStockCount > 1 ? "s" : ""} low on stock
             </div>
-          )}
+          )} */}
           {pendingInspections > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs md:text-sm text-blue-700 font-medium flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
