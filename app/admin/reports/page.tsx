@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,10 @@ import {
 import { toast } from "sonner";
 import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
+import { consumeMasters } from "@/lib/masterApi";
+import { occupationCategories } from "@/lib/occupation-data";
+import { getAllMappings } from "@/lib/categorySubcategoryMapApi";
+import { getStaffList } from "@/lib/adminApi";
 
 interface TabConfig {
   id: string;
@@ -60,14 +65,14 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { id: "enquiry", label: "Enquiry Report", icon: FileText },
   { id: "tenant", label: "Tenant Report", icon: Users },
+  { id: "tenant_payment", label: "Tenant Payment Report", icon: IndianRupee },
   { id: "property", label: "Property Report", icon: Home },
   { id: "room", label: "Rooms / Bed Report", icon: Bed },
   { id: "visitor", label: "Visitors Report", icon: UserPlus },
   { id: "vacancy", label: "Vacancy Report", icon: DoorOpen },
-  { id: "expense", label: "Expenses", icon: Wallet },
-  { id: "communication", label: "Communication", icon: Mail },
-  { id: "inventory", label: "Inventory", icon: Briefcase },
-  { id: "payment", label: "Payment", icon: CreditCard },
+  { id: "expense", label: "Expenses Report", icon: Wallet },
+  { id: "inventory", label: "Inventory Report", icon: Briefcase },
+  { id: "payment", label: "Payment Report", icon: CreditCard },
   { id: "login", label: "Logged In Report", icon: Clock },
   { id: "revenue", label: "Revenue Report", icon: TrendingUp },
 ];
@@ -108,11 +113,12 @@ export function buildWatermarkHTML(orgName: string) {
 
 export default function ReportsPage() {
   const [properties, setProperties] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>("enquiry");
-  
+
   // Sidebar State
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  
+
   // Active/Applied Filters (Used for API calls)
   const [startDate, setStartDate] = useState<string>(
     format(startOfMonth(new Date()), "yyyy-MM-dd")
@@ -126,57 +132,224 @@ export default function ReportsPage() {
   const [tempStartDate, setTempStartDate] = useState<string>(startDate);
   const [tempEndDate, setTempEndDate] = useState<string>(endDate);
   const [tempPropertyId, setTempPropertyId] = useState<string>(propertyId);
-  
+
+  // Dynamic Date Field selector
+  const [dateType, setDateType] = useState<string>("default");
+  const [tempDateType, setTempDateType] = useState<string>("default");
+
+  const [gender, setGender] = useState<string>("all");
+  const [tempGender, setTempGender] = useState<string>("all");
+  const [occupation, setOccupation] = useState<string>("all");
+  const [tempOccupation, setTempOccupation] = useState<string>("all");
+
+  // Custom Sidebar Filters
+  const [rentStatus, setRentStatus] = useState<string>("all");
+  const [tempRentStatus, setTempRentStatus] = useState<string>("all");
+  const [depositStatus, setDepositStatus] = useState<string>("all");
+  const [tempDepositStatus, setTempDepositStatus] = useState<string>("all");
+  const [isCouple, setIsCouple] = useState<string>("all");
+  const [tempIsCouple, setTempIsCouple] = useState<string>("all");
+
+  const [roomGender, setRoomGender] = useState<string>("all");
+  const [tempRoomGender, setTempRoomGender] = useState<string>("all");
+  const [bedAvailability, setBedAvailability] = useState<string>("all");
+  const [tempBedAvailability, setTempBedAvailability] = useState<string>("all");
+
+  const [vendorName, setVendorName] = useState<string>("");
+  const [tempVendorName, setTempVendorName] = useState<string>("");
+  const [expenseStatus, setExpenseStatus] = useState<string>("all");
+  const [tempExpenseStatus, setTempExpenseStatus] = useState<string>("all");
+
+  const [minRent, setMinRent] = useState<string>("");
+  const [tempMinRent, setTempMinRent] = useState<string>("");
+  const [maxRent, setMaxRent] = useState<string>("");
+  const [tempMaxRent, setTempMaxRent] = useState<string>("");
+  const [minDeposit, setMinDeposit] = useState<string>("");
+  const [tempMinDeposit, setTempMinDeposit] = useState<string>("");
+  const [maxDeposit, setMaxDeposit] = useState<string>("");
+  const [tempMaxDeposit, setTempMaxDeposit] = useState<string>("");
+
+  const [sharingType, setSharingType] = useState<string>("all");
+  const [tempSharingType, setTempSharingType] = useState<string>("all");
+  const [acStatus, setAcStatus] = useState<string>("all");
+  const [tempAcStatus, setTempAcStatus] = useState<string>("all");
+  const [bathroomStatus, setBathroomStatus] = useState<string>("all");
+  const [tempBathroomStatus, setTempBathroomStatus] = useState<string>("all");
+  const [occupancyStatus, setOccupancyStatus] = useState<string>("all");
+  const [tempOccupancyStatus, setTempOccupancyStatus] = useState<string>("all");
+
+  const [visitorStatus, setVisitorStatus] = useState<string>("all");
+  const [tempVisitorStatus, setTempVisitorStatus] = useState<string>("all");
+  const [isBlocked, setIsBlocked] = useState<string>("all");
+  const [tempIsBlocked, setTempIsBlocked] = useState<string>("all");
+
+  const [vacateReason, setVacateReason] = useState<string>("all");
+  const [tempVacateReason, setTempVacateReason] = useState<string>("all");
+  const [penaltyStatus, setPenaltyStatus] = useState<string>("all");
+  const [tempPenaltyStatus, setTempPenaltyStatus] = useState<string>("all");
+
+  const [expenseCategory, setExpenseCategory] = useState<string>("all");
+  const [tempExpenseCategory, setTempExpenseCategory] = useState<string>("all");
+  const [paymentMode, setPaymentMode] = useState<string>("all");
+  const [tempPaymentMode, setTempPaymentMode] = useState<string>("all");
+
+  const [commChannel, setCommChannel] = useState<string>("all");
+  const [tempCommChannel, setTempCommChannel] = useState<string>("all");
+  const [commStatus, setCommStatus] = useState<string>("all");
+  const [tempCommStatus, setTempCommStatus] = useState<string>("all");
+
+  const [assetStatus, setAssetStatus] = useState<string>("all");
+  const [tempAssetStatus, setTempAssetStatus] = useState<string>("all");
+
+  const [paymentType, setPaymentType] = useState<string>("all");
+  const [tempPaymentType, setTempPaymentType] = useState<string>("all");
+  const [paymentStatus, setPaymentStatus] = useState<string>("all");
+  const [tempPaymentStatus, setTempPaymentStatus] = useState<string>("all");
+
+  const [paymentTenant, setPaymentTenant] = useState<string>("all");
+  const [tempPaymentTenant, setTempPaymentTenant] = useState<string>("all");
+
+  const [loginRole, setLoginRole] = useState<string>("all");
+  const [tempLoginRole, setTempLoginRole] = useState<string>("all");
+
+  const [enquirySource, setEnquirySource] = useState<string>("all");
+  const [tempEnquirySource, setTempEnquirySource] = useState<string>("all");
+  const [enquiryStatus, setEnquiryStatus] = useState<string>("all");
+  const [tempEnquiryStatus, setTempEnquiryStatus] = useState<string>("all");
+
+  const [city, setCity] = useState<string>("all");
+  const [tempCity, setTempCity] = useState<string>("all");
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  // New Sidebar Filters States
+  const [assignedStaff, setAssignedStaff] = useState<string>("all");
+  const [tempAssignedStaff, setTempAssignedStaff] = useState<string>("all");
+  const [moveInStart, setMoveInStart] = useState<string>("");
+  const [tempMoveInStart, setTempMoveInStart] = useState<string>("");
+  const [moveInEnd, setMoveInEnd] = useState<string>("");
+  const [tempMoveInEnd, setTempMoveInEnd] = useState<string>("");
+
+  const [tenantStatus, setTenantStatus] = useState<string>("all");
+  const [tempTenantStatus, setTempTenantStatus] = useState<string>("all");
+  const [refundStatus, setRefundStatus] = useState<string>("all");
+  const [tempRefundStatus, setTempRefundStatus] = useState<string>("all");
+  const [joinedRecently, setJoinedRecently] = useState<string>("all");
+  const [tempJoinedRecently, setTempJoinedRecently] = useState<string>("all");
+  const [vacatedRecently, setVacatedRecently] = useState<string>("all");
+  const [tempVacatedRecently, setTempVacatedRecently] = useState<string>("all");
+  const [portalAccess, setPortalAccess] = useState<string>("all");
+  const [tempPortalAccess, setTempPortalAccess] = useState<string>("all");
+  const [minPendingRent, setMinPendingRent] = useState<string>("");
+  const [tempMinPendingRent, setTempMinPendingRent] = useState<string>("");
+  const [maxPendingRent, setMaxPendingRent] = useState<string>("");
+  const [tempMaxPendingRent, setTempMaxPendingRent] = useState<string>("");
+  const [minPendingDeposit, setMinPendingDeposit] = useState<string>("");
+  const [tempMinPendingDeposit, setTempMinPendingDeposit] = useState<string>("");
+  const [maxPendingDeposit, setMaxPendingDeposit] = useState<string>("");
+  const [tempMaxPendingDeposit, setTempMaxPendingDeposit] = useState<string>("");
+
+  const [minOccupancy, setMinOccupancy] = useState<string>("");
+  const [tempMinOccupancy, setTempMinOccupancy] = useState<string>("");
+  const [maxOccupancy, setMaxOccupancy] = useState<string>("");
+  const [tempMaxOccupancy, setTempMaxOccupancy] = useState<string>("");
+  const [minRevenue, setMinRevenue] = useState<string>("");
+  const [tempMinRevenue, setTempMinRevenue] = useState<string>("");
+  const [maxRevenue, setMaxRevenue] = useState<string>("");
+  const [tempMaxRevenue, setTempMaxRevenue] = useState<string>("");
+  const [state, setState] = useState<string>("all");
+  const [tempState, setTempState] = useState<string>("all");
+
+  const [floor, setFloor] = useState<string>("all");
+  const [tempFloor, setTempFloor] = useState<string>("all");
+
+  const [purpose, setPurpose] = useState<string>("all");
+  const [tempPurpose, setTempPurpose] = useState<string>("all");
+
+  const [bookingTypeAtVacate, setBookingTypeAtVacate] = useState<string>("all");
+  const [tempBookingTypeAtVacate, setTempBookingTypeAtVacate] = useState<string>("all");
+  const [minSecurityDeposit, setMinSecurityDeposit] = useState<string>("");
+  const [tempMinSecurityDeposit, setTempMinSecurityDeposit] = useState<string>("");
+  const [maxSecurityDeposit, setMaxSecurityDeposit] = useState<string>("");
+  const [tempMaxSecurityDeposit, setTempMaxSecurityDeposit] = useState<string>("");
+  const [stayDuration, setStayDuration] = useState<string>("all");
+  const [tempStayDuration, setTempStayDuration] = useState<string>("all");
+
+  const [expenseSubcategory, setExpenseSubcategory] = useState<string>("all");
+  const [tempExpenseSubcategory, setTempExpenseSubcategory] = useState<string>("all");
+
+  const [itemCategory, setItemCategory] = useState<string>("all");
+  const [tempItemCategory, setTempItemCategory] = useState<string>("all");
+
+  const [paymentSource, setPaymentSource] = useState<string>("all");
+  const [tempPaymentSource, setTempPaymentSource] = useState<string>("all");
+
+  const [loginResult, setLoginResult] = useState<string>("all");
+  const [tempLoginResult, setTempLoginResult] = useState<string>("all");
+
+  const [revenueType, setRevenueType] = useState<string>("all");
+  const [tempRevenueType, setTempRevenueType] = useState<string>("all");
+  const [minMargin, setMinMargin] = useState<string>("");
+  const [tempMinMargin, setTempMinMargin] = useState<string>("");
+  const [maxMargin, setMaxMargin] = useState<string>("");
+  const [tempMaxMargin, setTempMaxMargin] = useState<string>("");
+
+  const [minCollectionRate, setMinCollectionRate] = useState<string>("");
+  const [tempMinCollectionRate, setTempMinCollectionRate] = useState<string>("");
+  const [maxCollectionRate, setMaxCollectionRate] = useState<string>("");
+  const [tempMaxCollectionRate, setTempMaxCollectionRate] = useState<string>("");
+
   // Data State
   const [reportData, setReportData] = useState<any[]>([]);
   const [reportStats, setReportStats] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [propertiesLoading, setPropertiesLoading] = useState<boolean>(true);
-  const [searchTerm, setSearchTerm] = useState<string>(currentSearchTerm => "");
-  
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
   // Column Filters State (per-column input searches)
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
 
   // Sorting State
   const [sortField, setSortField] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
 
 
   const getApiUrl = () =>
-  (typeof window !== "undefined" && (window as any).__ENV__?.VITE_API_URL) || "http://localhost:3001";
+    (typeof window !== "undefined" && (window as any).__ENV__?.VITE_API_URL) || "http://localhost:3001";
 
-function resolveUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("http")) return url;
-  return `${getApiUrl()}${url}`;
-}
+  function resolveUrl(url: string | null | undefined): string {
+    if (!url) return "";
+    if (url.startsWith("http")) return url;
+    return `${getApiUrl()}${url}`;
+  }
 
-// inside ReportsPage component
-const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: string }>({
-  logoUrl: "",
-  orgName: "Roomac Co-Living",
-});
+  // inside ReportsPage component
+  const [orgSettings, setOrgSettings] = useState<{ logoUrl: string; orgName: string }>({
+    logoUrl: "",
+    orgName: "Roomac Co-Living",
+  });
 
-useEffect(() => {
-  (async () => {
-    try {
-      const settings: any = await getSettings();
-      const logo =
-        settings.logo_header?.value ||
-        settings.logo_admin_sidebar?.value ||
-        settings.logo_footer?.value ||
-        "";
-      const name = settings.site_name?.value || "Roomac Co-Living";
-      setOrgSettings({ logoUrl: logo ? resolveUrl(logo) : "", orgName: name });
-    } catch (e) {
-      console.error("Failed to load org settings for print branding", e);
-    }
-  })();
-}, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const settings: any = await getSettings();
+        const logo =
+          settings.logo_header?.value ||
+          settings.logo_admin_sidebar?.value ||
+          settings.logo_footer?.value ||
+          "";
+        const name = settings.site_name?.value || "Roomac Co-Living";
+        setOrgSettings({ logoUrl: logo ? resolveUrl(logo) : "", orgName: name });
+      } catch (e) {
+        console.error("Failed to load org settings for print branding", e);
+      }
+    })();
+  }, []);
 
   // Fetch properties for dropdown on load
   // NOTE: previously called reportApi.getProperties(), which either doesn't exist
@@ -203,6 +376,262 @@ useEffect(() => {
     fetchPropertiesList();
   }, []);
 
+  // Fetch staff list for enquiry assigned-staff filter
+  useEffect(() => {
+  getStaffList()
+    .then((res) => {
+      console.log("STAFF LIST RAW RESPONSE:", res); // 👈 temporary debug line
+      const list = Array.isArray(res) ? res
+        : Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.data?.staff) ? res.data.staff
+        : Array.isArray(res?.staff) ? res.staff
+        : Array.isArray(res?.results) ? res.results
+        : [];
+      setStaffList(list);
+    })
+    .catch((err) => {
+      console.error("Failed to load staff list:", err);
+      setStaffList([]);
+    });
+}, []);
+
+  // Master states
+  const [commonMasters, setCommonMasters] = useState<Record<string, any[]>>({});
+  const [propertiesMasters, setPropertiesMasters] = useState<Record<string, any[]>>({});
+  const [roomsMasters, setRoomsMasters] = useState<Record<string, any[]>>({});
+  const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [loadingMasters, setLoadingMasters] = useState<boolean>(false);
+
+  // Helper to extract master values case-insensitively
+  const getMasterValuesByName = (grouped: Record<string, any[]>, name: string) => {
+    const cleanTarget = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const key of Object.keys(grouped)) {
+      const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (cleanKey === cleanTarget) {
+        return grouped[key];
+      }
+    }
+    return [];
+  };
+
+  const fetchMasterDataList = async () => {
+    setLoadingMasters(true);
+    try {
+      const [commonRes, propertiesRes, roomsRes] = await Promise.all([
+        consumeMasters({ tab: "Common" }),
+        consumeMasters({ tab: "Properties" }),
+        consumeMasters({ tab: "Rooms" }),
+      ]);
+
+      if (commonRes?.success && commonRes.data) {
+        const grouped: Record<string, any[]> = {};
+        commonRes.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) grouped[type] = [];
+          grouped[type].push({ id: item.value_id, name: item.value_name });
+        });
+        setCommonMasters(grouped);
+
+        const paymentMethodValues = grouped["Payment Method"] || grouped["paymentmethod"] || [];
+        setPaymentMethods(paymentMethodValues);
+      }
+
+      if (propertiesRes?.success && propertiesRes.data) {
+        const grouped: Record<string, any[]> = {};
+        propertiesRes.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) grouped[type] = [];
+          grouped[type].push({ id: item.value_id, name: item.value_name });
+        });
+        setPropertiesMasters(grouped);
+      }
+
+      if (roomsRes?.success && roomsRes.data) {
+        const grouped: Record<string, any[]> = {};
+        roomsRes.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) grouped[type] = [];
+          grouped[type].push({ id: item.value_id, name: item.value_name });
+        });
+        setRoomsMasters(grouped);
+      }
+
+      // Load expense categories from mapping API
+      const mappingRes = await getAllMappings("expense");
+      if (mappingRes?.success && mappingRes.data) {
+        const mappings = mappingRes.data || [];
+        const uniqueCategories = Object.values(
+          mappings.reduce((acc: Record<string, any>, m: any) => {
+            if (!acc[m.category_id]) {
+              acc[m.category_id] = {
+                id: m.category_id,
+                name: m.category_name,
+              };
+            }
+            return acc;
+          }, {})
+        );
+        setExpenseCategories(uniqueCategories);
+      }
+    } catch (err) {
+      console.error("Failed to load master filters:", err);
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMasterDataList();
+  }, []);
+
+  // Reset all filters when changing activeTab
+  useEffect(() => {
+    const resetStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const resetEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+
+    // Clear temp
+    setTempStartDate(resetStart);
+    setTempEndDate(resetEnd);
+    setTempPropertyId("all");
+    setTempDateType("default");
+    setTempRentStatus("all");
+    setTempDepositStatus("all");
+    setTempIsCouple("all");
+    setTempRoomGender("all");
+    setTempBedAvailability("all");
+    setTempVendorName("");
+    setTempExpenseStatus("all");
+    setTempMinRent("");
+    setTempMaxRent("");
+    setTempMinDeposit("");
+    setTempMaxDeposit("");
+    setTempSharingType("all");
+    setTempAcStatus("all");
+    setTempBathroomStatus("all");
+    setTempOccupancyStatus("all");
+    setTempVisitorStatus("all");
+    setTempIsBlocked("all");
+    setTempVacateReason("all");
+    setTempPenaltyStatus("all");
+    setTempExpenseCategory("all");
+    setTempPaymentMode("all");
+    setTempCommChannel("all");
+    setTempCommStatus("all");
+    setTempAssetStatus("all");
+    setTempPaymentType("all");
+    setTempPaymentStatus("all");
+    setTempLoginRole("all");
+    setTempEnquirySource("all");
+    setTempEnquiryStatus("all");
+    setTempCity("all");
+    setTempGender("all");
+    setTempOccupation("all");
+
+    // Clear new temp states
+    setTempAssignedStaff("all");
+    setTempMoveInStart("");
+    setTempMoveInEnd("");
+    setTempTenantStatus("all");
+    setTempRefundStatus("all");
+    setTempJoinedRecently("all");
+    setTempVacatedRecently("all");
+    setTempPortalAccess("all");
+    setTempMinPendingRent("");
+    setTempMaxPendingRent("");
+    setTempMinPendingDeposit("");
+    setTempMaxPendingDeposit("");
+    setTempMinOccupancy("");
+    setTempMaxOccupancy("");
+    setTempMinRevenue("");
+    setTempMaxRevenue("");
+    setTempState("all");
+    setTempFloor("all");
+    setTempPurpose("all");
+    setTempBookingTypeAtVacate("all");
+    setTempMinSecurityDeposit("");
+    setTempMaxSecurityDeposit("");
+    setTempStayDuration("all");
+    setTempExpenseSubcategory("all");
+    setTempItemCategory("all");
+    setTempPaymentSource("all");
+    setTempLoginResult("all");
+    setTempRevenueType("all");
+    setTempMinMargin("");
+    setTempMaxMargin("");
+
+    // Clear active
+    setStartDate(resetStart);
+    setEndDate(resetEnd);
+    setPropertyId("all");
+    setDateType("default");
+    setRentStatus("all");
+    setDepositStatus("all");
+    setIsCouple("all");
+    setRoomGender("all");
+    setBedAvailability("all");
+    setVendorName("");
+    setExpenseStatus("all");
+    setMinRent("");
+    setMaxRent("");
+    setMinDeposit("");
+    setMaxDeposit("");
+    setSharingType("all");
+    setAcStatus("all");
+    setBathroomStatus("all");
+    setOccupancyStatus("all");
+    setVisitorStatus("all");
+    setIsBlocked("all");
+    setVacateReason("all");
+    setPenaltyStatus("all");
+    setExpenseCategory("all");
+    setPaymentMode("all");
+    setCommChannel("all");
+    setCommStatus("all");
+    setAssetStatus("all");
+    setPaymentType("all");
+    setPaymentStatus("all");
+    setLoginRole("all");
+    setEnquirySource("all");
+    setEnquiryStatus("all");
+    setCity("all");
+    setGender("all");
+    setOccupation("all");
+
+    // Clear new active states
+    setAssignedStaff("all");
+    setMoveInStart("");
+    setMoveInEnd("");
+    setTenantStatus("all");
+    setRefundStatus("all");
+    setJoinedRecently("all");
+    setVacatedRecently("all");
+    setPortalAccess("all");
+    setMinPendingRent("");
+    setMaxPendingRent("");
+    setMinPendingDeposit("");
+    setMaxPendingDeposit("");
+    setMinOccupancy("");
+    setMaxOccupancy("");
+    setMinRevenue("");
+    setMaxRevenue("");
+    setState("all");
+    setFloor("all");
+    setPurpose("all");
+    setBookingTypeAtVacate("all");
+    setMinSecurityDeposit("");
+    setMaxSecurityDeposit("");
+    setStayDuration("all");
+    setExpenseSubcategory("all");
+    setItemCategory("all");
+    setPaymentSource("all");
+    setPaymentTenant("all");
+    setLoginResult("all");
+    setRevenueType("all");
+    setMinMargin("");
+    setMaxMargin("");
+  }, [activeTab]);
+
   // Fetch report data when active applied filters or tab change
   const fetchReportDetails = async () => {
     setLoading(true);
@@ -213,10 +642,42 @@ useEffect(() => {
         startDate,
         endDate,
         propertyId,
+        dateType,
       });
 
       if (response.success) {
-        setReportData(response.data || []);
+        let fetchedData = response.data || [];
+        if (activeTab === "tenant") {
+          const currentDate = new Date();
+          fetchedData = fetchedData.map((tenant: any) => {
+            const checkInDate = tenant.check_in_date ? new Date(tenant.check_in_date) : null;
+            let monthsSinceJoining = 0;
+            if (checkInDate) {
+              const isVacated = tenant.latest_vacate_id !== null && tenant.latest_vacate_id !== undefined;
+              const endRef = isVacated && tenant.vacated_date ? new Date(tenant.vacated_date) : currentDate;
+              monthsSinceJoining = (endRef.getFullYear() - checkInDate.getFullYear()) * 12 + (endRef.getMonth() - checkInDate.getMonth()) + 1;
+              if (monthsSinceJoining < 0) monthsSinceJoining = 0;
+            }
+            const monthlyRent = parseFloat(tenant.monthly_rent || tenant.rent_per_bed || 0);
+            const expectedRent = monthlyRent * monthsSinceJoining;
+            const totalPaidRent = parseFloat(tenant.total_rent_paid || 0);
+            const pendingRent = Math.max(0, expectedRent - totalPaidRent);
+
+            const securityDepositAmount = parseFloat(tenant.security_deposit || 0);
+            const totalPaidDeposit = parseFloat(tenant.total_deposit_paid || 0);
+            const pendingDeposit = Math.max(0, securityDepositAmount - totalPaidDeposit);
+
+            return {
+              ...tenant,
+              is_vacated: tenant.latest_vacate_id ? 1 : 0,
+              months_since_joining: monthsSinceJoining,
+              expected_rent: expectedRent,
+              pending_rent: pendingRent,
+              pending_deposit: pendingDeposit
+            };
+          });
+        }
+        setReportData(fetchedData);
         setReportStats(response.stats || {});
       } else {
         toast.error(response.message || "Failed to fetch report data");
@@ -233,13 +694,80 @@ useEffect(() => {
 
   useEffect(() => {
     fetchReportDetails();
-  }, [activeTab, startDate, endDate, propertyId]);
+  }, [activeTab, startDate, endDate, propertyId, dateType]);
 
   // Open filter sidebar and sync current state
   const handleOpenFilters = () => {
     setTempStartDate(startDate);
     setTempEndDate(endDate);
     setTempPropertyId(propertyId);
+    setTempDateType(dateType);
+    setTempRentStatus(rentStatus);
+    setTempDepositStatus(depositStatus);
+    setTempIsCouple(isCouple);
+    setTempRoomGender(roomGender);
+    setTempBedAvailability(bedAvailability);
+    setTempVendorName(vendorName);
+    setTempExpenseStatus(expenseStatus);
+    setTempMinRent(minRent);
+    setTempMaxRent(maxRent);
+    setTempMinDeposit(minDeposit);
+    setTempMaxDeposit(maxDeposit);
+    setTempSharingType(sharingType);
+    setTempAcStatus(acStatus);
+    setTempBathroomStatus(bathroomStatus);
+    setTempOccupancyStatus(occupancyStatus);
+    setTempVisitorStatus(visitorStatus);
+    setTempIsBlocked(isBlocked);
+    setTempVacateReason(vacateReason);
+    setTempPenaltyStatus(penaltyStatus);
+    setTempExpenseCategory(expenseCategory);
+    setTempPaymentMode(paymentMode);
+    setTempCommChannel(commChannel);
+    setTempCommStatus(commStatus);
+    setTempAssetStatus(assetStatus);
+    setTempPaymentType(paymentType);
+    setTempPaymentStatus(paymentStatus);
+    setTempLoginRole(loginRole);
+    setTempEnquirySource(enquirySource);
+    setTempEnquiryStatus(enquiryStatus);
+    setTempCity(city);
+    setTempGender(gender);
+    setTempOccupation(occupation);
+
+    // Sync new temp states
+    setTempAssignedStaff(assignedStaff);
+    setTempMoveInStart(moveInStart);
+    setTempMoveInEnd(moveInEnd);
+    setTempTenantStatus(tenantStatus);
+    setTempRefundStatus(refundStatus);
+    setTempJoinedRecently(joinedRecently);
+    setTempVacatedRecently(vacatedRecently);
+    setTempPortalAccess(portalAccess);
+    setTempMinPendingRent(minPendingRent);
+    setTempMaxPendingRent(maxPendingRent);
+    setTempMinPendingDeposit(minPendingDeposit);
+    setTempMaxPendingDeposit(maxPendingDeposit);
+    setTempMinOccupancy(minOccupancy);
+    setTempMaxOccupancy(maxOccupancy);
+    setTempMinRevenue(minRevenue);
+    setTempMaxRevenue(maxRevenue);
+    setTempState(state);
+    setTempFloor(floor);
+    setTempPurpose(purpose);
+    setTempBookingTypeAtVacate(bookingTypeAtVacate);
+    setTempMinSecurityDeposit(minSecurityDeposit);
+    setTempMaxSecurityDeposit(maxSecurityDeposit);
+    setTempStayDuration(stayDuration);
+    setTempExpenseSubcategory(expenseSubcategory);
+    setTempItemCategory(itemCategory);
+    setTempPaymentSource(paymentSource);
+    setTempPaymentTenant(paymentTenant);
+    setTempLoginResult(loginResult);
+    setTempRevenueType(revenueType);
+    setTempMinMargin(minMargin);
+    setTempMaxMargin(maxMargin);
+
     setSidebarOpen(true);
   };
 
@@ -248,23 +776,224 @@ useEffect(() => {
     setStartDate(tempStartDate);
     setEndDate(tempEndDate);
     setPropertyId(tempPropertyId);
+    setDateType(tempDateType);
+    setRentStatus(tempRentStatus);
+    setDepositStatus(tempDepositStatus);
+    setIsCouple(tempIsCouple);
+    setRoomGender(tempRoomGender);
+    setBedAvailability(tempBedAvailability);
+    setVendorName(tempVendorName);
+    setExpenseStatus(tempExpenseStatus);
+    setMinRent(tempMinRent);
+    setMaxRent(tempMaxRent);
+    setMinDeposit(tempMinDeposit);
+    setMaxDeposit(tempMaxDeposit);
+    setSharingType(tempSharingType);
+    setAcStatus(tempAcStatus);
+    setBathroomStatus(tempBathroomStatus);
+    setOccupancyStatus(tempOccupancyStatus);
+    setVisitorStatus(tempVisitorStatus);
+    setIsBlocked(tempIsBlocked);
+    setVacateReason(tempVacateReason);
+    setPenaltyStatus(tempPenaltyStatus);
+    setExpenseCategory(tempExpenseCategory);
+    setPaymentMode(tempPaymentMode);
+    setCommChannel(tempCommChannel);
+    setCommStatus(tempCommStatus);
+    setAssetStatus(tempAssetStatus);
+    setPaymentType(tempPaymentType);
+    setPaymentStatus(tempPaymentStatus);
+    setLoginRole(tempLoginRole);
+    setEnquirySource(tempEnquirySource);
+    setEnquiryStatus(tempEnquiryStatus);
+    setCity(tempCity);
+    setGender(tempGender);
+    setOccupation(tempOccupation);
+
+    // Apply new filters
+    setAssignedStaff(tempAssignedStaff);
+    setMoveInStart(tempMoveInStart);
+    setMoveInEnd(tempMoveInEnd);
+    setTenantStatus(tempTenantStatus);
+    setRefundStatus(tempRefundStatus);
+    setJoinedRecently(tempJoinedRecently);
+    setVacatedRecently(tempVacatedRecently);
+    setPortalAccess(tempPortalAccess);
+    setMinPendingRent(tempMinPendingRent);
+    setMaxPendingRent(tempMaxPendingRent);
+    setMinPendingDeposit(tempMinPendingDeposit);
+    setMaxPendingDeposit(tempMaxPendingDeposit);
+    setMinOccupancy(tempMinOccupancy);
+    setMaxOccupancy(tempMaxOccupancy);
+    setMinRevenue(tempMinRevenue);
+    setMaxRevenue(tempMaxRevenue);
+    setState(tempState);
+    setFloor(tempFloor);
+    setPurpose(tempPurpose);
+    setBookingTypeAtVacate(tempBookingTypeAtVacate);
+    setMinSecurityDeposit(tempMinSecurityDeposit);
+    setMaxSecurityDeposit(tempMaxSecurityDeposit);
+    setStayDuration(tempStayDuration);
+    setExpenseSubcategory(tempExpenseSubcategory);
+    setItemCategory(tempItemCategory);
+    setPaymentSource(tempPaymentSource);
+    setPaymentTenant(tempPaymentTenant);
+    setLoginResult(tempLoginResult);
+    setRevenueType(tempRevenueType);
+    setMinMargin(tempMinMargin);
+    setMaxMargin(tempMaxMargin);
+
     setSidebarOpen(false);
   };
 
   // Reset Filters inside Sidebar
-  // FIX: previously this only reset the *temp* sidebar fields and asked the
-  // user to click Apply — which read as "Reset does nothing" since the table
-  // behind it never changed. Reset now applies immediately, same as clicking
-  // Apply right after resetting.
   const handleResetFilters = () => {
     const resetStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
     const resetEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+
+    // Reset temp
     setTempStartDate(resetStart);
     setTempEndDate(resetEnd);
     setTempPropertyId("all");
+    setTempDateType("default");
+    setTempRentStatus("all");
+    setTempDepositStatus("all");
+    setTempIsCouple("all");
+    setTempRoomGender("all");
+    setTempBedAvailability("all");
+    setTempVendorName("");
+    setTempExpenseStatus("all");
+    setTempMinRent("");
+    setTempMaxRent("");
+    setTempMinDeposit("");
+    setTempMaxDeposit("");
+    setTempSharingType("all");
+    setTempAcStatus("all");
+    setTempBathroomStatus("all");
+    setTempOccupancyStatus("all");
+    setTempVisitorStatus("all");
+    setTempIsBlocked("all");
+    setTempVacateReason("all");
+    setTempPenaltyStatus("all");
+    setTempExpenseCategory("all");
+    setTempPaymentMode("all");
+    setTempCommChannel("all");
+    setTempCommStatus("all");
+    setTempAssetStatus("all");
+    setTempPaymentType("all");
+    setTempPaymentStatus("all");
+    setTempLoginRole("all");
+    setTempEnquirySource("all");
+    setTempEnquiryStatus("all");
+    setTempCity("all");
+    setTempGender("all");
+    setTempOccupation("all");
+
+    // Reset new temp states
+    setTempAssignedStaff("all");
+    setTempMoveInStart("");
+    setTempMoveInEnd("");
+    setTempTenantStatus("all");
+    setTempRefundStatus("all");
+    setTempJoinedRecently("all");
+    setTempVacatedRecently("all");
+    setTempPortalAccess("all");
+    setTempMinPendingRent("");
+    setTempMaxPendingRent("");
+    setTempMinPendingDeposit("");
+    setTempMaxPendingDeposit("");
+    setTempMinOccupancy("");
+    setTempMaxOccupancy("");
+    setTempMinRevenue("");
+    setTempMaxRevenue("");
+    setTempState("all");
+    setTempFloor("all");
+    setTempPurpose("all");
+    setTempBookingTypeAtVacate("all");
+    setTempMinSecurityDeposit("");
+    setTempMaxSecurityDeposit("");
+    setTempStayDuration("all");
+    setTempExpenseSubcategory("all");
+    setTempItemCategory("all");
+    setTempPaymentSource("all");
+    setTempPaymentTenant("all");
+    setTempLoginResult("all");
+    setTempRevenueType("all");
+    setTempMinMargin("");
+    setTempMaxMargin("");
+
+    // Reset active
     setStartDate(resetStart);
     setEndDate(resetEnd);
     setPropertyId("all");
+    setDateType("default");
+    setRentStatus("all");
+    setDepositStatus("all");
+    setIsCouple("all");
+    setRoomGender("all");
+    setBedAvailability("all");
+    setVendorName("");
+    setExpenseStatus("all");
+    setMinRent("");
+    setMaxRent("");
+    setMinDeposit("");
+    setMaxDeposit("");
+    setSharingType("all");
+    setAcStatus("all");
+    setBathroomStatus("all");
+    setOccupancyStatus("all");
+    setVisitorStatus("all");
+    setIsBlocked("all");
+    setVacateReason("all");
+    setPenaltyStatus("all");
+    setExpenseCategory("all");
+    setPaymentMode("all");
+    setCommChannel("all");
+    setCommStatus("all");
+    setAssetStatus("all");
+    setPaymentType("all");
+    setPaymentStatus("all");
+    setLoginRole("all");
+    setEnquirySource("all");
+    setEnquiryStatus("all");
+    setCity("all");
+    setGender("all");
+    setOccupation("all");
+
+    // Reset new active states
+    setAssignedStaff("all");
+    setMoveInStart("");
+    setMoveInEnd("");
+    setTenantStatus("all");
+    setRefundStatus("all");
+    setJoinedRecently("all");
+    setVacatedRecently("all");
+    setPortalAccess("all");
+    setMinPendingRent("");
+    setMaxPendingRent("");
+    setMinPendingDeposit("");
+    setMaxPendingDeposit("");
+    setMinOccupancy("");
+    setMaxOccupancy("");
+    setMinRevenue("");
+    setMaxRevenue("");
+    setState("all");
+    setFloor("all");
+    setPurpose("all");
+    setBookingTypeAtVacate("all");
+    setMinSecurityDeposit("");
+    setMaxSecurityDeposit("");
+    setStayDuration("all");
+    setExpenseSubcategory("all");
+    setItemCategory("all");
+    setPaymentSource("all");
+    setPaymentTenant("all");
+    setLoginResult("all");
+    setRevenueType("all");
+    setMinMargin("");
+    setMaxMargin("");
+
+    setSidebarOpen(false);
   };
 
   // Handle Sort
@@ -290,7 +1019,411 @@ useEffect(() => {
   const getFilteredAndSortedData = () => {
     let result = [...reportData];
 
-    // Filter by column inputs
+    // 1. Filter by dynamic sidebar filters
+    if (activeTab === "enquiry") {
+      if (enquirySource !== "all") {
+        result = result.filter(r => r.source?.toLowerCase() === enquirySource.toLowerCase());
+      }
+      if (enquiryStatus !== "all") {
+        result = result.filter(r => r.status?.toLowerCase() === enquiryStatus.toLowerCase());
+      }
+      if (minRent) {
+        result = result.filter(r => {
+          const budget = parseInt(r.budget_range?.replace(/[^\d]/g, "")) || 0;
+          return budget >= parseInt(minRent);
+        });
+      }
+      if (maxRent) {
+        result = result.filter(r => {
+          const budget = parseInt(r.budget_range?.replace(/[^\d]/g, "")) || 0;
+          return budget <= parseInt(maxRent);
+        });
+      }
+      if (assignedStaff !== "all") {
+        result = result.filter(r => r.staff_name === assignedStaff);
+      }
+      if (moveInStart) {
+        result = result.filter(r => r.preferred_move_in_date && r.preferred_move_in_date >= moveInStart);
+      }
+      if (moveInEnd) {
+        result = result.filter(r => r.preferred_move_in_date && r.preferred_move_in_date <= moveInEnd);
+      }
+    }
+
+    if (activeTab === "tenant") {
+      if (isCouple !== "all") {
+        result = result.filter(r => {
+          const isCoupleBooking = r.is_couple === 1 || r.is_couple_booking === 1;
+          if (isCouple === "couple") return isCoupleBooking;
+          if (isCouple === "single") return !isCoupleBooking;
+          if (isCouple === "reassigned") return (Number(r.vacate_count) || 0) > 0 && !!r.bed_number;
+          return true;
+        });
+      }
+      if (rentStatus !== "all") {
+        result = result.filter(r => {
+          const hasArrears = parseFloat(r.pending_rent || 0) > 0;
+          return rentStatus === "arrears" ? hasArrears : !hasArrears;
+        });
+      }
+      if (depositStatus !== "all") {
+        result = result.filter(r => {
+          const hasArrears = parseFloat(r.pending_deposit || 0) > 0;
+          return depositStatus === "arrears" ? hasArrears : !hasArrears;
+        });
+      }
+      if (gender !== "all") {
+        result = result.filter(r => r.gender?.toLowerCase() === gender.toLowerCase());
+      }
+      if (occupation !== "all") {
+        result = result.filter(r => r.occupation_category?.toLowerCase() === occupation.toLowerCase());
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.rent_per_bed || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.rent_per_bed || 0) <= parseFloat(maxRent));
+      }
+      if (minDeposit) {
+        result = result.filter(r => parseFloat(r.security_deposit || 0) >= parseFloat(minDeposit));
+      }
+      if (maxDeposit) {
+        result = result.filter(r => parseFloat(r.security_deposit || 0) <= parseFloat(maxDeposit));
+      }
+      if (tenantStatus !== "all") {
+        result = result.filter(r => {
+          const isActive = r.is_active === 1 || r.is_active === true;
+          const isVacated = r.is_vacated === 1 || r.is_vacated === true;
+          if (tenantStatus === "active") return isActive && !isVacated;
+          if (tenantStatus === "inactive") return !isActive;
+          if (tenantStatus === "vacated") return isVacated;
+          return true;
+        });
+      }
+      if (refundStatus !== "all") {
+        result = result.filter(r => {
+          const isVacated = r.is_vacated === 1 || r.is_vacated === true;
+          const paid = parseFloat(r.total_refund_paid || 0);
+          const refundable = parseFloat(r.refundable_amount || 0);
+          if (refundStatus === "not_applicable") return !isVacated;
+          if (refundStatus === "pending") return isVacated && paid < refundable;
+          if (refundStatus === "completed") return isVacated && paid >= refundable;
+          return true;
+        });
+      }
+      if (joinedRecently !== "all") {
+        const today = new Date();
+        let days = 0;
+        if (joinedRecently === "7") days = 7;
+        if (joinedRecently === "30") days = 30;
+        if (joinedRecently === "90") days = 90;
+        if (days > 0) {
+          const limitDate = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+          result = result.filter(r => r.check_in_date && new Date(r.check_in_date) >= limitDate);
+        }
+      }
+      if (vacatedRecently !== "all") {
+        const today = new Date();
+        let days = 0;
+        if (vacatedRecently === "7") days = 7;
+        if (vacatedRecently === "30") days = 30;
+        if (vacatedRecently === "90") days = 90;
+        if (days > 0) {
+          const limitDate = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+          result = result.filter(r => r.vacated_date && new Date(r.vacated_date) >= limitDate);
+        }
+      }
+      if (portalAccess !== "all") {
+        result = result.filter(r => {
+          const enabled = r.portal_access_enabled === 1 || r.portal_access_enabled === true;
+          return portalAccess === "enabled" ? enabled : !enabled;
+        });
+      }
+      if (minPendingRent) {
+        result = result.filter(r => parseFloat(r.pending_rent || 0) >= parseFloat(minPendingRent));
+      }
+      if (maxPendingRent) {
+        result = result.filter(r => parseFloat(r.pending_rent || 0) <= parseFloat(maxPendingRent));
+      }
+      if (minPendingDeposit) {
+        result = result.filter(r => parseFloat(r.pending_deposit || 0) >= parseFloat(minPendingDeposit));
+      }
+      if (maxPendingDeposit) {
+        result = result.filter(r => parseFloat(r.pending_deposit || 0) <= parseFloat(maxPendingDeposit));
+      }
+      if (city !== "all") {
+        result = result.filter(r => r.city?.toLowerCase() === city.toLowerCase() || String(r.city_id) === city);
+      }
+    }
+
+    if (activeTab === "property") {
+      if (city !== "all") {
+        result = result.filter(r => String(r.city_id) === city);
+      }
+      if (minOccupancy) {
+        result = result.filter(r => parseFloat(r.occupancy_rate || 0) >= parseFloat(minOccupancy));
+      }
+      if (maxOccupancy) {
+        result = result.filter(r => parseFloat(r.occupancy_rate || 0) <= parseFloat(maxOccupancy));
+      }
+      if (minRevenue) {
+        result = result.filter(r => parseFloat(r.total_revenue || 0) >= parseFloat(minRevenue));
+      }
+      if (maxRevenue) {
+        result = result.filter(r => parseFloat(r.total_revenue || 0) <= parseFloat(maxRevenue));
+      }
+      if (state !== "all") {
+        result = result.filter(r => r.state?.toLowerCase() === state.toLowerCase());
+      }
+    }
+
+    if (activeTab === "tenant_payment") {
+  if (tenantStatus !== "all") {
+    result = result.filter(r => {
+      const isActive = r.is_active === 1 || r.is_active === true;
+      const isVacated = r.is_vacated === 1 || r.is_vacated === true;
+      if (tenantStatus === "active") return isActive && !isVacated;
+      if (tenantStatus === "inactive") return !isActive;
+      if (tenantStatus === "vacated") return isVacated;
+      return true;
+    });
+  }
+}
+
+    if (activeTab === "room") {
+      if (sharingType !== "all") {
+        result = result.filter(r => r.sharing_type?.toLowerCase() === sharingType.toLowerCase());
+      }
+      if (occupancyStatus !== "all") {
+        result = result.filter(r => {
+          const count = Number(r.occupied_count || 0);
+          const total = Number(r.total_bed || 0);
+          if (occupancyStatus === "vacant") return count === 0;
+          if (occupancyStatus === "fully") return count >= total;
+          return count > 0 && count < total; // partially
+        });
+      }
+      if (roomGender !== "all") {
+        result = result.filter(r => {
+          let parsedPref: string[] = [];
+          if (Array.isArray(r.room_gender_preference)) {
+            parsedPref = r.room_gender_preference;
+          } else if (typeof r.room_gender_preference === "string") {
+            try {
+              parsedPref = JSON.parse(r.room_gender_preference);
+            } catch {
+              parsedPref = [r.room_gender_preference];
+            }
+          }
+          if (parsedPref.map((p: string) => p.toLowerCase()).includes(roomGender.toLowerCase())) {
+            return true;
+          }
+          return r.current_occupants_gender?.toLowerCase() === roomGender.toLowerCase();
+        });
+      }
+      if (bedAvailability !== "all") {
+        result = result.filter(r => {
+          const count = Number(r.occupied_count || 0);
+          const total = Number(r.total_bed || 0);
+          const free = Math.max(0, total - count);
+          if (bedAvailability === "fully_vacant") return count === 0;
+          if (bedAvailability === "fully_occupied") return count >= total;
+          if (bedAvailability === "exactly_1_free") return free === 1;
+          if (bedAvailability === "exactly_2_free") return free === 2;
+          return free > 0; // has_vacancy
+        });
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.rent_per_bed || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.rent_per_bed || 0) <= parseFloat(maxRent));
+      }
+      if (acStatus !== "all") {
+        result = result.filter(r => {
+          const hasAc = r.has_ac === 1 || r.has_ac === true;
+          return acStatus === "ac" ? hasAc : !hasAc;
+        });
+      }
+      if (bathroomStatus !== "all") {
+        result = result.filter(r => {
+          const hasAttached = r.has_attached_bathroom === 1 || r.has_attached_bathroom === true;
+          return bathroomStatus === "attached" ? hasAttached : !hasAttached;
+        });
+      }
+      if (floor !== "all") {
+        result = result.filter(r => String(r.floor)?.toLowerCase() === floor.toLowerCase());
+      }
+    }
+
+    if (activeTab === "visitor") {
+      if (visitorStatus !== "all") {
+        result = result.filter(r => r.status?.toLowerCase() === visitorStatus.toLowerCase());
+      }
+      if (isBlocked !== "all") {
+        result = result.filter(r => {
+          const blocked = r.is_blocked === 1 || r.is_blocked === true;
+          return isBlocked === "blocked" ? blocked : !blocked;
+        });
+      }
+      if (purpose !== "all") {
+        result = result.filter(r => r.purpose?.toLowerCase() === purpose.toLowerCase());
+      }
+    }
+
+    if (activeTab === "vacancy") {
+      if (vacateReason !== "all") {
+        result = result.filter(r => r.vacate_reason_value?.toLowerCase() === vacateReason.toLowerCase());
+      }
+      if (penaltyStatus !== "all") {
+        result = result.filter(r => {
+          const hasPenalty = parseFloat(r.total_penalty_amount || 0) > 0;
+          return penaltyStatus === "with_penalty" ? hasPenalty : !hasPenalty;
+        });
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.refundable_amount || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.refundable_amount || 0) <= parseFloat(maxRent));
+      }
+      if (bookingTypeAtVacate !== "all") {
+        result = result.filter(r => {
+          const isCoupleVacate = r.is_couple_booking === 1 || r.is_couple_booking === true;
+          return bookingTypeAtVacate === "couple" ? isCoupleVacate : !isCoupleVacate;
+        });
+      }
+      if (minSecurityDeposit) {
+        result = result.filter(r => parseFloat(r.security_deposit_amount || 0) >= parseFloat(minSecurityDeposit));
+      }
+      if (maxSecurityDeposit) {
+        result = result.filter(r => parseFloat(r.security_deposit_amount || 0) <= parseFloat(maxSecurityDeposit));
+      }
+      if (stayDuration !== "all") {
+        result = result.filter(r => {
+          if (!r.stay_check_in_date || !r.requested_vacate_date) return false;
+          const checkIn = new Date(r.stay_check_in_date);
+          const vacate = new Date(r.requested_vacate_date);
+          const diffMs = vacate.getTime() - checkIn.getTime();
+          const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.4375);
+          if (stayDuration === "under_6") return diffMonths < 6;
+          if (stayDuration === "6_12") return diffMonths >= 6 && diffMonths <= 12;
+          if (stayDuration === "over_12") return diffMonths > 12;
+          return true;
+        });
+      }
+    }
+
+    if (activeTab === "expense") {
+      if (expenseCategory !== "all") {
+        result = result.filter(r => r.category_name?.toLowerCase() === expenseCategory.toLowerCase());
+      }
+      if (expenseStatus !== "all") {
+        result = result.filter(r => r.status?.toLowerCase() === expenseStatus.toLowerCase());
+      }
+      if (paymentMode !== "all") {
+        result = result.filter(r => r.payment_mode?.toLowerCase() === paymentMode.toLowerCase());
+      }
+      if (vendorName !== "all" && vendorName.trim()) {
+        result = result.filter(r => r.vendor_name?.toLowerCase() === vendorName.toLowerCase().trim());
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.total_paid || r.total_amount || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.total_paid || r.total_amount || 0) <= parseFloat(maxRent));
+      }
+      if (expenseSubcategory !== "all") {
+        result = result.filter(r => r.subcategory_name?.toLowerCase() === expenseSubcategory.toLowerCase());
+      }
+    }
+
+    if (activeTab === "inventory") {
+      if (assetStatus !== "all") {
+        result = result.filter(r => r.asset_status?.toLowerCase() === assetStatus.toLowerCase());
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.unit_price || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.unit_price || 0) <= parseFloat(maxRent));
+      }
+      if (itemCategory !== "all") {
+        result = result.filter(r => r.category_name?.toLowerCase() === itemCategory.toLowerCase());
+      }
+    }
+
+    if (activeTab === "payment") {
+      if (paymentType !== "all") {
+        result = result.filter(r => r.payment_type?.toLowerCase() === paymentType.toLowerCase());
+      }
+      if (paymentStatus !== "all") {
+        result = result.filter(r => r.status?.toLowerCase() === paymentStatus.toLowerCase());
+      }
+      if (paymentMode !== "all") {
+        result = result.filter(r => r.payment_mode?.toLowerCase() === paymentMode.toLowerCase());
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.amount || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.amount || 0) <= parseFloat(maxRent));
+      }
+      if (paymentSource !== "all") {
+        result = result.filter(r => r.source?.toLowerCase() === paymentSource.toLowerCase());
+      }
+      if (paymentTenant !== "all") {
+        result = result.filter(r => r.tenant_name === paymentTenant);
+      }
+    }
+
+    if (activeTab === "login") {
+      if (loginRole !== "all") {
+        result = result.filter(r => r.role?.toLowerCase() === loginRole.toLowerCase());
+      }
+    }
+
+    if (activeTab === "revenue") {
+      // Filter collected dynamically based on revenueType selection
+      if (revenueType !== "all") {
+        result = result.map(r => {
+          let fieldVal = parseFloat(r.collected || 0);
+          if (revenueType === "rent") fieldVal = parseFloat(r.rent_collected || 0);
+          if (revenueType === "deposit") fieldVal = parseFloat(r.deposit_collected || 0);
+          if (revenueType === "maintenance") fieldVal = parseFloat(r.maintenance_collected || 0);
+
+          const profit = fieldVal - parseFloat(r.expense || 0);
+          const margin = fieldVal > 0 ? parseFloat(((profit / fieldVal) * 100).toFixed(1)) : 0;
+          return {
+            ...r,
+            collected: fieldVal,
+            profit: profit,
+            margin: `${margin}%`
+          };
+        });
+      }
+
+      if (minMargin) {
+        result = result.filter(r => {
+          const m = parseFloat(r.margin?.replace("%", "")) || 0;
+          return m >= parseFloat(minMargin);
+        });
+      }
+      if (maxMargin) {
+        result = result.filter(r => {
+          const m = parseFloat(r.margin?.replace("%", "")) || 0;
+          return m <= parseFloat(maxMargin);
+        });
+      }
+      if (minRent) {
+        result = result.filter(r => parseFloat(r.profit || 0) >= parseFloat(minRent));
+      }
+      if (maxRent) {
+        result = result.filter(r => parseFloat(r.profit || 0) <= parseFloat(maxRent));
+      }
+    }
+
+    // 2. Filter by column inputs
     Object.entries(colFilters).forEach(([col, val]) => {
       if (val.trim()) {
         const term = val.toLowerCase().trim();
@@ -306,7 +1439,7 @@ useEffect(() => {
       }
     });
 
-    // Sort
+    // 3. Sort
     if (sortField) {
       result.sort((a, b) => {
         let valA = a[sortField];
@@ -325,12 +1458,175 @@ useEffect(() => {
   };
 
   const processedData = getFilteredAndSortedData();
+
+  // Dynamic KPI Stats Recalculator
+  const getCalculatedStats = () => {
+    if (loading || !processedData) return reportStats;
+    const stats = { ...reportStats };
+    const count = processedData.length;
+
+    switch (activeTab) {
+      case "enquiry": {
+        const converted = processedData.filter((r) => r.status === "converted").length;
+        const pending = processedData.filter((r) => r.status === "new" || r.status === "followup" || r.status === "active").length;
+        const rate = count > 0 ? ((converted / count) * 100).toFixed(1) : "0";
+        return {
+          totalEnquiries: count,
+          convertedEnquiries: converted,
+          conversionRate: `${rate}%`,
+          pendingEnquiries: pending
+        };
+      }
+      case "tenant": {
+        const newCheckins = processedData.filter((r) => {
+          if (!r.check_in_date) return false;
+          const checkIn = new Date(r.check_in_date);
+          return checkIn >= new Date(startDate) && checkIn <= new Date(endDate);
+        }).length;
+        const vacated = processedData.filter((r) => r.is_vacated === 1).length;
+        const originalOccRate = parseFloat(reportStats.occupancyRate) || 0;
+        const totalBeds = reportStats.totalTenants ? Math.round(reportStats.totalTenants / (originalOccRate / 100 || 1)) : 0;
+        const activeTenants = processedData.filter((r) => r.is_active === 1).length;
+        const newOccRate = totalBeds > 0 ? ((activeTenants / totalBeds) * 100).toFixed(1) : originalOccRate.toFixed(1);
+        return {
+          totalTenants: count,
+          newTenants: newCheckins,
+          vacatedTenants: vacated,
+          occupancyRate: `${newOccRate}%`
+        };
+      }
+      case "property": {
+        const totalRooms = processedData.reduce((acc, r) => acc + Number(r.total_rooms || 0), 0);
+        const totalBeds = processedData.reduce((acc, r) => acc + Number(r.total_beds || 0), 0);
+        const occupiedBeds = processedData.reduce((acc, r) => acc + Number(r.occupied_beds || 0), 0);
+        const rate = totalBeds > 0 ? ((occupiedBeds / totalBeds) * 100).toFixed(1) : "0";
+        return {
+          totalProperties: count,
+          totalRooms,
+          totalBeds,
+          occupancyRate: `${rate}%`
+        };
+      }
+      case "room": {
+        const totalBeds = processedData.reduce((acc, r) => acc + Number(r.total_bed || 0), 0);
+        const occupiedBeds = processedData.reduce((acc, r) => acc + Number(r.occupied_count || 0), 0);
+        const availableBeds = Math.max(0, totalBeds - occupiedBeds);
+        return {
+          totalRooms: count,
+          totalBeds,
+          occupiedBeds,
+          availableBeds
+        };
+      }
+      case "visitor": {
+        const today = format(new Date(), "yyyy-MM-dd");
+        const todayVisitors = processedData.filter((r) => r.entry_time && r.entry_time.startsWith(today)).length;
+        const pendingCheckOut = processedData.filter((r) => r.status === "checked_in").length;
+        const blockedVisitors = processedData.filter((r) => r.is_blocked === 1 || r.is_blocked === true).length;
+        return {
+          totalVisitors: count,
+          todayVisitors,
+          pendingCheckOut,
+          blockedVisitors
+        };
+      }
+      case "vacancy": {
+        const refundableSum = processedData.reduce((acc, r) => acc + parseFloat(r.refundable_amount || 0), 0);
+        const collectedPenalties = processedData.reduce((acc, r) => acc + parseFloat(r.total_penalty_amount || 0), 0);
+        return {
+          totalVacated: count,
+          refundableAmount: `₹${refundableSum.toLocaleString("en-IN")}`,
+          collectedPenalties: `₹${collectedPenalties.toLocaleString("en-IN")}`
+        };
+      }
+      case "expense": {
+        const totalExpenses = processedData.reduce((acc, r) => acc + parseFloat(r.total_paid || 0), 0);
+        const categories: Record<string, number> = {};
+        processedData.forEach((r) => {
+          const cat = r.category_name || "Uncategorized";
+          categories[cat] = (categories[cat] || 0) + parseFloat(r.total_paid || 0);
+        });
+        let highestCat = "N/A";
+        let maxSpent = 0;
+        for (const [cat, spent] of Object.entries(categories)) {
+          if (spent > maxSpent) {
+            maxSpent = spent;
+            highestCat = cat;
+          }
+        }
+        return {
+          totalExpenses: `₹${totalExpenses.toLocaleString("en-IN")}`,
+          expenseCount: count,
+          highestCategory: highestCat
+        };
+      }
+      case "communication": {
+        const emails = processedData.filter((r) => r.channel === "email").length;
+        const sms = processedData.filter((r) => r.channel === "sms" || r.channel === "whatsapp").length;
+        const failed = processedData.filter((r) => r.status === "failed").length;
+        return {
+          totalAlertsSent: count,
+          emailsSent: emails,
+          smsSent: sms,
+          failedCount: failed
+        };
+      }
+      case "inventory": {
+        const available = processedData.filter((r) => r.asset_status === "available").length;
+        const assigned = processedData.filter((r) => r.asset_status === "assigned" || r.asset_status === "allocated").length;
+        const damaged = processedData.filter((r) => r.asset_status === "damaged" || r.asset_status === "repair" || r.asset_status === "lost").length;
+        return {
+          totalItems: count,
+          availableItems: available,
+          assignedItems: assigned,
+          damagedItems: damaged
+        };
+      }
+      case "payment": {
+        const paidPayments = processedData.filter((r) => r.status === "approved" || r.status === "paid");
+        const pendingPayments = processedData.filter((r) => r.status === "pending");
+        const totalPaidSum = paidPayments.reduce((acc, r) => acc + parseFloat(r.amount || 0), 0);
+        const totalPendingSum = pendingPayments.reduce((acc, r) => acc + parseFloat(r.amount || 0), 0);
+        return {
+          totalPaid: `₹${totalPaidSum.toLocaleString("en-IN")}`,
+          totalPending: `₹${totalPendingSum.toLocaleString("en-IN")}`,
+          paidCount: paidPayments.length,
+          pendingCount: pendingPayments.length
+        };
+      }
+      case "login": {
+        const tenantLogins = processedData.filter((r) => r.role === "tenant").length;
+        const staffLogins = processedData.filter((r) => r.role === "staff" || r.role === "admin" || r.role === "Admin").length;
+        return {
+          totalLogins: count,
+          tenantLogins,
+          staffLogins
+        };
+      }
+      case "revenue": {
+        const totalRevenue = processedData.reduce((acc, r) => acc + parseFloat(r.collected || 0), 0);
+        const totalExpenses = processedData.reduce((acc, r) => acc + parseFloat(r.expense || 0), 0);
+        const netProfit = totalRevenue - totalExpenses;
+        const overallMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0";
+        return {
+          totalRevenue: `₹${totalRevenue.toLocaleString("en-IN")}`,
+          totalExpenses: `₹${totalExpenses.toLocaleString("en-IN")}`,
+          netRevenue: `₹${netProfit.toLocaleString("en-IN")}`,
+          netMargin: `${overallMargin}%`
+        };
+      }
+      default:
+        return stats;
+    }
+  };
+
+  const stats = getCalculatedStats();
   const totalRecords = processedData.length;
-  const totalPages = Math.ceil(totalRecords / pageSize);
-  const paginatedData = processedData.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const showAll = pageSize === -1;
+  const totalPages = showAll ? 1 : Math.ceil(totalRecords / pageSize);
+  const paginatedData = showAll
+    ? processedData
+    : processedData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Dynamic Avatar Circle Renderer
   const renderTenantNameWithAvatar = (name: string) => {
@@ -344,7 +1640,7 @@ useEffect(() => {
       }
     }
     initials = initials.toUpperCase();
-    
+
     // Choosing a dynamic pastel background based on character hash
     const colors = [
       "bg-blue-100 text-blue-800 border-blue-200",
@@ -376,109 +1672,118 @@ useEffect(() => {
       case "enquiry":
         return (
           <>
-            <KPICard title="Total Enquiries" value={reportStats.totalEnquiries || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Converted to Tenants" value={reportStats.convertedEnquiries || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Conversion Rate" value={reportStats.conversionRate || "0%"} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Active / Pending" value={reportStats.pendingEnquiries || 0} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Total Enquiries" value={stats.totalEnquiries || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Converted to Tenants" value={stats.convertedEnquiries || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Conversion Rate" value={stats.conversionRate || "0%"} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Active / Pending" value={stats.pendingEnquiries || 0} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
           </>
         );
       case "tenant":
         return (
           <>
-            <KPICard title="Total Registered Tenants" value={reportStats.totalTenants || 0} icon={Users} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="New Check-ins" value={reportStats.newTenants || 0} icon={UserPlus} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Vacated Tenants" value={reportStats.vacatedTenants || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
-            <KPICard title="Bed Occupancy Rate" value={reportStats.occupancyRate || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Total Registered Tenants" value={stats.totalTenants || 0} icon={Users} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="New Check-ins" value={stats.newTenants || 0} icon={UserPlus} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Vacated Tenants" value={stats.vacatedTenants || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Bed Occupancy Rate" value={stats.occupancyRate || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+          </>
+        );
+      case "tenant_payment":
+        return (
+          <>
+            <KPICard title="Total Tenants" value={stats.totalTenants || 0} icon={Users} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Expected Rent" value={stats.totalExpected || "₹0"} icon={IndianRupee} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Rent Collected" value={stats.totalPaid || "₹0"} icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Collection Rate" value={stats.collectionRate || "0%"} icon={Wallet} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
           </>
         );
       case "property":
         return (
           <>
-            <KPICard title="Total Properties" value={reportStats.totalProperties || 0} icon={Building2} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Total Rooms" value={reportStats.totalRooms || 0} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Total Beds" value={reportStats.totalBeds || 0} icon={Bed} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
-            <KPICard title="Average Bed Occupancy" value={reportStats.occupancyRate || "0%"} icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Total Properties" value={stats.totalProperties || 0} icon={Building2} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Rooms" value={stats.totalRooms || 0} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Total Beds" value={stats.totalBeds || 0} icon={Bed} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Average Bed Occupancy" value={stats.occupancyRate || "0%"} icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
           </>
         );
       case "room":
         return (
           <>
-            <KPICard title="Total Rooms" value={reportStats.totalRooms || 0} icon={Home} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Total Beds" value={reportStats.totalBeds || 0} icon={Bed} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Occupied Beds" value={reportStats.occupiedBeds || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Available Beds" value={reportStats.availableBeds || 0} icon={DoorOpen} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Rooms" value={stats.totalRooms || 0} icon={Home} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Beds" value={stats.totalBeds || 0} icon={Bed} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Occupied Beds" value={stats.occupiedBeds || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Available Beds" value={stats.availableBeds || 0} icon={DoorOpen} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
           </>
         );
       case "visitor":
         return (
           <>
-            <KPICard title="Total Visitors" value={reportStats.totalVisitors || 0} icon={UserPlus} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Visitors Today" value={reportStats.todayVisitors || 0} icon={Calendar} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Active Status" value={reportStats.pendingCheckOut || 0} icon={Clock} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Blocked Visitors" value={reportStats.blockedVisitors || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Visitors" value={stats.totalVisitors || 0} icon={UserPlus} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Visitors Today" value={stats.todayVisitors || 0} icon={Calendar} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Active Status" value={stats.pendingCheckOut || 0} icon={Clock} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Blocked Visitors" value={stats.blockedVisitors || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
           </>
         );
       case "vacancy":
         return (
           <>
-            <KPICard title="Vacated Accounts" value={reportStats.totalVacated || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
-            <KPICard title="Refundable Deposit Sum" value={reportStats.refundableAmount || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Penalties Charged" value={reportStats.collectedPenalties || "₹0"} icon={Wallet} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
-            <KPICard title="Deductions Settled" value={reportStats.totalVacated || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Vacated Accounts" value={stats.totalVacated || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Refundable Deposit Sum" value={stats.refundableAmount || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Penalties Charged" value={stats.collectedPenalties || "₹0"} icon={Wallet} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Deductions Settled" value={stats.totalVacated || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
           </>
         );
       case "expense":
         return (
           <>
-            <KPICard title="Total Period Expenses" value={reportStats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
-            <KPICard title="Total Paid Vouchers" value={reportStats.expenseCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Highest Category" value={reportStats.highestCategory || "N/A"} icon={Building2} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Total Period Expenses" value={stats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Paid Vouchers" value={stats.expenseCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Highest Category" value={stats.highestCategory || "N/A"} icon={Building2} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
             <KPICard title="Tax Deductible Ratio" value="100.0%" icon={TrendingUp} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
           </>
         );
       case "communication":
         return (
           <>
-            <KPICard title="Total Alerts Sent" value={reportStats.totalSent || 0} icon={Mail} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Email Dispatch" value={reportStats.emailsSent || 0} icon={Mail} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="SMS/WhatsApp" value={reportStats.smsSent || 0} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Failed Dispatches" value={reportStats.failedCount || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Alerts Sent" value={stats.totalAlertsSent || 0} icon={Mail} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Email Dispatch" value={stats.emailsSent || 0} icon={Mail} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="SMS/WhatsApp" value={stats.smsSent || 0} icon={TrendingUp} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Failed Dispatches" value={stats.failedCount || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
           </>
         );
       case "inventory":
         return (
           <>
-            <KPICard title="Total Assets" value={reportStats.totalItems || 0} icon={Briefcase} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Available in Stock" value={reportStats.availableItems || 0} icon={Home} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Allocated to Rooms" value={reportStats.assignedItems || 0} icon={Users} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
-            <KPICard title="Damaged / Repair" value={reportStats.damagedItems || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Assets" value={stats.totalItems || 0} icon={Briefcase} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Available in Stock" value={stats.availableItems || 0} icon={Home} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Allocated to Rooms" value={stats.assignedItems || 0} icon={Users} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Damaged / Repair" value={stats.damagedItems || 0} icon={X} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
           </>
         );
       case "payment":
         return (
           <>
-            <KPICard title="Total Paid Revenue" value={reportStats.totalPaid || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Total Pending Accounts" value={reportStats.totalPending || "₹0"} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
-            <KPICard title="Approved Invoices" value={reportStats.paidCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Defaulters / Pending" value={reportStats.pendingCount || 0} icon={Users} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Total Paid Revenue" value={stats.totalPaid || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Total Pending Accounts" value={stats.totalPending || "₹0"} icon={Clock} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Approved Invoices" value={stats.paidCount || 0} icon={FileText} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Defaulters / Pending" value={stats.pendingCount || 0} icon={Users} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
           </>
         );
       case "login":
         return (
           <>
-            <KPICard title="Total Access Logins" value={reportStats.totalLogins || 0} icon={Clock} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Tenant Logins" value={reportStats.tenantLogins || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Admin & Staff Logins" value={reportStats.staffLogins || 0} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Access Logins" value={stats.totalLogins || 0} icon={Clock} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Tenant Logins" value={stats.tenantLogins || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Admin & Staff Logins" value={stats.staffLogins || 0} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
             <KPICard title="Portal Access Level" value="Live Audited" icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
           </>
         );
       case "revenue":
         return (
           <>
-            <KPICard title="Net Revenues" value={reportStats.totalRevenue || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-            <KPICard title="Net Expenses" value={reportStats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
-            <KPICard title="Net Operational Profit" value={reportStats.netRevenue || "₹0"} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-            <KPICard title="Profit Margin %" value={reportStats.netMargin || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Net Revenues" value={stats.totalRevenue || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Net Expenses" value={stats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Net Operational Profit" value={stats.netRevenue || "₹0"} icon={TrendingUp} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Profit Margin %" value={stats.netMargin || "0%"} icon={Home} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
           </>
         );
       default:
@@ -620,31 +1925,46 @@ useEffect(() => {
           "Net Profit (₹)": row.profit,
           "Profit Margin": row.margin,
         }));
+      case "tenant_payment":
+        return data.map((row) => ({
+          "Tenant Name": row.full_name,
+          "Room/Bed": `${row.room_number || "—"}/${row.bed_number || "—"}`,
+          "Monthly Rent (₹)": row.monthly_rent || 0,
+          "Months": row.months_since_joining || 0,
+          "Expected Rent (₹)": row.expected_rent || 0,
+          "Paid Rent (₹)": row.total_rent_paid || 0,
+          "Pending Rent (₹)": row.pending_rent || 0,
+          "Collection %": `${row.collection_rate || 0}%`,
+          "Deposit (₹)": row.security_deposit || 0,
+          "Deposit Paid (₹)": row.total_deposit_paid || 0,
+          "Deposit Pending (₹)": row.pending_deposit || 0,
+          "Status": row.is_vacated ? "Vacated" : (row.is_active ? "Active" : "Inactive"),
+        }));
       default:
         return [];
     }
   };
 
   const buildReportPrintHTML = () => {
-  const rows = buildExportRows(activeTab, processedData);
-  const headers = rows.length ? Object.keys(rows[0]) : [];
-  const tabLabel = TABS.find((t) => t.id === activeTab)?.label || "Report";
-  const propertyLabel =
-    propertyId === "all" ? "All Properties" : properties.find((p) => p.id.toString() === propertyId)?.name || propertyId;
+    const rows = buildExportRows(activeTab, processedData);
+    const headers = rows.length ? Object.keys(rows[0]) : [];
+    const tabLabel = TABS.find((t) => t.id === activeTab)?.label || "Report";
+    const propertyLabel =
+      propertyId === "all" ? "All Properties" : properties.find((p) => p.id.toString() === propertyId)?.name || propertyId;
 
-  const kpiHtml = Object.entries(reportStats)
-    .map(([key, val]) => `
+    const kpiHtml = Object.entries(stats)
+      .map(([key, val]) => `
       <div class="stat-box">
         <div class="stat-lbl">${key.replace(/([A-Z])/g, " $1")}</div>
         <div class="stat-val">${val}</div>
       </div>`)
-    .join("");
+      .join("");
 
-  const bodyRows = rows.length
-    ? rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h as keyof typeof r] ?? "—"}</td>`).join("")}</tr>`).join("")
-    : `<tr><td colspan="${headers.length || 1}" style="text-align:center;color:#9ca3af;padding:24px">No records found</td></tr>`;
+    const bodyRows = rows.length
+      ? rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h as keyof typeof r] ?? "—"}</td>`).join("")}</tr>`).join("")
+      : `<tr><td colspan="${headers.length || 1}" style="text-align:center;color:#9ca3af;padding:24px">No records found</td></tr>`;
 
-  return `<!DOCTYPE html><html><head><title>${tabLabel} · Roomac Co-Living</title>
+    return `<!DOCTYPE html><html><head><title>${tabLabel} · Roomac Co-Living</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,sans-serif;color:#111;font-size:12px;padding:32px;position:relative}
@@ -680,19 +2000,19 @@ useEffect(() => {
     <span>${rows.length} record(s)</span>
   </div>
   </body></html>`;
-};
+  };
 
-const handlePrint = () => {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(buildReportPrintHTML());
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 300); // give the logo <img> a moment to load
-};
+  const handlePrint = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(buildReportPrintHTML());
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300); // give the logo <img> a moment to load
+  };
 
   // Excel Export formatter
-// Excel Export formatter
+  // Excel Export formatter
   const handleExportToExcel = () => {
     const excelRows = buildExportRows(activeTab, processedData);
     if (!excelRows.length) {
@@ -721,11 +2041,10 @@ const handlePrint = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2  space-y-4 relative overflow-hidden font-sans">
-      
+    <div className="h-[calc(95vh-64px)] flex flex-col overflow-hidden bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2 gap-4 relative font-sans">
 
       {/* 📊 DYNAMIC STATS ROW */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5  print:hidden">
+      <div className="shrink-0 grid grid-cols-2 md:grid-cols-4 gap-2.5 print:hidden">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
             <Card key={idx} className="bg-white border-slate-200 animate-pulse rounded-lg shadow-sm border">
@@ -738,7 +2057,7 @@ const handlePrint = () => {
       </div>
 
       {/* 🗂️ MAIN TABS LIST - Styled in grey wrapper with purple active underline */}
-      <div className="bg-[#f1f5f9] dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800 print:hidden overflow-x-auto">
+      <div className="shrink-0 bg-[#f1f5f9] dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800 print:hidden overflow-x-auto scrollbar-hide">
         <div className="flex space-x-1 min-w-max">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -750,11 +2069,10 @@ const handlePrint = () => {
                   setActiveTab(tab.id);
                   setColFilters({}); // Reset local column search inputs
                 }}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-md transition-all ${
-                  isActive
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-md transition-all ${isActive
                     ? "bg-white dark:bg-slate-800 text-[#1e3b8b] dark:text-indigo-400 shadow-sm border-b-2 border-indigo-600"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-950 hover:bg-white/40"
-                }`}
+                  }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
                 {tab.label}
@@ -765,28 +2083,28 @@ const handlePrint = () => {
       </div>
 
       {/* 📋 REPORT DETAILS CONTAINER WITH CUSTOM INPUT FILTERS IN HEADER */}
-      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
-        
+      <Card className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
+
         {/* Table toolbar with Export & Print buttons - Print Hidden */}
-        <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 print:hidden bg-slate-50/40">
+        <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 print:hidden bg-slate-50/40">
           <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Report Records: <span className="text-[#1e3b8b] dark:text-indigo-400 font-bold">{totalRecords} entries found</span>
           </div>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Main Filter button matching theme - Deep Royal Blue */}
-          <Button
-            onClick={handleOpenFilters}
-            className="flex items-center gap-2 bg-[#1e3b8b] hover:bg-[#152960] text-white font-medium text-xs px-3 h-8 shadow-md rounded-md transition-all duration-200"
-          >
-            <Filter className="w-3.5 h-3.5" /> 
-            Filters
-            {(propertyId !== "all" || 
-              startDate !== format(startOfMonth(new Date()), "yyyy-MM-dd") || 
-              endDate !== format(endOfMonth(new Date()), "yyyy-MM-dd")) && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            )}
-          </Button>
+            <Button
+              onClick={handleOpenFilters}
+              className="flex items-center gap-2 bg-[#1e3b8b] hover:bg-[#152960] text-white font-medium text-xs px-3 h-8 shadow-md rounded-md transition-all duration-200"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              Filters
+              {(propertyId !== "all" ||
+                startDate !== format(startOfMonth(new Date()), "yyyy-MM-dd") ||
+                endDate !== format(endOfMonth(new Date()), "yyyy-MM-dd")) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                )}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -806,9 +2124,9 @@ const handlePrint = () => {
           </div>
         </div>
 
-       
 
-        <div className="p-0 overflow-x-auto">
+
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
               <Loader2 className="w-8 h-8 animate-spin text-[#1e3b8b]" />
@@ -824,7 +2142,7 @@ const handlePrint = () => {
             <div className="w-full">
               {/* DYNAMIC GRID WITH COLUMN FILTER INPUTS */}
               <table className="report-table w-full text-left text-xs">
-                <thead className="bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                <thead className="sticky top-0 z-20 bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
                   {/* TAB: Enquiry */}
                   {activeTab === "enquiry" && (
                     <>
@@ -852,9 +2170,9 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search phone" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.phone || ""} onChange={e => handleColFilterChange("phone", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
-                        <td className="p-1.5"><Input placeholder="Search property" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5"><Input placeholder="Search source" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.source || ""} onChange={e => handleColFilterChange("source", e.target.value)} /></td>
+                       <td className="p-1.5"><Input placeholder="Search property" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Move-in date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.preferred_move_in_date || ""} onChange={e => handleColFilterChange("preferred_move_in_date", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Search source" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.source || ""} onChange={e => handleColFilterChange("source", e.target.value)} /></td>
                         <td className="p-1.5">
                           <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
                             <option value="">All</option>
@@ -905,19 +2223,22 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.check_in_date || ""} onChange={e => handleColFilterChange("check_in_date", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
-                        <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </td>
+                       <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.rent_per_bed || ""} onChange={e => handleColFilterChange("rent_per_bed", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit || ""} onChange={e => handleColFilterChange("security_deposit", e.target.value)} /></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
+    <option value="">All</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+</td>
                       </tr>
                     </>
                   )}
+
+
+
 
                   {/* TAB: Property */}
                   {activeTab === "property" && (
@@ -935,8 +2256,12 @@ const handlePrint = () => {
                       </tr>
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
-                        <td className="p-1.5"><Input placeholder="Search address" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.address || ""} onChange={e => handleColFilterChange("address", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={5}></td>
+<td className="p-1.5"><Input placeholder="Search address" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.address || ""} onChange={e => handleColFilterChange("address", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Rooms.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_rooms || ""} onChange={e => handleColFilterChange("total_rooms", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Beds.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_beds || ""} onChange={e => handleColFilterChange("total_beds", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Occupied.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupied_beds || ""} onChange={e => handleColFilterChange("occupied_beds", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Available.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.available_beds || ""} onChange={e => handleColFilterChange("available_beds", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Rate %.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupancy_rate || ""} onChange={e => handleColFilterChange("occupancy_rate", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -953,7 +2278,7 @@ const handlePrint = () => {
                         </th>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM TYPE</th>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">SHARING TYPE</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">RENT PER BED (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">TOTAL RENT (₹)</th>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">TOTAL BEDS</th>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">OCCUPIED BEDS</th>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">AVAILABLE BEDS</th>
@@ -1001,14 +2326,16 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Tenant.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={3}></td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="checked_in">Checked In</option>
-                            <option value="checked_out">Checked Out</option>
-                          </select>
-                        </td>
+<td className="p-1.5"><Input placeholder="Entry.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.entry_time || ""} onChange={e => handleColFilterChange("entry_time", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Exit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.exit_time || ""} onChange={e => handleColFilterChange("exit_time", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Purpose.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purpose || ""} onChange={e => handleColFilterChange("purpose", e.target.value)} /></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+    <option value="">All</option>
+    <option value="checked_in">Checked In</option>
+    <option value="checked_out">Checked Out</option>
+  </select>
+</td>
                       </tr>
                     </>
                   )}
@@ -1040,9 +2367,13 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={3}></td>
-                        <td className="p-1.5"><Input placeholder="Reason.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.vacate_reason_value || ""} onChange={e => handleColFilterChange("vacate_reason_value", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={3}></td>
+<td className="p-1.5"><Input placeholder="Check-in.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.stay_check_in_date || ""} onChange={e => handleColFilterChange("stay_check_in_date", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Notice.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.notice_given_date || ""} onChange={e => handleColFilterChange("notice_given_date", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Vacated.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.requested_vacate_date || ""} onChange={e => handleColFilterChange("requested_vacate_date", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Reason.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.vacate_reason_value || ""} onChange={e => handleColFilterChange("vacate_reason_value", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit_amount || ""} onChange={e => handleColFilterChange("security_deposit_amount", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Penalty.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_penalty_amount || ""} onChange={e => handleColFilterChange("total_penalty_amount", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Refund.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.refundable_amount || ""} onChange={e => handleColFilterChange("refundable_amount", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -1068,25 +2399,25 @@ const handlePrint = () => {
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense_date || ""} onChange={e => handleColFilterChange("expense_date", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="cash">Cash</option>
-                            <option value="bank">Bank Transfer</option>
-                            <option value="upi">UPI</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Partial">Partial</option>
-                            <option value="Unpaid">Unpaid</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
+<td className="p-1.5"><Input placeholder="Amount.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_paid || ""} onChange={e => handleColFilterChange("total_paid", e.target.value)} /></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+    <option value="">All</option>
+    <option value="cash">Cash</option>
+    <option value="bank">Bank Transfer</option>
+    <option value="upi">UPI</option>
+  </select>
+</td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+    <option value="">All</option>
+    <option value="Paid">Paid</option>
+    <option value="Partial">Partial</option>
+    <option value="Unpaid">Unpaid</option>
+  </select>
+</td>
+<td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Description.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.description || ""} onChange={e => handleColFilterChange("description", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -1160,17 +2491,17 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Item name.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.item_name || ""} onChange={e => handleColFilterChange("item_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.asset_status || ""} onChange={e => handleColFilterChange("asset_status", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="available">Available</option>
-                            <option value="allocated">Allocated</option>
-                            <option value="damaged">Damaged</option>
-                            <option value="repair">Repair</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5"></td>
+<td className="p-1.5"><Input placeholder="Price.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.unit_price || ""} onChange={e => handleColFilterChange("unit_price", e.target.value)} /></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.asset_status || ""} onChange={e => handleColFilterChange("asset_status", e.target.value)}>
+    <option value="">All</option>
+    <option value="available">Available</option>
+    <option value="allocated">Allocated</option>
+    <option value="damaged">Damaged</option>
+    <option value="repair">Repair</option>
+  </select>
+</td>
+<td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purchase_date || ""} onChange={e => handleColFilterChange("purchase_date", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -1199,26 +2530,26 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Txn ID.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.transaction_id || ""} onChange={e => handleColFilterChange("transaction_id", e.target.value)} /></td>
-                        <td className="p-1.5"></td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="cash">Cash</option>
-                            <option value="card">Card</option>
-                            <option value="upi">UPI</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="online_payment_gateway">Gateway</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="approved">Approved</option>
-                            <option value="paid">Paid</option>
-                            <option value="pending">Pending</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5"></td>
+<td className="p-1.5"></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+    <option value="">All</option>
+    <option value="cash">Cash</option>
+    <option value="card">Card</option>
+    <option value="upi">UPI</option>
+    <option value="bank_transfer">Bank Transfer</option>
+    <option value="online_payment_gateway">Gateway</option>
+  </select>
+</td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+    <option value="">All</option>
+    <option value="approved">Approved</option>
+    <option value="paid">Paid</option>
+    <option value="pending">Pending</option>
+  </select>
+</td>
+<td className="p-1.5"></td>
                       </tr>
                     </>
                   )}
@@ -1242,14 +2573,14 @@ const handlePrint = () => {
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
                         <td className="p-1.5">
-                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.role || ""} onChange={e => handleColFilterChange("role", e.target.value)}>
-                            <option value="">All</option>
-                            <option value="admin">Admin</option>
-                            <option value="tenant">Tenant</option>
-                            <option value="staff">Staff</option>
-                          </select>
-                        </td>
-                        <td className="p-1.5"></td>
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.role || ""} onChange={e => handleColFilterChange("role", e.target.value)}>
+    <option value="">All</option>
+    <option value="admin">Admin</option>
+    <option value="tenant">Tenant</option>
+    <option value="staff">Staff</option>
+  </select>
+</td>
+<td className="p-1.5"><Input placeholder="Login time.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.login_time || ""} onChange={e => handleColFilterChange("login_time", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -1268,7 +2599,54 @@ const handlePrint = () => {
                       </tr>
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="yyyy-mm" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.month || ""} onChange={e => handleColFilterChange("month", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={4}></td>
+<td className="p-1.5"><Input placeholder="Revenue.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.collected || ""} onChange={e => handleColFilterChange("collected", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Expenses.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense || ""} onChange={e => handleColFilterChange("expense", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Profit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.profit || ""} onChange={e => handleColFilterChange("profit", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Margin.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.margin || ""} onChange={e => handleColFilterChange("margin", e.target.value)} /></td>
+                      </tr>
+                    </>
+                  )}
+
+                  {/* TAB: Tenant Payment Report */}
+                  {activeTab === "tenant_payment" && (
+                    <>
+                      <tr>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">#</th>
+                        <th onClick={() => handleSort("full_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT NAME {renderSortIndicator("full_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM/BED</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">MONTHLY RENT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">MONTHS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">EXPECTED RENT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PAID RENT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PENDING RENT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">COLLECTION %</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PAID</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PENDING</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"></td>
+<td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.full_name || ""} onChange={e => handleColFilterChange("full_name", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.monthly_rent || ""} onChange={e => handleColFilterChange("monthly_rent", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Months.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.months_since_joining || ""} onChange={e => handleColFilterChange("months_since_joining", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Expected.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expected_rent || ""} onChange={e => handleColFilterChange("expected_rent", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Paid.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_rent_paid || ""} onChange={e => handleColFilterChange("total_rent_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Pending.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.pending_rent || ""} onChange={e => handleColFilterChange("pending_rent", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Collection %.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.collection_rate || ""} onChange={e => handleColFilterChange("collection_rate", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit || ""} onChange={e => handleColFilterChange("security_deposit", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit paid.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_deposit_paid || ""} onChange={e => handleColFilterChange("total_deposit_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit pending.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.pending_deposit || ""} onChange={e => handleColFilterChange("pending_deposit", e.target.value)} /></td>
+<td className="p-1.5">
+  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
+    <option value="">All</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+</td>
                       </tr>
                     </>
                   )}
@@ -1277,7 +2655,7 @@ const handlePrint = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {paginatedData.map((row: any, index: number) => {
                     const zebraBg = index % 2 === 1 ? "bg-slate-50/30 dark:bg-slate-900/10" : "";
-                    
+
                     return (
                       <tr key={index} className={`hover:bg-[#f1f5f9]/40 dark:hover:bg-slate-800/40 transition-colors ${zebraBg}`}>
                         {activeTab === "enquiry" && (
@@ -1296,8 +2674,8 @@ const handlePrint = () => {
                                 row.status === "converted"
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
                                   : row.status === "new"
-                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
-                                  : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none font-semibold text-[10px]"
+                                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
+                                    : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none font-semibold text-[10px]"
                               }>
                                 {row.status}
                               </Badge>
@@ -1316,10 +2694,14 @@ const handlePrint = () => {
                             <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
                             <td className="p-3 text-slate-600 font-bold">{row.bed_number || "—"}</td>
                             <td className="p-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
-                              ₹{(row.rent_per_bed || 0).toLocaleString("en-IN")}
+                              {row.is_couple_booking && !row.room_number
+                                ? <span className="text-[10px] italic text-slate-400 font-normal">Shared w/ partner</span>
+                                : `₹${(row.rent_per_bed || 0).toLocaleString("en-IN")}`}
                             </td>
                             <td className="p-3 text-right font-mono text-slate-500">
-                              ₹{(row.security_deposit || 0).toLocaleString("en-IN")}
+                              {row.is_couple_booking && !row.room_number
+                                ? <span className="text-[10px] italic text-slate-400 font-normal">Shared w/ partner</span>
+                                : `₹${(row.security_deposit || 0).toLocaleString("en-IN")}`}
                             </td>
                             <td className="p-3 text-center">
                               <Badge className={
@@ -1360,8 +2742,8 @@ const handlePrint = () => {
                                 row.status === "Fully Occupied"
                                   ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[10px]"
                                   : row.status === "Partially Occupied"
-                                  ? "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
-                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
                               }>
                                 {row.status}
                               </Badge>
@@ -1471,8 +2853,8 @@ const handlePrint = () => {
                             <td className="p-3 text-center">
                               <Badge className={
                                 row.asset_status === "available"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
-                                    : row.asset_status === "assigned" || row.asset_status === "allocated"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                  : row.asset_status === "assigned" || row.asset_status === "allocated"
                                     ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-none font-semibold text-[10px]"
                                     : "bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[10px]"
                               }>
@@ -1485,8 +2867,16 @@ const handlePrint = () => {
                         {activeTab === "payment" && (
                           <>
                             <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
-                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
-                            <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
+                            <td className="p-3 text-slate-700 font-semibold">
+                              {row.has_own_bed_assignment === false && row.is_couple_booking
+                                ? <span className="text-slate-400 italic text-[10px]">Shared with partner</span>
+                                : (row.property_name || "—")}
+                            </td>
+                            <td className="p-3 text-slate-600 font-bold">
+                              {row.has_own_bed_assignment === false && row.is_couple_booking
+                                ? <span className="text-slate-400 italic text-[10px]">—</span>
+                                : (row.room_number || "—")}
+                            </td>
                             <td className="p-3 text-slate-500 font-mono">{row.transaction_id || "—"}</td>
                             <td className="p-3 text-right font-mono font-bold text-emerald-600">
                               ₹{Number(row.amount || 0).toLocaleString("en-IN")}
@@ -1495,8 +2885,8 @@ const handlePrint = () => {
                             <td className="p-3 text-center">
                               <Badge className={
                                 row.status === "approved" || row.status === "paid"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
-                                    : "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none font-semibold text-[10px]"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200 shadow-none font-semibold text-[10px]"
                               }>
                                 {row.status}
                               </Badge>
@@ -1537,6 +2927,76 @@ const handlePrint = () => {
                             <td className="p-3 text-right font-mono font-semibold text-slate-800">{row.margin}</td>
                           </>
                         )}
+                        {activeTab === "tenant_payment" && (
+                          <>
+                            <td className="p-3 text-center text-slate-500">{(currentPage - 1) * (showAll ? 0 : pageSize) + index + 1}</td>
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100 align-top">
+  <div className="flex flex-col gap-1">
+    <span>{row.full_name}</span>
+    {row.is_vacated && (
+      <Badge className="w-fit bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[9px]">
+        Vacated{row.vacated_date ? ` ${format(new Date(row.vacated_date), "d/M/yyyy")}` : ""}
+      </Badge>
+    )}
+  </div>
+</td>
+                            <td className="p-3 text-slate-600 font-bold whitespace-nowrap">{row.room_number || "—"}/{row.bed_number || "—"}</td>
+                            {(() => {
+                              const shared = row.has_own_bed_assignment === false && row.is_couple_booking;
+                              const sharedNote = (
+                                <span className="text-slate-400 italic text-[10px]">
+                                  Shared with {row.partner_full_name || "partner"}
+                                </span>
+                              );
+                              return (
+                                <>
+                                  <td className="p-3 text-right font-mono text-slate-700">
+                                    {shared ? sharedNote : <>₹{Number(row.monthly_rent || 0).toLocaleString("en-IN")}</>}
+                                  </td>
+                                  <td className="p-3 text-center text-slate-600">{row.months_since_joining || 0}</td>
+                                  <td className="p-3 text-right font-mono text-slate-700">
+                                    {shared ? sharedNote : <>₹{Number(row.expected_rent || 0).toLocaleString("en-IN")}</>}
+                                  </td>
+                                  <td className="p-3 text-right font-mono font-semibold text-emerald-600">₹{Number(row.total_rent_paid || 0).toLocaleString("en-IN")}</td>
+                                  <td className="p-3 text-right font-mono font-semibold text-amber-600">
+                                    {shared ? sharedNote : <>₹{Number(row.pending_rent || 0).toLocaleString("en-IN")}</>}
+                                  </td>
+                                  <td className="p-3">
+                                    {shared ? sharedNote : (
+                                      <div className="flex items-center gap-2 min-w-[90px]">
+                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full ${row.collection_rate >= 100 ? "bg-emerald-500" : row.collection_rate >= 80 ? "bg-blue-600" : row.collection_rate >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
+                                            style={{ width: `${Math.min(100, row.collection_rate || 0)}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-[11px] font-semibold text-slate-600 shrink-0">{row.collection_rate || 0}%</span>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right font-mono text-slate-700">
+                                    {shared ? sharedNote : <>₹{Number(row.security_deposit || 0).toLocaleString("en-IN")}</>}
+                                  </td>
+                                  <td className="p-3 text-right font-mono text-slate-700">₹{Number(row.total_deposit_paid || 0).toLocaleString("en-IN")}</td>
+                                  <td className="p-3 text-right font-mono text-amber-600">
+                                    {shared ? sharedNote : <>₹{Number(row.pending_deposit || 0).toLocaleString("en-IN")}</>}
+                                  </td>
+                                </>
+                              );
+                            })()}
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.is_vacated
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-none text-[10px] font-semibold"
+                                  : row.is_active
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px] font-semibold"
+                                    : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none text-[10px] font-semibold"
+                              }>
+                               {row.is_vacated ? "Vacated" : row.is_active ? "Active" : "Inactive"}
+                              </Badge>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -1545,167 +3005,1107 @@ const handlePrint = () => {
             </div>
           )}
         </div>
-      </Card>
-      
-      {/* Table footer / Pagination - Hidden on print */}
-      {!loading && totalRecords > 0 && (
-        <div className="p-3 bg-white border border-slate-200 dark:border-slate-800 dark:bg-slate-900 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-slate-500">
-              Showing {(currentPage - 1) * pageSize + 1} to{" "}
-              {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} entries
-            </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500">
-              <span>Show</span>
-              <select 
-                value={pageSize} 
-                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                className="h-7 text-xs border border-slate-200 rounded px-1 w-16 bg-white"
-              >
-                <option value={10}>10</option>
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span>entries</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="h-7 text-xs bg-white border border-slate-200"
-            >
-              Previous
-            </Button>
-            {Array.from({ length: Math.min(totalPages, 5) }).map((_, idx) => {
-              const pageNum = idx + 1;
-              return (
-                <Button
-                  key={pageNum}
-                  variant={currentPage === pageNum ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`h-7 w-7 text-xs ${
-                    currentPage === pageNum
-                      ? "bg-[#1e3b8b] hover:bg-[#152960] text-white"
-                      : "bg-white border border-slate-200 text-slate-700"
-                  }`}
-                >
-                  {pageNum}
-                </Button>
-              );
-            })}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="h-7 text-xs bg-white border border-slate-200"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
 
-      {/* 📋 FILTER SIDEBAR PANEL (Matching your 2nd screenshot layout) */}
-      {sidebarOpen && (
+        {/* Table footer / Pagination - Hidden on print */}
+        {!loading && totalRecords > 0 && (
+          <div className="shrink-0 p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden flex-wrap">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="text-xs text-slate-500">
+                {showAll
+                  ? `Showing all ${totalRecords} entries`
+                  : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, totalRecords)} of ${totalRecords} entries`}
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <span>Show</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  className="h-7 text-xs border border-slate-200 rounded px-1 w-20 bg-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={-1}>All</option>
+                </select>
+                <span>entries</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="h-7 text-xs bg-white border border-slate-200"
+              >
+                Previous
+              </Button>
+              {Array.from({ length: Math.min(totalPages, 5) }).map((_, idx) => {
+                const pageNum = idx + 1;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`h-7 w-7 text-xs ${currentPage === pageNum
+                        ? "bg-[#1e3b8b] hover:bg-[#152960] text-white"
+                        : "bg-white border border-slate-200 text-slate-700"
+                      }`}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="h-7 text-xs bg-white border border-slate-200"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* 📋 FILTER SIDEBAR PANEL (Matching your 2nd screenshot layout) — portaled to <body> so it always spans the true viewport, regardless of any transformed ancestor in the admin layout */}
+      {mounted && sidebarOpen && createPortal(
         <>
           {/* Backdrop overlay */}
-          <div 
+          <div
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/40 z-40 transition-opacity animate-in fade-in duration-200 print:hidden" 
+            className="fixed inset-0 bg-black/40 z-[39] transition-opacity animate-in fade-in duration-200 print:hidden"
           />
           {/* Sidebar Drawer Container */}
-          <div className="fixed inset-y-0 right-0 z-50 w-80 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out transform translate-x-0 animate-in slide-in-from-right duration-200 print:hidden">
-            
-            <div>
-              {/* Header: Solid Deep Blue with white text, Close button */}
-              <div className="flex items-center justify-between bg-[#1e3b8b] p-4 text-white">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-white" />
-                  <h3 className="text-sm font-bold tracking-wide uppercase">Filter Reports</h3>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setSidebarOpen(false)}
-                  className="h-8 w-8 text-white hover:text-slate-200 hover:bg-white/10 rounded-full"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+          <div className="fixed inset-y-0 right-0 z-[40] w-full max-w-[22rem] sm:w-80 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out transform translate-x-0 animate-in slide-in-from-right duration-200 print:hidden">
+
+            {/* Header: Solid Deep Blue with white text, Close button */}
+            <div className="flex items-center justify-between bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] p-4 text-white shrink-0">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-white" />
+                <h3 className="text-sm font-bold tracking-wide uppercase">Filter Reports</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(false)}
+                className="h-8 w-8 text-white hover:text-slate-200 hover:bg-white/10 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Sidebar Content Form Fields */}
+            <div className="flex-1 min-h-0 p-4 space-y-4 overflow-y-auto">
+
+              {/* Select Property */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-blue-750 font-semibold flex items-center gap-1.5">
+                  Property
+                </Label>
+                <Select value={tempPropertyId} onValueChange={setTempPropertyId}>
+                  <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                    <SelectValue placeholder={propertiesLoading ? "Loading properties..." : "All Properties"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {properties.map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!propertiesLoading && properties.length === 0 && (
+                  <p className="text-[10px] text-amber-600">No properties found for your account.</p>
+                )}
               </div>
 
-              {/* Sidebar Content Form Fields */}
-              <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-140px)]">
-                
-                {/* Select Property */}
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-blue-755 font-semibold flex items-center gap-1.5">
+                  Start Date
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    value={tempStartDate}
+                    onChange={(e) => setTempStartDate(e.target.value)}
+                    className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700"
+                  />
+                </div>
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-blue-755 font-semibold flex items-center gap-1.5">
+                  End Date
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    value={tempEndDate}
+                    onChange={(e) => setTempEndDate(e.target.value)}
+                    className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700"
+                  />
+                </div>
+              </div>
+
+              {/* ────────────────── DATE FIELDS SELECTOR ────────────────── */}
+              {activeTab === "tenant" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
-                    Property
-                  </Label>
-                  <Select value={tempPropertyId} onValueChange={setTempPropertyId}>
+                  <Label className="text-xs text-blue-755 font-semibold">Filter Date by</Label>
+                  <Select value={tempDateType} onValueChange={setTempDateType}>
                     <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
-                      <SelectValue placeholder={propertiesLoading ? "Loading properties..." : "All Properties"} />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Properties</SelectItem>
-                      {properties.map((p) => (
-                        <SelectItem key={p.id} value={p.id.toString()}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="default">Check-in Date (Default)</SelectItem>
+                      <SelectItem value="created">Profile Created Date</SelectItem>
                     </SelectContent>
                   </Select>
-                  {!propertiesLoading && properties.length === 0 && (
-                    <p className="text-[10px] text-amber-600">No properties found for your account.</p>
-                  )}
                 </div>
-
-                {/* Start Date */}
+              )}
+              {activeTab === "vacancy" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
-                    Start Date
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      value={tempStartDate}
-                      onChange={(e) => setTempStartDate(e.target.value)}
-                      className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700 pr-10"
-                    />
-                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
+                  <Label className="text-xs text-blue-755 font-semibold">Filter Date by</Label>
+                  <Select value={tempDateType} onValueChange={setTempDateType}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Requested Vacate Date (Default)</SelectItem>
+                      <SelectItem value="notice">Notice Given Date</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-
-                {/* End Date */}
+              )}
+              {activeTab === "visitor" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
-                    End Date
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      value={tempEndDate}
-                      onChange={(e) => setTempEndDate(e.target.value)}
-                      className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700 pr-10"
-                    />
-                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
+                  <Label className="text-xs text-blue-755 font-semibold">Filter Date by</Label>
+                  <Select value={tempDateType} onValueChange={setTempDateType}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Entry Time (Default)</SelectItem>
+                      <SelectItem value="exit">Exit Time</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              )}
+              {activeTab === "expense" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-755 font-semibold">Filter Date by</Label>
+                  <Select value={tempDateType} onValueChange={setTempDateType}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Expense Date (Default)</SelectItem>
+                      <SelectItem value="created">Voucher Creation Date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              </div>
+              {/* ────────────────── TAB SPECIFIC DYNAMIC FIELDS ────────────────── */}
+              {activeTab === "enquiry" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Enquiry Source</Label>
+                    <Select value={tempEnquirySource} onValueChange={setTempEnquirySource}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        <SelectItem value="portal">Portal</SelectItem>
+                        <SelectItem value="website">Website</SelectItem>
+                        <SelectItem value="walk-in">Walk-in</SelectItem>
+                        <SelectItem value="phone">Phone Call</SelectItem>
+                        <SelectItem value="referral">Referral</SelectItem>
+                        <SelectItem value="social_media">Social Media</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Enquiry Status</Label>
+                    <Select value={tempEnquiryStatus} onValueChange={setTempEnquiryStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="new">New Enquiry</SelectItem>
+                        <SelectItem value="followup">Followup</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="converted">Converted</SelectItem>
+                        <SelectItem value="closed">Closed / Dead</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Assigned Staff</Label>
+                    <Select value={tempAssignedStaff} onValueChange={setTempAssignedStaff}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Staff</SelectItem>
+                        {staffList.map((s: any) => (
+                          <SelectItem key={s.id} value={s.name}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Move-in Start</Label>
+                      <Input type="date" value={tempMoveInStart} onChange={e => setTempMoveInStart(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Move-in End</Label>
+                      <Input type="date" value={tempMoveInEnd} onChange={e => setTempMoveInEnd(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Budget (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Budget (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "tenant" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Booking Type</Label>
+                    <Select value={tempIsCouple} onValueChange={setTempIsCouple}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Bookings</SelectItem>
+                        <SelectItem value="single">Single Booking Only</SelectItem>
+                        <SelectItem value="couple">Couple Booking Only</SelectItem>
+                        <SelectItem value="reassigned">Reassigned Tenants Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Tenant Status</Label>
+                    <Select value={tempTenantStatus} onValueChange={setTempTenantStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Tenants</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="vacated">Vacated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Refund Status</Label>
+                    <Select value={tempRefundStatus} onValueChange={setTempRefundStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="not_applicable">Not Applicable</SelectItem>
+                        <SelectItem value="pending">Refund Pending</SelectItem>
+                        <SelectItem value="completed">Refund Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Rent Payment Status</Label>
+                    <Select value={tempRentStatus} onValueChange={setTempRentStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Tenants</SelectItem>
+                        <SelectItem value="paid">Rent Paid in Full</SelectItem>
+                        <SelectItem value="arrears">Has Rent Arrears (Defaulter)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Deposit Payment Status</Label>
+                    <Select value={tempDepositStatus} onValueChange={setTempDepositStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Deposits</SelectItem>
+                        <SelectItem value="paid">Deposit Paid in Full</SelectItem>
+                        <SelectItem value="arrears">Has Pending Deposit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500 font-semibold">Gender</Label>
+                      <Select value={tempGender} onValueChange={setTempGender}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Genders</SelectItem>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500 font-semibold">Occupation</Label>
+                      <Select value={tempOccupation} onValueChange={setTempOccupation}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Occupations</SelectItem>
+                          {occupationCategories.map((occ) => (
+                            <SelectItem key={occ.value} value={occ.value}>
+                              {occ.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">Joined Recently</Label>
+                      <Select value={tempJoinedRecently} onValueChange={setTempJoinedRecently}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="7">Last 7 Days</SelectItem>
+                          <SelectItem value="30">Last 30 Days</SelectItem>
+                          <SelectItem value="90">Last 90 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">Vacated Recently</Label>
+                      <Select value={tempVacatedRecently} onValueChange={setTempVacatedRecently}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="7">Last 7 Days</SelectItem>
+                          <SelectItem value="30">Last 30 Days</SelectItem>
+                          <SelectItem value="90">Last 90 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Portal Access</Label>
+                    <Select value={tempPortalAccess} onValueChange={setTempPortalAccess}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="enabled">Enabled</SelectItem>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">City Location</Label>
+                    <Select value={tempCity} onValueChange={setTempCity}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Cities</SelectItem>
+                        {getMasterValuesByName(commonMasters, "Cities").map((c) => (
+                          <SelectItem key={c.id} value={c.name}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Monthly Rent (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Monthly Rent (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Sec. Deposit (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinDeposit} onChange={e => setTempMinDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Sec. Deposit (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxDeposit} onChange={e => setTempMaxDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Pending Rent (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinPendingRent} onChange={e => setTempMinPendingRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Pending Rent (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxPendingRent} onChange={e => setTempMaxPendingRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Pending Dep. (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinPendingDeposit} onChange={e => setTempMinPendingDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Pending Dep. (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxPendingDeposit} onChange={e => setTempMaxPendingDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "tenant_payment" && (
+  <div className="space-y-1.5">
+    <Label className="text-xs text-blue-755 font-semibold">Tenant Status</Label>
+    <Select value={tempTenantStatus} onValueChange={setTempTenantStatus}>
+      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Tenants</SelectItem>
+        <SelectItem value="active">Active</SelectItem>
+        <SelectItem value="inactive">Inactive</SelectItem>
+        <SelectItem value="vacated">Vacated</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+)}
+
+              {activeTab === "property" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">City Location</Label>
+                    <Select value={tempCity} onValueChange={setTempCity}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Cities</SelectItem>
+                        {getMasterValuesByName(commonMasters, "Cities").map((city) => (
+                          <SelectItem key={city.id} value={city.id.toString()}>
+                            {city.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">State</Label>
+                   <Select value={tempState} onValueChange={setTempState}>
+  <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All States</SelectItem>
+    {getMasterValuesByName(commonMasters, "States").map((st) => (
+      <SelectItem key={st.id} value={st.name.toLowerCase()}>
+        {st.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Occupancy (%)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinOccupancy} onChange={e => setTempMinOccupancy(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Occupancy (%)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxOccupancy} onChange={e => setTempMaxOccupancy(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Revenue (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRevenue} onChange={e => setTempMinRevenue(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Revenue (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRevenue} onChange={e => setTempMaxRevenue(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "room" && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">Sharing Type</Label>
+                      <Select value={tempSharingType} onValueChange={setTempSharingType}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Sharing</SelectItem>
+                          {getMasterValuesByName(roomsMasters, "Sharing Type").map((type) => (
+                            <SelectItem key={type.id} value={type.name.toLowerCase()}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">Occupancy</Label>
+                      <Select value={tempOccupancyStatus} onValueChange={setTempOccupancyStatus}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Rooms</SelectItem>
+                          <SelectItem value="vacant">Fully Vacant Room</SelectItem>
+                          <SelectItem value="partially">Partially Occupied</SelectItem>
+                          <SelectItem value="fully">Fully Occupied Room</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Gender Preference</Label>
+                    <Select value={tempRoomGender} onValueChange={setTempRoomGender}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Room Preferences</SelectItem>
+                        <SelectItem value="male_only">Male</SelectItem>
+                        <SelectItem value="female_only">Female</SelectItem>
+                        <SelectItem value="couples">Couples</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Bed Availability</Label>
+                    <Select value={tempBedAvailability} onValueChange={setTempBedAvailability}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Beds</SelectItem>
+                        <SelectItem value="fully_vacant">Fully Vacant Rooms</SelectItem>
+                        <SelectItem value="fully_occupied">Fully Occupied Rooms</SelectItem>
+                        <SelectItem value="exactly_1_free">Rooms with 1 Bed Free</SelectItem>
+                        <SelectItem value="exactly_2_free">Rooms with 2 Beds Free</SelectItem>
+                        <SelectItem value="has_vacancy">Has Vacancy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">AC Type</Label>
+                      <Select value={tempAcStatus} onValueChange={setTempAcStatus}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="ac">AC Rooms Only</SelectItem>
+                          <SelectItem value="non_ac">Non-AC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-blue-755 font-semibold">Bathroom</Label>
+                      <Select value={tempBathroomStatus} onValueChange={setTempBathroomStatus}>
+                        <SelectTrigger className="w-full bg-slate-50/50 text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="attached">Attached Bathroom</SelectItem>
+                          <SelectItem value="shared">Shared / Common</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Floor</Label>
+                    <Select value={tempFloor} onValueChange={setTempFloor}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Floors</SelectItem>
+                        {Array.from(new Set(reportData.map(r => r.floor).filter(v => v !== null && v !== undefined))).sort().map((fl: any) => (
+                          <SelectItem key={fl} value={fl.toString()}>
+                            {fl}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Bed Rent (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Bed Rent (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "visitor" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Visitor Status</Label>
+                    <Select value={tempVisitorStatus} onValueChange={setTempVisitorStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Visitors</SelectItem>
+                        <SelectItem value="checked_in">Checked In</SelectItem>
+                        <SelectItem value="checked_out">Checked Out</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Blocked Status</Label>
+                    <Select value={tempIsBlocked} onValueChange={setTempIsBlocked}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Visitors</SelectItem>
+                        <SelectItem value="blocked">Blocked Visitors Only</SelectItem>
+                        <SelectItem value="allowed">Allowed Visitors Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Purpose</Label>
+                    <Select value={tempPurpose} onValueChange={setTempPurpose}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Purposes</SelectItem>
+                        {Array.from(new Set(reportData.map(r => r.purpose).filter(Boolean))).map((p: any) => (
+                          <SelectItem key={p} value={p.toLowerCase()}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "vacancy" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Vacate Reason</Label>
+                    <Select value={tempVacateReason} onValueChange={setTempVacateReason}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Reasons</SelectItem>
+                        {getMasterValuesByName(roomsMasters, "Vacate Reason").map((reason) => (
+                          <SelectItem key={reason.id} value={reason.name}>
+                            {reason.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Booking Type at Vacate</Label>
+                    <Select value={tempBookingTypeAtVacate} onValueChange={setTempBookingTypeAtVacate}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="single">Single Booking Only</SelectItem>
+                        <SelectItem value="couple">Was Couple Booking</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Stay Duration</Label>
+                    <Select value={tempStayDuration} onValueChange={setTempStayDuration}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="under_6">Under 6 Months</SelectItem>
+                        <SelectItem value="6_12">6 to 12 Months</SelectItem>
+                        <SelectItem value="over_12">Over 12 Months</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Penalty Status</Label>
+                    <Select value={tempPenaltyStatus} onValueChange={setTempPenaltyStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Vacated Rows</SelectItem>
+                        <SelectItem value="with_penalty">Penalty Charged (&gt; ₹0)</SelectItem>
+                        <SelectItem value="no_penalty">Zero Penalty Charged</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Refund (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Refund (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Sec. Deposit (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinSecurityDeposit} onChange={e => setTempMinSecurityDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Sec. Deposit (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxSecurityDeposit} onChange={e => setTempMaxSecurityDeposit(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "expense" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Vendor Name</Label>
+                    <Select value={tempVendorName} onValueChange={setTempVendorName}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Vendors</SelectItem>
+                        {getMasterValuesByName(commonMasters, "Vendors").map((v) => (
+                          <SelectItem key={v.id} value={v.name}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Payment Status</Label>
+                    <Select value={tempExpenseStatus} onValueChange={setTempExpenseStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Expenses</SelectItem>
+                        <SelectItem value="Paid">Fully Paid</SelectItem>
+                        <SelectItem value="Partial">Partially Paid</SelectItem>
+                        <SelectItem value="Unpaid">Unpaid / Due</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Expense Category</Label>
+                    <Select value={tempExpenseCategory} onValueChange={setTempExpenseCategory}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {expenseCategories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Sub-Category</Label>
+                    <Select value={tempExpenseSubcategory} onValueChange={setTempExpenseSubcategory}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Subcategories</SelectItem>
+                        {Array.from(new Set(reportData.map(r => r.subcategory_name).filter(Boolean))).map((sub: any) => (
+                          <SelectItem key={sub} value={sub}>
+                            {sub}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Payment Mode</Label>
+                    <Select value={tempPaymentMode} onValueChange={setTempPaymentMode}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Modes</SelectItem>
+                        {paymentMethods.map((mode) => (
+                          <SelectItem key={mode.id} value={mode.name.toLowerCase()}>
+                            {mode.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Amount (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Amount (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "inventory" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Asset Status</Label>
+                    <Select value={tempAssetStatus} onValueChange={setTempAssetStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assets</SelectItem>
+                        <SelectItem value="available">Available in Stock</SelectItem>
+                        <SelectItem value="assigned">Assigned / Allocated</SelectItem>
+                        <SelectItem value="damaged">Damaged Asset</SelectItem>
+                        <SelectItem value="repair">Under Repair</SelectItem>
+                        <SelectItem value="lost">Lost / Misplaced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Item Category</Label>
+                    <Select value={tempItemCategory} onValueChange={setTempItemCategory}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {Array.from(new Set(reportData.map(r => r.category_name).filter(Boolean))).map((cat: any) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Price (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Price (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "payment" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Payment Type</Label>
+                    <Select value={tempPaymentType} onValueChange={setTempPaymentType}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Payments</SelectItem>
+                        <SelectItem value="rent">Rent</SelectItem>
+                        <SelectItem value="security_deposit">Security Deposit</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Payment Status</Label>
+                    <Select value={tempPaymentStatus} onValueChange={setTempPaymentStatus}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Payment Mode</Label>
+                    <Select value={tempPaymentMode} onValueChange={setTempPaymentMode}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Modes</SelectItem>
+                        {paymentMethods.map((mode) => (
+                          <SelectItem key={mode.id} value={mode.name.toLowerCase()}>
+                            {mode.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Select Tenant</Label>
+                    <Select value={tempPaymentTenant} onValueChange={setTempPaymentTenant}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Tenants</SelectItem>
+                        {Array.from(new Set(reportData.map(r => r.tenant_name).filter(Boolean))).map((name: any) => (
+                          <SelectItem key={name} value={name}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Source</Label>
+                    <Select value={tempPaymentSource} onValueChange={setTempPaymentSource}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="tenant">Tenant</SelectItem>
+                        <SelectItem value="booking">Booking</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Amount (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Amount (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "login" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-755 font-semibold">Login Role</Label>
+                  <Select value={tempLoginRole} onValueChange={setTempLoginRole}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin / Staff</SelectItem>
+                      <SelectItem value="tenant">Tenant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {activeTab === "revenue" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-blue-755 font-semibold">Revenue Type</Label>
+                    <Select value={tempRevenueType} onValueChange={setTempRevenueType}>
+                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Revenues</SelectItem>
+                        <SelectItem value="rent">Rent Only</SelectItem>
+                        <SelectItem value="deposit">Deposit Only</SelectItem>
+                        <SelectItem value="maintenance">Maintenance Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-t pt-2 border-slate-100">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Monthly Profit (₹)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinRent} onChange={e => setTempMinRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Monthly Profit (₹)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxRent} onChange={e => setTempMaxRent(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Min Margin (%)</Label>
+                      <Input type="number" placeholder="Min" value={tempMinMargin} onChange={e => setTempMinMargin(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-slate-500 font-semibold">Max Margin (%)</Label>
+                      <Input type="number" placeholder="Max" value={tempMaxMargin} onChange={e => setTempMaxMargin(e.target.value)} className="bg-slate-50/50 text-xs h-9" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Bottom Actions footer */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 flex items-center justify-between gap-3">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 flex items-center justify-between gap-3 shrink-0">
               <Button
                 variant="outline"
                 onClick={handleResetFilters}
-                className="flex-1 border-slate-200 text-slate-700 bg-white hover:bg-slate-400 text-xs h-9 rounded-md flex items-center justify-center gap-1.5 font-semibold"
+                className="flex-1 border-slate-200 text-slate-700 bg-white hover:bg-slate-500 text-xs h-9 rounded-md flex items-center justify-center gap-1.5 font-semibold"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Reset
@@ -1717,12 +4117,14 @@ const handlePrint = () => {
                 Apply
               </Button>
             </div>
-            
+
           </div>
-        </>
+        </>,
+        document.body
       )}
-      
+
       {/* ⚠️ MODERN CSS PRINT STYLING INJECTION (Produces exact print preview style with logo, metadata line, watermark) */}
+      {/* @ts-ignore */}
       <style jsx global>{`
         /* Bordered, compact grid table for all report tabs — applies on screen only.
            Because every tab renders its own <th>/<td> markup, we style them via
@@ -1737,6 +4139,13 @@ const handlePrint = () => {
           border: 1px solid #e2e8f0;
           padding: 6px 10px !important;
         }
+          .scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
         .report-table thead th {
           background-color: #f8fafc;
         }
