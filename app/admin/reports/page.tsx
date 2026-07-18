@@ -53,7 +53,7 @@ import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
 import { consumeMasters } from "@/lib/masterApi";
 import { occupationCategories } from "@/lib/occupation-data";
-import { getAllMappings } from "@/lib/categorySubcategoryMapApi";
+import { getAllMappings, getSubcategoriesByCategory } from "@/lib/categorySubcategoryMapApi";
 import { getStaffList } from "@/lib/adminApi";
 
 interface TabConfig {
@@ -63,6 +63,7 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
+  { id: "overview", label: "Overview", icon: TrendingUp },
   { id: "enquiry", label: "Enquiry Report", icon: FileText },
   { id: "tenant", label: "Tenant Report", icon: Users },
   { id: "tenant_payment", label: "Tenant Payment Report", icon: IndianRupee },
@@ -114,10 +115,14 @@ export function buildWatermarkHTML(orgName: string) {
 export default function ReportsPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("enquiry");
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Sidebar State
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [expenseSubcategoryOptions, setExpenseSubcategoryOptions] = useState<any[]>([]);
+
+  const [ignoreDate, setIgnoreDate] = useState(false);
+  const [tempIgnoreDate, setTempIgnoreDate] = useState(false);
 
   // Active/Applied Filters (Used for API calls)
   const [startDate, setStartDate] = useState<string>(
@@ -188,8 +193,9 @@ export default function ReportsPage() {
   const [penaltyStatus, setPenaltyStatus] = useState<string>("all");
   const [tempPenaltyStatus, setTempPenaltyStatus] = useState<string>("all");
 
-  const [expenseCategory, setExpenseCategory] = useState<string>("all");
+ const [expenseCategory, setExpenseCategory] = useState<string>("all");
   const [tempExpenseCategory, setTempExpenseCategory] = useState<string>("all");
+  const [tempExpenseCategoryId, setTempExpenseCategoryId] = useState<string>("all");
   const [paymentMode, setPaymentMode] = useState<string>("all");
   const [tempPaymentMode, setTempPaymentMode] = useState<string>("all");
 
@@ -221,6 +227,7 @@ export default function ReportsPage() {
   const [tempCity, setTempCity] = useState<string>("all");
 
   const [mounted, setMounted] = useState(false);
+  const [chartTooltip, setChartTooltip] = useState<{ x: number; label: string; revenue: number; expenses: number; profit: number; rent?: number; deposit?: number; refund?: number } | null>(null);
   useEffect(() => { setMounted(true); }, []);
 
   // New Sidebar Filters States
@@ -335,6 +342,27 @@ export default function ReportsPage() {
   });
 
   useEffect(() => {
+  if (tempExpenseCategoryId === "all") {
+    setExpenseSubcategoryOptions([]);
+    return;
+  }
+  const fetchSubs = async () => {
+    try {
+      const res = await getSubcategoriesByCategory(tempExpenseCategoryId);
+      const subs = (res?.data || []).map((s: any) => ({
+        id: String(s.subcategory_id),
+        name: s.subcategory_name,
+      }));
+      setExpenseSubcategoryOptions(subs);
+    } catch (err) {
+      console.error("Failed to fetch subcategories:", err);
+      setExpenseSubcategoryOptions([]);
+    }
+  };
+  fetchSubs();
+}, [tempExpenseCategoryId]);
+
+  useEffect(() => {
     (async () => {
       try {
         const settings: any = await getSettings();
@@ -378,22 +406,22 @@ export default function ReportsPage() {
 
   // Fetch staff list for enquiry assigned-staff filter
   useEffect(() => {
-  getStaffList()
-    .then((res) => {
-      console.log("STAFF LIST RAW RESPONSE:", res); // 👈 temporary debug line
-      const list = Array.isArray(res) ? res
-        : Array.isArray(res?.data) ? res.data
-        : Array.isArray(res?.data?.staff) ? res.data.staff
-        : Array.isArray(res?.staff) ? res.staff
-        : Array.isArray(res?.results) ? res.results
-        : [];
-      setStaffList(list);
-    })
-    .catch((err) => {
-      console.error("Failed to load staff list:", err);
-      setStaffList([]);
-    });
-}, []);
+    getStaffList()
+      .then((res) => {
+
+        const list = Array.isArray(res) ? res
+          : Array.isArray(res?.data) ? res.data
+            : Array.isArray(res?.data?.staff) ? res.data.staff
+              : Array.isArray(res?.staff) ? res.staff
+                : Array.isArray(res?.results) ? res.results
+                  : [];
+        setStaffList(list);
+      })
+      .catch((err) => {
+        console.error("Failed to load staff list:", err);
+        setStaffList([]);
+      });
+  }, []);
 
   // Master states
   const [commonMasters, setCommonMasters] = useState<Record<string, any[]>>({});
@@ -559,6 +587,7 @@ export default function ReportsPage() {
     setTempRevenueType("all");
     setTempMinMargin("");
     setTempMaxMargin("");
+    setTempIgnoreDate(false);
 
     // Clear active
     setStartDate(resetStart);
@@ -630,6 +659,7 @@ export default function ReportsPage() {
     setRevenueType("all");
     setMinMargin("");
     setMaxMargin("");
+    setIgnoreDate(false);
   }, [activeTab]);
 
   // Fetch report data when active applied filters or tab change
@@ -637,12 +667,15 @@ export default function ReportsPage() {
     setLoading(true);
     setCurrentPage(1);
     setColFilters({});
+    const effectiveStart = ignoreDate ? "2000-01-01" : startDate;
+    const effectiveEnd = ignoreDate ? "2100-12-31" : endDate;
     try {
       const response = await reportApi.getReportData(activeTab, {
-        startDate,
-        endDate,
+        startDate: effectiveStart,
+        endDate: effectiveEnd,
         propertyId,
         dateType,
+        ignoreDate: ignoreDate ? "true" : "false",
       });
 
       if (response.success) {
@@ -694,7 +727,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReportDetails();
-  }, [activeTab, startDate, endDate, propertyId, dateType]);
+  }, [activeTab, startDate, endDate, propertyId, dateType, ignoreDate]);
 
   // Open filter sidebar and sync current state
   const handleOpenFilters = () => {
@@ -721,7 +754,9 @@ export default function ReportsPage() {
     setTempIsBlocked(isBlocked);
     setTempVacateReason(vacateReason);
     setTempPenaltyStatus(penaltyStatus);
-    setTempExpenseCategory(expenseCategory);
+   setTempExpenseCategory(expenseCategory);
+    const activeCat = expenseCategories.find((c: any) => c.name === expenseCategory);
+    setTempExpenseCategoryId(expenseCategory === "all" ? "all" : (activeCat ? String(activeCat.id) : "all"));
     setTempPaymentMode(paymentMode);
     setTempCommChannel(commChannel);
     setTempCommStatus(commStatus);
@@ -767,6 +802,7 @@ export default function ReportsPage() {
     setTempRevenueType(revenueType);
     setTempMinMargin(minMargin);
     setTempMaxMargin(maxMargin);
+    setTempIgnoreDate(ignoreDate);
 
     setSidebarOpen(true);
   };
@@ -842,6 +878,8 @@ export default function ReportsPage() {
     setRevenueType(tempRevenueType);
     setMinMargin(tempMinMargin);
     setMaxMargin(tempMaxMargin);
+    setIgnoreDate(tempIgnoreDate);
+
 
     setSidebarOpen(false);
   };
@@ -876,6 +914,7 @@ export default function ReportsPage() {
     setTempVacateReason("all");
     setTempPenaltyStatus("all");
     setTempExpenseCategory("all");
+    setTempExpenseCategoryId("all");
     setTempPaymentMode("all");
     setTempCommChannel("all");
     setTempCommStatus("all");
@@ -992,6 +1031,9 @@ export default function ReportsPage() {
     setRevenueType("all");
     setMinMargin("");
     setMaxMargin("");
+    setIgnoreDate(false);
+    setTempIgnoreDate(false);
+
 
     setSidebarOpen(false);
   };
@@ -1160,6 +1202,9 @@ export default function ReportsPage() {
       if (city !== "all") {
         result = result.filter(r => String(r.city_id) === city);
       }
+       if (state !== "all") {
+    result = result.filter(r => String(r.state) === state);
+  }
       if (minOccupancy) {
         result = result.filter(r => parseFloat(r.occupancy_rate || 0) >= parseFloat(minOccupancy));
       }
@@ -1172,23 +1217,21 @@ export default function ReportsPage() {
       if (maxRevenue) {
         result = result.filter(r => parseFloat(r.total_revenue || 0) <= parseFloat(maxRevenue));
       }
-      if (state !== "all") {
-        result = result.filter(r => r.state?.toLowerCase() === state.toLowerCase());
-      }
+      
     }
 
     if (activeTab === "tenant_payment") {
-  if (tenantStatus !== "all") {
-    result = result.filter(r => {
-      const isActive = r.is_active === 1 || r.is_active === true;
-      const isVacated = r.is_vacated === 1 || r.is_vacated === true;
-      if (tenantStatus === "active") return isActive && !isVacated;
-      if (tenantStatus === "inactive") return !isActive;
-      if (tenantStatus === "vacated") return isVacated;
-      return true;
-    });
-  }
-}
+      if (tenantStatus !== "all") {
+        result = result.filter(r => {
+          const isActive = r.is_active === 1 || r.is_active === true;
+          const isVacated = r.is_vacated === 1 || r.is_vacated === true;
+          if (tenantStatus === "active") return isActive && !isVacated;
+          if (tenantStatus === "inactive") return !isActive;
+          if (tenantStatus === "vacated") return isVacated;
+          return true;
+        });
+      }
+    }
 
     if (activeTab === "room") {
       if (sharingType !== "all") {
@@ -1333,9 +1376,10 @@ export default function ReportsPage() {
       if (maxRent) {
         result = result.filter(r => parseFloat(r.total_paid || r.total_amount || 0) <= parseFloat(maxRent));
       }
-      if (expenseSubcategory !== "all") {
-        result = result.filter(r => r.subcategory_name?.toLowerCase() === expenseSubcategory.toLowerCase());
-      }
+      // filter logic
+if (expenseSubcategory !== "all") {
+  result = result.filter(r => r.sub_category_name?.toLowerCase() === expenseSubcategory.toLowerCase());
+}
     }
 
     if (activeTab === "inventory") {
@@ -1466,6 +1510,36 @@ export default function ReportsPage() {
     const count = processedData.length;
 
     switch (activeTab) {
+      case "overview": {
+        const activeCount = processedData.filter((r) => r.status === 'active').length;
+        const vacatedCount = processedData.filter((r) => r.status === 'vacated').length;
+        const coupleCount = processedData.filter((r) => r.booking_type === 'couple').length;
+        const totalCount = activeCount + vacatedCount;
+        const singleCount = Math.max(0, activeCount - coupleCount);
+        const rentSum = processedData.reduce((s, r) => s + parseFloat(r.rent_paid || 0), 0);
+        const depSum = processedData.reduce((s, r) => s + parseFloat(r.deposit_paid || 0), 0);
+        const refSum = processedData.reduce((s, r) => s + parseFloat(r.refund_paid || 0), 0);
+        return {
+          ...stats,
+          totalTenants: reportStats.totalTenants ?? totalCount,
+          activeTenants: reportStats.activeTenants ?? activeCount,
+          vacatedTenants: reportStats.vacatedTenants ?? vacatedCount,
+          coupleTenants: reportStats.coupleTenants ?? coupleCount,
+          singleTenants: reportStats.singleTenants ?? singleCount,
+          newCheckIns: reportStats.newCheckIns ?? 0,
+          totalRentCollected: reportStats.totalRentCollected ?? `₹${rentSum.toLocaleString('en-IN')}`,
+          totalDepositCollected: reportStats.totalDepositCollected ?? `₹${depSum.toLocaleString('en-IN')}`,
+          totalRefundPaid: reportStats.totalRefundPaid ?? `₹${refSum.toLocaleString('en-IN')}`,
+          totalExpenses: reportStats.totalExpenses ?? '₹0',
+          totalRooms: reportStats.totalRooms ?? 0,
+          totalBeds: reportStats.totalBeds ?? 0,
+          occupiedBeds: reportStats.occupiedBeds ?? 0,
+          availableBeds: reportStats.availableBeds ?? 0,
+          vacatedBeds: reportStats.vacatedBeds ?? vacatedCount,
+          monthlyBreakdown: reportStats.monthlyBreakdown ?? [],
+          _raw: reportStats._raw ?? { totalRentCollected: rentSum, totalDepositCollected: depSum, totalRefundPaid: refSum, totalExpenses: 0 },
+        };
+      }
       case "enquiry": {
         const converted = processedData.filter((r) => r.status === "converted").length;
         const pending = processedData.filter((r) => r.status === "new" || r.status === "followup" || r.status === "active").length;
@@ -1669,6 +1743,19 @@ export default function ReportsPage() {
   // Dynamic KPI Card renderer (matching the pastel/border theme of other modules)
   const renderKPIs = () => {
     switch (activeTab) {
+      case "overview":
+        return (
+          <>
+            <KPICard title="Active Tenants" value={stats.activeTenants || 0} icon={Users} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Vacated Tenants" value={stats.vacatedTenants || 0} icon={DoorOpen} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+            <KPICard title="Couple Bookings" value={stats.coupleTenants || 0} icon={UserPlus} bgColor="bg-purple-50/50" textColor="text-purple-900" borderColor="border-purple-100" iconBg="bg-purple-100" iconColor="text-purple-600" />
+            <KPICard title="New Check-ins" value={stats.newCheckIns || 0} icon={Calendar} bgColor="bg-indigo-50/50" textColor="text-indigo-900" borderColor="border-indigo-100" iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+            <KPICard title="Total Beds" value={stats.totalBeds || 0} icon={Bed} bgColor="bg-sky-50/50" textColor="text-sky-900" borderColor="border-sky-100" iconBg="bg-sky-100" iconColor="text-sky-600" />
+            <KPICard title="Occupied Beds" value={stats.occupiedBeds || 0} icon={Home} bgColor="bg-amber-50/50" textColor="text-amber-900" borderColor="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" />
+            <KPICard title="Rent Collected" value={stats.totalRentCollected || "₹0"} icon={IndianRupee} bgColor="bg-emerald-50/50" textColor="text-emerald-900" borderColor="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" />
+            <KPICard title="Total Expenses" value={stats.totalExpenses || "₹0"} icon={Wallet} bgColor="bg-rose-50/50" textColor="text-rose-900" borderColor="border-rose-100" iconBg="bg-rose-100" iconColor="text-rose-600" />
+          </>
+        );
       case "enquiry":
         return (
           <>
@@ -1940,6 +2027,22 @@ export default function ReportsPage() {
           "Deposit Pending (₹)": row.pending_deposit || 0,
           "Status": row.is_vacated ? "Vacated" : (row.is_active ? "Active" : "Inactive"),
         }));
+        case "overview": {
+        const sharedNote = (row: any) => `Shared with ${row.partner_name || "partner"}`;
+        return data.map((row) => ({
+          "Tenant Name": row.tenant_name,
+          "Property": row.property_name || "N/A",
+          "Room": row.room_number || "N/A",
+          "Bed": row.bed_number || "N/A",
+          "Booking Type": row.booking_type === "couple" ? "Couple" : "Single",
+          "Status": row.status === "vacated" ? "Vacated" : row.status === "active" ? "Active" : row.is_reassigned ? "Reassigned" : "Inactive",
+          "Monthly Rent (₹)": row.is_shared_with_partner ? sharedNote(row) : (row.monthly_rent || 0),
+          "Rent Paid (₹)": row.is_shared_with_partner ? sharedNote(row) : (row.rent_paid || 0),
+          "Deposit Paid (₹)": row.is_shared_with_partner ? sharedNote(row) : (row.deposit_paid || 0),
+          "Refund Paid (₹)": row.is_shared_with_partner ? sharedNote(row) : (row.refund_paid || 0),
+          "Check-in Date": row.check_in_date || "N/A",
+        }));
+        }
       default:
         return [];
     }
@@ -1953,16 +2056,39 @@ export default function ReportsPage() {
       propertyId === "all" ? "All Properties" : properties.find((p) => p.id.toString() === propertyId)?.name || propertyId;
 
     const kpiHtml = Object.entries(stats)
-      .map(([key, val]) => `
-      <div class="stat-box">
-        <div class="stat-lbl">${key.replace(/([A-Z])/g, " $1")}</div>
-        <div class="stat-val">${val}</div>
-      </div>`)
-      .join("");
+  .filter(([, val]) => typeof val !== "object" || val === null)
+  .map(([key, val]) => `
+  <div class="stat-box">
+    <div class="stat-lbl">${key.replace(/([A-Z])/g, " $1")}</div>
+    <div class="stat-val">${val}</div>
+  </div>`)
+  .join("");
 
     const bodyRows = rows.length
       ? rows.map((r) => `<tr>${headers.map((h) => `<td>${r[h as keyof typeof r] ?? "—"}</td>`).join("")}</tr>`).join("")
       : `<tr><td colspan="${headers.length || 1}" style="text-align:center;color:#9ca3af;padding:24px">No records found</td></tr>`;
+
+    const monthlyHtml = activeTab === "overview" && (stats.monthlyBreakdown || []).length
+      ? `<h3 style="font-size:12px;font-weight:800;color:#1e293b;margin:18px 0 8px">Revenue vs Expenses vs Profit — Monthly Breakdown</h3>
+         <table>
+           <thead><tr>
+             <th>Month</th><th>Revenue (₹)</th><th>Expenses (₹)</th><th>Profit (₹)</th>
+             <th>Rent (₹)</th><th>Deposit (₹)</th><th>Refund (₹)</th>
+           </tr></thead>
+           <tbody>
+             ${stats.monthlyBreakdown.map((m: any) => `
+               <tr>
+                 <td>${m.month}</td>
+                 <td>${Number(m.revenue || 0).toLocaleString("en-IN")}</td>
+                 <td>${Number(m.expenses || 0).toLocaleString("en-IN")}</td>
+                 <td>${Number(m.profit || 0).toLocaleString("en-IN")}</td>
+                 <td>${Number(m.rent || 0).toLocaleString("en-IN")}</td>
+                 <td>${Number(m.deposit || 0).toLocaleString("en-IN")}</td>
+                 <td>${Number(m.refund || 0).toLocaleString("en-IN")}</td>
+               </tr>`).join("")}
+           </tbody>
+         </table>`
+      : "";
 
     return `<!DOCTYPE html><html><head><title>${tabLabel} · Roomac Co-Living</title>
   <style>
@@ -1995,6 +2121,7 @@ export default function ReportsPage() {
     <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table>
+  ${monthlyHtml}
   <div class="footer">
     <span>Roomac Co-Living Management System</span>
     <span>${rows.length} record(s)</span>
@@ -2003,12 +2130,28 @@ export default function ReportsPage() {
   };
 
   const handlePrint = () => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(buildReportPrintHTML());
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 300); // give the logo <img> a moment to load
+    const html = buildReportPrintHTML();
+    let iframe = document.getElementById("__print_frame") as HTMLIFrameElement | null;
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "__print_frame";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      iframe!.contentWindow?.focus();
+      iframe!.contentWindow?.print();
+    }, 300);
   };
 
   // Excel Export formatter
@@ -2040,10 +2183,10 @@ export default function ReportsPage() {
     );
   };
 
-  return (
-    <div className="h-[calc(95vh-64px)] flex flex-col overflow-hidden bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2 gap-4 relative font-sans">
+   return (
+    <div className="flex flex-col bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2 gap-4 relative font-sans">
 
-      {/* 📊 DYNAMIC STATS ROW */}
+      {/* 📊 DYNAMIC STATS ROW — normal page flow, no forced scroll box */}
       <div className="shrink-0 grid grid-cols-2 md:grid-cols-4 gap-2.5 print:hidden">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
@@ -2056,7 +2199,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {/* 🗂️ MAIN TABS LIST - Styled in grey wrapper with purple active underline */}
+      {/* 🗂️ MAIN TABS LIST — always rendered for every tab, not nested under the overview conditional */}
       <div className="shrink-0 bg-[#f1f5f9] dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800 print:hidden overflow-x-auto scrollbar-hide">
         <div className="flex space-x-1 min-w-max">
           {TABS.map((tab) => {
@@ -2070,8 +2213,8 @@ export default function ReportsPage() {
                   setColFilters({}); // Reset local column search inputs
                 }}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-md transition-all ${isActive
-                    ? "bg-white dark:bg-slate-800 text-[#1e3b8b] dark:text-indigo-400 shadow-sm border-b-2 border-indigo-600"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-950 hover:bg-white/40"
+                  ? "bg-white dark:bg-slate-800 text-[#1e3b8b] dark:text-indigo-400 shadow-sm border-b-2 border-indigo-600"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-950 hover:bg-white/40"
                   }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
@@ -2082,9 +2225,274 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* 📋 REPORT DETAILS CONTAINER WITH CUSTOM INPUT FILTERS IN HEADER */}
-      <Card className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
+      {/* 📈 OVERVIEW CHARTS — only on Overview, normal page flow (scrolls with the page, no internal scrollbox) */}
+      {activeTab === "overview" && !loading && (
+        <div className="space-y-3 print:hidden">
+          <Card className="border-slate-200 divide-y divide-slate-100">
+            {/* Compact secondary rows: Tenant mix + Room/bed snapshot, side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100  items-start">
+             <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Tenant Overview</p>
+                  <span className="text-[9px] text-slate-400 font-semibold">FOR SELECTED PERIOD</span>
+                </div>
+               {(() => {
+  const active = stats.activeTenants || 0;
+  const vacated = stats.vacatedTenants || 0;
+  const couple = stats.coupleTenants || 0;
+  const single = stats.singleTenants || 0;
+  const total = stats.totalTenants || 0;
 
+  const segments = [
+    { label: "Single", value: single, color: "#0ea5e9" },
+    { label: "Couple", value: couple, color: "#a855f7" },
+    { label: "Vacated", value: vacated, color: "#f43f5e" },
+  ];
+  const maxVal = Math.max(1, ...segments.map(s => s.value));
+
+  return (
+    <div className="flex flex-col justify-center h-full py-2">
+      <div className="flex items-baseline gap-3 mb-5">
+        <span className="text-4xl font-extrabold text-slate-800">{total}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Tenants · {active} Active</span>
+      </div>
+
+      <div className="space-y-3.5">
+        {segments.map((seg) => {
+          const widthPct = (seg.value / maxVal) * 100;
+          return (
+            <div key={seg.label} className="flex items-center gap-3">
+              <span className="w-16 shrink-0 text-[11px] font-bold text-slate-600">{seg.label}</span>
+              <div className="flex-1 h-5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                  style={{ width: `${Math.max(widthPct, 6)}%`, backgroundColor: seg.color }}
+                >
+                  {widthPct > 15 && <span className="text-[10px] font-bold text-white">{seg.value}</span>}
+                </div>
+              </div>
+              {widthPct <= 15 && <span className="w-6 text-right text-[11px] font-bold text-slate-700">{seg.value}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+})()}
+              </div>
+
+             <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Room & Bed Occupancy</p>
+                  <span className="text-[9px] text-slate-400 font-semibold">CURRENT SNAPSHOT</span>
+                </div>
+               {(() => {
+  const totalRooms = stats.totalRooms || 0;
+  const totalBeds = stats.totalBeds || 0;
+  const occupied = stats.occupiedBeds || 0;
+  const available = stats.availableBeds || 0;
+  const vacatedBeds = stats.vacatedBeds || 0;
+  const occupancyPct = totalBeds > 0 ? (occupied / totalBeds) * 100 : 0;
+
+  const r = 80;
+  const circumference = Math.PI * r;
+  const dashOffset = circumference - (Math.min(100, occupancyPct) / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-1">
+      <svg viewBox="0 0 200 115" width="220" height="127">
+        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" strokeWidth="16" strokeLinecap="round" />
+        <path
+          d="M 20 100 A 80 80 0 0 1 180 100"
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="16"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={{ transition: "stroke-dashoffset 0.6s ease" }}
+        />
+        <text x="100" y="88" textAnchor="middle" fontSize="30" fontWeight="800" fill="#1e293b">
+          {Math.round(occupancyPct)}%
+        </text>
+        <text x="100" y="105" textAnchor="middle" fontSize="10" fontWeight="700" fill="#94a3b8" letterSpacing="0.5">
+          OCCUPIED
+        </text>
+      </svg>
+
+      <div className="grid grid-cols-3 gap-2 w-full mt-2">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2 text-center">
+          <span className="w-2 h-2 rounded-full inline-block mr-1.5 bg-amber-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Occupied</span>
+          <p className="text-base font-extrabold text-slate-800 mt-0.5">{occupied}</p>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2 text-center">
+          <span className="w-2 h-2 rounded-full inline-block mr-1.5 bg-indigo-400" />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Available</span>
+          <p className="text-base font-extrabold text-slate-800 mt-0.5">{available}</p>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2 text-center">
+          <span className="w-2 h-2 rounded-full inline-block mr-1.5 bg-rose-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Vacated</span>
+          <p className="text-base font-extrabold text-slate-800 mt-0.5">{vacatedBeds}</p>
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-400 font-semibold mt-2">{totalRooms} rooms · {totalBeds} beds total</p>
+    </div>
+  );
+})()}
+              </div>
+            </div>
+
+            {/* Main bar chart: Revenue vs Expenses vs Profit — same card now */}
+            <div className="p-5 relative">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-800">Revenue vs Expenses vs Profit</h3>
+              <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-wrap">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Revenue</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" /> Expenses</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" /> Profit</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-fuchsia-500 inline-block" /> Rent</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block" /> Deposit</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Refund</span>
+              </div>
+            </div>
+
+            {(() => {
+              const monthly = stats.monthlyBreakdown || [];
+              if (!monthly.length) {
+                return <div className="h-64 flex items-center justify-center text-sm text-slate-400">No financial data for this period.</div>;
+              }
+
+              const chartHeight = 260;
+              const minChartWidth = 600;
+              const chartWidth = Math.max(minChartWidth, monthly.length * 90);
+              const isNarrow = monthly.length * 90 < minChartWidth;
+              const maxVal = Math.max(1, ...monthly.map((m: any) => Math.max(m.revenue, m.expenses, Math.abs(m.profit), m.rent || 0, m.deposit || 0, m.refund || 0)));
+              const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f));
+              const groupWidth = chartWidth / monthly.length;
+              const barWidth = Math.min(12, groupWidth / 8);
+
+              const scaleY = (v: number) => chartHeight - (v / maxVal) * chartHeight;
+
+              return (
+                <div className={isNarrow ? "" : "overflow-x-auto"}>
+                  <svg
+                    viewBox={`0 0 ${chartWidth + 60} ${chartHeight + 50}`}
+                    width={isNarrow ? "100%" : chartWidth + 60}
+                    height={chartHeight + 50}
+                    preserveAspectRatio="xMidYMid meet"
+                    className="select-none"
+                  >
+                    {/* Y gridlines + labels */}
+                    {yTicks.map((tick, i) => (
+                      <g key={i}>
+                        <line x1={50} x2={chartWidth + 50} y1={scaleY(tick) + 10} y2={scaleY(tick) + 10} stroke="#e2e8f0" strokeDasharray="3,3" />
+                        <text x={44} y={scaleY(tick) + 14} textAnchor="end" fontSize="10" fill="#94a3b8">
+                          ₹{tick >= 100000 ? `${(tick / 100000).toFixed(1)}L` : tick.toLocaleString("en-IN")}
+                        </text>
+                      </g>
+                    ))}
+
+                    {monthly.map((m: any, i: number) => {
+                      const groupX = 55 + i * groupWidth;
+                      const bars = [
+                        { key: "revenue", value: m.revenue, color: "#10b981" },
+                        { key: "expenses", value: m.expenses, color: "#f43f5e" },
+                        { key: "profit", value: Math.max(0, m.profit), color: "#6366f1" },
+                        { key: "rent", value: m.rent || 0, color: "#d946ef" },
+                        { key: "deposit", value: m.deposit || 0, color: "#0ea5e9" },
+                        { key: "refund", value: m.refund || 0, color: "#f59e0b" },
+                      ];
+                      return (
+                        <g key={m.month_key}
+                          onMouseEnter={() => setChartTooltip({ x: groupX, label: m.month, revenue: m.revenue, expenses: m.expenses, profit: m.profit, rent: m.rent || 0, deposit: m.deposit || 0, refund: m.refund || 0 } as any)}
+                          onMouseLeave={() => setChartTooltip(null)}
+                        >
+                          <rect x={groupX - 5} y={10} width={groupWidth - 10} height={chartHeight} fill="transparent" />
+                          {bars.map((b, bi) => (
+                            <rect
+                              key={b.key}
+                              x={groupX + bi * (barWidth + 4)}
+                              y={scaleY(b.value) + 10}
+                              width={barWidth}
+                              height={Math.max(0, chartHeight - scaleY(b.value))}
+                              fill={b.color}
+                              rx={2}
+                            />
+                          ))}
+                          <text x={groupX + groupWidth / 2 - 10} y={chartHeight + 30} textAnchor="middle" fontSize="11" fontWeight="600" fill="#64748b">
+                            {m.month}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+
+                  {chartTooltip && (
+                    <div
+                      className="absolute bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs pointer-events-none z-10"
+                      style={{ left: Math.min(chartTooltip.x + 60, chartWidth - 120), top: 20 }}
+                    >
+                      <div className="font-bold text-slate-800 mb-1">{chartTooltip.label}</div>
+                      <div className="text-emerald-600 font-semibold">Revenue: ₹{chartTooltip.revenue.toLocaleString("en-IN")}</div>
+                      <div className="text-rose-600 font-semibold">Expenses: ₹{chartTooltip.expenses.toLocaleString("en-IN")}</div>
+                      <div className="text-indigo-600 font-semibold">Profit: ₹{chartTooltip.profit.toLocaleString("en-IN")}</div>
+                      <div className="text-fuchsia-600 font-semibold">Rent: ₹{(chartTooltip.rent || 0).toLocaleString("en-IN")}</div>
+                      <div className="text-sky-600 font-semibold">Deposit: ₹{(chartTooltip.deposit || 0).toLocaleString("en-IN")}</div>
+                      <div className="text-amber-600 font-semibold">Refund: ₹{(chartTooltip.refund || 0).toLocaleString("en-IN")}</div>                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Totals row */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mt-5 pt-4 border-t border-slate-100 text-center">
+              {(() => {
+                const monthly = stats.monthlyBreakdown || [];
+                const totalRevenue = monthly.reduce((s: number, m: any) => s + m.revenue, 0);
+                const totalExpenses = monthly.reduce((s: number, m: any) => s + m.expenses, 0);
+                const totalRent = monthly.reduce((s: number, m: any) => s + (m.rent || 0), 0);
+                const totalDeposit = monthly.reduce((s: number, m: any) => s + (m.deposit || 0), 0);
+                const totalRefund = monthly.reduce((s: number, m: any) => s + (m.refund || 0), 0);
+                const totalProfit = totalRevenue - totalExpenses;
+                return (
+                  <>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Revenue</p>
+                      <p className="text-lg font-extrabold text-emerald-600">₹{totalRevenue.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Expenses</p>
+                      <p className="text-lg font-extrabold text-rose-600">₹{totalExpenses.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Profit</p>
+                      <p className="text-lg font-extrabold text-indigo-600">₹{totalProfit.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Rent</p>
+                      <p className="text-lg font-extrabold text-fuchsia-600">₹{totalRent.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Deposit</p>
+                      <p className="text-lg font-extrabold text-sky-600">₹{totalDeposit.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Refund</p>
+                      <p className="text-lg font-extrabold text-amber-600">₹{totalRefund.toLocaleString("en-IN")}</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 📋 REPORT DETAILS CONTAINER — fixed height + internal scroll, same for every tab (only this box scrolls internally, not the page) */}
+<Card className="h-[65vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
         {/* Table toolbar with Export & Print buttons - Print Hidden */}
         <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 print:hidden bg-slate-50/40">
           <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -2143,6 +2551,51 @@ export default function ReportsPage() {
               {/* DYNAMIC GRID WITH COLUMN FILTER INPUTS */}
               <table className="report-table w-full text-left text-xs">
                 <thead className="sticky top-0 z-20 bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+                {/* TAB: Overview */}
+                  {activeTab === "overview" && (
+                    <>
+                      <tr>
+                        <th onClick={() => handleSort("tenant_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">TENANT {renderSortIndicator("tenant_name")}</div>
+                        </th>
+                        <th onClick={() => handleSort("property_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+                          <div className="flex items-center gap-1">PROPERTY {renderSortIndicator("property_name")}</div>
+                        </th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">BED</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">TYPE</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">RENT PAID (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PAID (₹)</th>
+                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">REFUND PAID (₹)</th>
+                      </tr>
+                      <tr className="bg-slate-100/50 print:hidden">
+                        <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.booking_type || ""} onChange={e => handleColFilterChange("booking_type", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="single">Single</option>
+                            <option value="couple">Couple</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="active">Active</option>
+                            <option value="vacated">Vacated</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.rent_paid || ""} onChange={e => handleColFilterChange("rent_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.deposit_paid || ""} onChange={e => handleColFilterChange("deposit_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Refund.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.refund_paid || ""} onChange={e => handleColFilterChange("refund_paid", e.target.value)} /></td>
+                      </tr>
+                    </>
+                  )}
+
                   {/* TAB: Enquiry */}
                   {activeTab === "enquiry" && (
                     <>
@@ -2170,9 +2623,9 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search phone" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.phone || ""} onChange={e => handleColFilterChange("phone", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
-                       <td className="p-1.5"><Input placeholder="Search property" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Move-in date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.preferred_move_in_date || ""} onChange={e => handleColFilterChange("preferred_move_in_date", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Search source" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.source || ""} onChange={e => handleColFilterChange("source", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search property" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Move-in date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.preferred_move_in_date || ""} onChange={e => handleColFilterChange("preferred_move_in_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search source" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.source || ""} onChange={e => handleColFilterChange("source", e.target.value)} /></td>
                         <td className="p-1.5">
                           <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
                             <option value="">All</option>
@@ -2223,16 +2676,16 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.check_in_date || ""} onChange={e => handleColFilterChange("check_in_date", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
-                       <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.rent_per_bed || ""} onChange={e => handleColFilterChange("rent_per_bed", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit || ""} onChange={e => handleColFilterChange("security_deposit", e.target.value)} /></td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
-    <option value="">All</option>
-    <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
-  </select>
-</td>
+                        <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.rent_per_bed || ""} onChange={e => handleColFilterChange("rent_per_bed", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit || ""} onChange={e => handleColFilterChange("security_deposit", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </td>
                       </tr>
                     </>
                   )}
@@ -2256,12 +2709,12 @@ export default function ReportsPage() {
                       </tr>
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Search address" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.address || ""} onChange={e => handleColFilterChange("address", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Rooms.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_rooms || ""} onChange={e => handleColFilterChange("total_rooms", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Beds.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_beds || ""} onChange={e => handleColFilterChange("total_beds", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Occupied.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupied_beds || ""} onChange={e => handleColFilterChange("occupied_beds", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Available.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.available_beds || ""} onChange={e => handleColFilterChange("available_beds", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Rate %.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupancy_rate || ""} onChange={e => handleColFilterChange("occupancy_rate", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Search address" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.address || ""} onChange={e => handleColFilterChange("address", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Rooms.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_rooms || ""} onChange={e => handleColFilterChange("total_rooms", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Beds.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_beds || ""} onChange={e => handleColFilterChange("total_beds", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Occupied.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupied_beds || ""} onChange={e => handleColFilterChange("occupied_beds", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Available.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.available_beds || ""} onChange={e => handleColFilterChange("available_beds", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Rate %.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupancy_rate || ""} onChange={e => handleColFilterChange("occupancy_rate", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2289,7 +2742,11 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room type.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_type || ""} onChange={e => handleColFilterChange("room_type", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Sharing.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.sharing_type || ""} onChange={e => handleColFilterChange("sharing_type", e.target.value)} /></td>
-                        <td className="p-1.5" colSpan={4}></td>
+                       <td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.rent_per_bed || ""} onChange={e => handleColFilterChange("rent_per_bed", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Total beds.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_bed || ""} onChange={e => handleColFilterChange("total_bed", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Occupied.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.occupied_count || ""} onChange={e => handleColFilterChange("occupied_count", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Available.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.available_beds || ""} onChange={e => handleColFilterChange("available_beds", e.target.value)} /></td>
+
                         <td className="p-1.5">
                           <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
                             <option value="">All</option>
@@ -2326,16 +2783,16 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Tenant.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.tenant_name || ""} onChange={e => handleColFilterChange("tenant_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Entry.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.entry_time || ""} onChange={e => handleColFilterChange("entry_time", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Exit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.exit_time || ""} onChange={e => handleColFilterChange("exit_time", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Purpose.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purpose || ""} onChange={e => handleColFilterChange("purpose", e.target.value)} /></td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-    <option value="">All</option>
-    <option value="checked_in">Checked In</option>
-    <option value="checked_out">Checked Out</option>
-  </select>
-</td>
+                        <td className="p-1.5"><Input placeholder="Entry.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.entry_time || ""} onChange={e => handleColFilterChange("entry_time", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Exit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.exit_time || ""} onChange={e => handleColFilterChange("exit_time", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Purpose.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purpose || ""} onChange={e => handleColFilterChange("purpose", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="checked_in">Checked In</option>
+                            <option value="checked_out">Checked Out</option>
+                          </select>
+                        </td>
                       </tr>
                     </>
                   )}
@@ -2367,13 +2824,13 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Bed.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.bed_number || ""} onChange={e => handleColFilterChange("bed_number", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Check-in.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.stay_check_in_date || ""} onChange={e => handleColFilterChange("stay_check_in_date", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Notice.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.notice_given_date || ""} onChange={e => handleColFilterChange("notice_given_date", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Vacated.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.requested_vacate_date || ""} onChange={e => handleColFilterChange("requested_vacate_date", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Reason.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.vacate_reason_value || ""} onChange={e => handleColFilterChange("vacate_reason_value", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit_amount || ""} onChange={e => handleColFilterChange("security_deposit_amount", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Penalty.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_penalty_amount || ""} onChange={e => handleColFilterChange("total_penalty_amount", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Refund.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.refundable_amount || ""} onChange={e => handleColFilterChange("refundable_amount", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Check-in.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.stay_check_in_date || ""} onChange={e => handleColFilterChange("stay_check_in_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Notice.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.notice_given_date || ""} onChange={e => handleColFilterChange("notice_given_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Vacated.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.requested_vacate_date || ""} onChange={e => handleColFilterChange("requested_vacate_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Reason.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.vacate_reason_value || ""} onChange={e => handleColFilterChange("vacate_reason_value", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit_amount || ""} onChange={e => handleColFilterChange("security_deposit_amount", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Penalty.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_penalty_amount || ""} onChange={e => handleColFilterChange("total_penalty_amount", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Refund.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.refundable_amount || ""} onChange={e => handleColFilterChange("refundable_amount", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2399,25 +2856,25 @@ export default function ReportsPage() {
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense_date || ""} onChange={e => handleColFilterChange("expense_date", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Amount.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_paid || ""} onChange={e => handleColFilterChange("total_paid", e.target.value)} /></td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
-    <option value="">All</option>
-    <option value="cash">Cash</option>
-    <option value="bank">Bank Transfer</option>
-    <option value="upi">UPI</option>
-  </select>
-</td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-    <option value="">All</option>
-    <option value="Paid">Paid</option>
-    <option value="Partial">Partial</option>
-    <option value="Unpaid">Unpaid</option>
-  </select>
-</td>
-<td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Description.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.description || ""} onChange={e => handleColFilterChange("description", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Amount.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_paid || ""} onChange={e => handleColFilterChange("total_paid", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="upi">UPI</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Unpaid">Unpaid</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Description.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.description || ""} onChange={e => handleColFilterChange("description", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2491,17 +2948,17 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Item name.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.item_name || ""} onChange={e => handleColFilterChange("item_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Category.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.category_name || ""} onChange={e => handleColFilterChange("category_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Price.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.unit_price || ""} onChange={e => handleColFilterChange("unit_price", e.target.value)} /></td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.asset_status || ""} onChange={e => handleColFilterChange("asset_status", e.target.value)}>
-    <option value="">All</option>
-    <option value="available">Available</option>
-    <option value="allocated">Allocated</option>
-    <option value="damaged">Damaged</option>
-    <option value="repair">Repair</option>
-  </select>
-</td>
-<td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purchase_date || ""} onChange={e => handleColFilterChange("purchase_date", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Price.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.unit_price || ""} onChange={e => handleColFilterChange("unit_price", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.asset_status || ""} onChange={e => handleColFilterChange("asset_status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="available">Available</option>
+                            <option value="allocated">Allocated</option>
+                            <option value="damaged">Damaged</option>
+                            <option value="repair">Repair</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.purchase_date || ""} onChange={e => handleColFilterChange("purchase_date", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2530,26 +2987,26 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Property.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.property_name || ""} onChange={e => handleColFilterChange("property_name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Txn ID.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.transaction_id || ""} onChange={e => handleColFilterChange("transaction_id", e.target.value)} /></td>
-<td className="p-1.5"></td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
-    <option value="">All</option>
-    <option value="cash">Cash</option>
-    <option value="card">Card</option>
-    <option value="upi">UPI</option>
-    <option value="bank_transfer">Bank Transfer</option>
-    <option value="online_payment_gateway">Gateway</option>
-  </select>
-</td>
-<td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
-    <option value="">All</option>
-    <option value="approved">Approved</option>
-    <option value="paid">Paid</option>
-    <option value="pending">Pending</option>
-  </select>
-</td>
-<td className="p-1.5"></td>
+                        <td className="p-1.5"><Input placeholder="Amount.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.amount || ""} onChange={e => handleColFilterChange("amount", e.target.value)} /></td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.payment_mode || ""} onChange={e => handleColFilterChange("payment_mode", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="upi">UPI</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="online_payment_gateway">Gateway</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5">
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.status || ""} onChange={e => handleColFilterChange("status", e.target.value)}>
+                            <option value="">All</option>
+                            <option value="approved">Approved</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                          </select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Date.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.payment_date || ""} onChange={e => handleColFilterChange("payment_date", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2573,14 +3030,15 @@ export default function ReportsPage() {
                         <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.name || ""} onChange={e => handleColFilterChange("name", e.target.value)} /></td>
                         <td className="p-1.5"><Input placeholder="Search email" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.email || ""} onChange={e => handleColFilterChange("email", e.target.value)} /></td>
                         <td className="p-1.5">
-  <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.role || ""} onChange={e => handleColFilterChange("role", e.target.value)}>
-    <option value="">All</option>
-    <option value="admin">Admin</option>
-    <option value="tenant">Tenant</option>
-    <option value="staff">Staff</option>
-  </select>
-</td>
-<td className="p-1.5"><Input placeholder="Login time.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.login_time || ""} onChange={e => handleColFilterChange("login_time", e.target.value)} /></td>
+                          <select className="h-7 text-[11px] border border-slate-200 rounded px-1.5 w-full bg-white text-slate-700" value={colFilters.role || ""} onChange={e => handleColFilterChange("role", e.target.value)}>
+  <option value="">All</option>
+  <option value="tenant">Tenant</option>
+  {getMasterValuesByName(commonMasters, "Role").map((r: any) => (
+    <option key={r.id} value={r.name.toLowerCase()}>{r.name}</option>
+  ))}
+</select>
+                        </td>
+                        <td className="p-1.5"><Input placeholder="Login time.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.login_time || ""} onChange={e => handleColFilterChange("login_time", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2599,10 +3057,10 @@ export default function ReportsPage() {
                       </tr>
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"><Input placeholder="yyyy-mm" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.month || ""} onChange={e => handleColFilterChange("month", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Revenue.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.collected || ""} onChange={e => handleColFilterChange("collected", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Expenses.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense || ""} onChange={e => handleColFilterChange("expense", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Profit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.profit || ""} onChange={e => handleColFilterChange("profit", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Margin.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.margin || ""} onChange={e => handleColFilterChange("margin", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Revenue.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.collected || ""} onChange={e => handleColFilterChange("collected", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Expenses.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expense || ""} onChange={e => handleColFilterChange("expense", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Profit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.profit || ""} onChange={e => handleColFilterChange("profit", e.target.value)} /></td>
+                        <td className="p-1.5"><Input placeholder="Margin.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.margin || ""} onChange={e => handleColFilterChange("margin", e.target.value)} /></td>
                       </tr>
                     </>
                   )}
@@ -2612,33 +3070,33 @@ export default function ReportsPage() {
                     <>
                       <tr>
                         <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">#</th>
-                        <th onClick={() => handleSort("full_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
-                          <div className="flex items-center gap-1">TENANT NAME {renderSortIndicator("full_name")}</div>
-                        </th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM/BED</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">MONTHLY RENT</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">MONTHS</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">EXPECTED RENT</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PAID RENT</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PENDING RENT</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">COLLECTION %</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PAID</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PENDING</th>
-                        <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
+<th onClick={() => handleSort("full_name")} className="p-3 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer group">
+  <div className="flex items-center gap-1">TENANT NAME {renderSortIndicator("full_name")}</div>
+</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300">ROOM/BED</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">MONTHS</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PAID RENT</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PAID</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">MONTHLY RENT</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">EXPECTED RENT</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">PENDING RENT</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300">COLLECTION %</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-right">DEPOSIT PENDING</th>
+<th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">STATUS</th>
                       </tr>
                       <tr className="bg-slate-100/50 print:hidden">
                         <td className="p-1.5"></td>
 <td className="p-1.5"><Input placeholder="Search name" className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.full_name || ""} onChange={e => handleColFilterChange("full_name", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Room.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.room_number || ""} onChange={e => handleColFilterChange("room_number", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.monthly_rent || ""} onChange={e => handleColFilterChange("monthly_rent", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Months.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.months_since_joining || ""} onChange={e => handleColFilterChange("months_since_joining", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Expected.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expected_rent || ""} onChange={e => handleColFilterChange("expected_rent", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Paid.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_rent_paid || ""} onChange={e => handleColFilterChange("total_rent_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Deposit paid.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_deposit_paid || ""} onChange={e => handleColFilterChange("total_deposit_paid", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Rent.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.monthly_rent || ""} onChange={e => handleColFilterChange("monthly_rent", e.target.value)} /></td>
+<td className="p-1.5"><Input placeholder="Expected.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.expected_rent || ""} onChange={e => handleColFilterChange("expected_rent", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Pending.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.pending_rent || ""} onChange={e => handleColFilterChange("pending_rent", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Collection %.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.collection_rate || ""} onChange={e => handleColFilterChange("collection_rate", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Deposit.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.security_deposit || ""} onChange={e => handleColFilterChange("security_deposit", e.target.value)} /></td>
-<td className="p-1.5"><Input placeholder="Deposit paid.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.total_deposit_paid || ""} onChange={e => handleColFilterChange("total_deposit_paid", e.target.value)} /></td>
 <td className="p-1.5"><Input placeholder="Deposit pending.." className="h-7 text-[11px] px-2 border-slate-200 bg-white" value={colFilters.pending_deposit || ""} onChange={e => handleColFilterChange("pending_deposit", e.target.value)} /></td>
 <td className="p-1.5">
   <select className="h-7 text-[11px] border border-slate-200 rounded px-1 w-full bg-white text-slate-700" value={colFilters.is_active || ""} onChange={e => handleColFilterChange("is_active", e.target.value)}>
@@ -2658,7 +3116,62 @@ export default function ReportsPage() {
 
                     return (
                       <tr key={index} className={`hover:bg-[#f1f5f9]/40 dark:hover:bg-slate-800/40 transition-colors ${zebraBg}`}>
-                        {activeTab === "enquiry" && (
+                        {activeTab === "overview" && (
+                          <>
+                            <td className="p-3">{renderTenantNameWithAvatar(row.tenant_name)}</td>
+                            <td className="p-3 text-slate-700 font-semibold">{row.property_name || "—"}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
+                            <td className="p-3 text-slate-600 font-bold">{row.bed_number || "—"}</td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center gap-1 flex-wrap">
+                                <Badge className={
+                                  row.booking_type === "couple"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200 shadow-none font-semibold text-[10px]"
+                                    : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none font-semibold text-[10px]"
+                                }>
+                                  {row.booking_type === "couple" ? "Couple" : "Single"}
+                                </Badge>
+                                {row.is_reassigned && (
+                                  <Badge className="bg-sky-50 text-sky-700 border border-sky-200 shadow-none font-semibold text-[9px]">
+                                    Reassigned
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 text-center">
+                              <Badge className={
+                                row.status === "vacated"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-none text-[10px] font-semibold"
+                                  : row.status === "active"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px] font-semibold"
+                                    : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none text-[10px] font-semibold"
+                              }>
+                                {row.status === "vacated" ? "Vacated" : row.status === "active" ? "Active" : "Inactive"}
+                              </Badge>
+                            </td>
+                           {(() => {
+  const sharedNote = (
+    <span className="text-[11px] italic text-slate-400 font-medium whitespace-nowrap">
+      Shared with {row.partner_name || "partner"}
+    </span>
+  );
+  return (
+    <>
+      <td className="p-3 text-right font-mono font-semibold text-emerald-600">
+        {row.is_shared_with_partner ? sharedNote : <>₹{Number(row.rent_paid || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3 text-right font-mono text-slate-700">
+        {row.is_shared_with_partner ? sharedNote : <>₹{Number(row.deposit_paid || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3 text-right font-mono text-amber-600">
+        {row.is_shared_with_partner ? sharedNote : <>₹{Number(row.refund_paid || 0).toLocaleString("en-IN")}</>}
+      </td>
+    </>
+  );
+})()}
+                          </>
+                        )}
+                        {activeTab === "enquiry" && ( 
                           <>
                             <td className="p-3 text-slate-500 font-medium whitespace-nowrap">
                               {row.created_at ? format(new Date(row.created_at), "dd/MM/yyyy") : "—"}
@@ -2930,11 +3443,11 @@ export default function ReportsPage() {
                         {activeTab === "tenant_payment" && (
                           <>
                             <td className="p-3 text-center text-slate-500">{(currentPage - 1) * (showAll ? 0 : pageSize) + index + 1}</td>
-                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100 align-top">
-  <div className="flex flex-col gap-1">
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
+  <div className="flex items-center flex-wrap gap-1.5">
     <span>{row.full_name}</span>
     {row.is_vacated && (
-      <Badge className="w-fit bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[9px]">
+      <Badge className="bg-rose-50 text-rose-700 border border-rose-200 shadow-none font-semibold text-[9px] whitespace-nowrap">
         Vacated{row.vacated_date ? ` ${format(new Date(row.vacated_date), "d/M/yyyy")}` : ""}
       </Badge>
     )}
@@ -2942,48 +3455,49 @@ export default function ReportsPage() {
 </td>
                             <td className="p-3 text-slate-600 font-bold whitespace-nowrap">{row.room_number || "—"}/{row.bed_number || "—"}</td>
                             {(() => {
-                              const shared = row.has_own_bed_assignment === false && row.is_couple_booking;
-                              const sharedNote = (
-                                <span className="text-slate-400 italic text-[10px]">
-                                  Shared with {row.partner_full_name || "partner"}
-                                </span>
-                              );
-                              return (
-                                <>
-                                  <td className="p-3 text-right font-mono text-slate-700">
-                                    {shared ? sharedNote : <>₹{Number(row.monthly_rent || 0).toLocaleString("en-IN")}</>}
-                                  </td>
-                                  <td className="p-3 text-center text-slate-600">{row.months_since_joining || 0}</td>
-                                  <td className="p-3 text-right font-mono text-slate-700">
-                                    {shared ? sharedNote : <>₹{Number(row.expected_rent || 0).toLocaleString("en-IN")}</>}
-                                  </td>
-                                  <td className="p-3 text-right font-mono font-semibold text-emerald-600">₹{Number(row.total_rent_paid || 0).toLocaleString("en-IN")}</td>
-                                  <td className="p-3 text-right font-mono font-semibold text-amber-600">
-                                    {shared ? sharedNote : <>₹{Number(row.pending_rent || 0).toLocaleString("en-IN")}</>}
-                                  </td>
-                                  <td className="p-3">
-                                    {shared ? sharedNote : (
-                                      <div className="flex items-center gap-2 min-w-[90px]">
-                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                          <div
-                                            className={`h-full rounded-full ${row.collection_rate >= 100 ? "bg-emerald-500" : row.collection_rate >= 80 ? "bg-blue-600" : row.collection_rate >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
-                                            style={{ width: `${Math.min(100, row.collection_rate || 0)}%` }}
-                                          />
-                                        </div>
-                                        <span className="text-[11px] font-semibold text-slate-600 shrink-0">{row.collection_rate || 0}%</span>
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-right font-mono text-slate-700">
-                                    {shared ? sharedNote : <>₹{Number(row.security_deposit || 0).toLocaleString("en-IN")}</>}
-                                  </td>
-                                  <td className="p-3 text-right font-mono text-slate-700">₹{Number(row.total_deposit_paid || 0).toLocaleString("en-IN")}</td>
-                                  <td className="p-3 text-right font-mono text-amber-600">
-                                    {shared ? sharedNote : <>₹{Number(row.pending_deposit || 0).toLocaleString("en-IN")}</>}
-                                  </td>
-                                </>
-                              );
-                            })()}
+  const shared = row.has_own_bed_assignment === false && row.is_couple_booking;
+  const sharedNote = (
+    <span className="text-slate-400 italic text-[10px] whitespace-nowrap">
+      Shared with {row.partner_full_name || "partner"}
+    </span>
+  );
+
+  return (
+    <>
+      <td className="p-3 text-center text-slate-600">{row.months_since_joining || 0}</td>
+      <td className="p-3 text-right font-mono font-semibold text-emerald-600">₹{Number(row.total_rent_paid || 0).toLocaleString("en-IN")}</td>
+      <td className="p-3 text-right font-mono text-slate-700">₹{Number(row.total_deposit_paid || 0).toLocaleString("en-IN")}</td>
+      <td className="p-3 text-right font-mono text-slate-700">
+        {shared ? sharedNote : <>₹{Number(row.monthly_rent || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3 text-right font-mono text-slate-700">
+        {shared ? sharedNote : <>₹{Number(row.expected_rent || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3 text-right font-mono font-semibold text-amber-600">
+        {shared ? sharedNote : <>₹{Number(row.pending_rent || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3">
+        {shared ? sharedNote : (
+          <div className="flex items-center gap-2 min-w-[90px]">
+            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${row.collection_rate >= 100 ? "bg-emerald-500" : row.collection_rate >= 80 ? "bg-blue-600" : row.collection_rate >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
+                style={{ width: `${Math.min(100, row.collection_rate || 0)}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-semibold text-slate-600 shrink-0">{row.collection_rate || 0}%</span>
+          </div>
+        )}
+      </td>
+      <td className="p-3 text-right font-mono text-slate-700">
+        {shared ? sharedNote : <>₹{Number(row.security_deposit || 0).toLocaleString("en-IN")}</>}
+      </td>
+      <td className="p-3 text-right font-mono text-amber-600">
+        {shared ? sharedNote : <>₹{Number(row.pending_deposit || 0).toLocaleString("en-IN")}</>}
+      </td>
+    </>
+  );
+})()}
                             <td className="p-3 text-center">
                               <Badge className={
                                 row.is_vacated
@@ -2992,7 +3506,7 @@ export default function ReportsPage() {
                                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px] font-semibold"
                                     : "bg-slate-50 text-slate-700 border border-slate-200 shadow-none text-[10px] font-semibold"
                               }>
-                               {row.is_vacated ? "Vacated" : row.is_active ? "Active" : "Inactive"}
+                                {row.is_vacated ? "Vacated" : row.is_active ? "Active" : "Inactive"}
                               </Badge>
                             </td>
                           </>
@@ -3050,8 +3564,8 @@ export default function ReportsPage() {
                     size="sm"
                     onClick={() => setCurrentPage(pageNum)}
                     className={`h-7 w-7 text-xs ${currentPage === pageNum
-                        ? "bg-[#1e3b8b] hover:bg-[#152960] text-white"
-                        : "bg-white border border-slate-200 text-slate-700"
+                      ? "bg-[#1e3b8b] hover:bg-[#152960] text-white"
+                      : "bg-white border border-slate-200 text-slate-700"
                       }`}
                   >
                     {pageNum}
@@ -3153,6 +3667,19 @@ export default function ReportsPage() {
                     className="bg-slate-50/50 border-slate-200 text-xs h-9 pl-3 text-slate-700"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="ignoreDate"
+                  checked={tempIgnoreDate}
+                  onChange={(e) => setTempIgnoreDate(e.target.checked)}
+                  className="h-4 w-4 accent-[#1e3b8b]"
+                />
+                <Label htmlFor="ignoreDate" className="text-xs text-slate-600 font-semibold cursor-pointer">
+                  Ignore date range (show all time)
+                </Label>
               </div>
 
               {/* ────────────────── DATE FIELDS SELECTOR ────────────────── */}
@@ -3265,6 +3792,19 @@ export default function ReportsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                   <div className="space-y-1.5">
+    <Label className="text-xs text-blue-755 font-semibold">Filter Date by</Label>
+    <Select value={tempDateType} onValueChange={setTempDateType}>
+      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="default">Enquiry Created Date (Default)</SelectItem>
+        <SelectItem value="updated">Last Updated / Converted Date</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-slate-500 font-semibold">Move-in Start</Label>
@@ -3493,21 +4033,21 @@ export default function ReportsPage() {
               )}
 
               {activeTab === "tenant_payment" && (
-  <div className="space-y-1.5">
-    <Label className="text-xs text-blue-755 font-semibold">Tenant Status</Label>
-    <Select value={tempTenantStatus} onValueChange={setTempTenantStatus}>
-      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All Tenants</SelectItem>
-        <SelectItem value="active">Active</SelectItem>
-        <SelectItem value="inactive">Inactive</SelectItem>
-        <SelectItem value="vacated">Vacated</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-)}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-blue-755 font-semibold">Tenant Status</Label>
+                  <Select value={tempTenantStatus} onValueChange={setTempTenantStatus}>
+                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="vacated">Vacated</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {activeTab === "property" && (
                 <>
@@ -3529,21 +4069,21 @@ export default function ReportsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-blue-755 font-semibold">State</Label>
-                   <Select value={tempState} onValueChange={setTempState}>
+                    <Select value={tempState} onValueChange={setTempState}>
   <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
     <SelectValue />
   </SelectTrigger>
   <SelectContent>
     <SelectItem value="all">All States</SelectItem>
     {getMasterValuesByName(commonMasters, "States").map((st) => (
-      <SelectItem key={st.id} value={st.name.toLowerCase()}>
+      <SelectItem key={st.id} value={String(st.id)}>
         {st.name}
       </SelectItem>
     ))}
   </SelectContent>
 </Select>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-slate-500 font-semibold">Min Occupancy (%)</Label>
@@ -3850,35 +4390,36 @@ export default function ReportsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-blue-755 font-semibold">Expense Category</Label>
-                    <Select value={tempExpenseCategory} onValueChange={setTempExpenseCategory}>
-                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {expenseCategories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.name}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Select value={tempExpenseCategory} onValueChange={(v) => {
+  setTempExpenseCategory(v);
+  setTempExpenseSubcategory("all");
+  const selectedCat = expenseCategories.find((c: any) => c.name === v);
+  setTempExpenseCategoryId(v === "all" ? "all" : (selectedCat ? String(selectedCat.id) : "all"));
+}}>
+  <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Categories</SelectItem>
+    {expenseCategories.map((cat) => (
+      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-blue-755 font-semibold">Sub-Category</Label>
                     <Select value={tempExpenseSubcategory} onValueChange={setTempExpenseSubcategory}>
-                      <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Subcategories</SelectItem>
-                        {Array.from(new Set(reportData.map(r => r.subcategory_name).filter(Boolean))).map((sub: any) => (
-                          <SelectItem key={sub} value={sub}>
-                            {sub}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+  <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Subcategories</SelectItem>
+    {expenseSubcategoryOptions.map((sub) => (
+      <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-blue-755 font-semibold">Payment Mode</Label>
@@ -4048,15 +4589,17 @@ export default function ReportsPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs text-blue-755 font-semibold">Login Role</Label>
                   <Select value={tempLoginRole} onValueChange={setTempLoginRole}>
-                    <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="admin">Admin / Staff</SelectItem>
-                      <SelectItem value="tenant">Tenant</SelectItem>
-                    </SelectContent>
-                  </Select>
+  <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 text-xs text-slate-700 h-9">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Roles</SelectItem>
+    <SelectItem value="tenant">Tenant</SelectItem>
+    {getMasterValuesByName(commonMasters, "Role").map((r) => (
+      <SelectItem key={r.id} value={r.name.toLowerCase()}>{r.name}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                 </div>
               )}
 
@@ -4146,6 +4689,7 @@ export default function ReportsPage() {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;     /* Firefox */
 }
+  
         .report-table thead th {
           background-color: #f8fafc;
         }

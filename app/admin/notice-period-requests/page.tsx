@@ -415,9 +415,8 @@ export default function NoticePeriodRequestsPage() {
       new Date(request.created_at).toISOString().split('T')[0] === searchFilters.date;
     const matchesRequestStatus = searchFilters.requestStatus === 'all' ||
   request.status === searchFilters.requestStatus;
-// add matchesRequestStatus to the return in filteredRequests
     
-    return matchesId && matchesTenant && matchesTitle && matchesStatus && matchesDate;
+    return matchesId && matchesTenant && matchesTitle && matchesStatus && matchesDate && matchesRequestStatus;
   });
 
   // Stats
