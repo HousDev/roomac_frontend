@@ -27,7 +27,7 @@
 //   request(`/api/category-subcategory-map/category/${category_id}`, { method: "DELETE" });
 
 
-
+// api/categorySubcategoryMapApi.ts
 
 import { request } from "./api";
 

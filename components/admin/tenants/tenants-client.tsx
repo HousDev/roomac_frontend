@@ -4009,7 +4009,7 @@ const totalRefunded = payments
                   <DialogTitle className="text-sm md:text-base font-semibold text-white">
                     + Add New Tenant
                   </DialogTitle>
-                  <p className="text-[10px] md:text-xs text-blue-200 mt-0.5">
+                  <p className="text-[10px] md:text-xs text-slate-300 mt-0.5">
                     Fill in tenant details across all sections
                   </p>
                 </div>

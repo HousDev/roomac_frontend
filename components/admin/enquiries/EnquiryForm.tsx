@@ -2,6 +2,8 @@
 
 
 // components/admin/enquires/EnquiryForm.tsx
+
+import { useState } from "react";
 import { Input }    from "@/components/ui/input";
 import { Label }    from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,6 +99,8 @@ const IconInput = ({
   </div>
 );
 
+
+
 // ═════════════════════════════════════════════════════════════════════════════
 const EnquiryForm = ({
   formData,
@@ -111,6 +115,27 @@ const EnquiryForm = ({
   // Convenience updater
   const upd = (key: string, val: string) =>
     setFormData((p: any) => ({ ...p, [key]: val }));
+
+// ── Email validation ──────────────────────────────────────────────────────
+const [emailError, setEmailError] = useState("");
+
+const isValidEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const validateEmail = (value: string) => {
+  if (!value.trim()) { setEmailError(""); return true; } // email is optional
+  if (!isValidEmail(value)) {
+    setEmailError("Enter a valid email address");
+    return false;
+  }
+  setEmailError("");
+  return true;
+};
+
+const handleSubmit = () => {
+  if (!validateEmail(formData.email ?? "")) return;
+  onSubmit?.();
+};
 
   return (
     <div className="space-y-3">
@@ -143,15 +168,26 @@ const EnquiryForm = ({
           </div>
 
           {/* Email */}
-          <div>
-            <label className={L}>Email</label>
-            <div className="relative">
-              <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
-              <Input type="email" className={`${F} pl-7`} placeholder="john@example.com"
-                value={formData.email ?? ""}
-                onChange={e => upd("email", e.target.value)} />
-            </div>
-          </div>
+<div>
+  <label className={L}>Email</label>
+  <div className="relative">
+    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+    <Input
+      type="email"
+      className={`${F} pl-7 ${emailError ? "border-red-400 focus:border-red-400" : ""}`}
+      placeholder="john@example.com"
+      value={formData.email ?? ""}
+      onChange={e => {
+        upd("email", e.target.value);
+        if (emailError) validateEmail(e.target.value);
+      }}
+      onBlur={e => validateEmail(e.target.value)}
+    />
+  </div>
+  {emailError && (
+    <p className="text-[10px] text-red-500 mt-0.5">{emailError}</p>
+  )}
+</div>
 
           {/* Source */}
           <div>
@@ -354,13 +390,13 @@ const EnquiryForm = ({
 
       {/* Submit button — only when onSubmit is passed (Add mode) */}
       {onSubmit && (
-        <Button
-          onClick={onSubmit}
-          className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm mt-1"
-        >
-          {submitLabel}
-        </Button>
-      )}
+  <Button
+    onClick={handleSubmit}
+    className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm mt-1"
+  >
+    {submitLabel}
+  </Button>
+)}
     </div>
   );
 };

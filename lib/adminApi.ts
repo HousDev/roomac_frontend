@@ -12,7 +12,7 @@ export type ApiResponse<T = any> = {
 // Get admin token from localStorage
 function getAdminToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token");
+  return localStorage.getItem("auth_token");
 }
 
 // Make authenticated admin request

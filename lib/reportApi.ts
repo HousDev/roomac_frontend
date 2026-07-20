@@ -682,12 +682,14 @@ export async function getOperationalInsights(filters: Partial<ReportFilters>): P
   return response.success ? response.data : null;
 }
 
-export async function getReportData(reportType: string, filters: { startDate?: string; endDate?: string; propertyId?: string }): Promise<any> {
+export async function getReportData(reportType: string, filters: { startDate?: string; endDate?: string; propertyId?: string; dateType?: string; ignoreDate?: string }): Promise<any> {
   try {
     const params = new URLSearchParams();
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.propertyId && filters.propertyId !== 'all') params.append('propertyId', filters.propertyId);
+    if (filters.dateType) params.append('dateType', filters.dateType);
+    if (filters.ignoreDate) params.append('ignoreDate', filters.ignoreDate);
 
     const response = await request<any>(`/api/reports/data/${reportType}?${params.toString()}`);
     return response;

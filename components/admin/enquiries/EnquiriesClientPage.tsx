@@ -1485,7 +1485,7 @@ useEffect(() => {
   <DialogContent className="max-w-md p-0 overflow-hidden">
     <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-6 py-4">
       <h2 className="text-lg font-semibold">Bulk Assign to Staff</h2>
-      <p className="text-sm text-blue-700">
+      <p className="text-sm text-slate-200">
         Assign {selectedRows.length} selected enquiry(s) to a staff member
       </p>
     </div>
