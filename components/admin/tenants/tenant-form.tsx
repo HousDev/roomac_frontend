@@ -117,6 +117,7 @@ interface PartnerDetails {
   phone: string;
   email: string;
   gender: string;
+  food_preference: string;
   date_of_birth: string;
   
   // Emergency Contact
@@ -304,6 +305,7 @@ const [partnerAdditionalFiles, setPartnerAdditionalFiles] = useState<File[]>([])
     phone: tenant?.phone || "",
     date_of_birth: tenant?.date_of_birth || "",
     gender: tenant?.gender || "",
+    food_preference: tenant?.food_preference || "",
     occupation_category: tenant?.occupation_category || "",
     exact_occupation: tenant?.exact_occupation || "",
     occupation: tenant?.occupation || "",
@@ -362,6 +364,7 @@ const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
   phone: "",
   email: "",
   gender: "",
+  food_preference: "",
   date_of_birth: "",
   
   // Emergency Contact
@@ -971,6 +974,7 @@ const fetchPrimaryTenant = async (coupleId: string) => {
         email: primaryTenant.email || "",
         gender: primaryTenant.gender || "",
         date_of_birth: primaryTenant.date_of_birth || "",
+        food_preference: primaryTenant.food_preference || "",
         address: primaryTenant.address || "",
         occupation: primaryTenant.occupation || "",
         organization: primaryTenant.organization || "",
@@ -1038,6 +1042,7 @@ useEffect(() => {
         phone: tenant.partner_phone || "",
         email: tenant.partner_email || "",
         gender: tenant.partner_gender || "",
+        food_preference: tenant.partner_food_preference || "",
         date_of_birth: tenant.partner_date_of_birth || "",
         
         // Emergency Contact
@@ -1391,6 +1396,7 @@ if (tenant?.id) {
       if (partnerDetails.country_code) formDataToSend.append("partner_country_code", partnerDetails.country_code);
       if (partnerDetails.email) formDataToSend.append("partner_email", partnerDetails.email);
       if (partnerDetails.gender) formDataToSend.append("partner_gender", partnerDetails.gender);
+      if (partnerDetails.food_preference) formDataToSend.append("partner_food_preference", partnerDetails.food_preference);
       if (partnerDetails.date_of_birth) formDataToSend.append("partner_date_of_birth", partnerDetails.date_of_birth);
       if (partnerDetails.relationship) formDataToSend.append("partner_relationship", partnerDetails.relationship);
       
@@ -1950,29 +1956,46 @@ if (tenant?.id) {
                     color="text-indigo-500"
                   />
 
-                  {/* Gender */}
-                  <div>
-                    <label className={L}>
-                      <span className="text-red-400">*</span> Gender
-                    </label>
-                    <Select
-                      value={formData.gender}
-                      onValueChange={(v) => handleSelectChange("gender", v)}
-                    >
-                      <SelectTrigger className={F}>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.genderOptions.map((o) => (
-                          <SelectItem key={o} value={o} className={SI}>
-                            {o}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Gender + Food Preference */}
+<div className={g2}>
+  <div>
+    <label className={L}>
+      <span className="text-red-400">*</span> Gender
+    </label>
+    <Select
+      value={formData.gender}
+      onValueChange={(v) => handleSelectChange("gender", v)}
+    >
+      <SelectTrigger className={F}>
+        <SelectValue placeholder="Select gender" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.genderOptions.map((o) => (
+          <SelectItem key={o} value={o} className={SI}>
+            {o}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
 
-                  {/* Emergency contact */}
+  <div>
+    <label className={L}>Food Preference</label>
+    <Select
+      value={formData.food_preference}
+      onValueChange={(v) => handleSelectChange("food_preference", v)}
+    >
+      <SelectTrigger className={F}>
+        <SelectValue placeholder="Select preference" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="Veg" className={SI}>Veg</SelectItem>
+        <SelectItem value="Non-Veg" className={SI}>Non-Veg</SelectItem>
+        <SelectItem value="Both" className={SI}>Both</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
                   {/* Emergency contact */}
                   <div>
                     <label className={L}>Emergency Contact</label>
@@ -2185,24 +2208,43 @@ if (tenant?.id) {
           <span className="text-[10px] font-semibold text-gray-500 uppercase">Additional Details</span>
         </div>
         
-        {/* Gender */}
-        <div>
-          <label className={L}>Gender</label>
-          <Select
-            value={partnerDetails.gender}
-            onValueChange={(value) => setPartnerDetails(prev => ({ ...prev, gender: value }))}
-          >
-            <SelectTrigger className={F}>
-              <SelectValue placeholder="Select gender" />
-            </SelectTrigger>
-            <SelectContent>
-              {options.genderOptions.map((gender) => (
-                <SelectItem key={gender} value={gender} className={SI}>
-                  {gender}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Gender + Food Preference */}
+        <div className={g2}>
+          <div>
+            <label className={L}>Gender</label>
+            <Select
+              value={partnerDetails.gender}
+              onValueChange={(value) => setPartnerDetails(prev => ({ ...prev, gender: value }))}
+            >
+              <SelectTrigger className={F}>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.genderOptions.map((gender) => (
+                  <SelectItem key={gender} value={gender} className={SI}>
+                    {gender}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className={L}>Food Preference</label>
+            <Select
+              value={partnerDetails.food_preference}
+              onValueChange={(value) => setPartnerDetails(prev => ({ ...prev, food_preference: value }))}
+            >
+              <SelectTrigger className={F}>
+                <SelectValue placeholder="Select preference" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Veg" className={SI}>Veg</SelectItem>
+                <SelectItem value="Non-Veg" className={SI}>Non-Veg</SelectItem>
+                <SelectItem value="Both" className={SI}>Both</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         
         {/* Date of Birth */}
@@ -3114,7 +3156,7 @@ if (tenant?.id) {
   </div>
   
   {/* Warning message based on state */}
-  {isReassignment && (
+  {/* {isReassignment && (
     <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
       <p className="text-xs text-amber-700 flex items-start gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
@@ -3125,7 +3167,7 @@ if (tenant?.id) {
         </span>
       </p>
     </div>
-  )}
+  )} */}
   
   {!isReassignment && !isReassignmentDisabled && tenant?.id && (
     <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
