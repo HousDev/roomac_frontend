@@ -1373,7 +1373,9 @@ const handleDemandTenantSelect = async (tenantId: string) => {
         payment_mode: payment.payment_mode,
         bank_name: bankNameValue,
         transaction_id: payment.transaction_id || "",
-        payment_date: payment.payment_date.split("T")[0],
+       payment_date: payment.payment_date
+  ? new Date(payment.payment_date).toISOString().split("T")[0]
+  : new Date().toISOString().split("T")[0],
         remark: payment.remark || "",
       });
 
@@ -3032,7 +3034,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               >
                 <Clock className="h-2.5 w-2.5 mr-1" />
                 First month: {firstMonthProrated.days} days @ ₹
-                {firstMonthProrated.daily_rate}/day
+                {Number(firstMonthProrated.daily_rate).toFixed(2)}/day
               </Badge>
             )}
           </div>
@@ -3066,7 +3068,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 })();
 
                 const proratedTooltip = month.is_prorated
-                  ? `Prorated: ${month.prorated_days} days × ₹${month.prorated_daily_rate}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
+                  ? `Prorated: ${month.prorated_days} days × ₹${Number(month.prorated_daily_rate).toFixed(2)}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
                   : "";
 
                 const discountAmount = month.discount_applied || 0;
@@ -8534,28 +8536,33 @@ const filteredGroups = pagination.items.map((group: any) => ({
                 </thead>
                 <tbody>
                   {group.payments.map((payment: any, index: number) => {
-                    let modeTypeDisplay = "";
-                    let modeTypeTooltip = "";
-                    if (payment.payment_mode_type) {
-                      try {
-                        const modeTypeData = typeof payment.payment_mode_type === "string"
-                          ? JSON.parse(payment.payment_mode_type)
-                          : payment.payment_mode_type;
-                        if (payment.payment_mode === "card" && modeTypeData) {
-                          modeTypeDisplay = `${modeTypeData.network || "Card"} •••• ${modeTypeData.last4 || "****"}`;
-                          modeTypeTooltip = `${modeTypeData.type || "Card"} - ${modeTypeData.bank || "Unknown Bank"}`;
-                        } else if (payment.payment_mode === "upi" && modeTypeData?.vpa) {
-                          modeTypeDisplay = modeTypeData.vpa;
-                          modeTypeTooltip = modeTypeData.vpa;
-                        } else if ((payment.payment_mode === "netbanking" || payment.payment_mode === "bank_transfer") && modeTypeData?.bank) {
-                          modeTypeDisplay = modeTypeData.bank;
-                          modeTypeTooltip = modeTypeData.bank;
-                        } else if (payment.payment_mode === "wallet" && modeTypeData?.wallet) {
-                          modeTypeDisplay = modeTypeData.wallet;
-                          modeTypeTooltip = modeTypeData.wallet;
-                        } else { modeTypeDisplay = "-"; }
-                      } catch (e) { modeTypeDisplay = "-"; }
-                    } else { modeTypeDisplay = "-"; }
+                  let modeTypeDisplay = "";
+let modeTypeTooltip = "";
+if (payment.bank_name && payment.bank_name.trim() !== "") {
+  modeTypeDisplay = payment.bank_name;
+  modeTypeTooltip = payment.bank_name;
+} else if (payment.payment_mode_type) {
+  try {
+    const modeTypeData = typeof payment.payment_mode_type === "string"
+      ? JSON.parse(payment.payment_mode_type)
+      : payment.payment_mode_type;
+    if (payment.payment_mode === "card" && modeTypeData) {
+      modeTypeDisplay = `${modeTypeData.network || "Card"} •••• ${modeTypeData.last4 || "****"}`;
+    } else if (payment.payment_mode === "upi" && modeTypeData?.vpa) {
+      modeTypeDisplay = modeTypeData.vpa;
+    } else if ((payment.payment_mode === "netbanking" || payment.payment_mode === "bank_transfer") && modeTypeData?.bank) {
+      modeTypeDisplay = modeTypeData.bank;
+    } else if (payment.payment_mode === "wallet" && modeTypeData?.wallet) {
+      modeTypeDisplay = modeTypeData.wallet;
+    } else {
+      modeTypeDisplay = "-";
+    }
+  } catch (e) {
+    modeTypeDisplay = "-";
+  }
+} else {
+  modeTypeDisplay = "-";
+}
                     
                     const isEven = index % 2 === 0;
                     return (

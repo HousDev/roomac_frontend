@@ -1773,7 +1773,11 @@ const handleVacatedTenantPayment = useCallback(
       .reduce((sum, p) => sum + (p.amount || 0), 0);
 
     // Check if tenant is vacated and has refundable amount
-    const isVacated = tenant.has_vacated === true;
+    // ✅ FIX: use is_vacated (currently vacated) not has_vacated (ever vacated) —
+    // has_vacated stays true forever once a tenant has vacated even once, so a
+    // reassigned/active tenant with a brand-new bed was wrongly showing a stale
+    // refund button from their OLD (already settled) vacate record.
+    const isVacated = tenant.is_vacated === true;
     const vacateRecord = tenant.vacate_records?.[0];
     const refundableAmount = vacateRecord?.refundable_amount || 0;
     const totalPenalty = vacateRecord?.total_penalty_amount || 0;
@@ -3498,7 +3502,18 @@ const checkInDate = (() => {
   return "—";
 })();
 
-           const isCouple = tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1;
+           // ✅ FIX: tenant.is_couple_booking reflects only the tenant's MOST RECENT
+// vacate record (set once in vacateHelper.js from latestRecord) — not the
+// specific stay this flattened row represents. A tenant who is currently
+// solo (or paired with someone new) on their latest stay was wrongly
+// evaluating isCouple=false for OLDER rows where they really were a couple
+// partner without their own bed, bypassing "Shared with X" and falling
+// through to a live Pay button. Use THIS row's own vacate_records[0]
+// snapshot instead — it carries its own frozen is_couple_booking /
+// partner_tenant_id for that specific stay.
+const isCouple = (activeTab === "vacated" || activeTab === "deleted")
+  ? !!(vacateRecord?.is_couple_booking || vacateRecord?.partner_tenant_id)
+  : (tenant.is_couple_booking === true || (tenant.is_couple_booking as any) === 1);
 const payments = tenant.payments || [];
 
 // ✅ has_own_bed_assignment only reflects LIVE bed_assignments — for a
@@ -3910,7 +3925,12 @@ const totalRefunded = payments
           </span>
         )}
       {(() => {
-        const isVacated = tenant.has_vacated === true;
+        // ✅ FIX: is_vacated (currently vacated), not has_vacated (ever vacated).
+        // Prevents a reassigned/active tenant from showing a stale refund
+        // button carried over from a previous, already-settled vacate cycle.
+       const isVacated = (activeTab === "vacated" || activeTab === "deleted")
+  ? true
+  : tenant.is_vacated === true;
         const refundableAmount = vacateRecord?.refundable_amount || 0;
         const remainingRefund = refundableAmount - totalRefunded;
         const needsRefund = isVacated && remainingRefund > 0;
@@ -3938,7 +3958,12 @@ const totalRefunded = payments
       })()}
       {(activeTab === "vacated" || activeTab === "deleted") &&
         (() => {
-          const isVacated = tenant.has_vacated === true;
+          // ✅ FIX: same is_vacated fix — the Vacated tab's "vacate_history"
+          // filter also includes tenants who were reassigned and are Active
+          // again, so has_vacated alone wrongly kept the badge/button alive.
+         const isVacated = (activeTab === "vacated" || activeTab === "deleted")
+  ? true
+  : tenant.is_vacated === true;
           const refundableAmount = vacateRecord?.refundable_amount || 0;
           const isFullyRefunded =
             isVacated &&
