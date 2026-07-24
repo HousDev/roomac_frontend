@@ -2083,6 +2083,16 @@ const handleVacatedTenantPayment = useCallback(
           ],
         },
         {
+  key: "food_preference",
+  label: "Food Preference",
+  type: "select",
+  options: [
+    { value: "Veg", label: "Veg" },
+    { value: "Non-Veg", label: "Non-Veg" },
+    { value: "Both", label: "Both" },
+  ],
+},
+        {
           key: "occupation_category",
           label: "Occupation",
           type: "select",
@@ -2676,6 +2686,21 @@ const totals = useMemo(() => {
         </SelectContent>
       </Select>
     </div>
+    <div>
+  <Label className="text-[10px] text-gray-500 mb-1 block">Food Preference</Label>
+  <FilterSelect
+    label=""
+    value={pendingFilters.food_preference || ""}
+    onChange={(value) =>
+      setPendingFilters(prev => ({ ...prev, food_preference: value === "" ? undefined : value }))
+    }
+    options={[
+      { value: "Veg", label: "Veg" },
+      { value: "Non-Veg", label: "Non-Veg" },
+      { value: "Both", label: "Both" },
+    ]}
+  />
+</div>
   </div>
 </div>
 

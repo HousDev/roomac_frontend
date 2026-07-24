@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getSettings } from "@/lib/settingsApi";
+import { getEnquiries } from "@/lib/enquiryApi";
 
 import {
   Download,
@@ -66,18 +67,18 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   { id: "overview", label: "Overall", icon: TrendingUp },
-  { id: "enquiry", label: "Enquiry Report", icon: FileText },
-  { id: "tenant", label: "Tenant Report", icon: Users },
-  { id: "tenant_payment", label: "Tenant Payment Report", icon: IndianRupee },
   { id: "property", label: "Property Report", icon: Home },
   { id: "room", label: "Rooms / Bed Report", icon: Bed },
-  { id: "visitor", label: "Visitors Report", icon: UserPlus },
+  { id: "tenant", label: "Tenant Report", icon: Users },
+  { id: "payment", label: "Payment Report", icon: CreditCard },
+  { id: "tenant_payment", label: "Tenant Payment Report", icon: IndianRupee },
   { id: "vacancy", label: "Vacancy Report", icon: DoorOpen },
   { id: "expense", label: "Expenses Report", icon: Wallet },
-  { id: "inventory", label: "Inventory Report", icon: Briefcase },
-  { id: "payment", label: "Payment Report", icon: CreditCard },
-  { id: "login", label: "Logged In Report", icon: Clock },
   { id: "revenue", label: "Revenue Report", icon: TrendingUp },
+  { id: "inventory", label: "Inventory Report", icon: Briefcase },
+  { id: "enquiry", label: "Enquiry Report", icon: FileText },
+  { id: "visitor", label: "Visitors Report", icon: UserPlus },
+  { id: "login", label: "Logged In Report", icon: Clock },
 ];
 
 export const PRINT_BRAND_STYLE = `
@@ -249,6 +250,9 @@ export default function ReportsPage() {
   const expenseTreemapRef = useRef<SVGSVGElement>(null);
   const revenueBarChartRef = useRef<SVGSVGElement>(null);
   const enquiryChartRef = useRef<SVGSVGElement>(null);
+  const sourceFlowerChartRef = useRef<SVGSVGElement>(null);
+
+  const [liveEnquiries, setLiveEnquiries] = useState<any[]>([]);
 
   // ── Overview chart tooltip states ──
   const [financialTooltip, setFinancialTooltip] = useState<{ x: number; month: string; revenue: number; expenses: number; profit: number; rent?: number; deposit?: number; refund?: number } | null>(null);
@@ -555,6 +559,7 @@ export default function ReportsPage() {
     setTempEndDate(resetEnd);
     setTempPropertyId("all");
     setTempDateType("default");
+    setTempQuickRange("");
     setTempRentStatus("all");
     setTempDepositStatus("all");
     setTempIsCouple("all");
@@ -702,13 +707,20 @@ export default function ReportsPage() {
     const effectiveStart = ignoreDate ? "2000-01-01" : startDate;
     const effectiveEnd = ignoreDate ? "2100-12-31" : endDate;
     try {
-      const response = await reportApi.getReportData(activeTab, {
-        startDate: effectiveStart,
-        endDate: effectiveEnd,
-        propertyId,
-        dateType,
-        ignoreDate: ignoreDate ? "true" : "false",
-      });
+      const [response, enquiriesRes] = await Promise.all([
+        reportApi.getReportData(activeTab, {
+          startDate: effectiveStart,
+          endDate: effectiveEnd,
+          propertyId,
+          dateType,
+          ignoreDate: ignoreDate ? "true" : "false",
+        }),
+        getEnquiries().catch(() => ({ success: false, results: [] }))
+      ]);
+
+      if (enquiriesRes?.success && Array.isArray(enquiriesRes.results)) {
+        setLiveEnquiries(enquiriesRes.results);
+      }
 
       if (response.success) {
         let fetchedData = response.data || [];
@@ -926,6 +938,7 @@ export default function ReportsPage() {
     setTempEndDate(resetEnd);
     setTempPropertyId("all");
     setTempDateType("default");
+    setTempQuickRange("");
     setTempRentStatus("all");
     setTempDepositStatus("all");
     setTempIsCouple("all");
@@ -1096,7 +1109,11 @@ export default function ReportsPage() {
     // 1. Filter by dynamic sidebar filters
     if (activeTab === "enquiry") {
       if (enquirySource !== "all") {
-        result = result.filter(r => r.source?.toLowerCase() === enquirySource.toLowerCase());
+        result = result.filter(r => {
+          const src = (r.source || "").toLowerCase().replace(/[-_\s]/g, "");
+          const target = enquirySource.toLowerCase().replace(/[-_\s]/g, "");
+          return src === target;
+        });
       }
       if (enquiryStatus !== "all") {
         result = result.filter(r => r.status?.toLowerCase() === enquiryStatus.toLowerCase());
@@ -2133,11 +2150,42 @@ export default function ReportsPage() {
       const thStyle = `background:#f8fafc;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#334155;border:1px solid #cbd5e1;padding:7px 8px`;
       const tdStyle = `border:1px solid #e2e8f0;padding:6px 8px;color:#111`;
 
-      // 0: Financial Overview Bar Chart
-      const sectionZero = monthly.length ? `
+      // 0: Revenue vs Expenses vs Profit Stacked Bar Chart
+      const sectionRevenueBar = (monthly.length && chartSvgs?.revenueBar) ? `
         <div class="chart-section">
           ${secH3("Revenue vs Expenses vs Profit")}
-          ${svgWrap(chartSvgs?.revenueBar || "")}
+          ${svgWrap(chartSvgs.revenueBar)}
+        </div>` : "";
+
+      // 0b: Financial Breakdown Smooth Line Chart & Monthly Records Table
+      const financialPrintRows = monthly.map((m: any) =>
+        `<tr>
+          <td style="${tdStyle};font-weight:600">${m.month}</td>
+          <td style="${tdStyle};text-align:right;color:#6366f1;font-weight:700">₹${Number(m.revenue || 0).toLocaleString("en-IN")}</td>
+          <td style="${tdStyle};text-align:right;color:#c026d3">₹${Number(m.rent || 0).toLocaleString("en-IN")}</td>
+          <td style="${tdStyle};text-align:right;color:#0284c7">₹${Number(m.deposit || 0).toLocaleString("en-IN")}</td>
+          <td style="${tdStyle};text-align:right;color:#ea580c">₹${Number(m.expenses || 0).toLocaleString("en-IN")}</td>
+          <td style="${tdStyle};text-align:right;color:#d97706">₹${Number(m.refund || 0).toLocaleString("en-IN")}</td>
+          <td style="${tdStyle};text-align:right;font-weight:900;color:${(m.profit || 0) >= 0 ? '#059669' : '#dc2626'}">₹${Number(m.profit || 0).toLocaleString("en-IN")}</td>
+        </tr>`
+      ).join("");
+
+      const sectionFinancialBreakdown = monthly.length ? `
+        <div class="chart-section">
+          ${secH3("Financial Breakdown & Monthly Records")}
+          ${chartSvgs?.financial ? svgWrap(chartSvgs.financial) : ""}
+          <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:8px">
+            <thead><tr>
+              <th style="${thStyle}">Month</th>
+              <th style="${thStyle}">Revenue (₹)</th>
+              <th style="${thStyle}">Rent (₹)</th>
+              <th style="${thStyle}">Deposit (₹)</th>
+              <th style="${thStyle}">Expenses (₹)</th>
+              <th style="${thStyle}">Refund (₹)</th>
+              <th style="${thStyle}">Profit (₹)</th>
+            </tr></thead>
+            <tbody>${financialPrintRows}</tbody>
+          </table>
         </div>` : "";
 
       // A: Property Performance (Moved up before Rooms Breakdown!)
@@ -2250,12 +2298,20 @@ export default function ReportsPage() {
 
       const sectionF = `
         <div class="chart-section">
-          ${secH3("F. Inquiries & Leads Breakdown")}
-          ${chartSvgs?.enquiryChart ? svgWrap(chartSvgs.enquiryChart) : ""}
+          ${secH3("F. Enquiries & Leads Breakdown")}
+          ${chartSvgs?.enquiryChart ? `<div style="margin-bottom:12px">
+            <h4 style="font-size:10px;font-weight:800;color:#6d28d9;margin-bottom:4px">Monthly Inquiries Breakdown Trend Graph</h4>
+            ${svgWrap(chartSvgs.enquiryChart)}
+          </div>` : ""}
+          <h4 style="font-size:10px;font-weight:800;color:#6d28d9;margin-top:10px;margin-bottom:4px">Monthly Inquiries Breakdown Records</h4>
           <table style="width:100%;border-collapse:collapse;font-size:10px">
-            <thead><tr><th style="${thStyle}">Month</th><th style="${thStyle}">Total Inquiries</th><th style="${thStyle}">Converted Tenants</th><th style="${thStyle}">Pending Followups</th><th style="${thStyle}">Closed / Lost</th><th style="${thStyle}">Conversion Rate</th></tr></thead>
+            <thead><tr><th style="${thStyle}">Month</th><th style="${thStyle}">Total Enquiries</th><th style="${thStyle}">Converted Tenants</th><th style="${thStyle}">Pending Followups</th><th style="${thStyle}">Closed / Lost</th><th style="${thStyle}">Conversion Rate</th></tr></thead>
             <tbody>${enquiryPrintRows}</tbody>
           </table>
+          ${chartSvgs?.sourceFlowerChart ? `<div style="margin-top:14px;margin-bottom:12px">
+            <h4 style="font-size:10px;font-weight:800;color:#6d28d9;margin-bottom:4px">Source-Wise Lead Acquisition Breakdown Graph</h4>
+            ${svgWrap(chartSvgs.sourceFlowerChart)}
+          </div>` : ""}
         </div>`;
 
       // G: Comprehensive Executive Diagnostic & Multi-Module Optimization Report Page
@@ -2340,7 +2396,7 @@ export default function ReportsPage() {
           </div>
         </div>`;
 
-      return sectionZero + sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG;
+      return sectionRevenueBar + sectionFinancialBreakdown + sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG;
     })() : "";
 
     return `<!DOCTYPE html><html><head><title>${pdfDocumentTitle}</title>
@@ -2398,6 +2454,7 @@ export default function ReportsPage() {
       propertyPerf: propertyPerfChartRef.current?.outerHTML || "",
       expenseTreemap: expenseTreemapRef.current?.outerHTML || "",
       enquiryChart: enquiryChartRef.current?.outerHTML || "",
+      sourceFlowerChart: sourceFlowerChartRef.current?.outerHTML || "",
     } : undefined;
 
     const html = buildReportPrintHTML(chartSvgs);
@@ -2586,10 +2643,10 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col bg-[#f8fafc] dark:bg-slate-950 p-4 md:p-2 gap-4 relative font-sans">
+    <div className="flex flex-col h-[648px] overflow-hidden bg-[#f8fafc] dark:bg-slate-950 relative font-sans">
 
       {/* 📌 FIXED STICKY TOP CONTAINER — Stats, Tabs & Filter Toolbar fixed on scroll */}
-      <div className="sticky top-0 z-30 bg-[#f8fafc] dark:bg-slate-950 pt-2 pb-2 space-y-3 print:hidden border-b border-slate-200/60 dark:border-slate-800 shadow-xs">
+      <div className="shrink-0 bg-[#f8fafc] dark:bg-slate-950 px-4 md:px-2 pt-4 md:pt-2 pb-2 space-y-3 print:hidden border-b border-slate-200/60 dark:border-slate-800 shadow-xs z-30">
         {/* 📊 DYNAMIC STATS ROW — normal page flow, no forced scroll box */}
         <div className={`shrink-0 grid gap-2 print:hidden ${activeTab === "overview" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 md:grid-cols-4"
           }`}>
@@ -2725,211 +2782,14 @@ export default function ReportsPage() {
         )}
       </div>
 
+      {/* 🧾 EVERYTHING BELOW THE HEADER — this is the ONLY scrollable region now */}
+      <div className={`flex-1 min-h-0 px-4 md:px-2 py-4 space-y-4 ${
+  activeTab === "overview" ? "overflow-y-auto" : "overflow-hidden flex flex-col"
+}`}>
+
       {/* 📈 OVERVIEW DASHBOARD — 7 rich sections */}
       {activeTab === "overview" && !loading && (
         <div className="space-y-4">
-
-          {/* ═══ SECTION 0: COLLECTION HEALTH (Moved to First Position) ═══ */}
-          {(() => {
-            const ch = stats.collectionHealth || {};
-            const rate = ch.rate || 0;
-            const tone = ch.tone || "amber";
-            const label = ch.label || "—";
-            const worst = ch.worstPayers || [];
-            const gaugeColor = tone === "green" ? "#22c55e" : tone === "amber" ? "#f59e0b" : "#ef4444";
-            return (
-              <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4">
-                  {/* Header: teal title left, score badge right */}
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-teal-600">Collection Health</p>
-                    <span className={`text-[10px] font-black px-3 py-0.5 rounded border ${
-                      tone === "green" ? "border-emerald-300 text-emerald-600 bg-emerald-50"
-                      : tone === "amber" ? "border-amber-300 text-amber-600 bg-amber-50"
-                      : "border-rose-300 text-rose-600 bg-rose-50"
-                    }`}>{label.toUpperCase()}</span>
-                  </div>
-                  {/* Full-width gradient track */}
-                  <div className="mb-1" ref={collectionGaugeRef as any}>
-                    <div className="relative h-6 rounded-xl overflow-hidden bg-slate-100">
-                      <div className="absolute inset-0 rounded-xl" style={{ background: "linear-gradient(90deg, #ef4444 0%, #f97316 30%, #eab308 55%, #84cc16 75%, #22c55e 100%)" }} />
-                      <div className="absolute inset-y-0 right-0 rounded-r-xl bg-slate-100 transition-all duration-700" style={{ width: `${100 - rate}%` }} />
-                      <span
-                        className="absolute inset-y-0 flex items-center font-black text-slate-500 text-sm transition-all duration-700"
-                        style={{ left: `${Math.max(rate + 1, 10)}%`, textShadow: "none" }}
-                      >
-                        {rate}%
-                      </span>
-                      <span className={`absolute inset-y-0 right-4 flex items-center text-sm font-black ${
-                        tone === "green" ? "text-emerald-600" : tone === "amber" ? "text-amber-500" : "text-rose-600"
-                      }`}>{label}</span>
-                    </div>
-                    <div className="flex text-[10px] font-semibold text-slate-400 mt-1 px-0.5">
-                      <span style={{ width: "60%" }}>Poor (0–60%)</span>
-                      <span style={{ width: "35%", textAlign: "center" }}>Fair (60–95%)</span>
-                      <span className="ml-auto">Good</span>
-                    </div>
-                  </div>
-                  {/* Stat cards */}
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    {[
-                      { label: "Expected Rent", value: ch.expected || 0, color: "#0f766e", bg: "#f0fdfa" },
-                      { label: "Collected Rent", value: ch.collected || 0, color: "#15803d", bg: "#f0fdf4" },
-                      { label: "Pending Rent", value: ch.pending || 0, color: "#b91c1c", bg: "#fff1f2" },
-                    ].map(c => (
-                      <div key={c.label} className="rounded-xl p-2.5 border border-slate-100" style={{ background: c.bg }}>
-                        <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: c.color }}>{c.label}</p>
-                        <p className="text-sm font-black" style={{ color: c.color }}>₹{Number(c.value).toLocaleString("en-IN")}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Vertical Column Bar Chart — per-tenant pending vs paid side-by-side columns (Full Container Width) */}
-                  {worst.length > 0 && (
-                    <div onMouseLeave={() => setGaugeTooltip(null)}>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Top Pending Payers</p>
-                        <div className="flex items-center gap-4 text-[10px] font-semibold text-slate-500">
-                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "#059669" }} /> Paid Rent</span>
-                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "#ef4444" }} /> Pending Rent</span>
-                        </div>
-                      </div>
-                      {(() => {
-                        const payers = worst.slice(0, 10);
-                        const vW = 1000, vH = 310, padL = 50, padR = 20, padT = 30, padB = 65;
-                        const innerW = vW - padL - padR, innerH = vH - padT - padB;
-                        const maxVal = Math.max(1, ...payers.map((w: any) => Math.max(w.paid || 0, w.pending || 0, w.expected || 0)));
-                        const colW = payers.length > 0 ? innerW / payers.length : innerW;
-                        const sy = (v: number) => padT + innerH - (Math.max(0, v) / maxVal) * innerH;
-
-                        const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({ f, v: maxVal * f }));
-
-                        return (
-                          <svg
-                            ref={collectionGaugeRef}
-                            viewBox={`0 0 ${vW} ${vH}`}
-                            width="100%"
-                            height={310}
-                            style={{ display: "block", overflow: "visible" }}
-                          >
-                            <defs>
-                              <linearGradient id="vPaidGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#34d399" />
-                                <stop offset="100%" stopColor="#059669" />
-                              </linearGradient>
-                              <linearGradient id="vPendGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#fca5a5" />
-                                <stop offset="100%" stopColor="#ef4444" />
-                              </linearGradient>
-                            </defs>
-
-                            {/* Grid lines and Y-axis tick labels */}
-                            {yTicks.map(({ f, v }, gi) => {
-                              const yy = padT + innerH * (1 - f);
-                              const lbl = v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : v >= 1000 ? `₹${(v/1000).toFixed(0)}k` : `₹0`;
-                              return (
-                                <g key={gi}>
-                                  <line x1={padL} x2={vW - padR} y1={yy} y2={yy} stroke="#f1f5f9" strokeWidth={gi === 0 ? 1.5 : 1} strokeDasharray={gi > 0 ? "3 4" : "none"} />
-                                  <text x={padL - 6} y={yy + 3.5} textAnchor="end" fontSize="9" fill="#94a3b8" fontWeight="600">{lbl}</text>
-                                </g>
-                              );
-                            })}
-
-                            {/* Per-tenant Vertical Bar Columns */}
-                            {payers.map((w: any, i: number) => {
-                              const cx = padL + i * colW + colW / 2;
-                              const paidH = (Math.max(0, w.paid || 0) / maxVal) * innerH;
-                              const pendH = (Math.max(0, w.pending || 0) / maxVal) * innerH;
-                              const singleBarW = Math.min(34, (colW - 8) / 2);
-                              const paidX = cx - singleBarW - 1;
-                              const pendX = cx + 1;
-                              const nameStr = w.tenant_name.length > 14 ? w.tenant_name.slice(0, 13) + "…" : w.tenant_name;
-
-                              return (
-                                <g
-                                  key={i}
-                                  className="cursor-pointer"
-                                  onMouseEnter={() => setGaugeTooltip(`${w.tenant_name} — Paid ₹${Number(w.paid || 0).toLocaleString("en-IN")} / Pending ₹${Number(w.pending || 0).toLocaleString("en-IN")} (Rate: ${w.rate}%)`)}
-                                >
-                                  {/* Column background hover highlight */}
-                                  <rect x={padL + i * colW + 2} y={padT} width={colW - 4} height={innerH} fill="transparent" />
-
-                                  {/* Paid Vertical Bar */}
-                                  {w.paid > 0 && (
-                                    <rect
-                                      x={paidX}
-                                      y={sy(w.paid)}
-                                      width={singleBarW}
-                                      height={paidH}
-                                      fill="url(#vPaidGrad)"
-                                      rx="3"
-                                    />
-                                  )}
-
-                                  {/* Pending Vertical Bar */}
-                                  {w.pending > 0 && (
-                                    <rect
-                                      x={pendX}
-                                      y={sy(w.pending)}
-                                      width={singleBarW}
-                                      height={pendH}
-                                      fill="url(#vPendGrad)"
-                                      rx="3"
-                                    />
-                                  )}
-
-                                  {/* Rate % badge at top of bars */}
-                                  <text
-                                    x={cx}
-                                    y={Math.min(sy(w.paid || 0), sy(w.pending || 0)) - 6}
-                                    textAnchor="middle"
-                                    fontSize="10"
-                                    fill={w.rate < 60 ? "#dc2626" : w.rate < 90 ? "#d97706" : "#059669"}
-                                    fontWeight="800"
-                                  >
-                                    {w.rate}%
-                                  </text>
-
-                                  {/* Tenant Name on X Axis */}
-                                  <text
-                                    x={cx}
-                                    y={padT + innerH + 16}
-                                    textAnchor="middle"
-                                    fontSize="10"
-                                    fill="#334155"
-                                    fontWeight="700"
-                                  >
-                                    {nameStr}
-                                  </text>
-
-                                  {/* Pending Amount label under name */}
-                                  <text
-                                    x={cx}
-                                    y={padT + innerH + 30}
-                                    textAnchor="middle"
-                                    fontSize="9"
-                                    fill="#dc2626"
-                                    fontWeight="600"
-                                  >
-                                    ₹{(w.pending / 1000).toFixed(0)}k
-                                  </text>
-                                </g>
-                              );
-                            })}
-                          </svg>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {gaugeTooltip && (
-                    <div className="mt-2 text-center text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-1.5 animate-fade-in">
-                      {gaugeTooltip}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            );
-          })()}
 
           {/* ═══ SECTION 1: REVENUE vs EXPENSES vs PROFIT — STACKED BAR ═══ */}
           {(() => {
@@ -2942,11 +2802,11 @@ export default function ReportsPage() {
   const scY = (v: number) => sbPadT + sbIH - (Math.max(0, v) / maxVal) * sbIH;
 
   const series = [
-    { key: "rent", label: "Rent", color: "#e879f9" },
-    { key: "deposit", label: "Deposit", color: "#0ea5e9" },
-    { key: "revenue", label: "Revenue", color: "#6366f1" },
-    { key: "expenses", label: "Expenses", color: "#f97316" },
-    { key: "refund", label: "Refund", color: "#f59e0b" },
+    { key: "rent", label: "Rent", color: "#c084fc", grad: "rentGrad" },
+    { key: "deposit", label: "Deposit", color: "#38bdf8", grad: "depositGrad" },
+    { key: "revenue", label: "Revenue", color: "#818cf8", grad: "revenueGrad" },
+    { key: "expenses", label: "Expenses", color: "#fb923c", grad: "expensesGrad" },
+    { key: "refund", label: "Refund", color: "#facc15", grad: "refundGrad" },
   ];
   const barW = Math.max(8, Math.min(14, (sbIW / Math.max(1, monthly.length)) * 0.14));
   const gap = 2;
@@ -2969,9 +2829,9 @@ export default function ReportsPage() {
             <p className="text-[10px] text-slate-400 mt-0.5">Monthly financial comparison</p>
           </div>
           <div className="flex items-center gap-3 text-[9px] font-semibold text-slate-500 flex-wrap">
-            {[...series, { label: "Profit", color: "#10b981" }].map(l => (
+            {[...series, { label: "Profit", color: "#34d399" }].map(l => (
               <span key={l.label} className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: l.color }} />
+                <span className="w-2 h-2 rounded-sm inline-block shadow-xs" style={{ background: l.color }} />
                 {l.label}
               </span>
             ))}
@@ -2979,7 +2839,30 @@ export default function ReportsPage() {
         </div>
         {monthly.length > 0 ? (
           <div className="relative" onMouseLeave={() => setFinancialTooltip(null)}>
-            <svg ref={revenueBarChartRef} viewBox={`0 0 ${SBW} ${SBH}`} width="100%" height={SBH} style={{ display: "block", overflow: "visible" }}>
+            <svg ref={revenueBarChartRef} viewBox={`0 0 ${SBW} ${SBH}`} width="100%" height={SBH} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+              <defs>
+                <linearGradient id="rentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#e879f9" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+                <linearGradient id="depositGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" />
+                  <stop offset="100%" stopColor="#0284c7" />
+                </linearGradient>
+                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a78bfa" />
+                  <stop offset="100%" stopColor="#6366f1" />
+                </linearGradient>
+                <linearGradient id="expensesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fb923c" />
+                  <stop offset="100%" stopColor="#ea580c" />
+                </linearGradient>
+                <linearGradient id="refundGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#facc15" />
+                  <stop offset="100%" stopColor="#ca8a04" />
+                </linearGradient>
+              </defs>
+
               {yTk.map(({ f, v }, gi) => {
                 const yy = sbPadT + sbIH * (1 - f);
                 const lbl = v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : v >= 1000 ? `₹${(v/1000).toFixed(1)}k` : `₹0`;
@@ -3004,7 +2887,7 @@ export default function ReportsPage() {
                       const v = m[s.key] || 0;
                       const h = (v / maxVal) * sbIH;
                       const x = startX + si * (barW + gap);
-                      return v > 0 ? <rect key={s.key} x={x} y={scY(v)} width={barW} height={h} fill={s.color} rx="2" /> : null;
+                      return v > 0 ? <rect key={s.key} x={x} y={scY(v)} width={barW} height={h} fill={`url(#${s.grad})`} rx="2" /> : null;
                     })}
                     <text x={cx} y={SBH - sbPadB + 14} textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="600">
                       {m.month?.split(" ")[0]?.slice(0,3)}
@@ -3012,9 +2895,9 @@ export default function ReportsPage() {
                   </g>
                 );
               })}
-              <path d={linePath} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={linePath} fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               {monthly.map((m: any, i: number) => (
-                <circle key={i} cx={clusterX(i)} cy={scY(m.profit || 0)} r="4" fill="#10b981" stroke="#fff" strokeWidth="1.5" />
+                <circle key={i} cx={clusterX(i)} cy={scY(m.profit || 0)} r="4" fill="#34d399" stroke="#fff" strokeWidth="1.5" />
               ))}
             </svg>
             {financialTooltip && (
@@ -3795,156 +3678,6 @@ export default function ReportsPage() {
             );
           })()}
 
-          {/* ═══ SECTION E: PROPERTY PERFORMANCE (hidden if ≤1 property) ═══ */}
-          {(stats.propertyPerformance || []).length > 1 && (() => {
-            const props = stats.propertyPerformance || [];
-            const maxRev = Math.max(1, ...props.map((p: any) => p.revenue || 0));
-            // Radar chart if 2-5 properties
-            const useRadar = props.length <= 5;
-            const rCx = 130, rCy = 130, rR = 95;
-            const axes = ["Revenue", "Expenses", "Profit", "Occupancy"];
-            const maxVals = {
-              Revenue: Math.max(1, ...props.map((p: any) => p.revenue || 0)),
-              Expenses: Math.max(1, ...props.map((p: any) => p.expenses || 0)),
-              Profit: Math.max(1, ...props.map((p: any) => Math.abs(p.profit) || 0)),
-              Occupancy: 100,
-            };
-            const propColors = ["#6366f1", "#0891b2", "#16a34a", "#dc2626", "#d97706"];
-            const axisAngle = (i: number) => (i / axes.length) * 2 * Math.PI - Math.PI / 2;
-            const getVal = (p: any, axis: string) => {
-              if (axis === "Revenue") return (p.revenue || 0) / maxVals.Revenue;
-              if (axis === "Expenses") return (p.expenses || 0) / maxVals.Expenses;
-              if (axis === "Profit") return Math.max(0, p.profit || 0) / maxVals.Profit;
-              if (axis === "Occupancy") return (p.occupancy_rate || 0) / 100;
-              return 0;
-            };
-            const radarPath = (p: any) => axes.map((ax, i) => {
-              const r = getVal(p, ax) * rR;
-              const a = axisAngle(i);
-              return `${i === 0 ? "M" : "L"} ${rCx + r * Math.cos(a)} ${rCy + r * Math.sin(a)}`;
-            }).join(" ") + " Z";
-            return (
-              <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">Property Performance</p>
-                    <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">COMPARATIVE</span>
-                  </div>
-                  <div className="flex flex-col lg:flex-row gap-4 items-start">
-                    {useRadar ? (
-                      <svg ref={propertyPerfChartRef} viewBox="0 0 260 260" width="220" height="220" style={{ display: "block" }}
-                        onMouseLeave={() => setPropPerfTooltip(null)}>
-                        <defs>
-                          {props.map((_: any, i: number) => (
-                            <linearGradient key={i} id={`propertyRadarGrad${i}`} x1="0" y1="0" x2="1" y2="1">
-                              <stop offset="0%" stopColor={propColors[i % propColors.length]} stopOpacity="0.35" />
-                              <stop offset="100%" stopColor={propColors[i % propColors.length]} stopOpacity="0.1" />
-                            </linearGradient>
-                          ))}
-                        </defs>
-                        {/* Grid rings */}
-                        {[0.25, 0.5, 0.75, 1].map(f => (
-                          <polygon key={f} fill="none" stroke="#e2e8f0" strokeWidth="1"
-                            points={axes.map((_, i) => { const a = axisAngle(i); return `${rCx + f * rR * Math.cos(a)},${rCy + f * rR * Math.sin(a)}`; }).join(" ")} />
-                        ))}
-                        {/* Axis lines */}
-                        {axes.map((ax, i) => {
-                          const a = axisAngle(i);
-                          return (
-                            <g key={ax}>
-                              <line x1={rCx} y1={rCy} x2={rCx + rR * Math.cos(a)} y2={rCy + rR * Math.sin(a)} stroke="#e2e8f0" strokeWidth="1" />
-                              <text x={rCx + (rR + 12) * Math.cos(a)} y={rCy + (rR + 12) * Math.sin(a)} textAnchor="middle" fontSize="9.5" fill="#64748b" fontWeight="700">{ax}</text>
-                            </g>
-                          );
-                        })}
-                        {/* Property polygons */}
-                        {props.map((p: any, i: number) => (
-                          <path key={p.property_name} d={radarPath(p)}
-                            fill={`url(#propertyRadarGrad${i})`}
-                            stroke={propColors[i % propColors.length]}
-                            strokeWidth="1.8"
-                            style={{ cursor: "pointer", transition: "opacity 0.2s" }}
-                            onMouseEnter={() => setPropPerfTooltip({ name: p.property_name, revenue: p.revenue, expenses: p.expenses, profit: p.profit, occ: p.occupancy_rate })}
-                          />
-                        ))}
-                      </svg>
-                    ) : (
-                      /* Ranked bar chart for >5 properties */
-                      <svg ref={propertyPerfChartRef} viewBox={`0 0 340 ${props.length * 28 + 20}`} width="100%" height={props.length * 28 + 20} style={{ display: "block" }}
-                        onMouseLeave={() => setPropPerfTooltip(null)}>
-                        {props.map((p: any, i: number) => {
-                          const barW = (p.revenue / maxRev) * 260;
-                          const y = i * 28 + 10;
-                          return (
-                            <g key={p.property_name}
-                              onMouseEnter={() => setPropPerfTooltip({ name: p.property_name, revenue: p.revenue, expenses: p.expenses, profit: p.profit, occ: p.occupancy_rate })}>
-                              <text x="0" y={y + 14} fontSize="9" fill="#64748b" fontWeight="600">{p.property_name.slice(0, 18)}</text>
-                              <rect x="120" y={y + 2} width={barW} height="16" fill={`url(#propertyRadarGrad${i % 5})`} rx="3" />
-                              <circle cx={120 + barW + 6} cy={y + 10} r={4 + (p.occupancy_rate / 100) * 4} fill={propColors[i % propColors.length]} opacity="0.7" />
-                            </g>
-                          );
-                        })}
-                        <defs>
-                          {props.map((_: any, i: number) => (
-                            <linearGradient key={i} id={`propertyRadarGrad${i}`} x1="0" y1="0" x2="1" y2="0">
-                              <stop offset="0%" stopColor={propColors[i % propColors.length]} stopOpacity="0.9" />
-                              <stop offset="100%" stopColor={propColors[i % propColors.length]} stopOpacity="0.4" />
-                            </linearGradient>
-                          ))}
-                        </defs>
-                      </svg>
-                    )}
-                    {propPerfTooltip && (
-                      <div className="absolute bg-white border border-indigo-100 rounded-xl shadow-xl px-3 py-2 text-[10px] pointer-events-none z-20 min-w-[160px]">
-                        <div className="font-black text-indigo-800 mb-1">{propPerfTooltip.name}</div>
-                        <div style={{ color: "#6366f1" }}>Revenue ₹{Number(propPerfTooltip.revenue).toLocaleString("en-IN")}</div>
-                        <div style={{ color: "#db2777" }}>Expenses ₹{Number(propPerfTooltip.expenses).toLocaleString("en-IN")}</div>
-                        <div style={{ color: propPerfTooltip.profit >= 0 ? "#059669" : "#dc2626" }}>Profit ₹{Number(propPerfTooltip.profit).toLocaleString("en-IN")}</div>
-                        <div style={{ color: "#0891b2" }}>Occupancy {propPerfTooltip.occ}%</div>
-                      </div>
-                    )}
-                    {/* Legend + Table */}
-                    <div className="flex-1 min-w-0">
-                      {useRadar && (
-                        <div className="flex flex-wrap gap-3 mb-3">
-                          {props.map((p: any, i: number) => (
-                            <span key={p.property_name} className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-600">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: propColors[i % propColors.length] }} />
-                              {p.property_name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[10px] border-collapse">
-                          <thead><tr className="bg-indigo-50">
-                            {["Property", "Revenue (₹)", "Expenses (₹)", "Profit (₹)", "Occupancy"].map(h => (
-                              <th key={h} className="px-2 py-1.5 text-left font-bold text-indigo-700 border border-indigo-100">{h}</th>
-                            ))}
-                          </tr></thead>
-                          <tbody>
-                            {props.map((p: any, i: number) => (
-                              <tr key={i} className={i === 0 ? "bg-emerald-50 border-l-4 border-l-emerald-500" : i === props.length - 1 ? "bg-rose-50 border-l-4 border-l-rose-500" : i % 2 === 0 ? "bg-white" : "bg-indigo-50/20"}>
-                                <td className="px-2 py-1 border border-slate-100 font-semibold">
-                                  {p.property_name}
-                                  {i === 0 && <span className="ml-1 text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded">Top</span>}
-                                  {i === props.length - 1 && props.length > 1 && <span className="ml-1 text-[8px] bg-rose-100 text-rose-600 px-1 rounded">Needs Attention</span>}
-                                </td>
-                                <td className="px-2 py-1 border border-slate-100 text-right font-mono font-bold text-indigo-700">₹{Number(p.revenue).toLocaleString("en-IN")}</td>
-                                <td className="px-2 py-1 border border-slate-100 text-right font-mono text-pink-600">₹{Number(p.expenses).toLocaleString("en-IN")}</td>
-                                <td className="px-2 py-1 border border-slate-100 text-right font-mono font-bold" style={{ color: p.profit >= 0 ? "#059669" : "#dc2626" }}>₹{Number(p.profit).toLocaleString("en-IN")}</td>
-                                <td className="px-2 py-1 border border-slate-100 text-center"><span className="font-bold" style={{ color: p.occupancy_rate >= 75 ? "#059669" : p.occupancy_rate >= 40 ? "#d97706" : "#dc2626" }}>{p.occupancy_rate}%</span></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })()}
 
           {/* ═══ SECTION F: EXPENSE BREAKDOWN ═══ */}
           {(stats.expenseBreakdown || []).length > 0 && (() => {
@@ -4092,22 +3825,23 @@ export default function ReportsPage() {
           })()}
 
           {/* ═══ SECTION G: INQUIRIES & LEADS BREAKDOWN ═══ */}
-          {(() => {
-            const monthly = stats.monthlyBreakdown || [];
-            const eqData = monthly.map((m: any) => {
-              const total = (m.new_tenants || 2) * 3 + 4;
-              const converted = m.new_tenants || 2;
-              const pending = Math.max(1, Math.floor(total * 0.3));
-              const closed = Math.max(0, total - converted - pending);
-              const rate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
-              return { month: m.month, total, converted, pending, closed, rate };
-            });
+         {(() => {
+  const eqBreakdown = stats.enquiryBreakdown || {};
+  const eqData = (eqBreakdown.monthly || []).map((d: any) => ({
+    month: d.month,
+    total: d.total,
+    converted: d.converted,
+    pending: d.pending,
+    closed: d.closed,
+    rate: d.rate,
+  }));
 
-            const totAll = eqData.reduce((s: number, d: any) => s + d.total, 0);
-            const convAll = eqData.reduce((s: number, d: any) => s + d.converted, 0);
-            const pendAll = eqData.reduce((s: number, d: any) => s + d.pending, 0);
-            const closedAll = eqData.reduce((s: number, d: any) => s + d.closed, 0);
-            const overallRate = totAll > 0 ? ((convAll / totAll) * 100).toFixed(1) + "%" : "0%";
+  const totAll = eqBreakdown.totals?.total || 0;
+  const convAll = eqBreakdown.totals?.converted || 0;
+  const pendAll = eqBreakdown.totals?.pending || 0;
+  const closedAll = eqBreakdown.totals?.closed || 0;
+  const overallRate = `${eqBreakdown.totals?.rate || 0}%`;
+
 
             const qW = 1000, qH = 180, qPadL = 40, qPadR = 15, qPadT = 16, qPadB = 24;
             const maxEq = Math.max(1, ...eqData.map((d: any) => d.total));
@@ -4118,14 +3852,14 @@ export default function ReportsPage() {
               <Card className="border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-violet-700">Inquiries & Leads Breakdown</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-violet-700">Enquiries & Leads Breakdown</p>
                     <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-2.5 py-0.5 rounded-full">LEAD CONVERSION</span>
                   </div>
 
                   {/* KPI Summary Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
                     {[
-                      { label: "Total Inquiries", value: totAll, color: "#7c3aed", bg: "#f5f3ff" },
+                      { label: "Total Enquiries", value: totAll, color: "#7c3aed", bg: "#f5f3ff" },
                       { label: "Converted Tenants", value: convAll, color: "#059669", bg: "#ecfdf5" },
                       { label: "Pending Followups", value: pendAll, color: "#d97706", bg: "#fffbeb" },
                       { label: "Closed / Lost", value: closedAll, color: "#dc2626", bg: "#fef2f2" },
@@ -4151,7 +3885,7 @@ export default function ReportsPage() {
                     </div>
 
                     <div className="relative" onMouseLeave={() => setEnquiryTooltip(null)}>
-                      <svg ref={enquiryChartRef} viewBox={`0 0 ${qW} ${qH}`} width="100%" height={qH} style={{ display: "block", overflow: "visible" }}>
+                      <svg ref={enquiryChartRef} viewBox={`0 0 ${qW} ${qH}`} width="100%" height={qH} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
                         <defs>
                           <linearGradient id="eqTotalGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
@@ -4198,7 +3932,7 @@ export default function ReportsPage() {
                         <div className="absolute top-2 bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 text-[10px] pointer-events-none z-20 whitespace-nowrap min-w-[140px]"
                           style={{ left: Math.min(Math.max(enquiryTooltip.x - 70, 10), qW - 150) }}>
                           <p className="font-black text-slate-800 border-b border-slate-100 pb-1 mb-1">{enquiryTooltip.month}</p>
-                          <div className="flex justify-between gap-3 text-violet-700 font-bold"><span>Total Inquiries:</span><span>{enquiryTooltip.total}</span></div>
+                          <div className="flex justify-between gap-3 text-violet-700 font-bold"><span>Total Enquiries:</span><span>{enquiryTooltip.total}</span></div>
                           <div className="flex justify-between gap-3 text-emerald-600 font-bold"><span>Converted:</span><span>{enquiryTooltip.converted}</span></div>
                           <div className="flex justify-between gap-3 text-amber-600 font-semibold"><span>Pending:</span><span>{enquiryTooltip.pending}</span></div>
                           <div className="flex justify-between gap-3 text-rose-600 font-semibold"><span>Closed / Lost:</span><span>{enquiryTooltip.closed}</span></div>
@@ -4213,14 +3947,14 @@ export default function ReportsPage() {
                       <table className="w-full text-[10px] border-collapse">
                         <thead>
                           <tr className="bg-violet-50">
-                            {["Month", "Total Inquiries", "Converted Tenants", "Pending Followups", "Closed / Lost", "Conversion Rate"].map(h => (
+                            {["Month", "Total Enquiries", "Converted Tenants", "Pending Followups", "Closed / Lost", "Conversion Rate"].map(h => (
                               <th key={h} className="px-2 py-1.5 text-left font-bold text-violet-700 border border-violet-100">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {eqData.map((d: any, i: number) => (
-                            <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-violet-50/20"}>
+                              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-violet-50/20"}>
                               <td className="px-2 py-1 border border-slate-100 font-semibold">{d.month}</td>
                               <td className="px-2 py-1 border border-slate-100 text-center font-bold text-violet-700">{d.total}</td>
                               <td className="px-2 py-1 border border-slate-100 text-center font-bold text-emerald-600">{d.converted}</td>
@@ -4235,75 +3969,195 @@ export default function ReportsPage() {
 
                     {/* ═══ SOURCE-WISE INQUIRY BREAKDOWN CHART & RECORDS ═══ */}
                     {(() => {
-                      const sources = [
-                        { name: "Google Ads / Website", total: Math.round(totAll * 0.38) || 12, converted: Math.round(convAll * 0.42) || 5, pending: Math.round(pendAll * 0.35) || 4, color: "#3b82f6" },
-                        { name: "Direct Walk-in", total: Math.round(totAll * 0.26) || 8, converted: Math.round(convAll * 0.28) || 3, pending: Math.round(pendAll * 0.25) || 3, color: "#10b981" },
-                        { name: "Tenant Referral", total: Math.round(totAll * 0.18) || 6, converted: Math.round(convAll * 0.20) || 3, pending: Math.round(pendAll * 0.18) || 2, color: "#8b5cf6" },
-                        { name: "Justdial / Portals", total: Math.round(totAll * 0.11) || 4, converted: Math.round(convAll * 0.06) || 1, pending: Math.round(pendAll * 0.14) || 2, color: "#f59e0b" },
-                        { name: "Social Media (IG/FB)", total: Math.round(totAll * 0.07) || 3, converted: Math.round(convAll * 0.04) || 1, pending: Math.round(pendAll * 0.08) || 1, color: "#ec4899" },
-                      ].map(s => {
-                        const closed = Math.max(0, s.total - s.converted - s.pending);
-                        const rate = s.total > 0 ? ((s.converted / s.total) * 100).toFixed(1) : "0";
-                        return { ...s, closed, rate };
-                      });
+                      const sourceKeys = [
+                        { key: "website", name: "Website", color: "#3b82f6" },
+                        { key: "walkin", name: "Walk-in", color: "#10b981" },
+                        { key: "phone", name: "Phone Call", color: "#f59e0b" },
+                        { key: "referral", name: "Referral", color: "#8b5cf6" },
+                        { key: "social_media", name: "Social Media", color: "#ec4899" },
+                        { key: "app", name: "Mobile App", color: "#06b6d4" },
+                        { key: "other", name: "Other", color: "#64748b" },
+                      ];
 
-                      const sW = 1000, sH = 220, sPadL = 150, sPadR = 60, sPadT = 20, sPadB = 30;
-                      const sInnerW = sW - sPadL - sPadR;
+                      // Dynamically count sources from allEnquiries
+                      const bySourceMap = new Map((eqBreakdown.bySource || []).map((s: any) => [
+  (s.source || "other").toLowerCase().replace(/[-_\s]/g, ""),
+  s
+]));
+const sources = sourceKeys.map(sk => {
+  const match = bySourceMap.get(sk.key.toLowerCase().replace(/[-_\s]/g, ""));
+  const total = match?.total || 0;
+  const converted = match?.converted || 0;
+  const pending = match?.pending || 0;
+  const closed = match?.closed || 0;
+  const rate = match?.rate ?? 0;
+  return { name: sk.name, total, converted, pending, closed, rate, color: sk.color };
+});
+
+                      const sW = 500, sH = 500;
+                      const cx = 250, cy = 250;
+                      const rOut = 210, rIn = 28;
                       const maxSrcTot = Math.max(1, ...sources.map(s => s.total));
-                      const rowH = (sH - sPadT - sPadB) / sources.length;
+                      const N = sources.length;
+                      const angleStep = (2 * Math.PI) / N;
+                      const gap = 0.035;
+
+                      // Flower petal path generator (rounded outer corners + rounded inner neck for starburst cutout)
+                      const getFlowerPetalPath = (r1: number, r2: number, sA: number, eA: number) => {
+                        const midA = (sA + eA) / 2;
+                        const cornerR = Math.min(14, (r2 - r1) * 0.15); // Smooth 14px rounded outer corners
+
+                        const angularCorner = cornerR / r2;
+                        const sA_corner = sA + angularCorner;
+                        const eA_corner = eA - angularCorner;
+                        const r2_side = r2 - cornerR;
+
+                        const xInStart = cx + r1 * Math.cos(sA);
+                        const yInStart = cy + r1 * Math.sin(sA);
+                        const xInEnd = cx + r1 * Math.cos(eA);
+                        const yInEnd = cy + r1 * Math.sin(eA);
+                        const xInMid = cx + (r1 - 4) * Math.cos(midA);
+                        const yInMid = cy + (r1 - 4) * Math.sin(midA);
+
+                        const xSideStart = cx + r2_side * Math.cos(sA);
+                        const ySideStart = cy + r2_side * Math.sin(sA);
+                        const xSideEnd = cx + r2_side * Math.cos(eA);
+                        const ySideEnd = cy + r2_side * Math.sin(eA);
+
+                        const xArcStart = cx + r2 * Math.cos(sA_corner);
+                        const yArcStart = cy + r2 * Math.sin(sA_corner);
+                        const xArcEnd = cx + r2 * Math.cos(eA_corner);
+                        const yArcEnd = cy + r2 * Math.sin(eA_corner);
+
+                        const xCornerStart = cx + r2 * Math.cos(sA);
+                        const yCornerStart = cy + r2 * Math.sin(sA);
+                        const xCornerEnd = cx + r2 * Math.cos(eA);
+                        const yCornerEnd = cy + r2 * Math.sin(eA);
+
+                        return `M ${xInStart} ${yInStart}
+                                L ${xSideStart} ${ySideStart}
+                                Q ${xCornerStart} ${yCornerStart} ${xArcStart} ${yArcStart}
+                                A ${r2} ${r2} 0 0 1 ${xArcEnd} ${yArcEnd}
+                                Q ${xCornerEnd} ${yCornerEnd} ${xSideEnd} ${ySideEnd}
+                                L ${xInEnd} ${yInEnd}
+                                Q ${xInMid} ${yInMid} ${xInStart} ${yInStart} Z`;
+                      };
 
                       return (
-                        <div className="mt-6 border-t border-slate-100 pt-4">
+                        <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                           <div className="flex items-center justify-between mb-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">Source-Wise Lead Acquisition Breakdown</p>
-                            <span className="text-[9.5px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">BY ACQUISITION CHANNEL</span>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Source-Wise Lead Acquisition Breakdown</p>
+                            <span className="text-[9.5px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 dark:text-indigo-400 px-2 py-0.5 rounded">BY ACQUISITION CHANNEL</span>
                           </div>
 
-                          {/* Horizontal Bar Chart for Sources */}
-                          <svg viewBox={`0 0 ${sW} ${sH}`} width="100%" height={sH} style={{ display: "block", overflow: "visible" }}>
-                            <defs>
-                              {sources.map((s, idx) => (
-                                <linearGradient key={idx} id={`srcGrad-${idx}`} x1="0" y1="0" x2="1" y2="0">
-                                  <stop offset="0%" stopColor={s.color} stopOpacity="0.75" />
-                                  <stop offset="100%" stopColor={s.color} stopOpacity="1" />
-                                </linearGradient>
-                              ))}
-                            </defs>
+                          {/* Flower Petal Wheel Chart Container (Horizontal Full Width Layout — 0% Empty Space Left/Right) */}
+                          <div className="bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 flex flex-col xl:flex-row items-center justify-between gap-6 my-2 w-full">
+                            <div className="relative shrink-0 flex items-center justify-center">
+                              <svg
+                                ref={sourceFlowerChartRef}
+                                viewBox={`0 0 ${sW} ${sH}`}
+                                width="340" height="340"
+                                style={{ display: "block", overflow: "visible" }}
+                              >
+                                <defs>
+                                  {sources.map((s, idx) => (
+                                    <linearGradient key={idx} id={`srcFlowerGrad-${idx}`} x1="0" y1="0" x2="1" y2="1">
+                                      <stop offset="0%" stopColor={s.color} stopOpacity="0.95" />
+                                      <stop offset="100%" stopColor={s.color} stopOpacity="0.65" />
+                                    </linearGradient>
+                                  ))}
+                                  {sources.map((s, idx) => (
+                                    <linearGradient key={idx} id={`srcTrackFlowerGrad-${idx}`} x1="0" y1="0" x2="1" y2="1">
+                                      <stop offset="0%" stopColor={s.color} stopOpacity="0.22" />
+                                      <stop offset="100%" stopColor={s.color} stopOpacity="0.08" />
+                                    </linearGradient>
+                                  ))}
+                                  <filter id="flowerShadow" x="-10%" y="-10%" width="120%" height="120%">
+                                    <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.12" />
+                                  </filter>
+                                </defs>
 
-                            {sources.map((s, idx) => {
-                              const y = sPadT + idx * rowH + rowH / 4;
-                              const barLen = (s.total / maxSrcTot) * sInnerW;
-                              const convLen = (s.converted / maxSrcTot) * sInnerW;
+                                {sources.map((s, idx) => {
+                                  const startA = -Math.PI / 2 + idx * angleStep + gap / 2;
+                                  const endA = -Math.PI / 2 + (idx + 1) * angleStep - gap / 2;
+                                  const midA = (startA + endA) / 2;
 
-                              return (
-                                <g key={idx}>
-                                  {/* Channel Name */}
-                                  <text x={sPadL - 10} y={y + 12} textAnchor="end" fontSize="10" fill="#334155" fontWeight="700">{s.name}</text>
-                                  {/* Total Background Track */}
-                                  <rect x={sPadL} y={y} width={sInnerW} height={16} rx="4" fill="#f1f5f9" />
-                                  {/* Total Leads Bar */}
-                                  <rect x={sPadL} y={y} width={Math.max(4, barLen)} height={16} rx="4" fill={`url(#srcGrad-${idx})`} />
-                                  {/* Converted Inner Bar (Dark Overlay) */}
-                                  {convLen > 0 && (
-                                    <rect x={sPadL} y={y + 3} width={Math.max(2, convLen)} height={10} rx="2" fill="#ffffff" opacity="0.4" />
-                                  )}
-                                  {/* Value Labels */}
-                                  <text x={sPadL + barLen + 8} y={y + 12} fontSize="10" fill={s.color} fontWeight="800">
-                                    {s.converted} conv / {s.total} leads ({s.rate}%)
-                                  </text>
-                                </g>
-                              );
-                            })}
-                          </svg>
+                                  const frac = maxSrcTot > 0 ? Math.min(1, Math.max(0.18, s.total / maxSrcTot)) : 0.18;
+                                  const rFill = rIn + frac * (rOut - rIn);
+
+                                  const trackPath = getFlowerPetalPath(rIn, rOut, startA, endA);
+                                  const fillPath = getFlowerPetalPath(rIn, rFill, startA, endA);
+
+                                  const textR = rIn + (rOut - rIn) * 0.62;
+                                  const tx = cx + Math.cos(midA) * textR;
+                                  const ty = cy + Math.sin(midA) * textR;
+
+                                  return (
+                                    <g key={idx} className="transition-all duration-300 hover:opacity-90 cursor-pointer group">
+                                      {/* Outer Sector Track */}
+                                      <path d={trackPath} fill={`url(#srcTrackFlowerGrad-${idx})`} stroke="#475569" strokeWidth="1.2" strokeOpacity="0.4" />
+
+                                      {/* Inner Filled Sector */}
+                                      <path d={fillPath} fill={`url(#srcFlowerGrad-${idx})`} stroke={s.color} strokeWidth="1.5" filter="url(#flowerShadow)" />
+
+                                      {/* Large Bold Number */}
+                                      <text x={tx} y={ty - 6} textAnchor="middle" fontSize="20" fontWeight="900" fill="#0f172a" className="drop-shadow-sm">
+                                        {s.total}
+                                      </text>
+                                      {/* Channel Name */}
+                                      <text x={tx} y={ty + 10} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#334155">
+                                        {s.name}
+                                      </text>
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            </div>
+
+                            {/* Side Acquisition Channel Legend — Horizontal Full Width Cards (Spans across all remaining width) */}
+                            <div className="flex-1 w-full min-w-0">
+                              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                                <span>Acquisition Channel Performance</span>
+                                
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 w-full">
+                                {sources.map((s, idx) => (
+                                  <div key={idx} className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
+                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                      <div className="flex items-center gap-2 overflow-hidden">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0 inline-block shadow-xs" style={{ background: s.color }} />
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate">{s.name}</span>
+                                      </div>
+                                      <span className="font-extrabold text-[10px] px-2 py-0.5 rounded-full border" style={{ color: s.color, backgroundColor: `${s.color}15`, borderColor: `${s.color}30` }}>
+                                        {s.total} leads
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1 mt-1">
+                                      <div className="flex items-center justify-between text-[10px]">
+                                        <span className="font-semibold text-slate-500">Converted</span>
+                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{s.converted} ({s.rate}%)</span>
+                                      </div>
+                                      <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(5, parseFloat(s.rate) || 0))}%`, background: s.color }} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
 
                           {/* Source Records Table */}
                           <div className="mt-3 overflow-x-auto">
                             <table className="w-full text-[10px] border-collapse">
                               <thead>
-                                <tr className="bg-slate-100">
-                                  {["Acquisition Source Channel", "Total Inquiries", "Converted Tenants", "Pending Followups", "Closed / Lost", "Conversion Rate %"].map(h => (
-                                    <th key={h} className="px-2.5 py-1.5 text-left font-bold text-slate-700 border border-slate-200">{h}</th>
-                                  ))}
+                                <tr className="bg-slate-100 dark:bg-slate-800">
+                                  <th className="px-2.5 py-1.5 text-left font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Source Channel</th>
+                                  <th className="px-2.5 py-1.5 text-center font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Total Leads</th>
+                                  <th className="px-2.5 py-1.5 text-center font-bold text-emerald-600 border border-slate-200 dark:border-slate-700">Converted Tenants</th>
+                                  <th className="px-2.5 py-1.5 text-center font-bold text-amber-600 border border-slate-200 dark:border-slate-700">Pending Followups</th>
+                                  <th className="px-2.5 py-1.5 text-center font-bold text-rose-500 border border-slate-200 dark:border-slate-700">Closed / Lost</th>
+                                  <th className="px-2.5 py-1.5 text-center font-bold text-indigo-600 border border-slate-200 dark:border-slate-700">Conversion Rate %</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -4327,6 +4181,209 @@ export default function ReportsPage() {
                       );
                     })()}
                   </div>
+                </div>
+              </Card>
+            );
+          })()}
+
+          {/* ═══ SECTION 0: COLLECTION HEALTH (Placed after Enquiries & Leads Breakdown) ═══ */}
+          {(() => {
+            const ch = stats.collectionHealth || {};
+            const rate = ch.rate || 0;
+            const tone = ch.tone || "amber";
+            const label = ch.label || "—";
+            const worst = ch.worstPayers || [];
+            const gaugeColor = tone === "green" ? "#22c55e" : tone === "amber" ? "#f59e0b" : "#ef4444";
+            return (
+              <Card className="border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4">
+                  {/* Header: teal title left, score badge right */}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-teal-600">Collection Health</p>
+                    <span className={`text-[10px] font-black px-3 py-0.5 rounded border ${
+                      tone === "green" ? "border-emerald-300 text-emerald-600 bg-emerald-50"
+                      : tone === "amber" ? "border-amber-300 text-amber-600 bg-amber-50"
+                      : "border-rose-300 text-rose-600 bg-rose-50"
+                    }`}>{label.toUpperCase()}</span>
+                  </div>
+                  {/* Full-width gradient track */}
+                  <div className="mb-1" ref={collectionGaugeRef as any}>
+                    <div className="relative h-6 rounded-xl overflow-hidden bg-slate-100">
+                      <div className="absolute inset-0 rounded-xl" style={{ background: "linear-gradient(90deg, #ef4444 0%, #f97316 30%, #eab308 55%, #84cc16 75%, #22c55e 100%)" }} />
+                      <div className="absolute inset-y-0 right-0 rounded-r-xl bg-slate-100 transition-all duration-700" style={{ width: `${100 - rate}%` }} />
+                      <span
+                        className="absolute inset-y-0 flex items-center font-black text-slate-500 text-sm transition-all duration-700"
+                        style={{ left: `${Math.max(rate + 1, 10)}%`, textShadow: "none" }}
+                      >
+                        {rate}%
+                      </span>
+                      <span className={`absolute inset-y-0 right-4 flex items-center text-sm font-black ${
+                        tone === "green" ? "text-emerald-600" : tone === "amber" ? "text-amber-500" : "text-rose-600"
+                      }`}>{label}</span>
+                    </div>
+                    <div className="flex text-[10px] font-semibold text-slate-400 mt-1 px-0.5">
+                      <span style={{ width: "60%" }}>Poor (0–60%)</span>
+                      <span style={{ width: "35%", textAlign: "center" }}>Fair (60–95%)</span>
+                      <span className="ml-auto">Good</span>
+                    </div>
+                  </div>
+                  {/* Stat cards — Fix invalid Collected Rent bg color */}
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    {[
+                      { label: "Expected Rent", value: ch.expected || 0, color: "#0f766e", bg: "#f0fdfa" },
+                      { label: "Collected Rent", value: ch.collected || 0, color: "#15803d", bg: "#f0fdf4" },
+                      { label: "Pending Rent", value: ch.pending || 0, color: "#b91c1c", bg: "#fff1f2" },
+                    ].map(c => (
+                      <div key={c.label} className="rounded-xl p-2.5 border border-slate-100" style={{ background: c.bg }}>
+                        <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: c.color }}>{c.label}</p>
+                        <p className="text-sm font-black" style={{ color: c.color }}>₹{Number(c.value).toLocaleString("en-IN")}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Compact Vertical Column Bar Chart for Top Pending Payers */}
+                  {worst.length > 0 && (
+                    <div onMouseLeave={() => setGaugeTooltip(null)}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Top Pending Payers</p>
+                        <div className="flex items-center gap-4 text-[10px] font-semibold text-slate-500">
+                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "#059669" }} /> Paid Rent</span>
+                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "#ef4444" }} /> Pending Rent</span>
+                        </div>
+                      </div>
+                      {(() => {
+                        const payers = worst.slice(0, 10);
+                        const vW = 1000, vH = 220, padL = 50, padR = 20, padT = 24, padB = 48;
+                        const innerW = vW - padL - padR, innerH = vH - padT - padB;
+                        const maxVal = Math.max(1, ...payers.map((w: any) => Math.max(w.paid || 0, w.pending || 0, w.expected || 0)));
+                        const colW = payers.length > 0 ? innerW / payers.length : innerW;
+                        const sy = (v: number) => padT + innerH - (Math.max(0, v) / maxVal) * innerH;
+
+                        const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({ f, v: maxVal * f }));
+
+                        return (
+                          <svg
+                            ref={collectionGaugeRef}
+                            viewBox={`0 0 ${vW} ${vH}`}
+                            width="100%"
+                            height={220}
+                            preserveAspectRatio="none"
+                            style={{ display: "block", overflow: "visible" }}
+                          >
+                            <defs>
+                              <linearGradient id="vPaidGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#34d399" />
+                                <stop offset="100%" stopColor="#059669" />
+                              </linearGradient>
+                              <linearGradient id="vPendGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#fca5a5" />
+                                <stop offset="100%" stopColor="#ef4444" />
+                              </linearGradient>
+                            </defs>
+
+                            {/* Grid lines and Y-axis tick labels */}
+                            {yTicks.map(({ f, v }, gi) => {
+                              const yy = padT + innerH * (1 - f);
+                              const lbl = v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : v >= 1000 ? `₹${(v/1000).toFixed(0)}k` : `₹0`;
+                              return (
+                                <g key={gi}>
+                                  <line x1={padL} x2={vW - padR} y1={yy} y2={yy} stroke="#f1f5f9" strokeWidth={gi === 0 ? 1.5 : 1} strokeDasharray={gi > 0 ? "3 4" : "none"} />
+                                  <text x={padL - 6} y={yy + 3.5} textAnchor="end" fontSize="9" fill="#94a3b8" fontWeight="600">{lbl}</text>
+                                </g>
+                              );
+                            })}
+
+                            {/* Per-tenant Vertical Bar Columns */}
+                            {payers.map((w: any, i: number) => {
+                              const cx = padL + i * colW + colW / 2;
+                              const paidH = (Math.max(0, w.paid || 0) / maxVal) * innerH;
+                              const pendH = (Math.max(0, w.pending || 0) / maxVal) * innerH;
+                              const singleBarW = Math.min(18, (colW - 10) / 2);
+                              const paidX = cx - singleBarW - 1;
+                              const pendX = cx + 1;
+                              const nameStr = w.tenant_name.length > 14 ? w.tenant_name.slice(0, 13) + "…" : w.tenant_name;
+
+                              return (
+                                <g
+                                  key={i}
+                                  className="cursor-pointer"
+                                  onMouseEnter={() => setGaugeTooltip(`${w.tenant_name} — Paid ₹${Number(w.paid || 0).toLocaleString("en-IN")} / Pending ₹${Number(w.pending || 0).toLocaleString("en-IN")} (Rate: ${w.rate}%)`)}
+                                >
+                                  {/* Column background hover highlight */}
+                                  <rect x={padL + i * colW + 2} y={padT} width={colW - 4} height={innerH} fill="transparent" />
+
+                                  {/* Paid Vertical Bar */}
+                                  {w.paid > 0 && (
+                                    <rect
+                                      x={paidX}
+                                      y={sy(w.paid)}
+                                      width={singleBarW}
+                                      height={paidH}
+                                      fill="url(#vPaidGrad)"
+                                      rx="3"
+                                    />
+                                  )}
+
+                                  {/* Pending Vertical Bar */}
+                                  {w.pending > 0 && (
+                                    <rect
+                                      x={pendX}
+                                      y={sy(w.pending)}
+                                      width={singleBarW}
+                                      height={pendH}
+                                      fill="url(#vPendGrad)"
+                                      rx="3"
+                                    />
+                                  )}
+
+                                  {/* Rate % badge at top of bars */}
+                                  <text
+                                    x={cx}
+                                    y={Math.min(sy(w.paid || 0), sy(w.pending || 0)) - 6}
+                                    textAnchor="middle"
+                                    fontSize="10"
+                                    fill={w.rate < 60 ? "#dc2626" : w.rate < 90 ? "#d97706" : "#059669"}
+                                    fontWeight="800"
+                                  >
+                                    {w.rate}%
+                                  </text>
+
+                                  {/* Tenant Name on X Axis */}
+                                  <text
+                                    x={cx}
+                                    y={padT + innerH + 16}
+                                    textAnchor="middle"
+                                    fontSize="10"
+                                    fill="#334155"
+                                    fontWeight="700"
+                                  >
+                                    {nameStr}
+                                  </text>
+
+                                  {/* Pending Amount label under name */}
+                                  <text
+                                    x={cx}
+                                    y={padT + innerH + 30}
+                                    textAnchor="middle"
+                                    fontSize="9"
+                                    fill="#dc2626"
+                                    fontWeight="600"
+                                  >
+                                    ₹{(w.pending / 1000).toFixed(0)}k
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {gaugeTooltip && (
+                    <div className="mt-2 text-center text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-1.5 animate-fade-in">
+                      {gaugeTooltip}
+                    </div>
+                  )}
                 </div>
               </Card>
             );
@@ -4397,11 +4454,12 @@ export default function ReportsPage() {
                         </span>
                       </div>
                       <svg
-                        ref={financialChartRef}
-                        viewBox={`0 0 ${W} ${H}`}
-                        width="100%" height={H}
-                        style={{ display: "block", overflow: "visible" }}
-                      >
+  ref={financialChartRef}
+  viewBox={`0 0 ${W} ${H}`}
+  width="100%" height={H}
+  preserveAspectRatio="none"
+  style={{ display: "block", overflow: "visible" }}
+>
                         {/* Y-axis + grid */}
                         {yTicks.map(({ f, v }, gi) => {
                           const yy = padT + iH * (1 - f);
@@ -4479,10 +4537,13 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* 📋 REPORT DETAILS CONTAINER — fixed height + internal scroll, same for every tab */}
-      <Card className="h-[65vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none">
+      {/* 📋 REPORT DETAILS CONTAINER — overview stays natural height (page scrolls); every other
+          tab gets a bounded height so its OWN table body scrolls, header+pagination stay put */}
+      <Card className={`flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden print:shadow-none print:border-none ${
+  activeTab === "overview" ? "h-[420px]" : "flex-1 min-h-0"
+}`}>
         {/* Table toolbar with Export & Print buttons - Print Hidden */}
-        <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 print:hidden bg-slate-50/40">
+        <div className="shrink-0 p-3  border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 print:hidden bg-slate-50/40">
           <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             {activeTab === "overview"
               ? <>Financial Breakdown: <span className="text-[#1e3b8b] dark:text-indigo-400 font-bold">{(stats.monthlyBreakdown || []).length} monthly records</span></>
@@ -4522,7 +4583,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-h-0">
           {/* ─── OVERVIEW TAB: show Financial Breakdown monthly table ─── */}
           {activeTab === "overview" ? (
             (() => {
@@ -4609,10 +4670,10 @@ export default function ReportsPage() {
               <p className="text-xs">Select filter parameters from the side panel.</p>
             </div>
           ) : (
-            <div className="w-full">
+            <div className="w-full h-full overflow-auto border-t border-slate-100 dark:border-slate-800">
               {/* DYNAMIC GRID WITH COLUMN FILTER INPUTS */}
                 <table className="report-table w-full text-left">
-                 <thead className="sticky top-0 z-20">
+                 <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 shadow-xs">
                   {/* TAB: Overview */}
                   {activeTab === "overview" && (
                     <>
@@ -5267,15 +5328,15 @@ export default function ReportsPage() {
                             <td className="p-3 text-slate-600 font-bold">{row.room_number || "—"}</td>
                             <td className="p-3 text-slate-600 font-bold">{row.bed_number || "—"}</td>
                             <td className="p-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
-                              {row.is_couple_booking && !row.room_number
-                                ? <span className="text-[10px] italic text-slate-400 font-normal">Shared w/ partner</span>
-                                : `₹${(row.rent_per_bed || 0).toLocaleString("en-IN")}`}
-                            </td>
-                            <td className="p-3 text-right font-mono text-slate-500">
-                              {row.is_couple_booking && !row.room_number
-                                ? <span className="text-[10px] italic text-slate-400 font-normal">Shared w/ partner</span>
-                                : `₹${(row.security_deposit || 0).toLocaleString("en-IN")}`}
-                            </td>
+  {row.is_couple_booking && !row.has_own_bed_assignment
+    ? <span className="text-[10px] italic text-slate-400 font-normal whitespace-nowrap">Shared w/ {row.partner_full_name || "partner"}</span>
+    : `₹${(row.rent_per_bed || 0).toLocaleString("en-IN")}`}
+</td>
+<td className="p-3 text-right font-mono text-slate-500">
+  {row.is_couple_booking && !row.has_own_bed_assignment
+    ? <span className="text-[10px] italic text-slate-400 font-normal whitespace-nowrap">Shared w/ {row.partner_full_name || "partner"}</span>
+    : `₹${(row.security_deposit || 0).toLocaleString("en-IN")}`}
+</td>
                             <td className="p-3 text-center">
                               <Badge className={
                                 row.is_active
@@ -5646,6 +5707,8 @@ export default function ReportsPage() {
         )}
       </Card>
 
+      </div>
+
       {/* 📋 FILTER SIDEBAR PANEL (Matching your 2nd screenshot layout) — portaled to <body> so it always spans the true viewport, regardless of any transformed ancestor in the admin layout */}
       {mounted && sidebarOpen && createPortal(
         <>
@@ -5729,23 +5792,12 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="ignoreDate"
-                  checked={tempIgnoreDate}
-                  onChange={(e) => setTempIgnoreDate(e.target.checked)}
-                  className="h-4 w-4 accent-[#1e3b8b]"
-                />
-                <Label htmlFor="ignoreDate" className="text-xs text-slate-600 font-semibold cursor-pointer">
-                  Ignore date range (show all time)
-                </Label>
-              </div>
+              
 
               {/* ────────────────── QUICK RANGE SELECTOR ────────────────── */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-blue-755 font-semibold flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-indigo-600" /> Quick Date Range
+                  Quick Date Range
                 </Label>
                 <Select
                   value={tempQuickRange}
@@ -5769,6 +5821,18 @@ export default function ReportsPage() {
                     <SelectItem value="12m">Last 12 Months</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="ignoreDate"
+                  checked={tempIgnoreDate}
+                  onChange={(e) => setTempIgnoreDate(e.target.checked)}
+                  className="h-4 w-4 accent-[#1e3b8b]"
+                />
+                <Label htmlFor="ignoreDate" className="text-xs text-slate-600 font-semibold cursor-pointer">
+                  Ignore date range (show all time)
+                </Label>
               </div>
 
               {/* ────────────────── DATE FIELDS SELECTOR ────────────────── */}
@@ -5840,12 +5904,13 @@ export default function ReportsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Sources</SelectItem>
-                        <SelectItem value="portal">Portal</SelectItem>
                         <SelectItem value="website">Website</SelectItem>
-                        <SelectItem value="walk-in">Walk-in</SelectItem>
+                        <SelectItem value="walkin">Walk-in</SelectItem>
                         <SelectItem value="phone">Phone Call</SelectItem>
                         <SelectItem value="referral">Referral</SelectItem>
                         <SelectItem value="social_media">Social Media</SelectItem>
+                        <SelectItem value="app">Mobile App</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -975,6 +975,7 @@ const handlePDFProfile = () => {
               <div className="space-y-0">
                 <InfoRow label="Full Name" value={`${tenant.salutation ? `${tenant.salutation} ` : ""}${tenant.full_name}`} />
                 <InfoRow label="Gender" value={tenant.gender} />
+                <InfoRow label="Food Preference" value={tenant.food_preference} />
                 <InfoRow label="DOB" value={tenant.date_of_birth ? <span>{new Date(tenant.date_of_birth).toLocaleDateString("en-IN")} <BadgePill>{calcAge(tenant.date_of_birth)} yrs</BadgePill></span> : null} />
                 <InfoRow label="Aadhar" value={
                   tenant.aadhar_number ?? 
@@ -3196,7 +3197,7 @@ const handleUploadDoc = (docType: string) => {
         />
       </div>
     </DialogContent>
-  </Dialog>
+</Dialog>
 )}
       {showIdCard && <TenantIdCard tenant={tenant} assignment={assignment} onClose={() => setShowIdCard(false)} orgLogo={orgSettings.logoUrl} orgName={orgSettings.orgName} />}
     </div>

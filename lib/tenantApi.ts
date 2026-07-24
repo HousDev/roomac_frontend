@@ -22,6 +22,7 @@ export type Tenant = {
   phone?: string;
   country_code?: string;
   gender?: string;
+  food_preference?:string;
   date_of_birth?: string;
   occupation_category?: string;
   exact_occupation?: string;
@@ -80,6 +81,7 @@ original_id?: number;
   partner_email?: string;
   partner_gender?: string;
   partner_date_of_birth?: string;
+  partner_food_preference?:string;
   partner_address?: string;
   partner_occupation?: string;
   partner_organization?: string;
